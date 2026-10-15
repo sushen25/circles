@@ -9,6 +9,8 @@ import { newIdempotencyKey } from '../../../data/functions';
 import { morningAfterOf } from '../../../data/confirmation';
 import { heldToken, releaseToken } from '../../../data/links/tokens';
 import { arrivalFor, reattachWithToken } from '../../../data/membership';
+import { t } from '../../../copy';
+import { LinkTapScreen } from '../../communication/LinkTapScreen';
 import { ContinueAsScreen } from '../ContinueAsScreen';
 import { LinkInvalidScreen, type LinkInvalidReason } from '../LinkInvalidScreen';
 import { failureOf } from './failure';
@@ -23,6 +25,13 @@ import { failureOf } from './failure';
  * Then on to the meetup they have not said whether they made it to, the plan
  * that is asking for their times, or the circle.
  *
+ * **It asks for one tap and spends nothing before it.** Opening the link only
+ * shows "Get back in"; the token is posted when the person taps. A mail
+ * gateway that loads the page and runs its script would otherwise spend a
+ * single-use token and move the member's place onto its own throwaway identity,
+ * leaving the real person with an expired link. No read-only preview of the
+ * token exists, so the card is neutral and does not name the circle.
+ *
  * Every failure but one reads the same — "this link has expired, open the plan
  * from the chat" — because the token is unknown, spent or old, and the chat
  * still has a link that works. The exception is a membership that has since
@@ -36,6 +45,7 @@ export function ReentryFlow({ token: given }: { token?: string | undefined } = {
   const [failed, setFailed] = useState<LinkInvalidReason | undefined>();
   const [offline, setOffline] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [tapped, setTapped] = useState(false);
   const started = useRef(-1);
   // One key for this link's one attempt. A re-render, or React running the
   // effect twice in development, must not send a second request that the server
@@ -45,7 +55,7 @@ export function ReentryFlow({ token: given }: { token?: string | undefined } = {
   const parsed = ReentryLink.safeParse({ token });
 
   useEffect(() => {
-    if (!hasBackend() || !parsed.success || started.current === attempt) return;
+    if (!tapped || !hasBackend() || !parsed.success || started.current === attempt) return;
     started.current = attempt;
 
     // Read before the call: a saved place that the link names is let straight
@@ -101,7 +111,7 @@ export function ReentryFlow({ token: given }: { token?: string | undefined } = {
             : 'expired',
         );
       });
-  }, [parsed.success, parsed.data?.token, key, router, attempt]);
+  }, [tapped, parsed.success, parsed.data?.token, key, router, attempt]);
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
@@ -130,6 +140,18 @@ export function ReentryFlow({ token: given }: { token?: string | undefined } = {
           setAttempt((n) => n + 1);
         }}
         onBack={back}
+      />
+    );
+  }
+
+  if (!tapped) {
+    return (
+      <LinkTapScreen
+        title={t('reentry', 'get_back_in_title')}
+        body={t('reentry', 'get_back_in_body')}
+        button={t('reentry', 'get_back_in')}
+        busyLabel={t('reentry', 'getting_back_in')}
+        onConfirm={() => setTapped(true)}
       />
     );
   }

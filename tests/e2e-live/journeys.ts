@@ -82,6 +82,8 @@ export async function subscribesFromSent(page: Page, address: string): Promise<v
   await expect(page.getByText('Check your email.')).toBeVisible();
   const letter = await letterTo(address, /^Turn on updates/);
   await page.goto(linkIn(letter, '/v', page.url()));
+  // Opening the link spends nothing (SUS-186): the tap does.
+  await page.getByRole('button', { name: 'Turn on updates' }).click();
   await expect(page.getByText("You'll hear about this meetup by email.")).toBeVisible();
 }
 
