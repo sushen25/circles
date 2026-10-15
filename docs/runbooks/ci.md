@@ -553,6 +553,57 @@ The two mechanisms differ on purpose:
 tell — an empty diff, a merge commit, an unrecognised path. Being wrong that way
 costs a slow run; being wrong the other way costs a broken `main`.
 
+## `pnpm audit` is in the gate, and an exception is an override
+
+`pnpm check:audit` runs `pnpm audit --prod --audit-level high` and sits inside
+`check:static`, so it runs wherever the gate does and nowhere else is it wired
+(`check:workflows` already insists CI runs `check:static` as one command). It
+fails on any high or critical advisory in the production dependency tree of any
+workspace package: the app, `packages/*` and `supabase/functions`'s `package.json`.
+It needs the network. Offline, it fails; that is the price of a check that
+cannot be satisfied from the lockfile alone.
+
+**Why the gate and not the prose lane.** An audit can only change its answer
+when a dependency or an advisory changes. A prose change touches neither, so the
+prose lane skips it like the other suites; every change that can move the
+lockfile is a `code` change and runs it. The cost is a few seconds. It means a
+new advisory against an unchanged tree turns the next code PR red, not `main`
+on its own, and that is the point: someone reads it the day it lands. Dependabot
+alerts (the GitHub security ticket) cover the days between PRs.
+
+**Scope.** `--prod` leaves out `devDependencies`, so tooling that runs on CI
+(`vitest`, `eslint`, the boundaries plugin) is not gated. Run
+`pnpm audit --audit-level high` by hand for the whole tree. Edge Function
+dependencies live in `supabase/functions/import_map.json`, outside pnpm's view;
+[ADR 0075](../decisions/0075-edge-function-dependencies-are-exact-and-locked.md)
+covers them.
+
+**An advisory fires. In order of preference:**
+
+1. Bump the package that brings it in, if a release exists.
+2. Add a `pnpm.overrides` entry to the root `package.json` that moves the
+   vulnerable range to the patched one, scoped by range so it cannot touch other
+   majors: `"brace-expansion@>=4.0.0 <5.0.12": "5.0.12"`. Then run `pnpm install`,
+   the unit tests and the smoke export, because an override is a version nobody
+   asked the parent to run on.
+3. Only if no patched version exists, or the advisory cannot reach the code
+   (a build-time tool that never ships and never sees untrusted input), list its
+   GHSA id under `pnpm.auditConfig.ignoreGhsas` in the root `package.json` **and**
+   add a row below saying why, what would make it reachable and when to look
+   again. JSON has no comments, so this table is the comment. An entry with no
+   row is a review finding.
+
+Nothing is excepted by lowering `--audit-level` or by `|| true`.
+
+| Advisory | Package | Why it is excepted | Look again |
+|---|---|---|---|
+| GHSA-86w9-cpqp-85rv | `node-forge` 1.4.0 | No patched release exists. Reached only through `expo-updates`' `@expo/code-signing-certificates`, which runs in the build when update signing is on. It never ships in the app and parses no user input. | When a patched `node-forge` is published, or before turning on update signing (SUS-123). |
+| GHSA-vfj7-8cjw-p6xm | `braces` 3.0.3 | No patched 3.x release exists. Reached through Expo's dev server and Metro file matching, which handle the repository's own paths, never user input. | When a patched `braces` is published. |
+
+Dependencies that were overridden to patched versions are listed in the
+`pnpm.overrides` block of the root `package.json`. Drop an override once the
+parent's own range includes the patched version; `pnpm why <name>` shows it.
+
 ## One Supabase CLI, and it is the workspace's
 
 CI does not use `supabase/setup-cli`. Every workflow runs `pnpm exec supabase`,
