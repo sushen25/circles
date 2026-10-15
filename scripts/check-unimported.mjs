@@ -83,9 +83,52 @@ function isRoot(file) {
   );
 }
 
+/**
+ * The file with comments and template-literal text blanked (newlines kept), so
+ * an `import` that is only written about is not read as one. Quoted strings
+ * stay: they are where specifiers live, and a string ends at its line. A regex
+ * literal holding a lone quote can confuse the rest of its line, no further.
+ */
+export function withoutCommentsAndTemplates(text) {
+  let out = '';
+  let i = 0;
+  const blank = (chunk) => chunk.replace(/[^\n]/g, ' ');
+  while (i < text.length) {
+    const c = text[i];
+    const two = text.slice(i, i + 2);
+    let end = -1;
+    if (two === '//') {
+      end = text.indexOf('\n', i);
+      end = end === -1 ? text.length : end;
+      out += blank(text.slice(i, end));
+    } else if (two === '/*') {
+      end = text.indexOf('*/', i + 2);
+      end = end === -1 ? text.length : end + 2;
+      out += blank(text.slice(i, end));
+    } else if (c === '`') {
+      end = i + 1;
+      while (end < text.length && text[end] !== '`') end += text[end] === '\\' ? 2 : 1;
+      end = Math.min(end + 1, text.length);
+      out += '`' + blank(text.slice(i + 1, end - 1)) + '`';
+    } else if (c === "'" || c === '"') {
+      end = i + 1;
+      while (end < text.length && text[end] !== c && text[end] !== '\n')
+        end += text[end] === '\\' ? 2 : 1;
+      end = Math.min(end + 1, text.length);
+      out += text.slice(i, end);
+    } else {
+      out += c;
+      end = i + 1;
+    }
+    i = end;
+  }
+  return out;
+}
+
 /** The module specifiers a file names. Statements must start a line, so an
- *  `import` inside a comment or a string is not an import. */
-export function specifiers(text) {
+ *  `import` inside a string is not an import either. */
+export function specifiers(source) {
+  const text = withoutCommentsAndTemplates(source);
   const found = [];
   const patterns = [
     /^[ \t]*(?:import|export)\b[^;'"`]*?\bfrom\s*['"]([^'"]+)['"]/gm,
