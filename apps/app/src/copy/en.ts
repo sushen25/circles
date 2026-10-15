@@ -1726,7 +1726,7 @@ export const en = {
       'Hosting, the database and email delivery are run by other companies on our behalf, so your details pass through them. They are there to run {brand}, not to market to you.',
     privacy_email_heading: 'What email you get',
     privacy_email_body:
-      'A sign-in code when you sign in. If you sign in to organise plans or start a quiet ask, letters about those; some of these can be turned off in notification settings. If you have a saved place in a circle that has a catch-up rhythm, you may get an occasional nudge to plan the next one, with a link in the email to stop it without signing in. Anyone can ask for updates about a plan, and each of those emails has a stop link.',
+      'A sign-in code when you sign in. If you sign in to organise plans or start a quiet ask, letters about those, each with a link in the email to stop that kind of letter without signing in; you can turn them back on in notification settings. If you have a saved place in a circle that has a catch-up rhythm, you may get an occasional nudge to plan the next one, with a link in the email to stop it without signing in. Anyone can ask for updates about a plan, and each of those emails has a stop link.',
     privacy_calendar_heading: 'Your calendar stays yours',
     privacy_calendar_body:
       'The group sees who can make each time we suggest. Nobody sees your calendar, and nobody is shown your whole availability with your name on it. Calendar events on your phone never leave it.',
@@ -2205,7 +2205,7 @@ export const en = {
       "They see which options work for you, never a personal schedule. Before enough people are keen on a quiet ask, nobody sees anyone's answer.",
     what_email_you_get: 'What email you get',
     anyone_can_ask_for_plan_updates:
-      'Anyone can ask for updates about a plan, and each of those emails has a stop link. If you sign in to organise plans or start a quiet ask, you also get letters about those, some of which you can turn off in notification settings. If you have a saved place in a circle that has a catch-up rhythm, you may get an occasional nudge to plan the next one, and it has a stop link. We never sell addresses, and other companies deliver the email for us.',
+      'Anyone can ask for updates about a plan, and each of those emails has a stop link. If you sign in to organise plans or start a quiet ask, you also get letters about those, and each has a stop link that works without signing in; you can turn them back on in notification settings. If you have a saved place in a circle that has a catch-up rhythm, you may get an occasional nudge to plan the next one, and it has a stop link. We never sell addresses, and other companies deliver the email for us.',
     to_have_your_details_removed:
       'To have your details removed, write to {support}. There is no delete button in the app yet.',
   },

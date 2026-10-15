@@ -4,10 +4,11 @@ title: "An organiser turns organiser email off in the app, not by a link"
 status: accepted
 date: 2026-09-24
 builds_on: [25]
+amended_by: [69]
 ---
 # ADR 0029: An organiser turns organiser email off in the app, not by a link
 
-_Status: accepted · 24 September 2026 · answers the question ADR 0025 left open_
+_Status: accepted · 24 September 2026 · answers the question ADR 0025 left open · superseded in part by [ADR 0069](./0069-every-account-holder-letter-carries-a-stop-link-that-needs-no-sign-in.md): `replies_closed` is inside the switch, and every organiser letter carries a stop link that needs no sign-in_
 
 ## Context
 

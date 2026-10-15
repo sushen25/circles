@@ -3,10 +3,11 @@ adr: 38
 title: "The quiet ask's initiator is written to at their own address"
 status: accepted
 date: 2026-09-25
+amended_by: [69]
 ---
 # ADR 0038: The quiet ask's initiator is written to at their own address
 
-_Status: accepted · 25 September 2026_
+_Status: accepted · 25 September 2026 · both letters now carry a stop link that needs no sign-in, by [ADR 0069](./0069-every-account-holder-letter-carries-a-stop-link-that-needs-no-sign-in.md)_
 
 ## Context
 

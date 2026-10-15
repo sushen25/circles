@@ -397,6 +397,42 @@
       "title": "Add to calendar \u00b7 WhatsApp or Messenger"
     },
     {
+      "file": "OrganiserStop.dc.html",
+      "x": 0,
+      "y": 11700,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Stop organiser emails \u00b7 no sign-in"
+    },
+    {
+      "file": "OrganiserStopDone.dc.html",
+      "x": 480,
+      "y": 11700,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Stop organiser emails \u00b7 done"
+    },
+    {
+      "file": "QuietStop.dc.html",
+      "x": 960,
+      "y": 11700,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Stop quiet-ask emails \u00b7 no sign-in"
+    },
+    {
+      "file": "QuietStopDone.dc.html",
+      "x": 1440,
+      "y": 11700,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Stop quiet-ask emails \u00b7 done"
+    },
+    {
       "file": "FirstCircle.dc.html",
       "x": 0,
       "y": 0,
@@ -968,7 +1004,7 @@
       "x": 960,
       "y": 0,
       "w": 1400,
-      "h": 900,
+      "h": 1240,
       "page": "system",
       "title": "Email templates"
     },
