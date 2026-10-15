@@ -36,6 +36,7 @@ pnpm gen:types         # regenerate database types from the local schema
 pnpm gen               # every generator in order: events, transitions, functions, types
 pnpm gen:migration <name>  # the branch's one new, numbered migration; the generators write into it
 pnpm gen:functions     # re-render supabase/sql/functions/ into that migration (ADR 0015)
+pnpm check:audit       # pnpm audit --prod --audit-level high: runtime dependencies with a known high or critical advisory (inside pnpm check; needs the network)
 pnpm check:migrations  # fails if a migration already on origin/main was edited (inside pnpm check)
 pnpm check:docs        # links in docs/ resolve; each ADR's frontmatter, status line and README row agree (inside pnpm check)
 pnpm gen:tokens        # regenerate design tokens from docs/design/gen.py
