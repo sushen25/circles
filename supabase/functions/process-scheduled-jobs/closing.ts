@@ -71,8 +71,8 @@ export function repliesClosedIntent(
  * already: the hand-off's `replies_closed`, written with the deadline behind
  * it. The sweep's letter would be a second one to the same person, and by day
  * the first has gone, so nothing later can take it back. Only the first letter
- * of a deadline is asked about: the follow-up a day on has the same rule in
- * `dispatch_timed_work`, and an *extended* deadline's letter is a different
+ * of a deadline is asked about: the follow-up a day on is refused after a
+ * hand-off by `dispatch_timed_work`, and an *extended* deadline's letter is a different
  * deadline, which a hand-off made before it passed has not covered
  * (`dispatch_handed_off_since`).
  */

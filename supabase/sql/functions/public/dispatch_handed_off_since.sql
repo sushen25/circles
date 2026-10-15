@@ -10,17 +10,24 @@
 -- by-day dispatcher shows it.
 --
 -- `replies_closed` is exempt from the send-time dedupe on purpose (an extended
--- deadline's letter must go), so the drain declines to write the sweep's
--- letter instead, when this says yes: a hand-off the drain **finished with**
--- at or after the deadline, which is a hand-off whose letter was written with
--- the deadline already behind it. A hand-off handled before the deadline (or
--- before it was extended) wrote an `options_ready`, and the letter for the
--- deadline that follows is still owed.
+-- deadline's letter must go), so the drain declines the sweep's letter instead,
+-- when this says yes. It says yes only when the hand-off's own letter exists:
 --
--- The follow-up sweep has the same rule in `dispatch_timed_work`: not after a
--- hand-off since the first letter.
+--   * a `planning.organiser_changed` the drain **finished with**, not gave up
+--     on (`last_error` is null: five failed attempts also set `processed_at`,
+--     and write nothing); and
+--   * a `replies_closed` job for the plan written at or after `p_since`.
 --
--- Service role only. Reads the outbox and nothing else.
+-- The second is what tells a hand-off that ran with the deadline behind it
+-- from one that ran just before it and wrote `options_ready`, without
+-- comparing a timestamp from the database with the dispatcher's own clock. A
+-- hand-off before an extension (or the extended deadline itself) has no such
+-- job after the *new* deadline, so the extended deadline's letter is still owed.
+--
+-- The follow-up sweep has a rule of the same intent in `dispatch_timed_work`:
+-- not after a hand-off since the first letter.
+--
+-- Service role only. Reads the outbox and the jobs, nothing else.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.dispatch_handed_off_since(p_plan_id uuid, p_since timestamptz)
@@ -36,11 +43,18 @@ as $$
       and h.aggregate_id = p_plan_id
       and h.processed_at is not null
       and h.processed_at >= p_since
+      and h.last_error is null
+  )
+  and exists (
+    select 1 from jobs.notification_jobs j
+    where j.plan_id = p_plan_id
+      and j.kind = 'replies_closed'
+      and j.created_at >= p_since
   );
 $$;
 
 comment on function public.dispatch_handed_off_since(uuid, timestamptz) is
-  'True when the plan was handed to another organiser by a hand-off the drain finished with at or after p_since, so the new organiser has already had the replies-closed letter. Service role only (SUS-96).';
+  'True when a hand-off the drain finished with at or after p_since has already written the new organiser a replies_closed letter (written at or after p_since). Service role only (SUS-96).';
 
 revoke all on function public.dispatch_handed_off_since(uuid, timestamptz) from public;
 revoke all on function public.dispatch_handed_off_since(uuid, timestamptz) from anon, authenticated;

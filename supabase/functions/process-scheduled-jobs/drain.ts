@@ -234,9 +234,15 @@ export async function drain(
           }
 
           // The sweep's letter, when a hand-off has already sent it (SUS-96).
-          const intents = (await coveredByHandOff(service, event, context))
-            ? []
-            : intentsFor(event, context, now);
+          const covered = await coveredByHandOff(service, event, context);
+          if (covered) {
+            log('info', {
+              fn: 'process-scheduled-jobs',
+              request_id: requestId,
+              event: 'replies_closed_covered_by_hand_off',
+            });
+          }
+          const intents = covered ? [] : intentsFor(event, context, now);
           for (const intent of intents) {
             // The quiet kinds' audience facts, read for that kind alone and
             // dropped with this iteration (S2-02, `quiet.ts`).
