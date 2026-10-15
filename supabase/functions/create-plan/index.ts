@@ -108,7 +108,7 @@ Deno.serve(
 
       const deadline = body.response_deadline ?? deadlineFor();
       function deadlineFor(): string {
-        const suggested = defaultDeadline(body.preset, at, latestStart);
+        const suggested = defaultDeadline(body.preset, at, latestStart, zone);
         if (suggested === undefined) {
           // No instant satisfies both "after now" and "not after the last
           // possible start" — the window has effectively gone.
