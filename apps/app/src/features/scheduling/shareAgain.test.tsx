@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -54,7 +55,7 @@ describe('SUS-132: share the link again', () => {
     planCandidates.mockResolvedValue(fixture.ready);
     show(flow());
 
-    fireEvent.click(await screen.findByRole('button', SHARE));
+    await tap(screen.findByRole('button', SHARE));
     await waitFor(() => expect(shareMessage).toHaveBeenCalled());
     const message = shareMessage.mock.calls[0]?.[0] as string;
     expect(message).toContain('waiting on 1 reply');
@@ -75,7 +76,7 @@ describe('SUS-132: share the link again', () => {
     show(flow());
 
     expect(screen.queryByRole('button', { name: /^Nudge/ })).toBeNull();
-    fireEvent.click(await screen.findByRole('button', SHARE));
+    await tap(screen.findByRole('button', SHARE));
     await waitFor(() => expect(shareMessage).toHaveBeenCalled());
     expect(shareMessage.mock.calls[0]?.[0] as string).not.toMatch(/waiting on 0/);
   });
@@ -84,7 +85,7 @@ describe('SUS-132: share the link again', () => {
     planCandidates.mockResolvedValue(fixture.noQuorum);
     show(flow());
 
-    fireEvent.click(await screen.findByRole('button', SHARE));
+    await tap(screen.findByRole('button', SHARE));
     await waitFor(() => expect(shareMessage).toHaveBeenCalled());
     expect(shareMessage.mock.calls[0]?.[0] as string).toContain('circles.test');
   });
@@ -128,7 +129,7 @@ describe('SUS-132: share the link again, as a member', () => {
     member(data);
     show(flow());
 
-    fireEvent.click(await screen.findByRole('button', SHARE));
+    await tap(screen.findByRole('button', SHARE));
     await waitFor(() => expect(shareMessage).toHaveBeenCalled());
     const message = shareMessage.mock.calls[0]?.[0] as string;
     expect(message).toContain('circles.test');
@@ -143,7 +144,7 @@ describe('SUS-132: share the link again, as a member', () => {
     member(fixture.readyAsMember);
     show(<MemberCandidatesFlow code="pnsundaycr" />);
 
-    fireEvent.click(await screen.findByRole('button', SHARE));
+    await tap(screen.findByRole('button', SHARE));
     await waitFor(() => expect(shareMessage).toHaveBeenCalled());
   });
 
@@ -171,7 +172,7 @@ describe('SUS-132: what the share did, and who is offered it', () => {
     planCandidates.mockResolvedValue(fixture.ready);
     show(flow());
 
-    fireEvent.click(await screen.findByRole('button', SHARE));
+    await tap(screen.findByRole('button', SHARE));
     expect(await screen.findByText('Copied. Paste it in the group chat.')).toBeTruthy();
   });
 
@@ -180,7 +181,7 @@ describe('SUS-132: what the share did, and who is offered it', () => {
     planCandidates.mockResolvedValue(fixture.readyAsMember);
     show(flow());
 
-    fireEvent.click(await screen.findByRole('button', SHARE));
+    await tap(screen.findByRole('button', SHARE));
     expect(await screen.findByText("Couldn't copy the message. Try again.")).toBeTruthy();
     expect(track).not.toHaveBeenCalledWith('share_opened', expect.anything());
   });
@@ -189,13 +190,13 @@ describe('SUS-132: what the share did, and who is offered it', () => {
     shareMessage.mockResolvedValue('copied');
     planCandidates.mockResolvedValue(fixture.waiting);
     const { unmount } = show(flow());
-    fireEvent.click(await screen.findByRole('button', SHARE));
+    await tap(screen.findByRole('button', SHARE));
     expect(await screen.findByText('Copied. Paste it in the group chat.')).toBeTruthy();
     unmount();
 
     planCandidates.mockResolvedValue(fixture.noQuorum);
     show(flow());
-    fireEvent.click(await screen.findByRole('button', SHARE));
+    await tap(screen.findByRole('button', SHARE));
     expect(await screen.findByText('Copied. Paste it in the group chat.')).toBeTruthy();
   });
 

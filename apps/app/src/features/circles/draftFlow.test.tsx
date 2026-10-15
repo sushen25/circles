@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -109,7 +110,7 @@ describe('the first circle, with no account', () => {
 
   it('offers a quiet Sign in to a returning organiser, and no account is asked for', async () => {
     wrap(<FirstCircleFlow />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign in' }));
+    await tap(screen.findByRole('button', { name: 'Sign in' }));
     expect(push).toHaveBeenCalledWith('/sign-in');
     expect(screen.getByText('No account yet. You can change anything later.')).toBeVisible();
   });
@@ -135,7 +136,7 @@ describe('the first circle, with no account', () => {
   it('refuses an unusable name without writing a draft', async () => {
     wrap(<FirstCircleFlow />);
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Create circle' }));
+      await tap(screen.findByRole('button', { name: 'Create circle' }));
     });
     expect(screen.getByText('Give the circle a name of up to 40 characters.')).toBeVisible();
     expect(await readDraft()).toBeNull();
@@ -193,7 +194,7 @@ describe('the first plan, drafted', () => {
   it('keeps the preset picked, and a new key for the plan that it makes', async () => {
     const before = await saveDraft({ circleName: 'Sunday Crew' });
     wrap(<FirstPlanDraftFlow />);
-    fireEvent.click(await screen.findByRole('checkbox', { name: 'This weekend' }));
+    await tap(screen.findByRole('checkbox', { name: 'This weekend' }));
     await waitFor(async () =>
       expect((await readDraft())?.keys.plan).not.toBe(before.draft.keys.plan),
     );
@@ -302,7 +303,7 @@ describe('the finish', () => {
     createPlan.mockRejectedValueOnce(new Error('timeout'));
     wrap(<FinishDraftFlow />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+    await tap(screen.findByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(replace).toHaveBeenCalled());
 
     const circleKeys = createCircle.mock.calls.map(
@@ -324,7 +325,7 @@ describe('the finish', () => {
     createPlan.mockRejectedValueOnce(new Error('timeout'));
     wrap(<FinishDraftFlow />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+    await tap(screen.findByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(replace).toHaveBeenCalled());
 
     expect(createCircle).toHaveBeenCalledTimes(2);

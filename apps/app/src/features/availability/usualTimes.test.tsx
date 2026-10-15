@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as AvailabilityData from '../../data/availability';
@@ -162,7 +163,7 @@ describe('a plan about tonight', () => {
 
     // Nothing is tapped for them: the one day is theirs to say yes to.
     await screen.findByText('Which days could work?');
-    fireEvent.click(await screen.findByRole('button', { name: /^Monday/ }));
+    await tap(screen.findByRole('button', { name: /^Monday/ }));
     expect(screen.getByText(/^From \d/)).toBeVisible();
     expect(await screen.findByRole('radio', { name: 'From now' })).toHaveAttribute(
       'aria-checked',

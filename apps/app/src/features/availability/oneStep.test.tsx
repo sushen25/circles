@@ -1,6 +1,7 @@
 import { CONSENT, brand } from '@circles/config';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -136,7 +137,7 @@ describe('the card', () => {
       sentence.compareDocumentPosition(primary) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
 
-    fireEvent.click(toggle);
+    await tap(toggle);
     expect(toggle).toHaveAttribute('aria-checked', 'false');
     expect(screen.getByText('Nothing is saved.')).toBeVisible();
     // Nothing is made, so there is nothing to explain or link.
@@ -276,7 +277,7 @@ describe('with the switch on', () => {
     wrap(<SentFlow code={PLAN.code} />);
     await typeAddress();
     fireEvent.click(screen.getByRole('button', PRIMARY));
-    fireEvent.click(await screen.findByRole('button', { name: 'Not now' }));
+    await tap(screen.findByRole('button', { name: 'Not now' }));
     await act(async () => {
       answer('new_identity');
     });
@@ -291,10 +292,10 @@ describe('with the switch on', () => {
     );
     await reachTheCode();
     await enterTheCode();
-    fireEvent.click(await screen.findByRole('button', { name: 'Back' }));
+    await tap(screen.findByRole('button', { name: 'Back' }));
     // Back on the card; a second attempt reaches its own code screen.
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', PRIMARY));
+      await tap(screen.findByRole('button', PRIMARY));
     });
     await screen.findByText('Enter the code we emailed');
     await act(async () => {
@@ -309,7 +310,7 @@ describe('with the switch on', () => {
     requestEmailUpdates.mockReturnValue(new Promise(() => undefined));
     wrap(<SentFlow code={PLAN.code} />);
     await typeAddress();
-    fireEvent.click(await screen.findByRole('switch', SWITCH));
+    await tap(screen.findByRole('switch', SWITCH));
     const field = screen.getByLabelText('Your email');
     fireEvent.keyDown(field, { key: 'Enter' });
     fireEvent.keyDown(field, { key: 'Enter' });
@@ -360,7 +361,7 @@ describe('with the switch off', () => {
   it('is today: the verification link and Check your email, no code and no account', async () => {
     wrap(<SentFlow code={PLAN.code} />);
     await typeAddress();
-    fireEvent.click(await screen.findByRole('switch', SWITCH));
+    await tap(screen.findByRole('switch', SWITCH));
     await act(async () => {
       fireEvent.click(screen.getByRole('button', PRIMARY));
     });
@@ -379,7 +380,7 @@ describe('with the switch off', () => {
 describe('Not now', () => {
   it('records nothing and takes the card away, switch or not', async () => {
     wrap(<SentFlow code={PLAN.code} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Not now' }));
+    await tap(screen.findByRole('button', { name: 'Not now' }));
 
     expect(screen.queryByText("Hear when it's locked in")).toBeNull();
     expect(requestLinkCode).not.toHaveBeenCalled();
