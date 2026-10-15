@@ -24,6 +24,7 @@ export { Sheet } from './Sheet';
 export { Skeleton, type SkeletonShape } from './Skeleton';
 export { Spinner } from './Spinner';
 export { Swatches } from './Swatches';
+export { TextArea } from './TextArea';
 export {
   Body as BodyText,
   DateText,
