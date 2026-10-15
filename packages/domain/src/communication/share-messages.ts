@@ -70,6 +70,8 @@ export type WaitingParts = {
 export type LockedInParts = {
   readonly circleName: string;
   readonly date: string;
+  /** "Thursday" — the sign-off names the day (ADR 0043). */
+  readonly weekday: string;
   readonly time: string;
   readonly place?: string | undefined;
   readonly url: string;
@@ -139,8 +141,9 @@ export const EN_SHARE_TEMPLATES: ShareTemplates = {
     `We're waiting on ${remaining} ${remaining === 1 ? 'reply' : 'replies'} ` +
     `before picking a time: ${url}`,
 
-  lockedIn: ({ circleName, date, time, place, url }) =>
+  lockedIn: ({ circleName, date, weekday, time, place, url }) =>
     `Locked in: ${circleName}, ${date}, ${time}${place === undefined ? '' : ` at ${place}`}. ` +
+    `${weekday} it is. See you then. ` +
     `Details and add-to-calendar: ${url}`,
 
   changed: ({ weekday, url }) =>
@@ -230,12 +233,13 @@ function timeRange(confirmation: Confirmation, zone: Zone, format?: TimeFormat):
   return formatRange(start.minutesOfDay, endMin, format);
 }
 
-/** "Locked in: Sunday Crew, Thu 17 Sep, 6:30–8:30 pm at Hope St Radio. …" */
+/** "Locked in: Sunday Crew, Thu 17 Sep, 6:30–8:30 pm at Hope St Radio. Thursday it is. See you then. …" */
 export function lockedInMessage(input: ShareInput): string {
   const { confirmation, circleName, zone, url, format, templates } = input;
   return templates.lockedIn({
     circleName,
     date: format.shortDate(confirmation.candidate.start, zone),
+    weekday: format.weekday(confirmation.candidate.start, zone),
     time: timeRange(confirmation, zone, format.time),
     place: confirmation.placeName,
     url,

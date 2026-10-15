@@ -116,6 +116,10 @@ export function ConfirmedGuestScreen({
         </Card>
         {notice === undefined ? null : <Notice kind="warn">{notice}</Notice>}
         {view.note === undefined ? null : <BodyText>{view.note}</BodyText>}
+        <Stack gap={2}>
+          <Title>{t('confirmedOrg', 'it_is', { weekday: view.weekday })}</Title>
+          <BodyText>{t('confirmedOrg', 'see_you_then')}</BodyText>
+        </Stack>
       </Body>
       <Foot>
         <Button label={t('confirmedGuest', 'add_to_calendar')} onPress={onAddToCalendar} />

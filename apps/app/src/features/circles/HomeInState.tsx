@@ -178,6 +178,7 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
       const message = EN_SHARE_TEMPLATES.lockedIn({
         circleName: home.name,
         date: words.date,
+        weekday: words.weekday,
         time: words.time,
         place: meetup.placeName ?? undefined,
         url: planLink(appOrigin(), meetup.code),
