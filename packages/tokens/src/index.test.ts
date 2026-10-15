@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { cell, color, hit, radius, space, type } from './generated';
+import { cell, color, hit, layout, radius, space, type } from './generated';
 import { PACKAGE_NAME } from './index';
 
 describe('@circles/tokens', () => {
@@ -85,6 +85,11 @@ describe('space and shape', () => {
 describe('metrics', () => {
   it('never goes below a 44pt tap target (manifesto §6)', () => {
     expect(hit).toBeGreaterThanOrEqual(44);
+  });
+
+  it('keeps the content column wider than a phone and narrower than a tablet (manifesto §5.3)', () => {
+    expect(layout.column).toBeGreaterThan(430);
+    expect(layout.column).toBeLessThanOrEqual(560);
   });
 
   it('keeps the availability cell paintable', () => {

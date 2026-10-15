@@ -202,6 +202,7 @@ All times and counts use `font-variant-numeric: tabular-nums`. Body copy uses `t
 - Radii: pill 999 (rarely), control 11&ndash;14, card 16&ndash;22. Larger radius = larger element; never mix scales inside one card.
 - Shadows are warm-tinted and barely there: `0 1px 2px rgba(74,55,38,.04), 0 14px 30px -20px rgba(74,55,38,.28)`. Elevation marks the primary action and the focused card &mdash; nothing else.
 - Borders do most of the separation work. This is a bordered, not a shadowed, interface.
+- **Wide windows.** The app is a phone-width column. On a window wider than the column (`layout.column`, 480pt) the content, the top bar and the fixed footer sit in one centred column of that width and the ground colour, the inverted ground included, fills the rest of the window; nothing stretches to the edges, and a button is never wider than the column. Bottom sheets take the same column and stay anchored to the bottom of the window. Phones are unchanged, and so is the website, which is not the app's `Screen`. The founder's analytics keep the column too: they are stacked sections, not tables.
 - **No fake device chrome.** Never draw a status bar, a keyboard, or a browser frame. The real ones render on top.
 
 ### 5.4 Components

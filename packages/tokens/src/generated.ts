@@ -172,3 +172,8 @@ export const cell = {
   height: 42,
   gap: 3,
 } as const;
+
+/** The widest the app's content gets; wider windows centre it (manifesto §5.3). */
+export const layout = {
+  column: 480,
+} as const;

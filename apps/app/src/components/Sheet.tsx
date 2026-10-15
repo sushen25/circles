@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { radius, space } from '@circles/tokens';
+import { layout, radius, space } from '@circles/tokens';
 
 import { usePalette } from './theme';
 
@@ -33,26 +33,46 @@ export function Sheet({ visible, onDismiss, label, dismissLabel, children }: Pro
       // inside it, which is not a dialog (axe: aria-dialog-name).
       {...({ 'aria-label': label } as object)}
     >
-      <Pressable style={styles.scrim} role="button" aria-label={dismissLabel} onPress={onDismiss} />
-      <View
-        accessibilityViewIsModal
-        style={[styles.sheet, { backgroundColor: palette.ground, borderTopColor: palette.line }]}
-      >
-        <View style={[styles.handle, { backgroundColor: palette.line }]} />
-        {/* Bounded and scrolling: on a short viewport (a phone on its side) the
-            controls at the bottom stay reachable. */}
-        <ScrollView contentContainerStyle={styles.content}>{children}</ScrollView>
+      <View style={styles.window}>
+        {/* Behind the sheet and across the whole window, so the sides of a narrowed sheet are dimmed and dismiss too. */}
+        <Pressable
+          style={styles.scrim}
+          role="button"
+          aria-label={dismissLabel}
+          onPress={onDismiss}
+        />
+        <View
+          accessibilityViewIsModal
+          style={[styles.sheet, { backgroundColor: palette.ground, borderTopColor: palette.line }]}
+        >
+          <View style={[styles.handle, { backgroundColor: palette.line }]} />
+          {/* Bounded and scrolling: on a short viewport (a phone on its side) the
+              controls at the bottom stay reachable. */}
+          <ScrollView contentContainerStyle={styles.content}>{children}</ScrollView>
+        </View>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  scrim: {
+  window: {
     flex: 1,
+    justifyContent: 'flex-end',
+  },
+  scrim: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     backgroundColor: 'rgba(34, 30, 25, 0.32)',
   },
   sheet: {
+    // The same column as the screen behind it, anchored to the window's bottom.
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: layout.column,
     borderTopLeftRadius: radius.sheet,
     borderTopRightRadius: radius.sheet,
     borderTopWidth: 1,
