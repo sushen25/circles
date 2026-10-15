@@ -326,8 +326,8 @@ and `cancelPlan` through the Edge Functions).
   it's looking** for everyone — one open plan per circle (ADR 0033) — and
   `create-plan` refuses a second with `plan_in_progress` if two taps race. The form
   (`usePlanForm`, `PlanControls`): intent, the five presets (tonight hidden when
-  the meetup no longer fits), times of day (`BandPicker`: evenings, daytime, or
-  any half-hour band), duration, the quorum stepper, who has to be there, and
+  the meetup no longer fits), times of day (`BandPicker`: evenings, days and
+  evenings, or any half-hour band), duration, the quorum stepper, who has to be there, and
   when replies close (`DeadlineSheet`, anything up to the last possible start).
   What the card says is `resolveDraft` — the domain's `resolvePreset` and
   `defaultDeadline` — and **only what was changed is sent**, so an untouched

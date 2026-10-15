@@ -70,7 +70,7 @@ function wrap(children: ReactNode) {
 async function editTheSetup() {
   const view = wrap(<PlanSetupDraftFlow />);
   await screen.findByRole('button', { name: 'Save plan' });
-  fireEvent.click(screen.getByRole('checkbox', { name: /^Daytime/ }));
+  fireEvent.click(screen.getByRole('checkbox', { name: /^Days and evenings/ }));
   fireEvent.click(screen.getByRole('checkbox', { name: '3 hrs' }));
   fireEvent.click(screen.getByRole('button', { name: 'Change' }));
   fireEvent.click(await screen.findByRole('checkbox', { name: /^In a day/ }));
