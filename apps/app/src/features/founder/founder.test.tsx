@@ -124,7 +124,7 @@ describe('the screen, from a fixture', () => {
     render(<AnalyticsScreen data={founderAnalyticsFixture} />);
     expect(screen.getByText('Invitation')).toBeTruthy();
     expect(screen.getByText('29 · 71% of the step before')).toBeTruthy();
-    expect(screen.getByText(/Not measured: whether the threshold was reached/)).toBeTruthy();
+    expect(screen.getByText(/Not measured: who took the role/)).toBeTruthy();
   });
 
   it('reads the funnel by where the organiser heard of us, and back to all of it', () => {

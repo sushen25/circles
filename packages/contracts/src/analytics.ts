@@ -180,8 +180,11 @@ export const catalogue = {
   // no plan or circle either, the same as the two above: a plan id would let a
   // query line an opened ask up against their timing, and through the plan
   // against the initiator. Its times are rounded to the hour for the same
-  // reason. `threshold` is the number fixed when the ask was made (ADR 0035),
-  // never how many were keen.
+  // reason. Its id is derived from the outbox row (replay-safe), so a reader
+  // of both analytics and `jobs.outbox` can still reach the plan while the
+  // outbox keeps the row (30 days); from analytics alone it names nothing.
+  // `threshold` is the number fixed when the ask was made (ADR 0035), never
+  // how many were keen.
   quiet_ask_created: bare(2),
   quiet_interest_answered: bare(2),
   quiet_threshold_reached: serverEvent(1, { threshold: count }),

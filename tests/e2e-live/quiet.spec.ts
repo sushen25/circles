@@ -268,9 +268,19 @@ test('an ask that opens is counted: quiet_threshold_reached, against nobody', as
          where e.event_name = 'quiet_threshold_reached'`);
   for (let attempt = 0; attempt < 10 && row().length === 0; attempt += 1) await runDispatcher();
   expect(row()).toEqual([['t', 't', 't', 't']]);
-  // One more run: the replay-safe id means still one row.
-  await runDispatcher();
-  expect(row()).toHaveLength(1);
+  // A real replay: hand the same outbox row back to the dispatcher. The id is
+  // derived from that row, so it lands on the row already written.
+  const outbox = `jobs.outbox where aggregate_id = '${ask.id}' and event_name = 'planning.threshold_reached'`;
+  sql(`update ${outbox.replace(' where ', ' set processed_at = null where ')}`);
+  for (
+    let attempt = 0;
+    attempt < 10 && sql(`select processed_at is null from ${outbox}`)[0]?.[0] === 't';
+    attempt += 1
+  ) {
+    await runDispatcher();
+  }
+  expect(sql(`select processed_at is not null from ${outbox}`)).toEqual([['t']]);
+  expect(row()).toEqual([['t', 't', 't', 't']]);
 });
 
 test('replies close with nobody organising: the owner, who never answered, may take it on then and not before', async ({

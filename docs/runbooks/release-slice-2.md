@@ -201,8 +201,6 @@ dispatcher.
   window is at most one cron tick, and they must reach the deadline screen and
   hand off inside it, so it is rare. Overnight, the second replaces the first.
   Known, open, and not a blocker unless the cohort hits it.
-- **SUS-97, if it was waived above.** Until the event exists, the H5 queries
-  read "the ask opened" from `public.plans`, and that is a lower bound.
 - **A nudge that got nowhere is not sent again until the circle next meets**
   (ADR 0036, Consequences). A snooze after the nudge, a plan that was cancelled
   or did not happen, or a letter held at send time all leave circle home saying

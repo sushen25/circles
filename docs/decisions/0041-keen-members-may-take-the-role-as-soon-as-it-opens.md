@@ -60,7 +60,10 @@ answer (§8.2, SUS-49). So:
   or circle on the row, so no row can be joined to the organiser it describes.
   The role count is not recorded yet. `quiet_threshold_reached` is (SUS-97):
   the dispatcher writes it when an ask opens, with no user, plan or circle and
-  its times rounded to the hour.
+  its times rounded to the hour. Its id is derived from the outbox row so a
+  replay lands on the same row; a reader of both `analytics.events` and
+  `jobs.outbox` (service role only) can therefore still reach the plan while
+  the outbox keeps the row, 30 days. From analytics alone it names nothing.
 
 ## Alternatives considered
 
