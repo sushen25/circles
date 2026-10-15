@@ -7,7 +7,7 @@
   },
   "scripts": {
     "check": "pnpm run check:static && pnpm run check:stack && pnpm run test:e2e:live",
-    "check:static": "pnpm run format:check && pnpm run lint && pnpm run check:brand && pnpm run check:tokens && pnpm run typecheck && pnpm run check:imports && pnpm run check:migrations && pnpm run check:transitions && pnpm run check:events && pnpm run check:functions && pnpm run check:workflows && pnpm run check:docs && pnpm run test:unit",
+    "check:static": "pnpm run format:check && pnpm run lint && pnpm run check:brand && pnpm run check:tokens && pnpm run typecheck && pnpm run check:imports && pnpm run check:migrations && pnpm run check:transitions && pnpm run check:events && pnpm run check:functions && pnpm run check:workflows && pnpm run check:docs && node scripts/check-unimported.mjs && node --experimental-strip-types --test scripts/check-unimported.test.mjs && pnpm run test:unit",
     "check:stack": "pnpm run db:test && pnpm run test:integration && pnpm run check:types && pnpm run test:e2e:smoke",
     "dev": "pnpm --filter app exec expo start",
     "dev:web": "pnpm --filter app exec expo start --web",
