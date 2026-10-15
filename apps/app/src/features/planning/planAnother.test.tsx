@@ -1,6 +1,6 @@
 import { localDate } from '@circles/domain';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -14,8 +14,6 @@ import * as fixture from './fixtures';
  * time, that plan rather than a form (ADR 0033). The server is mocked; what is
  * asserted is what the screen sends and where it goes.
  */
-
-configure({ asyncUtilTimeout: 5_000 });
 
 const push = vi.fn();
 const replace = vi.fn();

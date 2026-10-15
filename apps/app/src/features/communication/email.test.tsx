@@ -160,9 +160,7 @@ describe('Sent', () => {
     wrap(<SentFlow code={PLAN.code} />);
 
     // After the one retry `useNudge` allows.
-    expect(
-      await screen.findByText("Hear when it's locked in", {}, { timeout: 4000 }),
-    ).toBeVisible();
+    expect(await screen.findByText("Hear when it's locked in")).toBeVisible();
   });
 
   it('refuses what is not an address before asking the server', async () => {
