@@ -80,7 +80,7 @@ export function nextDueAt(lastMetAt: Instant, cadence: Cadence, z: Zone): Instan
  *
  * - `active_plan` — a plan is already running; the plan card wins over any
  *   cadence prompt, because the group has already done the thing being nudged.
- * - `no_goal` — cadence is `none`. Copy: "No goal set".
+ * - `no_goal` — cadence is `none`. Copy: "Whenever suits".
  * - `never_met` — a goal, but no history to measure from. Copy: "Nothing yet".
  * - `due_soon` — within the lead days of the due date. Copy: "About time for
  *   the next one".
