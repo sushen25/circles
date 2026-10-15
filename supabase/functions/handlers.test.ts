@@ -3268,6 +3268,9 @@ describe('track-events', () => {
     state.answer = (fn) => {
       if (fn === 'take_rate_token') return { data: true, error: null };
       if (fn === 'record_events') return { data: 1, error: null };
+      if (fn === 'analytics_member_ids') {
+        return { data: { circle_ids: [CIRCLE_ID], plan_ids: [] }, error: null };
+      }
       return { data: null, error: null };
     };
   });
@@ -3408,7 +3411,8 @@ describe('track-events', () => {
 
     const rows = called('record_events')[0]?.args['p_rows'] as Record<string, unknown>[];
     expect(rows).toHaveLength(1);
-    // The id is lifted into its own column and the words never existed.
+    // The id is lifted into its own column (the caller is in that circle: the
+    // default answer below says so) and the words never existed.
     expect(rows[0]).toMatchObject({ circle_id: CIRCLE_ID, properties: {} });
     expect(JSON.stringify(rows)).not.toContain('Maya');
   });
@@ -3467,6 +3471,318 @@ describe('track-events', () => {
       'route',
       'source',
     ]);
+  });
+
+  describe('what a caller cannot make the ingest say (SUS-185)', () => {
+    const OTHER_CIRCLE = '00000000-0000-4000-8000-0000000000c9';
+    const SOME_PLAN = '00000000-0000-4000-8000-0000000000a1';
+    const id = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+    const rowsOf = () =>
+      (called('record_events')[0]?.args['p_rows'] ?? []) as Record<string, unknown>[];
+
+    it.each([
+      'plan_expired',
+      'quiet_threshold_reached',
+      'candidate_set_generated',
+      'cadence_prompt_sent',
+      'email_delivery_result',
+    ])(
+      'refuses %s, a fact only a function of ours records, from a signed-in caller',
+      async (name) => {
+        const properties: Record<string, unknown> =
+          {
+            quiet_threshold_reached: { threshold: 3 },
+            candidate_set_generated: { candidate_count: 3, quorum_met: true },
+            cadence_prompt_sent: { recipient_role: 'owner' },
+            email_delivery_result: { code: 'delivered' },
+          }[name] ?? {};
+
+        const response = await load('track-events')(
+          post({ events: [{ ...EVENT, name, properties }] }),
+        );
+
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual({ accepted: 0, rejected: 1 });
+        expect(called('record_events')).toHaveLength(0);
+      },
+    );
+
+    it('refuses the same names from a caller with no account, and records the rest of the batch', async () => {
+      const lines: string[] = [];
+      const spy = vi.spyOn(console, 'warn').mockImplementation((line: unknown) => {
+        lines.push(String(line));
+      });
+      let response: Response;
+      try {
+        response = await load('track-events')(
+          postWithoutSession({
+            events: [
+              { ...EVENT, event_id: id(1), name: 'plan_expired' },
+              {
+                ...EVENT,
+                event_id: id(2),
+                name: 'email_delivery_result',
+                properties: { code: 'bounced' },
+              },
+              EVENT,
+            ],
+          }),
+        );
+      } finally {
+        spy.mockRestore();
+      }
+
+      expect(await response.json()).toEqual({ accepted: 1, rejected: 2 });
+      expect(rowsOf().map((row) => row['event_name'])).toEqual(['circle_join_opened']);
+      const refused = lines
+        .map((text) => JSON.parse(text) as Record<string, unknown>)
+        .find((entry) => entry['event'] === 'events_refused');
+      expect(refused?.['counts']).toEqual({ email_delivery_result: 1, plan_expired: 1 });
+    });
+
+    it('still records an event the app sends, among them the four the gates read', async () => {
+      const names = [
+        ['member_reattached', { source: 'list' }],
+        ['email_verified', {}],
+        ['account_claimed', { moment: 'settings' }],
+        ['session_missing_on_return', {}],
+        [
+          'client_error',
+          {
+            route: '/p/:code',
+            error_class: 'type_error',
+            source: 'boundary',
+            build: 'dev',
+            platform: 'web',
+            reference: 'K7QM2X4P',
+          },
+        ],
+      ] as const;
+      const response = await load('track-events')(
+        post({
+          events: names.map(([name, properties], index) => ({
+            ...EVENT,
+            event_id: id(10 + index),
+            name,
+            properties,
+          })),
+        }),
+      );
+
+      expect(await response.json()).toEqual({ accepted: 5, rejected: 0 });
+    });
+
+    it('nulls a circle and a plan the caller is not a member of, and keeps the event', async () => {
+      state.answer = (fn) => {
+        if (fn === 'take_rate_token') return { data: true, error: null };
+        if (fn === 'record_events') return { data: 1, error: null };
+        // The database says: a member of nothing.
+        if (fn === 'analytics_member_ids') {
+          return { data: { circle_ids: [], plan_ids: [] }, error: null };
+        }
+        return { data: null, error: null };
+      };
+
+      const response = await load('track-events')(
+        post({
+          events: [
+            {
+              ...EVENT,
+              name: 'plan_shared',
+              properties: { circle_id: OTHER_CIRCLE, plan_id: SOME_PLAN },
+            },
+          ],
+        }),
+      );
+
+      expect(await response.json()).toEqual({ accepted: 1, rejected: 0 });
+      expect(rowsOf()[0]).toMatchObject({
+        event_name: 'plan_shared',
+        user_id: CALLER,
+        circle_id: null,
+        plan_id: null,
+      });
+    });
+
+    it('keeps the ids of a circle and a plan the caller belongs to, and nulls the others in the same batch', async () => {
+      state.answer = (fn) => {
+        if (fn === 'take_rate_token') return { data: true, error: null };
+        if (fn === 'record_events') return { data: 2, error: null };
+        if (fn === 'analytics_member_ids') {
+          return { data: { circle_ids: [CIRCLE_ID], plan_ids: [SOME_PLAN] }, error: null };
+        }
+        return { data: null, error: null };
+      };
+
+      await load('track-events')(
+        post({
+          events: [
+            {
+              ...EVENT,
+              event_id: id(20),
+              name: 'plan_shared',
+              properties: { circle_id: CIRCLE_ID, plan_id: SOME_PLAN },
+            },
+            {
+              ...EVENT,
+              event_id: id(21),
+              name: 'plan_shared',
+              properties: { circle_id: OTHER_CIRCLE, plan_id: id(99) },
+            },
+          ],
+        }),
+      );
+
+      const rows = rowsOf();
+      expect(rows[0]).toMatchObject({ circle_id: CIRCLE_ID, plan_id: SOME_PLAN });
+      expect(rows[1]).toMatchObject({ circle_id: null, plan_id: null });
+    });
+
+    it('asks once for the whole batch, with the caller from the token and every id the batch names', async () => {
+      await load('track-events')(
+        post({
+          events: [
+            {
+              ...EVENT,
+              event_id: id(30),
+              name: 'circle_created',
+              properties: { circle_id: CIRCLE_ID },
+            },
+            { ...EVENT, event_id: id(31), name: 'plan_shared', properties: { plan_id: SOME_PLAN } },
+            { ...EVENT, event_id: id(32), name: 'plan_shared', properties: { plan_id: SOME_PLAN } },
+          ],
+        }),
+      );
+
+      const lookups = called('analytics_member_ids');
+      expect(lookups).toHaveLength(1);
+      expect(lookups[0]?.args).toEqual({
+        p_user_id: CALLER,
+        p_circle_ids: [CIRCLE_ID],
+        p_plan_ids: [SOME_PLAN],
+      });
+    });
+
+    it('asks nothing when the batch names no circle and no plan', async () => {
+      await load('track-events')(post({ events: [EVENT] }));
+
+      expect(called('analytics_member_ids')).toHaveLength(0);
+    });
+
+    it('nulls every id for a caller with no account, without asking', async () => {
+      // The publishable key, or no bearer at all: a member of nothing.
+      const response = await load('track-events')(
+        postWithoutSession({
+          events: [
+            {
+              ...EVENT,
+              name: 'plan_shared',
+              properties: { circle_id: CIRCLE_ID, plan_id: SOME_PLAN },
+            },
+          ],
+        }),
+      );
+
+      expect(await response.json()).toEqual({ accepted: 1, rejected: 0 });
+      expect(rowsOf()[0]).toMatchObject({ circle_id: null, plan_id: null, user_id: null });
+      expect(called('analytics_member_ids')).toHaveLength(0);
+    });
+
+    it('keeps the batch for a retry when the membership lookup fails', async () => {
+      state.answer = (fn) => {
+        if (fn === 'take_rate_token') return { data: true, error: null };
+        if (fn === 'analytics_member_ids') return { data: null, error: new Error('down') };
+        return { data: 1, error: null };
+      };
+
+      const response = await load('track-events')(
+        post({
+          events: [{ ...EVENT, name: 'circle_created', properties: { circle_id: CIRCLE_ID } }],
+        }),
+      );
+
+      expect(response.status).toBe(500);
+      expect(called('record_events')).toHaveLength(0);
+    });
+
+    it('records the quiet ask against nobody and to the hour, whoever sent it and however it was sent', async () => {
+      // The client sends these on their own, as nobody, with the time rounded.
+      // A caller that sends them in its own batch, with its token and its
+      // browser id and a time to the millisecond, is stored the same.
+      await load('track-events')(
+        post({
+          anonymous_id: 'browser-abc12345',
+          events: [
+            {
+              ...EVENT,
+              event_id: id(40),
+              name: 'quiet_ask_created',
+              version: 2,
+              occurred_at: new Date().toISOString(),
+            },
+            {
+              ...EVENT,
+              event_id: id(41),
+              name: 'quiet_interest_answered',
+              version: 2,
+              occurred_at: new Date().toISOString(),
+            },
+            { ...EVENT, event_id: id(42) },
+          ],
+        }),
+      );
+
+      const [asked, answered, ordinary] = rowsOf() as Record<string, string | null>[];
+      for (const row of [asked, answered]) {
+        expect(row).toMatchObject({
+          user_id: null,
+          anonymous_id: null,
+          circle_id: null,
+          plan_id: null,
+        });
+        expect(row?.['occurred_at']).toMatch(/^\d{4}-\d\d-\d\dT\d\d:00:00\.000Z$/);
+        expect(row?.['received_at']).toMatch(/^\d{4}-\d\d-\d\dT\d\d:00:00\.000Z$/);
+      }
+      expect(ordinary).toMatchObject({ user_id: CALLER });
+      expect(ordinary).not.toHaveProperty('received_at');
+    });
+
+    it('drops crash reports past a per-address limit and still records the rest of the batch', async () => {
+      state.answer = (fn) => {
+        if (fn === 'take_rate_token') return { data: true, error: null };
+        return { data: 1, error: null };
+      };
+      const base = state.answer;
+      state.answer = (fn, args) =>
+        fn === 'take_rate_token' && args?.['p_scope'] === 'track_client_error'
+          ? { data: false, error: null }
+          : base(fn, args);
+      const crash = {
+        route: '/p/:code',
+        error_class: 'type_error',
+        source: 'boundary',
+        build: 'dev',
+        platform: 'web',
+        reference: 'K7QM2X4P',
+      };
+
+      const response = await load('track-events')(
+        post({
+          events: [
+            { ...EVENT, event_id: id(50), name: 'client_error', properties: crash },
+            { ...EVENT, event_id: id(51), name: 'client_error', properties: crash },
+            EVENT,
+          ],
+        }),
+      );
+
+      expect(await response.json()).toEqual({ accepted: 1, rejected: 2 });
+      expect(rowsOf().map((row) => row['event_name'])).toEqual(['circle_join_opened']);
+      const charged = called('take_rate_token').find(
+        (call) => call.args['p_scope'] === 'track_client_error',
+      );
+      expect(charged?.args).toMatchObject({ p_cost: 2, p_limit: 30 });
+    });
   });
 
   it('refuses a version the catalogue does not hold', async () => {
