@@ -2962,6 +2962,44 @@ describe('request-email-updates', () => {
     expect(await response.json()).toEqual({ status: 'check_email' });
   });
 
+  it('answers a request the per-address letter cap swallowed exactly as the first one', async () => {
+    // The database sends at most one verification letter per address an hour
+    // and says nothing about it: the second request, the one that sends no
+    // letter, must be indistinguishable from the first, or a member could ask
+    // twice and learn that somebody had just asked about that address. Both
+    // shapes the database can return are checked, and the handler adds no
+    // counter of its own for the address that would answer differently.
+    const answering = (answer: unknown) => {
+      // Each request is a new caller session in this harness.
+      state.users = [{ id: CALLER, is_anonymous: false }];
+      state.answer = (fn) => {
+        if (fn === 'begin_request') {
+          return {
+            data: [{ state: 'fresh', response_status: null, response_body: null }],
+            error: null,
+          };
+        }
+        if (fn === 'take_rate_token') return { data: true, error: null };
+        if (fn === 'request_email_updates') return { data: answer, error: null };
+        return { data: null, error: null };
+      };
+    };
+
+    answering({ sent: true });
+    const first = await load('request-email-updates')(post(body));
+    const firstText = await first.text();
+
+    for (const capped of [{ sent: true }, { sent: false }]) {
+      answering(capped);
+      const second = await load('request-email-updates')(post(body));
+
+      expect(second.status).toBe(first.status);
+      expect(await second.text()).toBe(firstText);
+    }
+    expect(JSON.parse(firstText)).toEqual({ status: 'check_email' });
+    expect(called('take_rate_token').map((call) => call.args['p_window'])).not.toContain('1 hour');
+  });
+
   describe('the owner-only delivery signal (SUS-164)', () => {
     const answering = (answer: unknown) => {
       state.answer = (fn) => {

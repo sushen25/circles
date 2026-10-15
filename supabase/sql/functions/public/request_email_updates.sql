@@ -190,6 +190,32 @@ begin
       else jsonb_build_object('sent', false) end;
   end if;
 
+  -- **At most one verification letter per address an hour, said to nobody.**
+  -- The Edge Function's counters are per person and per connection, so a
+  -- member who controls several of either can still have the same stranger's
+  -- address mailed again and again, and each letter spends the sending domain's
+  -- reputation. This bound is on the address, and it is keyed on the address's
+  -- hash alone for that reason; it counts the other identities' requests too.
+  --
+  -- It is applied **silently**. Whatever happens here, the answer below is the
+  -- one the first request got, so a second request does not learn that the
+  -- first one (somebody else's, perhaps) already went out: an answer that
+  -- differed would be an oracle for whether an address was just asked about.
+  -- The consent above is still recorded, and the person still gets "check your
+  -- email"; the letter that is already on its way is the one that was sent.
+  --
+  -- The price is that somebody who names a stranger's address can use up that
+  -- address's hour, and the owner's own request inside it sends nothing. The
+  -- owner's confirmed sign-in address never gets here (it is verified above),
+  -- and the next hour starts clean.
+  if not public.take_rate_token(
+    'verify_letter_address', contact.email_hash, 1, interval '1 hour'
+  ) then
+    return case when own
+      then jsonb_build_object('sent', true, 'delivery', 'pending')
+      else jsonb_build_object('sent', true) end;
+  end if;
+
   insert into jobs.notification_jobs (
     channel, kind, contact_id, plan_id, plan_revision, scheduled_for, idempotency_key
   )

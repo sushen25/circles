@@ -45,6 +45,18 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
 
+  -- A limit that holds when this is called directly over RPC, where the Edge
+  -- Function's own never runs. Keyed on the caller (and, below, on the caller's
+  -- own plan or circle): a bucket named only by an id the caller supplies would
+  -- let anybody spend somebody else's allowance by naming their resource.
+  -- Sized far above the Edge limit, so that one is the limit a person meets.
+
+  if not public.take_rate_token(
+    'redeem_invite_sql', extensions.digest(caller::text, 'sha256'), 120, interval '1 hour'
+  ) then
+    raise exception 'too_many_requests' using errcode = 'too_many_rows';
+  end if;
+
   -- `invite_inactive` is one error for three causes — no such secret, revoked,
   -- or a circle that has since gone — because the caller is not entitled to
   -- know which. The LinkInvalid screen says the same thing to all three.

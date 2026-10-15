@@ -185,7 +185,13 @@ select ok(
 );
 
 -- "Resend invalidates the previous token" (spec §5.8) — at the mint, because
--- that is where a token starts existing now.
+-- that is where a token starts existing now. An address is sent one letter an
+-- hour (SUS-116), so a genuine resend is a later hour: the counter is cleared
+-- as the clock moving on would. `470_limits_hold_when_sql_is_called_directly.sql`
+-- tests the cap itself.
+select pg_temp.act_as_postgres();
+delete from jobs.rate_counters where scope = 'verify_letter_address';
+select pg_temp.act_as_service();
 select is(
   (select public.request_email_updates(pg_temp.plan_id(),
      '00000000-0000-0000-0000-0000000008a2', 'jules@example.com',
