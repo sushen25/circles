@@ -170,8 +170,10 @@ export const catalogue = {
   // --- availability -------------------------------------------------------
   availability_started: event(1, {
     /**
-     * Whether "Use my previous times" was on offer when the editor opened
-     * (SUS-159, ADR 0037): a yes or no, never a day-part. Optional because
+     * Whether previous times were on offer when the editor opened (SUS-159,
+     * ADR 0037): a yes or no, never a day-part. Since ADR 0077 (SUS-226) nothing
+     * is offered on open, so every new start says `false`; the field stays for
+     * the explicit tap to come and for the rows already stored. Optional because
      * the start is never held back for an optional read (ADR 0045): when the
      * read has not settled in time the field is left out, which says
      * "unknown", and an older client's start has none either.

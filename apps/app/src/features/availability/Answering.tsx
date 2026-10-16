@@ -145,8 +145,9 @@ export function Answering({
   // "Change time" and the half hours are views of the same answer: which one is
   // on show is the person's place in the screen, never stored or sent.
   const [sheetOpen, setSheetOpen] = useState(false);
-  // Once the person has changed anything, previous times no longer start the
-  // answer: clearing their last day is a choice, not an empty answer to fill.
+  // Whether the person has changed anything. Nothing acts on it since ADR 0077
+  // stopped previous times starting an answer on open; it travels with the
+  // hours step's handoff (SUS-209) for the explicit tap that is to come.
   const [touched, setTouched] = useState(() => hours.handed?.touched ?? false);
   const openHours = () => hours.open(state, touched);
   const closeHours = hours.close;

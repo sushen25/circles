@@ -86,8 +86,11 @@ describe('an answer never given opens empty, whatever the person offered before'
     expect(screen.getByRole('button', { name: 'Send my times' })).toBeEnabled();
   });
 
-  it('is the same for a brand-new guest', async () => {
-    usualTimes.mockResolvedValue([]);
+  it('leaves a stored "none of these" as it is, with nothing tapped', async () => {
+    planToAnswer.mockResolvedValue({
+      plan: PLAN,
+      answer: { status: 'none_work', windows: [], submittedAt: '2026-09-01T09:00:00Z' },
+    });
     open();
     await screen.findByText('Which evenings could work?');
     await act(async () => undefined);

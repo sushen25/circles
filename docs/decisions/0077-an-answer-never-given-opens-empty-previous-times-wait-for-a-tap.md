@@ -35,7 +35,7 @@ before in the circle. A stored answer, "none of these" or an unsent draft still
 reopens as the person left it ([ADR 0024](0024-availability-days-first-then-a-time-once.md)).
 
 **Previous times are kept for an explicit tap, not applied.** The read
-(`usePreviousTimes`, the `usual_times` function of ADR 0037) and the editor's
+(`usePreviousTimes`, the `previous_dayparts` function of ADR 0037, wrapped by `usualTimes`) and the editor's
 `usual` action stay in the code, tested, and nothing calls them on open. The
 founder has decided they come back later as a button the person presses
 ("Use my usual days"); that is a separate ticket, designed on the canvas first.
@@ -65,4 +65,4 @@ opens.
 - `usePreviousTimes` has no caller in the app until the follow-up; its tests keep
   it reachable. `useStartedEvent` stays in the same file and is used.
 - Spec §5.5's "Previous times" paragraph is rewritten in the same change.
-- The `usual_times` database function is untouched.
+- The `previous_dayparts` database function is untouched.
