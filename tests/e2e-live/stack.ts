@@ -618,9 +618,14 @@ export function circleOwnedBy(userId: string, name: string): string {
  * A named plan in `circleId`, organised by `organiserId` and asking them — the
  * plan half of `sundayCrew`, for a circle whose owner has a real session.
  *
- * Quorum two, so two answers are enough for an option to exist.
+ * Quorum two unless `quorum` says otherwise, so two answers are enough for an
+ * option to exist.
  */
-export function planFor(circleId: string, organiserId: string): { id: string; code: string } {
+export function planFor(
+  circleId: string,
+  organiserId: string,
+  quorum = 2,
+): { id: string; code: string } {
   const planId = randomUUID();
   const code = shortCode();
   sql(`
@@ -631,7 +636,7 @@ export function planFor(circleId: string, organiserId: string): { id: string; co
       duration_minutes, quorum, response_deadline, short_code
     ) values (
       '${planId}', '${circleId}', 'named', 'draft', '${organiserId}', 'Catch up', 'Australia/Melbourne',
-      current_date + 7, current_date + 13, 1050, 1350, 120, 2, now() + interval '3 days', '${code}'
+      current_date + 7, current_date + 13, 1050, 1350, 120, ${quorum}, now() + interval '3 days', '${code}'
     );
     insert into public.plan_participants (plan_id, revision, user_id)
     values ('${planId}', 1, '${organiserId}');

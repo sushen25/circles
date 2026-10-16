@@ -57,9 +57,15 @@ export async function sendEvenings(page: Page, code: string, ...indices: number[
 
 /**
  * A stranger on the plan link with nobody to continue as: the name, then the
- * editor, then Sent. Returns the new member's id.
+ * editor, then Sent. Returns the new member's id. `days` are the grid's days to
+ * tap, as `sendEvenings` takes them (the second day when none are given).
  */
-export async function joinsAndAnswers(page: Page, crew: Scenario, name: string): Promise<string> {
+export async function joinsAndAnswers(
+  page: Page,
+  crew: Scenario,
+  name: string,
+  ...days: number[]
+): Promise<string> {
   await page.goto(`/j/${crew.planCode}`);
   const newHere = page.getByRole('button', { name: "I'm new here" });
   // Offered only when the circle has guests to continue as (ADR 0006).
@@ -68,7 +74,7 @@ export async function joinsAndAnswers(page: Page, crew: Scenario, name: string):
   await page.getByLabel('Your name').fill(name);
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
-  await sendEvenings(page, crew.planCode);
+  await sendEvenings(page, crew.planCode, ...days);
   await expect(page.getByText(`Thanks, ${name}. Your times are in.`)).toBeVisible();
   return memberNamed(crew.circleId, name)!.userId;
 }
