@@ -29,7 +29,7 @@ import {
 } from './editor';
 import { NoneWorkScreen, type NoneWorkStatus } from './NoneWorkScreen';
 import { useOthersSaid } from './useOthersSaid';
-import { usePreviousTimes, useStartedEvent } from './usePreviousTimes';
+import { useStartedEvent } from './usePreviousTimes';
 import { useSendAnswer, type ReturnTo } from './useSendAnswer';
 import { editorView } from './view';
 import {
@@ -145,8 +145,9 @@ export function Answering({
   // "Change time" and the half hours are views of the same answer: which one is
   // on show is the person's place in the screen, never stored or sent.
   const [sheetOpen, setSheetOpen] = useState(false);
-  // Once the person has changed anything, previous times no longer start the
-  // answer: clearing their last day is a choice, not an empty answer to fill.
+  // Whether the person has changed anything. Nothing acts on it since ADR 0077
+  // stopped previous times starting an answer on open; it travels with the
+  // hours step's handoff (SUS-209) for the explicit tap that is to come.
   const [touched, setTouched] = useState(() => hours.handed?.touched ?? false);
   const openHours = () => hours.open(state, touched);
   const closeHours = hours.close;
@@ -168,16 +169,6 @@ export function Answering({
     return () => hardware.remove();
   }, [exact]);
 
-  // Previous times (ADR 0037's amendment, ADR 0068): the reader's own earlier
-  // offers, only the parts this plan asks about, in one request. They start an
-  // answer that has never been given — the days are tapped and the line says
-  // what they are — and are never sent: Send is still the person's.
-  const previous = usePreviousTimes({
-    planId: plan.id,
-    userId,
-    enabled: plan.acceptingAnswers,
-  });
-
   const said = useOthersSaid({ plan, userId, step: exact ? 'none' : step, fixtureOthers });
 
   const { phase, send, savedAt, edited } = useSendAnswer({
@@ -191,7 +182,6 @@ export function Answering({
     onStale,
     onNarrowed,
     returnTo,
-    usedPrevious: previous.used,
   });
 
   // Judged by the server when the plan was read (`acceptingAnswers`): state and
@@ -205,17 +195,15 @@ export function Answering({
   }, [discardDraft, userId, code]);
 
   // Opening the editor is the start of answering (§11.2's "median response
-  // after link open" reads the last open before the answer), with whether
-  // previous times were on offer (SUS-159).
-  // Only an answer never given is started from previous times: a stored
-  // "none of these", or a draft, is the person's own and is left as it is.
-  const startsEmpty = answer === null && opened === undefined;
-  const view = editorView(state, rows, timing, format, undefined, previous.parts, said);
+  // after link open" reads the last open before the answer). An answer never
+  // given opens empty (ADR 0077): previous times are not applied on open, so
+  // none are on offer and `usual_offered` is false, which is true.
+  const view = editorView(state, rows, timing, format, undefined, undefined, said);
   useStartedEvent({
     active: step === 'times' && answerable && !exact,
     planId: plan.id,
-    settled: previous.settled,
-    offered: startsEmpty && view.canUseUsual,
+    settled: true,
+    offered: false,
   });
 
   // Painting a day's last half hour off untaps it: with no day left there is
@@ -239,20 +227,6 @@ export function Answering({
     if (noDays) closeHours();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noDays]);
-
-  // Previous times start an answer that has never been given: the days are
-  // tapped and the line says what they are. View-only — a start, not an edit,
-  // so it writes no draft until the person changes something.
-  const prefill = startsEmpty && !touched && view.canUseUsual;
-  const prefilled = useRef(false);
-  const parts = previous.parts;
-  const markUsed = previous.markUsed;
-  useEffect(() => {
-    if (!prefill || prefilled.current || parts === undefined) return;
-    prefilled.current = true;
-    markUsed();
-    dispatch({ type: 'usual', parts });
-  }, [prefill, parts, markUsed]);
 
   // While an answer is on its way it cannot change: the request has the
   // answer it was sent with, and a success clears the draft an edit would

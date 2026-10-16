@@ -40,7 +40,7 @@ flows do not, because the sheet it opened named a fixture circle.
 | `AvailabilityMixed.dc.html`          | `/j/[code]` (days with different times) | `AvailabilityScreen`        |
 | `AvailabilityOneChoice.dc.html`      | `/j/[code]` (a plan with one window)    | `AvailabilityScreen`        |
 | `AvailabilityOneChoiceHours.dc.html` | `/j/[code]` (its list of hours)         | `ExactHoursScreen`          |
-| `AvailabilityReturning.dc.html`      | `/j/[code]` (previous times pre-filled) | `AvailabilityScreen`        |
+| `AvailabilityReturning.dc.html`      | `/j/[code]` (a returning member, empty) | `AvailabilityScreen`        |
 | `AvailabilityOthersFirst.dc.html`    | `/j/[code]` (first to answer)           | `AvailabilityScreen`        |
 | `AvailabilityOverlay.dc.html`        | `/j/[code]/overlay`                     | `AvailabilityOverlayScreen` |
 | `CalendarDenied.dc.html`             | `/j/[code]/calendar/denied`             | `CalendarDeniedScreen`      |
@@ -80,8 +80,8 @@ day's hours as From – to pairs with a picker (`hours.ts` is the pure part), a
 thin bar, and one line about the others (the domain's `freeStretches`). Everything it shows is worked out in `view.ts` and
 `answerLine.ts` from the reducer in `editor.ts`; the blocks are the domain's
 shortcuts (`blocks.ts`). The chosen time of day and the open day are view state
-and never stored. A returning member's previous times land as taps, not as a
-button (`Answering`). `AvailabilityPicking`, `AvailabilityTime`,
+and never stored. An answer never given opens empty, for a returning member as for a
+first-timer; previous times are not applied on open (ADR 0077). `AvailabilityPicking`, `AvailabilityTime`,
 `AvailabilityAdjusting`, `AvailabilityMixed` and `AvailabilityReturning` are states of the same
 route, not routes of their own.
 

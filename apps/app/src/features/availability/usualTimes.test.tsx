@@ -6,13 +6,12 @@ import { resetHoursRouter } from '../../test/hours-router';
 import type * as AvailabilityData from '../../data/availability';
 
 /**
- * Previous times and tonight's editor, on the screen (ADR 0005, S2-06, SUS-159,
- * ADR 0068): somebody who has offered times before in the circle lands with
- * the days those times cover already tapped and the answer line written, as an
- * answer nobody has given yet. Nothing is sent by itself and no draft is kept
- * until they change something; it never overwrites an answer; and its use is
- * measured with booleans only. A plan about tonight offers From now and Later
- * tonight.
+ * An answer never given opens empty, and tonight's editor (ADR 0077 over ADR
+ * 0068 and ADR 0037, SUS-226): somebody who has offered times before in the
+ * circle still lands with no day tapped, nothing is sent and no draft is kept,
+ * and the analytics say so truthfully. The read and its reducer action are
+ * `usePreviousTimes.test.tsx` and `usual.test.ts`. A plan about tonight offers
+ * From now and Later tonight.
  */
 vi.mock('expo-router', async () => {
   const { hoursRouter } = await import('../../test/hours-router');
@@ -52,8 +51,6 @@ function open(client = new QueryClient({ defaultOptions: { queries: { retry: fal
 
 /** The days the person has tapped. */
 const tapped = () => screen.queryAllByRole('button', { pressed: true });
-const prefilled = (n: number) => waitFor(() => expect(tapped()).toHaveLength(n));
-const EVENINGS = 'Evenings, from 5:30 pm';
 
 beforeEach(() => {
   resetHoursRouter();
@@ -68,135 +65,28 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('previous times', () => {
-  it('land pre-filled: the weekday evenings tapped, the line written, nothing sent and no draft yet', async () => {
+const EVENINGS = 'Evenings, from 5:30 pm';
+
+describe('an answer never given opens empty, whatever the person offered before', () => {
+  it('taps no day, writes no line, sends nothing and keeps no draft, then lets the person tap', async () => {
     open();
-    await prefilled(10);
-    // One request, for this plan: the member is the session, never a parameter.
-    expect(usualTimes).toHaveBeenCalledTimes(1);
-    expect(usualTimes).toHaveBeenCalledWith(PLAN.id);
-    expect(screen.getByText(EVENINGS)).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Send my times' })).toBeEnabled();
-    // The fortnight's ten weekdays, and no weekend day.
-    expect(screen.getAllByRole('button', { name: /^Saturday/ })[0]).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
+    await screen.findByText('Which evenings could work?');
+    await act(async () => undefined);
+    expect(tapped()).toHaveLength(0);
+    expect(screen.queryByText(EVENINGS)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Send my times' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: /^Use my previous times/ })).toBeNull();
     expect(submitAnswer).not.toHaveBeenCalled();
-    // A start, not an edit: the device keeps nothing until the person changes it.
-    await act(async () => undefined);
     expect(await readDraft('nina', PLAN.code)).toBeUndefined();
+    // Nothing reads previous times on open: there is nothing to apply them to.
+    expect(usualTimes).not.toHaveBeenCalled();
 
-    // Untapping a day is theirs, and from then on it is kept like any answer.
     fireEvent.click(screen.getAllByRole('button', { name: /^Monday/ })[0]!);
-    await waitFor(async () => expect(await readDraft('nina', PLAN.code)).toBeDefined());
-    expect(tapped()).toHaveLength(9);
+    expect(tapped()).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Send my times' })).toBeEnabled();
   });
 
-  it('after several earlier answers taps every part offered, once or often', async () => {
-    usualTimes.mockResolvedValue(['weekday_evening', 'weekend_morning', 'weekend_afternoon']);
-    // A plan asking about the whole day, so every part has somewhere to go.
-    planToAnswer.mockResolvedValue({
-      plan: { ...PLAN, dailyStartMin: 9 * 60, dailyEndMin: 22 * 60 + 30 },
-      answer: null,
-    });
-    open();
-    await prefilled(14);
-    expect(screen.getAllByRole('button', { name: /^Saturday/ })[0]).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(screen.getAllByRole('button', { name: /^Monday/ })[0]).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    // Evenings on weekdays and the daytime on weekends: the line says so in counts.
-    expect(screen.getByText('10 evenings, 4 daytimes')).toBeVisible();
-  });
-
-  it('tap only the parts the plan paints: a part it does not ask about adds nothing', async () => {
-    usualTimes.mockResolvedValue(['weekday_evening', 'weekday_morning']);
-    open();
-    await prefilled(10);
-    // The fixture asks about evenings only.
-    expect(screen.getByText(EVENINGS)).toBeVisible();
-  });
-
-  it('leave the grid empty when nothing was offered before, or when it would paint nothing here', async () => {
-    usualTimes.mockResolvedValue([]);
-    const first = open();
-    await screen.findByText('Which evenings could work?');
-    await act(async () => undefined);
-    expect(tapped()).toHaveLength(0);
-    first.unmount();
-
-    usualTimes.mockResolvedValue(['weekday_morning']);
-    open();
-    await screen.findByText('Which evenings could work?');
-    await act(async () => undefined);
-    expect(tapped()).toHaveLength(0);
-  });
-
-  it('leave the grid empty, and the editor working, when the read fails', async () => {
-    usualTimes.mockRejectedValue(new Error('offline'));
-    open();
-    await screen.findByText('Which evenings could work?');
-    await act(async () => undefined);
-    expect(tapped()).toHaveLength(0);
-    expect(screen.getByRole('button', { name: 'Send my times' })).toBeDisabled();
-  });
-
-  it('are read again when the editor opens again, so a new answer shows (review round 2)', async () => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    usualTimes.mockResolvedValue([]);
-    const first = open(client);
-    await screen.findByText('Which evenings could work?');
-    await act(async () => undefined);
-    expect(tapped()).toHaveLength(0);
-    first.unmount();
-
-    // Another plan answered meanwhile: now there is something to start from.
-    usualTimes.mockResolvedValue(['weekday_evening']);
-    open(client);
-    await prefilled(10);
-  });
-
-  it('stop starting the answer once the person has changed anything: clearing their last day is a choice (review round 1)', async () => {
-    let release: (parts: string[]) => void = () => undefined;
-    usualTimes.mockReturnValue(new Promise<string[]>((resolve) => (release = resolve)));
-    open();
-    await screen.findByText('Which evenings could work?');
-    // They tap a day before the read comes back, then take it away again.
-    fireEvent.click(screen.getAllByRole('button', { name: /^Monday/ })[0]!);
-    await act(async () => release(['weekday_evening']));
-    fireEvent.click(screen.getAllByRole('button', { name: /^Monday/ })[0]!);
-    await act(async () => undefined);
-
-    expect(tapped()).toHaveLength(0);
-    expect(screen.getByRole('button', { name: 'Send my times' })).toBeDisabled();
-  });
-
-  it("start from this opening's read, not from what an earlier opening cached (review round 1)", async () => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    planToAnswer.mockResolvedValue({
-      plan: { ...PLAN, dailyStartMin: 9 * 60, dailyEndMin: 22 * 60 + 30 },
-      answer: null,
-    });
-    usualTimes.mockResolvedValue(['weekday_evening']);
-    const first = open(client);
-    await prefilled(10);
-    expect(screen.getByText(EVENINGS)).toBeVisible();
-    first.unmount();
-
-    // Since then they have offered afternoons instead, and the read says so.
-    usualTimes.mockResolvedValue(['weekday_afternoon']);
-    open(client);
-    expect(await screen.findByText('Afternoons, 12–5 pm')).toBeVisible();
-    expect(screen.queryByText(EVENINGS)).toBeNull();
-  });
-
-  it('say nothing was offered when the answer on file is a "none of these", which they leave alone (review round 4)', async () => {
+  it('leaves a stored "none of these" as it is, with nothing tapped', async () => {
     planToAnswer.mockResolvedValue({
       plan: PLAN,
       answer: { status: 'none_work', windows: [], submittedAt: '2026-09-01T09:00:00Z' },
@@ -205,15 +95,9 @@ describe('previous times', () => {
     await screen.findByText('Which evenings could work?');
     await act(async () => undefined);
     expect(tapped()).toHaveLength(0);
-    await waitFor(() =>
-      expect(track).toHaveBeenCalledWith('availability_started', {
-        plan_id: PLAN.id,
-        usual_offered: false,
-      }),
-    );
   });
 
-  it('never overwrite an answer already given', async () => {
+  it('leaves an answer already given as it is', async () => {
     planToAnswer.mockResolvedValue(answerable);
     open();
     await screen.findByText(/, but /);
@@ -222,26 +106,24 @@ describe('previous times', () => {
     expect(tapped()).toHaveLength(3);
   });
 
-  it('are never worded as "usual", anywhere on the screen', async () => {
+  it('is never worded as "usual", anywhere on the screen', async () => {
     const { container } = open();
-    await prefilled(10);
+    await screen.findByText('Which evenings could work?');
     expect(container.textContent).not.toMatch(/usual/i);
-    expect(container.innerHTML).not.toMatch(/usual/i);
   });
 });
 
-describe('what the previous times are measured by', () => {
-  it('says on the start whether it was offered, and on the send whether it began from it', async () => {
+describe('what the answer is measured by', () => {
+  it('says on the start that nothing was offered, and on the send that nothing was used', async () => {
     open();
-    await prefilled(10);
     await waitFor(() =>
       expect(track).toHaveBeenCalledWith('availability_started', {
         plan_id: PLAN.id,
-        usual_offered: true,
+        usual_offered: false,
       }),
     );
+    expect(track.mock.calls.filter(([name]) => name === 'availability_started')).toHaveLength(1);
 
-    // Edited afterwards, and still counted as begun from them.
     fireEvent.click(screen.getAllByRole('button', { name: /^Monday/ })[0]!);
     submitAnswer.mockResolvedValue({ revision: 1 });
     await act(async () => {
@@ -251,49 +133,13 @@ describe('what the previous times are measured by', () => {
     await waitFor(() =>
       expect(track).toHaveBeenCalledWith(
         'availability_submitted',
-        expect.objectContaining({ status: 'windows', usual_used: true }),
+        expect.objectContaining({ status: 'windows', usual_used: false }),
       ),
     );
   });
 
-  it('says it was not offered, and not used, with nothing to offer', async () => {
-    usualTimes.mockResolvedValue([]);
-    open();
-    await waitFor(() =>
-      expect(track).toHaveBeenCalledWith('availability_started', {
-        plan_id: PLAN.id,
-        usual_offered: false,
-      }),
-    );
-  });
-
-  it('never holds the start back for a read that does not come: it goes without the flag', async () => {
-    usualTimes.mockReturnValue(new Promise(() => undefined));
-    open();
-    await screen.findByText('Which evenings could work?');
-    expect(track).not.toHaveBeenCalled();
-    await waitFor(
-      () => expect(track).toHaveBeenCalledWith('availability_started', { plan_id: PLAN.id }),
-      {
-        timeout: 3000,
-      },
-    );
-  });
-
-  it('still counts an opening left before the read came back, without the flag', async () => {
-    usualTimes.mockReturnValue(new Promise(() => undefined));
-    const opened = open();
-    await screen.findByText('Which evenings could work?');
-    expect(track).not.toHaveBeenCalledWith('availability_started', expect.anything());
-    opened.unmount();
-    expect(track).toHaveBeenCalledWith('availability_started', { plan_id: PLAN.id });
-    expect(track).toHaveBeenCalledTimes(1);
-  });
-
   it('carries no day-part in any event', async () => {
-    usualTimes.mockResolvedValue(['weekday_evening', 'weekend_morning']);
     open();
-    await prefilled(10);
     await waitFor(() => expect(track).toHaveBeenCalled());
     expect(JSON.stringify(track.mock.calls)).not.toMatch(/weekday|weekend|morning|evening/);
   });

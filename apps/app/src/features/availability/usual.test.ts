@@ -14,8 +14,10 @@ import { editorView } from './view';
 
 /**
  * Previous times (ADR 0005, SUS-159, ADR 0068) and tonight's editor (S2-06), as the
- * reducer and the view see them: what the pre-fill paints, that it paints
+ * reducer and the view see them: what applying them paints, that it paints
  * nothing else and sends nothing, and which choices a tonight plan offers.
+ * Nothing applies them on open since ADR 0077 (SUS-226); the action is kept for
+ * the explicit tap a follow-up ticket brings.
  */
 const MELBOURNE = zone('Australia/Melbourne');
 
