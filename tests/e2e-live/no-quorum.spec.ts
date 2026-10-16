@@ -74,8 +74,9 @@ async function engineRuns(planId: string): Promise<void> {
  * and the closest time has two of the three. `requiredNina` makes Nina the
  * person without whom no time counts, which changes the rule that blocked it.
  *
- * The answers are written as `replace_response`, as `closedWithAnOption` does,
- * and the engine is the dispatcher's, run until it has near-misses to show.
+ * Tom and Nina's answers are written as `replace_response`, as
+ * `closedWithAnOption` does; Maya's goes through the editor, last, which runs
+ * the engine in the request.
  */
 async function stuck(
   page: Page,
