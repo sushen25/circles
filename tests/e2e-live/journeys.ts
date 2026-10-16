@@ -34,15 +34,11 @@ export async function downloadCalendarFile(page: Page): Promise<Download> {
 
 /**
  * On the editor: makes sure `indices` are tapped, which gives each the evening,
- * and sends. Waits for Sent. A member with earlier answers lands with their
- * previous times already tapped (ADR 0068), and a second tap would take such a
- * day away, so a day already tapped is left alone.
+ * and sends. Waits for Sent. An answer never given opens empty (ADR 0077); a
+ * day already tapped, as when an answer is reopened, is left alone.
  */
 export async function sendEvenings(page: Page, code: string, ...indices: number[]): Promise<void> {
   await expect(page.getByText('Which evenings could work?')).toBeVisible();
-  // The editor reads the member's previous times as it opens and, if there are
-  // any, taps them: let that settle before looking at which days are tapped.
-  await page.waitForLoadState('networkidle');
   for (const index of indices.length === 0 ? [1] : indices) {
     const day = days(page).nth(index);
     if ((await day.getAttribute('aria-pressed')) !== 'true') await day.click();

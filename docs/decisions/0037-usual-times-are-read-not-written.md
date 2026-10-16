@@ -3,11 +3,11 @@ adr: 37
 title: "A member's usual times are worked out when they are read, not written when they answer"
 status: proposed
 date: 2026-09-25
-amended_by: [68]
+amended_by: [68, 77]
 ---
 # ADR 0037: A member's usual times are worked out when they are read, not written when they answer
 
-_Status: proposed (previous times now land as taps, not behind a button: [ADR 0068](0068-a-tapped-day-has-a-time-and-the-answer-is-one-line.md)) · 25 September 2026_
+_Status: proposed (previous times now land as taps, not behind a button: [ADR 0068](0068-a-tapped-day-has-a-time-and-the-answer-is-one-line.md); they are no longer applied on open, and wait for an explicit tap: [ADR 0077](0077-an-answer-never-given-opens-empty-previous-times-wait-for-a-tap.md)) · 25 September 2026_
 
 ## Context
 

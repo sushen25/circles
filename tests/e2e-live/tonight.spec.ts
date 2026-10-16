@@ -17,10 +17,9 @@ import {
  * Tonight, end to end (S2-06, spec §5.3 and §5.5): the organiser picks
  * **Tonight** on the setup, the plan made is today alone with replies closing
  * within the hour, and the editor opens on its one day with **From now** and
- * **Later tonight**. Then previous times (ADR 0005, ADR 0037, SUS-159, ADR
- * 0068): from one earlier answer with times in a circle, the next plan opens
- * with them already tapped and the answer line written, and sends nothing
- * until the person does.
+ * **Later tonight**. Then an answer never given (ADR 0077, over ADR 0068 and
+ * ADR 0037): whatever the person answered before in the circle, the next plan
+ * opens with no day tapped and sends nothing until the person does.
  *
  * Tonight is on the clock, so the circle is put in a zone where it is early
  * afternoon now — whatever hour the suite runs at, tonight is on offer. The
@@ -84,7 +83,7 @@ test('an organiser asks about tonight, and the editor asks about tonight', async
 const tapped = (page: Page) =>
   page.getByRole('group', { name: 'Days in this plan' }).getByRole('button', { pressed: true });
 
-test('from the first repeat, a guest lands with their previous times tapped, and sends them', async ({
+test('a returning guest opens a new plan with nothing tapped, and sends only what they tap', async ({
   page,
 }) => {
   const crew = sundayCrew();
@@ -96,19 +95,22 @@ test('from the first repeat, a guest lands with their previous times tapped, and
   const second = planFor(crew.circleId, crew.ownerId);
   await page.goto(`/j/${second.code}`);
   await expect(page.getByText('Which evenings could work?')).toBeVisible();
-  // Tapped, with the line already written: the evenings the plan asks about.
-  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
-  await expect(tapped(page).first()).toBeVisible();
-  // Tapped, not sent: Send is still theirs, and there is no button to press first.
-  await expect(page.getByRole('button', { name: /^Use my previous times/ })).toHaveCount(0);
+  // Let anything that was going to tap a day do it before looking.
+  await page.waitForLoadState('networkidle');
+  await expect(tapped(page)).toHaveCount(0);
+  await expect(page.getByText('Evenings, from 5:30 pm')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Send my times' })).toBeDisabled();
   expect(answerOf(second.id, ren)).toBeUndefined();
 
+  const day = page.getByRole('group', { name: 'Days in this plan' }).getByRole('button').nth(1);
+  await day.click();
+  await expect(tapped(page)).toHaveCount(1);
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page).toHaveURL(new RegExp(`/j/${second.code}/sent$`));
   expect(answerOf(second.id, ren)?.status).toBe('windows');
 });
 
-test('after several answers in a circle, the next plan lands with them all tapped and sends nothing', async ({
+test('after several answers in a circle, the next plan still opens with nothing tapped', async ({
   page,
 }) => {
   const mayaId = await asMaya(page);
@@ -125,9 +127,9 @@ test('after several answers in a circle, the next plan lands with them all tappe
 
   const third = planFor(circleId, mayaId);
   await page.goto(`/j/${third.code}`);
-  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
-  // Tapped, not sent: Send is still the person's.
-  await expect(tapped(page).first()).toBeVisible();
+  await expect(page.getByText('Which evenings could work?')).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await expect(tapped(page)).toHaveCount(0);
   expect(answerOf(third.id, mayaId)).toBeUndefined();
   // And the word on no screen.
   await expect(page.getByText(/usual/i)).toHaveCount(0);
