@@ -52,6 +52,7 @@ backstop for a caller who skipped it.
 | `revise_plan` | 60 | 20 | none |
 | `confirm_meetup` | 60 | 20 | none |
 | `cancel_plan` | 60 | 20 | none |
+| `rename_in_circle` | 120 | | 20 per user |
 
 **2. A bucket is the caller's own.** No key is an id the caller names and
 somebody else owns. The plan bucket is `caller:plan`, so naming another
