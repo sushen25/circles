@@ -34,7 +34,46 @@ function's `deno.json` points at.
 | [`stop-letters/`](./stop-letters)                         | The link under an account-holder letter: stops the cadence nudge, the organiser's letters or the quiet ask's, with no sign-in. No session                                                                                     |
 | [`email-provider-webhook/`](./email-provider-webhook)     | Resend's delivery events: a hard bounce or a complaint suppresses the address. Signed by the provider, not a session                                                                                                          |
 | [`process-scheduled-jobs/`](./process-scheduled-jobs)     | The one background worker: outbox → notification jobs → email, plus deadlines, expiry and the daily health summary ([ADR 0003](../../docs/decisions/0003-domain-events-via-postgres-outbox.md)). Internal                     |
-| [`hello/`](./hello)                                       | The import-path smoke test from S0-06. Not a product endpoint                                                                                                                                                                 |
+
+## The lock file
+
+Deno has no `node_modules`, so the bundler fetches every `npm:` package on the
+day of the deploy. Two files stop that being a lottery
+([ADR 0075](../../docs/decisions/0075-edge-function-dependencies-are-exact-and-locked.md)):
+
+- [`import_map.json`](./import_map.json) names each package at an **exact**
+  version, the one `pnpm-lock.yaml` resolves, so the tests and the deploy run
+  the same code.
+- [`deno.lock`](./deno.lock) holds the hash of every package and every
+  transitive dependency. Each function's `deno.json` points at it with
+  `"lock": { "path": "../deno.lock", "frozen": true }`.
+
+`pnpm check:imports` fails on a range, on a version pnpm does not resolve, on an
+entry the lock does not name, and on a function that does not use the lock.
+
+**What the tooling does with the lock.** The pinned Supabase CLI (2.116.0) never
+reads `deno.lock` and has no flag for one; `functions deploy` hands bundling to
+the edge runtime image, which finds the function's `deno.json` and reads the
+`lock` setting there. That bundler **verifies the hash of every package the lock
+lists** and fails on a mismatch. It does **not** enforce `frozen`: a package the
+lock omits is fetched, not refused, and it never writes the lock. So `frozen`
+only has teeth under Deno itself, which is why the lock is regenerated with it.
+
+**To change a dependency**, change it in this order:
+
+1. `pnpm-lock.yaml` (the `package.json` that owns it, then `pnpm install`).
+2. The version in `import_map.json`.
+3. Regenerate the lock with Deno 2.1.x, the major `edge_runtime.deno_version`
+   asks for, from the repository root after `pnpm build`:
+
+```bash
+rm supabase/functions/deno.lock
+DENO_NO_PACKAGE_JSON=1 deno cache --frozen=false \
+  --config supabase/functions/track-events/deno.json supabase/functions/*/index.ts
+pnpm check:imports
+```
+
+Commit the whole file. A new function needs the same `deno.json` as the others.
 
 ## Email
 

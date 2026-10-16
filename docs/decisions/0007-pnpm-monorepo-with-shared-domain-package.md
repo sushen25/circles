@@ -3,10 +3,11 @@ adr: 7
 title: "One pnpm monorepo with a pure `packages/domain` shared by the client and Edge Functions"
 status: accepted
 date: 2026-09-06
+amended_by: [75]
 ---
 # ADR 0007: One pnpm monorepo with a pure `packages/domain` shared by the client and Edge Functions
 
-_Status: accepted · Date: 6 September 2026_
+_Status: accepted · Date: 6 September 2026 · the Edge Function half of its import map is pinned and locked by [ADR 0075](./0075-edge-function-dependencies-are-exact-and-locked.md)_
 
 ## Context
 The candidate engine, plan state machine, deadline defaults, eligibility rules and share messages must behave identically on the client (for immediate feedback) and on the server (as the authority). Two copies would drift. A separate Node API service would carry operational cost for a validation MVP.

@@ -54,7 +54,7 @@ Functions import the shared packages through **`functions/import_map.json`**,
 referenced by each function's `deno.json`:
 
 ```json
-{ "importMap": "../import_map.json" }
+{ "importMap": "../import_map.json", "lock": { "path": "../deno.lock", "frozen": true } }
 ```
 
 One map, so twenty-two functions do not each repeat the paths. Note that the
@@ -66,12 +66,7 @@ not hand the map to the runtime, and every bare specifier fails to resolve.
 `supabase functions serve`. That is what makes ADR 0007 real: the same
 `packages/domain` runs on the client and in Deno, and cannot drift.
 
-`hello` exists only to prove that path works end to end — it imports the domain
-package and executes a zod schema from `@circles/contracts` inside Deno. Delete
-it when a real function covers the same ground.
-
 ```bash
 pnpm build && pnpm exec supabase functions serve --no-verify-jwt
-curl -X POST http://127.0.0.1:54321/functions/v1/hello
-# {"domain":"@circles/domain","contracts":"@circles/contracts","validated":true,"version":1}
+curl -X POST http://127.0.0.1:54321/functions/v1/track-events -H 'content-type: application/json' -d '{"events":[]}'
 ```

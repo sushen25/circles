@@ -74,8 +74,12 @@ the network and a domain that exists.
 
 Edge Functions run on Deno, which has **no `node_modules`**. Every bare import
 reachable from `packages/*/dist` must be in `supabase/functions/import_map.json`
-as `npm:<name>@<range>`, or the deploy fails at bundle time. `pnpm check:imports`
-is inside `pnpm check` and catches it before CI does.
+as `npm:<name>@<exact version>`, or the deploy fails at bundle time. The version
+is exact and is the one `pnpm-lock.yaml` resolves, and `supabase/functions/deno.lock`
+holds the hashes ([ADR 0075](docs/decisions/0075-edge-function-dependencies-are-exact-and-locked.md);
+regenerate it as `supabase/functions/README.md` says). `pnpm check:imports` is
+inside `pnpm check` and catches a missing entry, a range, a disagreement with
+the pnpm lock and an unlocked entry before CI does.
 
 **Add a new file to `packages/*/dist` and the local Edge Functions stop
 booting** until `pnpm db:stop && pnpm db:start`. The runtime container bind-mounts
