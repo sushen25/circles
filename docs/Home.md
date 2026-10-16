@@ -14,7 +14,7 @@ on Obsidian being open, and nothing in the repository reads `.obsidian/`.
 | Guest → app | [guest-to-app-flow.md](guest-to-app-flow.md) |
 | How we work | [working-process.md](working-process.md) · tickets in [tickets.md](tickets.md) |
 | Runbooks | [runbooks/README.md](runbooks/README.md) |
-| Research | [branding](research/branding-research.md) · [consumer SaaS](research/consumer-saas-success-research.md) · [the meetup market](research/meetup-market-research.md) · [software moats](research/software-moats-research.md) |
+| Research | [branding](research/branding-research.md) · [consumer SaaS](research/consumer-saas-success-research.md) · [the meetup market](research/meetup-market-research.md) · [software moats](research/software-moats-research.md) · [pricing](research/pricing-research.md) |
 | Audits | `audits/` · review reports, kept out of git because the repository is public |
 
 The rules for anyone working in the repository are in `AGENTS.md`, one level
