@@ -78,7 +78,6 @@ function checkLinks(file, text, { vault }) {
 }
 
 const pad = (n) => String(n).padStart(2, '0');
-const escapeRe = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function checkAdrs() {
   const dir = join(DOCS, 'decisions');
