@@ -114,6 +114,11 @@ test('a returning guest opens a new plan with nothing tapped, and the usual days
   await expect(page.getByText('Filled in from your usual days.')).toBeVisible();
   await expect(page.getByRole('button', { name: OFFER })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Send my times' })).toBeEnabled();
+  // Looking at the hours and pressing Done changes nothing: the note stays.
+  await page.getByRole('button', { name: /^Adjust hours for/ }).click();
+  await expect(page.getByRole('heading', { name: 'Your hours each evening' })).toBeVisible();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page.getByText('Filled in from your usual days.')).toBeVisible();
   await page.getByRole('button', { name: /^Undo/ }).click();
   await expect(tapped(page)).toHaveCount(0);
   await expect(page.getByRole('button', { name: OFFER })).toBeVisible();
@@ -122,6 +127,20 @@ test('a returning guest opens a new plan with nothing tapped, and the usual days
   await page.getByRole('button', { name: OFFER }).click();
   const count = await tapped(page).count();
   expect(count).toBeGreaterThan(0);
+  // A time changed in the hours step is the person's own: the note and Undo go,
+  // and so does the offer.
+  await page.getByRole('button', { name: /^Adjust hours for/ }).click();
+  await page
+    .getByRole('button', { name: /Set exact hours$/ })
+    .first()
+    .click();
+  await page.getByRole('button', { name: /^Free from, .*, 5:30 pm$/ }).click();
+  await page.getByRole('radio', { name: '6:00 pm', exact: true }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page.getByText('Filled in from your usual days.')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Undo/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: OFFER })).toHaveCount(0);
+
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page).toHaveURL(new RegExp(`/j/${second.code}/sent$`));
   expect(answerOf(second.id, ren)?.status).toBe('windows');

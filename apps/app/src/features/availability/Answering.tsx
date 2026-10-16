@@ -238,6 +238,11 @@ export function Answering({
   // Painting a day's last half hour off untaps it: with no day left there is
   // nothing to give a time to, so the step is left for the first screen.
   const noDays = exact && view.cards.length === 0;
+  // `restore` is registered once, so it reads the days through a ref.
+  const daysNow = useRef(state.days);
+  useEffect(() => {
+    daysNow.current = state.days;
+  });
   useHoursHandoff({
     exact,
     handoff,
@@ -246,7 +251,7 @@ export function Answering({
     restore: (answer) => {
       // The hours step changed the answer by hand: the note goes, and so does
       // the offer for the rest of the opening.
-      if (JSON.stringify(answer.state.days) !== JSON.stringify(state.days)) {
+      if (JSON.stringify(answer.state.days) !== JSON.stringify(daysNow.current)) {
         setHandTapped(true);
         setFromUsual(false);
       }
