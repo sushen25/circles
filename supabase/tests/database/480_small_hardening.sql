@@ -5,7 +5,7 @@
 -- scheduler), the service role's invite reissue, and the short-code sampler.
 
 begin;
-select plan(17);
+select plan(20);
 
 create or replace function pg_temp.act_as(id uuid)
 returns void
@@ -117,15 +117,19 @@ select is(
 -- ---------------------------------------------------------------------------
 
 select ok(
-  has_function_privilege('service_role', 'public.reissue_invite(uuid, bytea, uuid)', 'execute')
-    and not has_function_privilege('authenticated', 'public.reissue_invite(uuid, bytea, uuid)', 'execute')
-    and not has_function_privilege('anon', 'public.reissue_invite(uuid, bytea, uuid)', 'execute'),
+  has_function_privilege('service_role', 'public.reissue_invite(uuid, bytea, uuid, uuid)', 'execute')
+    and not has_function_privilege('authenticated', 'public.reissue_invite(uuid, bytea, uuid, uuid)', 'execute')
+    and not has_function_privilege('anon', 'public.reissue_invite(uuid, bytea, uuid, uuid)', 'execute'),
   'only the service role may reissue an invite'
 );
 
-select public.reissue_invite(
-  (select circle_id from fixture), extensions.digest('new-secret', 'sha256'),
-  '48000000-0000-0000-0000-0000000000a2'
+select is(
+  public.reissue_invite(
+    (select circle_id from fixture), extensions.digest('new-secret', 'sha256'),
+    '48000000-0000-0000-0000-0000000000a2', '48000000-0000-0000-0000-0000000000a1'
+  ),
+  true,
+  'the invite the sweep saw is replaced'
 );
 
 select is(
@@ -165,9 +169,26 @@ select is(
 );
 select throws_ok(
   $$select public.reissue_invite('48000000-0000-0000-0000-0000000000ff', extensions.digest('x', 'sha256'),
-    '48000000-0000-0000-0000-0000000000a3')$$,
+    '48000000-0000-0000-0000-0000000000a3', '48000000-0000-0000-0000-0000000000a1')$$,
   'P0002', 'circle_not_found',
   'an unknown circle is refused'
+);
+
+-- The owner reset the link after the sweep read it: the sweep's call is stale,
+-- and must not revoke the link that is live now.
+select is(
+  public.reissue_invite(
+    (select circle_id from fixture), extensions.digest('stale', 'sha256'),
+    '48000000-0000-0000-0000-0000000000a4', '48000000-0000-0000-0000-0000000000a1'
+  ),
+  false,
+  'a stale replacement does nothing'
+);
+select is(
+  (select id from public.circle_invites
+    where circle_id = (select circle_id from fixture) and revoked_at is null),
+  '48000000-0000-0000-0000-0000000000a2'::uuid,
+  'and the link that is live stays live'
 );
 
 -- ---------------------------------------------------------------------------

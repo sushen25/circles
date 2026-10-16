@@ -58,6 +58,7 @@ export function planFor(live, newKey, newId = randomUUID()) {
   return {
     p_circle_id: live.circle_id,
     p_invite_id: newId,
+    p_replaces: live.id,
     p_secret_hash: digestHex(deriveInviteSecret(newKey, newId)),
   };
 }
@@ -143,11 +144,12 @@ export async function run({
       return { live: live.length, reissued, remaining: 0 };
     }
     for (const step of todo) {
-      await rest(base, serviceKey, 'rpc/reissue_invite', {
+      const replaced = await rest(base, serviceKey, 'rpc/reissue_invite', {
         method: 'POST',
         body: JSON.stringify(step),
       });
-      reissued += 1;
+      // false: the owner reset that link after it was read, so it is not ours to touch.
+      if ((await replaced.json()) === true) reissued += 1;
     }
   }
   throw new Error(

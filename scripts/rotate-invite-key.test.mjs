@@ -29,6 +29,7 @@ test('leaves an invite that is already under the new key, and replaces one that 
   const stale = { ...current, secret_hash: digestHex(deriveInviteSecret('old', ID)) };
   const step = planFor(stale, 'new', '48000000-0000-4000-8000-0000000000a2');
   assert.equal(step.p_circle_id, 'c1');
+  assert.equal(step.p_replaces, ID);
   assert.equal(step.p_invite_id, '48000000-0000-4000-8000-0000000000a2');
   assert.equal(
     step.p_secret_hash,
@@ -77,7 +78,7 @@ test('sweeps again until nothing is left, so a link made mid-run is caught', asy
           secret_hash: digestHex(deriveInviteSecret('old', 'i2')),
         });
       }
-      return new Response('null', { status: 200 });
+      return new Response('true', { status: 200 });
     }
     return new Response(JSON.stringify([...live.values()]), { status: 200 });
   };
