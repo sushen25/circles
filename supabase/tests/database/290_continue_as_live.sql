@@ -8,6 +8,28 @@
 begin;
 select plan(76);
 
+-- SUS-114: the token form of reattachment is `reattach_with_token`, the service
+-- role's, called by its Edge Function with the person it verified. This is that
+-- call, made for whoever the test is acting as: it reads who that is, becomes
+-- the service role for the one call, and goes back.
+create or replace function pg_temp.reattach_token(h bytea) returns public.circles
+language plpgsql as $$
+declare
+  me uuid := auth.uid();
+  prev text := current_setting('role');
+  claims text := current_setting('request.jwt.claims', true);
+  r public.circles;
+begin
+  -- The service role's own JWT, as in production: no `sub`, so `auth.uid()` is null.
+  perform set_config('role', 'service_role', true);
+  perform set_config('request.jwt.claims', '', true);
+  select * into r from public.reattach_with_token(me, h);
+  perform set_config('role', prev, true);
+  perform set_config('request.jwt.claims', coalesce(claims, ''), true);
+  return r;
+end;
+$$;
+
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
 language sql
@@ -346,7 +368,7 @@ select throws_ok(
   'reattach_member refuses on an archived circle'
 );
 select throws_ok(
-  $$ select public.reattach_member(null, null, pg_temp.digest_of('archived-link')) $$,
+  $$ select pg_temp.reattach_token(pg_temp.digest_of('archived-link')) $$,
   'member_not_found',
   'with an emailed link as well, and the same answer'
 );
@@ -404,7 +426,7 @@ select lives_ok(
 
 select pg_temp.act_as('29000000-0000-0000-0000-000000000201', true);
 select lives_ok(
-  $$ select public.reattach_member(null, null, pg_temp.digest_of('link-1')) $$,
+  $$ select pg_temp.reattach_token(pg_temp.digest_of('link-1')) $$,
   'Nina takes it back with the link she was emailed'
 );
 select pg_temp.act_as_postgres();
@@ -418,7 +440,7 @@ select lives_ok(
 );
 select pg_temp.act_as('29000000-0000-0000-0000-000000000202', true);
 select lives_ok(
-  $$ select public.reattach_member(null, null, pg_temp.digest_of('link-2')) $$,
+  $$ select pg_temp.reattach_token(pg_temp.digest_of('link-2')) $$,
   'and Nina returns'
 );
 
@@ -439,7 +461,7 @@ select throws_ok(
 
 select pg_temp.act_as('29000000-0000-0000-0000-000000000203', true);
 select lives_ok(
-  $$ select public.reattach_member(null, null, pg_temp.digest_of('link-3')) $$,
+  $$ select pg_temp.reattach_token(pg_temp.digest_of('link-3')) $$,
   'but Nina, five moves into the chain, gets back with her link: her moves are not counted and not refused'
 );
 select pg_temp.act_as_postgres();
@@ -496,13 +518,13 @@ values ('29000000-0000-0000-0000-000000000106', 'taker-own@example.com', 'verifi
 select pg_temp.link_for('taker-own@example.com', 'taker-link-1');
 select pg_temp.act_as('29000000-0000-0000-0000-000000000107', true);
 select lives_ok(
-  $$ select public.reattach_member(null, null, pg_temp.digest_of('taker-link-1')) $$,
+  $$ select pg_temp.reattach_token(pg_temp.digest_of('taker-link-1')) $$,
   'a second stranger uses a link for the first one''s own mailbox: allowed, and not counted'
 );
 
 select pg_temp.act_as('29000000-0000-0000-0000-000000000206', true);
 select lives_ok(
-  $$ select public.reattach_member(null, null, pg_temp.digest_of('tom-own-1')) $$,
+  $$ select pg_temp.reattach_token(pg_temp.digest_of('tom-own-1')) $$,
   'Tom returns with the link for his own address'
 );
 
@@ -527,7 +549,7 @@ select throws_ok(
 );
 select pg_temp.act_as('29000000-0000-0000-0000-000000000207', true);
 select lives_ok(
-  $$ select public.reattach_member(null, null, pg_temp.digest_of('tom-own-2')) $$,
+  $$ select pg_temp.reattach_token(pg_temp.digest_of('tom-own-2')) $$,
   'while Tom''s own link still gets him back'
 );
 select pg_temp.act_as_postgres();
@@ -585,7 +607,7 @@ update private.email_action_tokens set expires_at = now() - interval '1 minute'
 where token_hash = pg_temp.digest_of('stale-link');
 select pg_temp.act_as('29000000-0000-0000-0000-000000000204', true);
 select throws_ok(
-  $$ select public.reattach_member(null, null, pg_temp.digest_of('stale-link')) $$,
+  $$ select pg_temp.reattach_token(pg_temp.digest_of('stale-link')) $$,
   'token_invalid',
   'an expired link is still refused: not counting its move is not the same as honouring it'
 );
@@ -677,7 +699,7 @@ select public.issue_reentry_token(
 
 select pg_temp.act_as(pg_temp.bid('13', 1), true);
 select lives_ok(
-  $$ select public.reattach_member(null, null, pg_temp.digest_of('burst-link')) $$,
+  $$ select pg_temp.reattach_token(pg_temp.digest_of('burst-link')) $$,
   'a member with an emailed link comes back even when the circle''s hourly allowance is spent'
 );
 

@@ -10,6 +10,28 @@
 begin;
 select plan(74);
 
+-- SUS-114: `redeem_invite` is the service role's, called by its Edge Function
+-- with the person it verified. This is that call, made for whoever the test is
+-- acting as: it reads who that is, becomes the service role for the one call,
+-- and goes back, so the assertions below read as they always did.
+create or replace function pg_temp.redeem(h bytea, n text) returns public.circles
+language plpgsql as $$
+declare
+  me uuid := auth.uid();
+  prev text := current_setting('role');
+  claims text := current_setting('request.jwt.claims', true);
+  r public.circles;
+begin
+  -- The service role's own JWT, as in production: no `sub`, so `auth.uid()` is null.
+  perform set_config('role', 'service_role', true);
+  perform set_config('request.jwt.claims', '', true);
+  select * into r from public.redeem_invite(me, h, n);
+  perform set_config('role', prev, true);
+  perform set_config('request.jwt.claims', coalesce(claims, ''), true);
+  return r;
+end;
+$$;
+
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
 language sql
@@ -141,19 +163,19 @@ from fixture;
 select pg_temp.act_as('90000000-0000-0000-0000-000000000002', true);
 
 select throws_ok(
-  $$ select public.redeem_invite(pg_temp.digest_of('no-such-secret'), 'Nina') $$,
+  $$ select pg_temp.redeem(pg_temp.digest_of('no-such-secret'), 'Nina') $$,
   'invite_inactive',
   'a secret nobody issued is an inactive invite'
 );
 
 select throws_ok(
-  $$ select public.redeem_invite(pg_temp.digest_of('rotated-secret'), 'Nina') $$,
+  $$ select pg_temp.redeem(pg_temp.digest_of('rotated-secret'), 'Nina') $$,
   'invite_inactive',
   'a rotated link is an inactive invite, not a different error'
 );
 
 select lives_ok(
-  $$ select public.redeem_invite(pg_temp.digest_of('live-secret'), 'Nina') $$,
+  $$ select pg_temp.redeem(pg_temp.digest_of('live-secret'), 'Nina') $$,
   'a guest redeems a live link'
 );
 
@@ -179,7 +201,7 @@ select is(pg_temp.invite_uses(pg_temp.circle_id()), 1, 'one redemption, one use 
 
 -- Idempotence by state: the same caller, the same link, again.
 select lives_ok(
-  $$ select public.redeem_invite(pg_temp.digest_of('live-secret'), 'Nina') $$,
+  $$ select pg_temp.redeem(pg_temp.digest_of('live-secret'), 'Nina') $$,
   'redeeming twice is not an error'
 );
 
@@ -198,7 +220,7 @@ select is(
 select pg_temp.act_as('90000000-0000-0000-0000-000000000003', true);
 
 select throws_ok(
-  $$ select public.redeem_invite(pg_temp.digest_of('live-secret'), '  nina ') $$,
+  $$ select pg_temp.redeem(pg_temp.digest_of('live-secret'), '  nina ') $$,
   'duplicate_name',
   'a name that differs only by case and spacing is a duplicate'
 );
@@ -206,7 +228,7 @@ select throws_ok(
 select is(pg_temp.invite_uses(pg_temp.circle_id()), 1, 'a refused redemption counts no use');
 
 select lives_ok(
-  $$ select public.redeem_invite(pg_temp.digest_of('live-secret'), 'Tom') $$,
+  $$ select pg_temp.redeem(pg_temp.digest_of('live-secret'), 'Tom') $$,
   'a free name is accepted'
 );
 
@@ -216,7 +238,7 @@ select is(pg_temp.invite_uses(pg_temp.circle_id()), 2, 'and counts its use');
 -- saved place, and having one is not a reason to be turned away (ADR 0004).
 select pg_temp.act_as('90000000-0000-0000-0000-000000000005');
 select lives_ok(
-  $$ select public.redeem_invite(pg_temp.digest_of('live-secret'), 'Sam') $$,
+  $$ select pg_temp.redeem(pg_temp.digest_of('live-secret'), 'Sam') $$,
   'a saved-place identity can redeem an invite too'
 );
 
@@ -229,7 +251,7 @@ select pg_temp.make_user('90000000-0000-0000-0000-0000000009fe', 'Marks Only', t
 select pg_temp.act_as('90000000-0000-0000-0000-0000000009fe', true);
 
 select throws_ok(
-  $$ select public.redeem_invite(pg_temp.digest_of('live-secret'), E'\u0301\u0302') $$,
+  $$ select pg_temp.redeem(pg_temp.digest_of('live-secret'), E'\u0301\u0302') $$,
   'display_name_unusable',
   'a name that canonicalises to nothing is refused as a name, not as a server error'
 );
@@ -248,7 +270,7 @@ delete from jobs.outbox where event_name in ('circles.member_joined', 'circles.m
 
 select pg_temp.act_as('90000000-0000-0000-0000-000000000003', true);
 select lives_ok(
-  $$ select public.redeem_invite(pg_temp.digest_of('live-secret'), 'Tom again') $$,
+  $$ select pg_temp.redeem(pg_temp.digest_of('live-secret'), 'Tom again') $$,
   'a removed member redeeming a live link joins again'
 );
 
@@ -302,7 +324,7 @@ select pg_temp.make_user('90000000-0000-0000-0000-0000000009ff', 'One Too Many',
 select pg_temp.act_as('90000000-0000-0000-0000-0000000009ff', true);
 
 select throws_ok(
-  $$ select public.redeem_invite(pg_temp.digest_of('live-secret'), 'One Too Many') $$,
+  $$ select pg_temp.redeem(pg_temp.digest_of('live-secret'), 'One Too Many') $$,
   'circle_full',
   'the next redemption is refused as circle_full'
 );
@@ -326,7 +348,7 @@ where m.circle_id = f.circle_id and m.user_id = '90000000-0000-0000-0000-0000000
 
 select pg_temp.act_as('90000000-0000-0000-0000-0000000009ff', true);
 select lives_ok(
-  $$ select public.redeem_invite(pg_temp.digest_of('live-secret'), 'One Too Many') $$,
+  $$ select pg_temp.redeem(pg_temp.digest_of('live-secret'), 'One Too Many') $$,
   'a seat freed is a seat available'
 );
 
@@ -437,10 +459,10 @@ select is(
 select pg_temp.act_as_nobody();
 
 select throws_ok(
-  $$ select public.redeem_invite('\x00'::bytea, 'Nobody') $$,
+  $$ select public.redeem_invite(gen_random_uuid(), '\x00'::bytea, 'Nobody') $$,
   '42501',
   'permission denied for function redeem_invite',
-  'anon cannot redeem an invite: joining needs a session, even an anonymous one'
+  'anon cannot redeem an invite: it is the service role''s, called with the person the Edge Function verified'
 );
 
 select throws_ok(
@@ -460,8 +482,9 @@ select ok(
 );
 
 select ok(
-  has_function_privilege('authenticated', 'public.redeem_invite(bytea, text)', 'execute'),
-  'an authenticated caller, anonymous or not, can redeem'
+  not has_function_privilege('authenticated', 'public.redeem_invite(uuid, bytea, text)', 'execute')
+  and has_function_privilege('service_role', 'public.redeem_invite(uuid, bytea, text)', 'execute'),
+  'redeeming is the service role''s: no signed-in caller, anonymous or not, can say it with a stored digest (SUS-114)'
 );
 
 select ok(

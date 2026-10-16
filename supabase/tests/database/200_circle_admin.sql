@@ -8,6 +8,45 @@
 begin;
 select plan(44);
 
+-- SUS-114: `live_invite` is the service role's, called by `get-invite-link` with
+-- the owner it verified. This is that call for whoever the test is acting as.
+create or replace function pg_temp.live(c uuid) returns table (invite_id uuid, secret_hash bytea)
+language plpgsql as $$
+declare
+  me uuid := auth.uid();
+  prev text := current_setting('role');
+  claims text := current_setting('request.jwt.claims', true);
+begin
+  perform set_config('role', 'service_role', true);
+  perform set_config('request.jwt.claims', '', true);
+  return query select * from public.live_invite(c, me);
+  perform set_config('role', prev, true);
+  perform set_config('request.jwt.claims', coalesce(claims, ''), true);
+end;
+$$;
+
+-- SUS-114: `redeem_invite` is the service role's, called by its Edge Function
+-- with the person it verified. This is that call, made for whoever the test is
+-- acting as: it reads who that is, becomes the service role for the one call,
+-- and goes back, so the assertions below read as they always did.
+create or replace function pg_temp.redeem(h bytea, n text) returns public.circles
+language plpgsql as $$
+declare
+  me uuid := auth.uid();
+  prev text := current_setting('role');
+  claims text := current_setting('request.jwt.claims', true);
+  r public.circles;
+begin
+  -- The service role's own JWT, as in production: no `sub`, so `auth.uid()` is null.
+  perform set_config('role', 'service_role', true);
+  perform set_config('request.jwt.claims', '', true);
+  select * into r from public.redeem_invite(me, h, n);
+  perform set_config('role', prev, true);
+  perform set_config('request.jwt.claims', coalesce(claims, ''), true);
+  return r;
+end;
+$$;
+
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
 language sql
@@ -90,33 +129,35 @@ select public.create_circle('Book Club', 'plum', 'Australia/Melbourne', 'sus39-s
 
 select pg_temp.act_as('20000000-0000-0000-0000-000000000001');
 select is(
-  (select invite_id from public.live_invite((select circle_id from fixture))),
+  (select invite_id from pg_temp.live((select circle_id from fixture))),
   '20000000-0000-0000-0000-0000000000f1'::uuid,
   'the owner is told which invite is live'
 );
 select is(
-  (select secret_hash from public.live_invite((select circle_id from fixture))),
+  (select secret_hash from pg_temp.live((select circle_id from fixture))),
   extensions.digest('first-secret', 'sha256'),
   'and its digest, never the secret — the database does not have it'
 );
 
 select pg_temp.act_as('20000000-0000-0000-0000-000000000002', true);
 select throws_ok(
-  $$select * from public.live_invite((select circle_id from fixture))$$,
+  $$select * from pg_temp.live((select circle_id from fixture))$$,
   '42501', 'not_the_owner',
   'a member who is not the owner is refused'
 );
 
 select pg_temp.act_as('20000000-0000-0000-0000-000000000004');
 select throws_ok(
-  $$select * from public.live_invite((select circle_id from fixture))$$,
+  $$select * from pg_temp.live((select circle_id from fixture))$$,
   '42501', 'not_the_owner',
   'and so is somebody from another circle'
 );
 
 select ok(
-  not has_function_privilege('anon', 'public.live_invite(uuid)', 'execute'),
-  'anon cannot ask at all'
+  not has_function_privilege('anon', 'public.live_invite(uuid, uuid)', 'execute')
+  and not has_function_privilege('authenticated', 'public.live_invite(uuid, uuid)', 'execute')
+  and has_function_privilege('service_role', 'public.live_invite(uuid, uuid)', 'execute'),
+  'only the service role can ask: the digest does not reach a client (SUS-114)'
 );
 
 -- ---------------------------------------------------------------------------
@@ -138,24 +179,24 @@ select lives_ok(
   'the owner resets it, naming the new invite''s id'
 );
 select is(
-  (select invite_id from public.live_invite((select circle_id from fixture))),
+  (select invite_id from pg_temp.live((select circle_id from fixture))),
   '20000000-0000-0000-0000-0000000000f2'::uuid,
   'the new invite is the live one'
 );
 select is(
-  (select count(*)::integer from public.live_invite((select circle_id from fixture))),
+  (select count(*)::integer from pg_temp.live((select circle_id from fixture))),
   1,
   'and the only one'
 );
 
 select pg_temp.act_as('20000000-0000-0000-0000-000000000005', true);
 select throws_ok(
-  $$select public.redeem_invite(extensions.digest('first-secret', 'sha256'), 'Ren')$$,
+  $$select pg_temp.redeem(extensions.digest('first-secret', 'sha256'), 'Ren')$$,
   'P0002', 'invite_inactive',
   'the old link answers invite_inactive'
 );
 select lives_ok(
-  $$select public.redeem_invite(extensions.digest('second-secret', 'sha256'), 'Ren')$$,
+  $$select pg_temp.redeem(extensions.digest('second-secret', 'sha256'), 'Ren')$$,
   'the new one lets somebody in'
 );
 

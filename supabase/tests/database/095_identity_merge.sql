@@ -9,6 +9,28 @@
 begin;
 select plan(148);
 
+-- SUS-114: the token form of reattachment is `reattach_with_token`, the service
+-- role's, called by its Edge Function with the person it verified. This is that
+-- call, made for whoever the test is acting as: it reads who that is, becomes
+-- the service role for the one call, and goes back.
+create or replace function pg_temp.reattach_token(h bytea) returns public.circles
+language plpgsql as $$
+declare
+  me uuid := auth.uid();
+  prev text := current_setting('role');
+  claims text := current_setting('request.jwt.claims', true);
+  r public.circles;
+begin
+  -- The service role's own JWT, as in production: no `sub`, so `auth.uid()` is null.
+  perform set_config('role', 'service_role', true);
+  perform set_config('request.jwt.claims', '', true);
+  select * into r from public.reattach_with_token(me, h);
+  perform set_config('role', prev, true);
+  perform set_config('request.jwt.claims', coalesce(claims, ''), true);
+  return r;
+end;
+$$;
+
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
 language sql
@@ -329,17 +351,20 @@ select throws_ok(
   'neither a membership nor a token is a programming error, not a silent no-op'
 );
 
+-- SUS-114: a token is not an argument of the caller's function any more, so
+-- "both at once" cannot be said to it at all.
 select throws_ok(
   format($$ select public.reattach_member(%L, %L, %L) $$,
          pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000e1',
          extensions.digest('anything', 'sha256')),
-  'reattach_member takes a target membership or a re-entry token, not both and not neither',
-  'and so is both at once'
+  '42883',
+  null,
+  'and a token is not something the list function takes'
 );
 
 select pg_temp.act_as('95000000-0000-0000-0000-0000000000c1', true);
 select throws_ok(
-  format($$ select public.reattach_member(null, null, %L) $$,
+  format($$ select pg_temp.reattach_token(%L) $$,
          extensions.digest('never-issued', 'sha256')),
   'token_invalid',
   'a token nobody issued authorises nothing'
@@ -363,7 +388,7 @@ select pg_temp.make_user('95000000-0000-0000-0000-0000000000e2', 'Device E2', tr
 select pg_temp.act_as('95000000-0000-0000-0000-0000000000e2', true);
 
 select lives_ok(
-  format($$ select public.reattach_member(null, null, %L) $$,
+  format($$ select pg_temp.reattach_token(%L) $$,
          extensions.digest('reentry-secret', 'sha256')),
   'an emailed re-entry token moves the membership without the list'
 );
@@ -400,7 +425,7 @@ select isnt_empty(
 select pg_temp.make_user('95000000-0000-0000-0000-0000000000e3', 'Device E3', true);
 select pg_temp.act_as('95000000-0000-0000-0000-0000000000e3', true);
 select throws_ok(
-  format($$ select public.reattach_member(null, null, %L) $$,
+  format($$ select pg_temp.reattach_token(%L) $$,
          extensions.digest('reentry-secret', 'sha256')),
   'token_invalid',
   'and cannot be spent twice'
@@ -1428,7 +1453,7 @@ select pg_temp.act_as_postgres();
 update auth.users set email = 'mo@example.com' where id = '95000000-0000-0000-0000-0000000b7102';
 select pg_temp.act_as('95000000-0000-0000-0000-0000000b7103', true);
 select throws_ok(
-  format($$ select public.reattach_member(null, null, %L) $$,
+  format($$ select pg_temp.reattach_token(%L) $$,
          extensions.digest('mo-reentry', 'sha256')),
   'target_is_permanent',
   'so following it says "this is an account now", not "this link is broken"'
@@ -1813,7 +1838,7 @@ from private.email_contacts ec where ec.email_normalized = 'ros@example.com';
 
 select pg_temp.act_as('95000000-0000-0000-0000-0000000d3101', true);
 select lives_ok(
-  format($$ select public.reattach_member(null, null, %L) $$,
+  format($$ select pg_temp.reattach_token(%L) $$,
          extensions.digest('ros-reentry', 'sha256')),
   'following your own link while still signed in is answered, not refused'
 );

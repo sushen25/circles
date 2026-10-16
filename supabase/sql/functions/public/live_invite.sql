@@ -12,18 +12,18 @@
 -- not the owner is refused rather than answered with nothing, so the screen can
 -- tell "you may not" from "there is no link".
 --
--- The digest reaches its owner. That is not the secret, and nothing accepts it
--- in place of one: `redeem_invite` and `invite_preview` hash what they are
--- given, so a digest presented as a secret is a digest of a digest. It is
--- returned because comparing it here instead would mean the Edge Function
--- sending the derived secret's digest back in, which is the same comparison
--- with one more round trip.
+-- **The service role's, not the client's (SUS-114).** The digest is not the
+-- secret, but it was a way in, and an owner's client has no use for it:
+-- only `get-invite-link` compares it. So that function calls this with the
+-- owner it verified from the JWT as `p_user_id`, and the digest stops at the
+-- server. (The owner check is `auth_is_owner`'s, restated for a caller who is
+-- an argument rather than `auth.uid()`.)
 --
 -- No row when the circle has no live invite: a circle made without one (the
 -- fixtures do that) has nothing to show until the owner resets it.
 -- ---------------------------------------------------------------------------
 
-create or replace function public.live_invite(p_circle_id uuid)
+create or replace function public.live_invite(p_circle_id uuid, p_user_id uuid)
 returns table (invite_id uuid, secret_hash bytea)
 language plpgsql
 stable
@@ -31,14 +31,20 @@ security definer
 set search_path = ''
 as $$
 begin
-  if (select auth.uid()) is null then
-    raise exception 'live_invite requires a signed-in actor'
+  if p_user_id is null then
+    raise exception 'live_invite requires the owner asking'
       using errcode = 'insufficient_privilege';
   end if;
 
-  -- `auth_is_owner` asks for an *active* owner: an owner who has left owns
+  -- As `auth_is_owner`, this asks for an *active* owner: an owner who has left owns
   -- nothing, and an id that is not a circle is simply not theirs.
-  if not public.auth_is_owner(p_circle_id) then
+  if not exists (
+    select 1
+    from public.circles c
+    join public.circle_members m
+      on m.circle_id = c.id and m.user_id = c.owner_user_id and m.status = 'active'
+    where c.id = p_circle_id and c.owner_user_id = p_user_id
+  ) then
     raise exception 'not_the_owner' using errcode = 'insufficient_privilege';
   end if;
 
@@ -49,9 +55,9 @@ begin
 end;
 $$;
 
-comment on function public.live_invite(uuid) is
-  'The id and digest of a circle''s live invite, for its owner, so get-invite-link can re-derive the secret (ADR 0028). Never the secret: the database does not have it.';
+comment on function public.live_invite(uuid, uuid) is
+  'The id and digest of a circle''s live invite, if p_user_id owns the circle, so get-invite-link can re-derive the secret (ADR 0028). Never the secret: the database does not have it. Service role only: the digest does not reach a client (SUS-114).';
 
-revoke all on function public.live_invite(uuid) from public;
-revoke all on function public.live_invite(uuid) from anon, authenticated;
-grant execute on function public.live_invite(uuid) to authenticated;
+revoke all on function public.live_invite(uuid, uuid) from public;
+revoke all on function public.live_invite(uuid, uuid) from anon, authenticated;
+grant execute on function public.live_invite(uuid, uuid) to service_role;

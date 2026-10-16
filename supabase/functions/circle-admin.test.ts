@@ -128,7 +128,7 @@ describe('get-invite-link', () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ invite_secret: secret });
-    expect(called('live_invite')[0]?.args).toEqual({ p_circle_id: CIRCLE });
+    expect(called('live_invite')[0]?.args).toEqual({ p_circle_id: CIRCLE, p_user_id: OWNER });
   });
 
   it('answers null for a link that was not derived — it can only be reset', async () => {

@@ -7,6 +7,28 @@
 begin;
 select plan(25);
 
+-- SUS-114: the token form of reattachment is `reattach_with_token`, the service
+-- role's, called by its Edge Function with the person it verified. This is that
+-- call, made for whoever the test is acting as: it reads who that is, becomes
+-- the service role for the one call, and goes back.
+create or replace function pg_temp.reattach_token(h bytea) returns public.circles
+language plpgsql as $$
+declare
+  me uuid := auth.uid();
+  prev text := current_setting('role');
+  claims text := current_setting('request.jwt.claims', true);
+  r public.circles;
+begin
+  -- The service role's own JWT, as in production: no `sub`, so `auth.uid()` is null.
+  perform set_config('role', 'service_role', true);
+  perform set_config('request.jwt.claims', '', true);
+  select * into r from public.reattach_with_token(me, h);
+  perform set_config('role', prev, true);
+  perform set_config('request.jwt.claims', coalesce(claims, ''), true);
+  return r;
+end;
+$$;
+
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
 language sql
@@ -226,7 +248,7 @@ select pg_temp.set_state('cancelled');
 select pg_temp.make_user('41800000-0000-0000-0000-0000000000c1', 'Tom new phone', true);
 select pg_temp.act_as('41800000-0000-0000-0000-0000000000c1', true);
 select lives_ok(
-  $$ select public.reattach_member(null, null, extensions.digest('tom-quiet-link', 'sha256')) $$,
+  $$ select pg_temp.reattach_token(extensions.digest('tom-quiet-link', 'sha256')) $$,
   'Tom comes back with his emailed link even though the plan is cancelled'
 );
 select pg_temp.act_as_postgres();
@@ -246,7 +268,7 @@ select ok(
 );
 select ok(
   has_function_privilege('authenticated', 'public.guest_members_for_reattach(text)', 'execute')
-  and has_function_privilege('authenticated', 'public.reattach_member(uuid, uuid, bytea)', 'execute'),
+  and has_function_privilege('authenticated', 'public.reattach_member(uuid, uuid)', 'execute'),
   'and the two public functions are still granted to signed-in callers'
 );
 

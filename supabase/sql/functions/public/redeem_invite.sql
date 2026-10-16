@@ -12,12 +12,18 @@
 -- "never logged"). The digest finds the invite; the row it finds is the
 -- authority.
 --
--- What this function enforces cannot be bypassed by calling it directly: the
--- invite must be live, the cap holds, the name must be free, and the membership
--- lands on `auth.uid()` rather than on anything the caller says. Turnstile and
--- the per-IP limit live in the Edge Function because they are abuse controls
--- rather than authorisation — skipping them lets somebody make more requests,
--- not make a request the database would have refused.
+-- **The service role's, and nobody else's (SUS-114).** The table keeps only the
+-- SHA-256 of the secret, so if that digest were enough to call this, a copy of
+-- `public.circle_invites` would be a set of working links into every circle,
+-- which is what ADR 0028 chose to hash the secrets to avoid. So only the
+-- `redeem-invite` Edge Function may call it, the way `join_from_plan` is
+-- called: it passes the person it verified from the JWT as `p_user_id`, never
+-- anything out of the request body, and the membership lands on that person.
+--
+-- What this function enforces is what the database would refuse whoever
+-- asked: the invite must be live, the cap holds, the name must be free.
+-- Turnstile and the per-address limit live in the Edge Function because they
+-- are abuse controls rather than authorisation.
 --
 -- Idempotent by its own state rather than by a key column: being an active
 -- member of the circle *is* the record that this already happened, so a retry
@@ -27,6 +33,7 @@
 -- ---------------------------------------------------------------------------
 
 create or replace function public.redeem_invite(
+  p_user_id uuid,
   p_secret_hash bytea,
   p_display_name text
 )
@@ -36,20 +43,20 @@ security definer
 set search_path = ''
 as $$
 declare
-  caller uuid := (select auth.uid());
+  caller uuid := p_user_id;
   invite public.circle_invites;
   target public.circles;
 begin
   if caller is null then
-    raise exception 'redeem_invite requires a signed-in actor'
+    raise exception 'redeem_invite requires the person joining'
       using errcode = 'insufficient_privilege';
   end if;
 
-  -- A limit that holds when this is called directly over RPC, where the Edge
-  -- Function's own never runs. Keyed on the caller (and, below, on the caller's
-  -- own plan or circle): a bucket named only by an id the caller supplies would
-  -- let anybody spend somebody else's allowance by naming their resource.
-  -- Sized far above the Edge limit, so that one is the limit a person meets.
+  -- A limit that holds whatever the Edge Function did. Keyed on the person
+  -- joining, `p_user_id`, which only the service role can name and which the
+  -- Edge Function takes from the verified JWT: never on an id a client could
+  -- choose, which would let anybody spend somebody else's allowance. Sized far
+  -- above the Edge limit, so that one is the limit a person meets.
 
   if not public.take_rate_token(
     'redeem_invite_sql', extensions.digest(caller::text, 'sha256'), 120, interval '1 hour'
@@ -91,9 +98,9 @@ begin
 end;
 $$;
 
-comment on function public.redeem_invite(bytea, text) is
-  'Joins the caller to the circle behind an invite digest. Idempotent on an existing active membership; raises invite_inactive, duplicate_name or circle_full.';
+comment on function public.redeem_invite(uuid, bytea, text) is
+  'Joins p_user_id to the circle behind an invite digest. Idempotent on an existing active membership; raises invite_inactive, duplicate_name or circle_full. Service role only: the digest is stored, so it must not be a way in by itself, and the redeem-invite Edge Function that hashes the secret passes the caller it verified (SUS-114).';
 
-revoke all on function public.redeem_invite(bytea, text) from public;
-revoke all on function public.redeem_invite(bytea, text) from anon, authenticated;
-grant execute on function public.redeem_invite(bytea, text) to authenticated;
+revoke all on function public.redeem_invite(uuid, bytea, text) from public;
+revoke all on function public.redeem_invite(uuid, bytea, text) from anon, authenticated;
+grant execute on function public.redeem_invite(uuid, bytea, text) to service_role;

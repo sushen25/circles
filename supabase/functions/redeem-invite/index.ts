@@ -13,9 +13,11 @@ import { verifyTurnstile } from '../_shared/turnstile.ts';
  * statement parameter, Turnstile and the per-link limits are applied here
  * because they are about *volume*, and then `public.redeem_invite` decides
  * everything that matters: whether the invite is live, whether there is room,
- * whether the name is taken, and whose membership this becomes. Calling it with
- * the caller's own JWT is what makes that last one true — the membership lands
- * on `auth.uid()`, which no request body can influence.
+ * whether the name is taken. It is the **service role's** and this passes the
+ * verified caller's id (`actor.userId`, resolved from the JWT, never read from
+ * the body), so the membership lands on that person. It is not callable by a
+ * client because the digest it takes is what the database stores: if it were,
+ * a copy of `circle_invites` would be a set of working links (SUS-114).
  *
  * **What it costs to call (SUS-113).** Limits are spent by whoever makes the
  * attempts and by nobody else, so one person cannot use up a link's allowance
@@ -58,8 +60,12 @@ Deno.serve(
         }),
       );
     },
-    handle: async ({ body, actor, caller }): Promise<RedeemInviteResponse> => {
-      const { data, error } = await caller.rpc('redeem_invite', {
+    handle: async ({ body, actor, service }): Promise<RedeemInviteResponse> => {
+      // The service role's, with the verified caller named (SUS-114): the digest
+      // the database stores is not a way in on its own, so no client can call
+      // `redeem_invite`. `actor.userId` is the JWT's, never the body's.
+      const { data, error } = await service.rpc('redeem_invite', {
+        p_user_id: actor.userId,
         p_secret_hash: await sha256Hex(body.secret),
         p_display_name: body.display_name,
       });

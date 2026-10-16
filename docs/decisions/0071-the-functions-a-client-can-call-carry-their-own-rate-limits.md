@@ -4,10 +4,11 @@ title: "The functions a client can call carry their own rate limits, and an addr
 status: proposed
 date: 2026-10-15
 builds_on: [19, 20, 49, 64]
+amended_by: [73]
 ---
 # ADR 0071: The functions a client can call carry their own rate limits, and an address is sent one verification letter an hour
 
-_Status: proposed · 15 October 2026 · builds on [ADR 0049](0049-continue-as-resolves-a-code-only-while-it-is-live.md), which put the first limit inside a function, and [ADR 0064](0064-join-limits-charge-the-person-asking-and-a-members-call-is-free.md), which set the rule for whom a limit charges_
+_Status: proposed (`redeem_invite` is the service role's and its bucket is keyed on the person the Edge Function names, [ADR 0073](0073-an-invite-digest-and-a-re-entry-digest-are-not-a-way-in.md)) · 15 October 2026 · builds on [ADR 0049](0049-continue-as-resolves-a-code-only-while-it-is-live.md), which put the first limit inside a function, and [ADR 0064](0064-join-limits-charge-the-person-asking-and-a-members-call-is-free.md), which set the rule for whom a limit charges_
 
 ## Context
 

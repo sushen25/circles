@@ -10,8 +10,10 @@
 -- **What authorises it is the secret.** Keyed by its SHA-256, exactly as
 -- `redeem_invite` is, so the capability itself never becomes a statement
 -- parameter (§14). The client hashes the fragment in the browser; the digest
--- is not a way in — `redeem-invite` takes the secret, not the digest — so
--- whoever sees one can learn only what this returns. A 256-bit secret is not a
+-- is not a way in: `redeem_invite` is the service role's, called by the
+-- `redeem-invite` Edge Function, which takes the secret and hashes it itself
+-- (SUS-114). Whoever holds a digest can learn only what this returns, which is
+-- the least the Join page draws. A 256-bit secret is not a
 -- space anybody walks, which is why there is no rate limit here where
 -- `guest_members_for_reattach`, keyed by a short code, has one.
 --
