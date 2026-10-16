@@ -278,9 +278,11 @@ nobody, which suits a secret nothing else has to agree with:
 | Name | From | `dev` | `prod` |
 |---|---|---|---|
 | `CRON_SECRET` | **nobody — you invent it.** Its only job is that `jobs.invoke_process_scheduled_jobs()` and `_shared/internal.ts` agree on it. It cannot be read back, and the Vault secret `circles_cron_secret` needs the same string | own value | own value |
-| `INVITE_LINK_KEY` | **nobody — you invent it**: `openssl rand -base64 32`. Invite secrets are derived with it so the owner can see their link again ([ADR 0028](../decisions/0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md)). **Optional, and quiet when missing**: links are still made, but only a reset gets the owner a link back. Changing it later makes every existing link unshowable (they keep working). Local stacks set it in `config.toml` | own value | own value |
+| `INVITE_LINK_KEY` | **nobody — you invent it**: `openssl rand -base64 32`. Invite secrets are derived with it so the owner can see their link again ([ADR 0028](../decisions/0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md)). **Optional, and quiet when missing**: links are still made, but only a reset gets the owner a link back. Changing it later makes every existing link unshowable (they keep working): to change it *because it leaked*, follow "The invite key has leaked" below instead of just setting a new value. Local stacks set it in `config.toml` | own value | own value |
 | `CALENDAR_LINK_KEY` | **nobody — you invent it**: `openssl rand -base64 32`. `generate-ics` signs the short-lived token a calendar link carries with it, so one tap on an iPhone opens the system Add to Calendar ([ADR 0063](../decisions/0063-the-calendar-file-is-served-at-a-link-with-a-short-lived-signed-token.md)). **Optional, and quiet when missing**: with no key no token is made and the app fetches the file with the bearer instead (four taps on an iPhone, not one). Changing it only ends links already minted, and they last 15 minutes. Local stacks set it in `config.toml` | own value | own value |
 | `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile, pairs with the site key. **The name matters:** `_shared/turnstile.ts` reads exactly this, and skips the check when it is unset rather than failing — so a secret stored under any other name leaves web joins unverified and looks configured | the **dummy** `1x0000000000000000000000000000000AA`, pairing with the dummy site key at repository scope | the real one |
+| `CIRCLES_ENV` | `hosted` or `local`, **you choose**. Says whether `_shared/turnstile.ts` should refuse a web join when `TURNSTILE_SECRET_KEY` is missing (hosted) or skip the check (local). **Optional, and safe when missing**: without it a function judges from `SUPABASE_URL` and treats anything that is not `localhost`, `127.0.0.1`, `kong` or `host.docker.internal` as hosted, so a custom domain fails closed. Set `hosted` anyway so the answer is a statement rather than an inference | `hosted` | `hosted` |
+| `TURNSTILE_ALLOWED_HOSTNAMES` | Comma-separated hostnames a solved challenge may name, e.g. the production app host. Cloudflare reports where the widget was solved; with this set, a good token solved anywhere else is refused. **Optional**: unset, the hostname is not checked. Leave it unset on `dev`, whose dummy key reports a placeholder hostname | unset | the app's host |
 | `EMAIL_CAPTURE_URL` | **never on a hosted project.** Local only, from `config.toml`. Set on one, it wins over `RESEND_API_KEY` and every product email goes to a catcher that is not there | never | never |
 | `RESEND_API_KEY` | Resend → API Keys | **never** — `dev` does not send | yes |
 | `HEALTH_REPORT_TO` | **you choose** — where the dispatcher's daily health summary goes. Optional: with no address the summary is a structured log line and an `audit_log` row, which is where `dev` should leave it. Counts, one route pattern (`/p/:code`, never an address) and two timestamps; never an identifier | never | yes |
@@ -335,6 +337,26 @@ grants can read `vault.decrypted_secrets`. Even so, the bearer guards only the
 cron → function hop and is not the service-role key. The job command in
 `cron.job` calls the definer function rather than spelling the header out, and
 the function is executable by nobody but the owner.
+
+### The invite key has leaked
+
+`INVITE_LINK_KEY` derives every invite secret (HMAC of the invite's id, [ADR 0028](../decisions/0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md)). The key alone is not enough to open a circle: the digest in the database and the invite ids are not readable by a client, so a leak is a risk to confirm, not an open door. But rotating the key by itself changes nothing that matters, because the old links keep working and merely stop being showable. Do this:
+
+1. Invent the new key: `openssl rand -base64 32`. Keep it in your shell only.
+2. Dry run against the project (reads, counts, changes nothing). The service role key is under Dashboard → Settings → API Keys:
+
+   ```bash
+   SUPABASE_URL=https://<ref>.supabase.co \
+   SUPABASE_SERVICE_ROLE_KEY=<service role key> \
+   INVITE_LINK_KEY_NEW=<the new key> \
+   node scripts/rotate-invite-key.mjs --hosted
+   ```
+
+3. Apply it with `--apply`. Every circle with a live invite gets a new one derived under the new key, and the old one is revoked in the same statement. It is safe to run twice: an invite already under the new key is skipped. The script prints counts only.
+4. Straight away, set the new key as the secret: `make secret ENV=<env> K=INVITE_LINK_KEY V=<the new key>`. Until you do, owners are offered a reset instead of their link.
+5. Tell the owners. Every link already shared is dead: they open the circle's settings and share the link again. Nothing else changes for members, who are already in. The audit log has one `circles.invite_reissued` row per circle, with no actor.
+
+Rehearse it on a local stack first (`http://127.0.0.1:54321`, the key in `supabase/config.toml`, no `--hosted`). The database half is `public.reissue_invite`, callable by `service_role` alone.
 
 ## The EAS account
 
@@ -455,6 +477,15 @@ treating it as a finding:
 | `rls_auto_enable` executable by `anon` and `authenticated` | Not ours. A Supabase platform event-trigger function that auto-enables RLS on new public tables. It reads `pg_event_trigger_ddl_commands()`, so a direct call outside a DDL event does nothing. |
 | Anonymous access policies on `cron.job`, `cron.job_run_details` | pg_cron's own tables, created by the extension. |
 | Leaked-password protection disabled | There are no passwords. Sign-in is a six-digit code or an OAuth provider (§10). |
+
+Also true, and not in the table because the advisor does not name it: `pg_net`'s
+`net.http_get` and `net.http_post` are executable by `anon` and `authenticated`.
+Supabase grants them as `supabase_admin`, who owns the `net` schema; the role
+migrations run as can neither revoke them nor own them, so SUS-125 could not
+close it. The schema is not exposed over PostgREST and nothing of ours wraps it
+(`supabase/tests/database/480_small_hardening.sql` fails if a function other than
+the scheduler's mentions `net.http`), so there is no path. A new definer function
+that calls `net.*` is the thing to refuse in review.
 
 Anything **outside** this table is a real finding. Re-check after every migration
 that adds a definer function or a table.

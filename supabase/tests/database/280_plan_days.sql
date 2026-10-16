@@ -73,11 +73,12 @@ create or replace function pg_temp.make_plan(key text, days date[]) returns uuid
 language plpgsql as $$
 declare
   made public.plans;
+  cid uuid;
 begin
-  perform pg_temp.circle(key);
+  cid := pg_temp.circle(key);
   perform pg_temp.act_as('00000000-0000-0000-0000-0000000028a1');
   select * into made from public.create_plan(
-    (select id from public.circles where creation_key = key), 'Catch up', 'catch_up',
+    cid, 'Catch up', 'catch_up',
     coalesce(days[1], date '2099-09-17'), coalesce(days[cardinality(days)], date '2099-09-27'),
     1050, 1350, 120, 2, timestamptz '2099-09-16T10:00:00Z', null, days);
   perform pg_temp.act_as_postgres();
@@ -137,12 +138,13 @@ select is(pg_temp.days_of(pg_temp.make_plan('days-whole', array[
 select is(pg_temp.days_of(pg_temp.make_plan('days-none', null)), array[]::date[],
   'and a preset, which sends no days, stores none');
 
-select pg_temp.circle('days-bad');
+create temporary table days_bad as select pg_temp.circle('days-bad') as id;
+grant select on days_bad to authenticated;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000028a1');
 create or replace function pg_temp.create_with(days date[], first date, last date)
 returns void language sql as $$
   select from public.create_plan(
-    (select id from public.circles where creation_key = 'days-bad'), 'Catch up', 'catch_up',
+    (select id from days_bad), 'Catch up', 'catch_up',
     first, last, 1050, 1350, 120, 2, timestamptz '2099-09-16T10:00:00Z', null, days);
 $$;
 select throws_ok(

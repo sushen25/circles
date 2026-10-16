@@ -148,7 +148,7 @@ select lives_ok(
 );
 
 select is(
-  (select count(*)::integer from public.circles where creation_key = 'key-sunday'),
+  (select count(*)::integer from public.circles where name = 'Sunday Crew'),
   1,
   'and can see the circle they just made'
 );
@@ -160,7 +160,7 @@ select is(
   'the creator is the owner, and a member, in the same transaction'
 );
 select isnt(
-  (select short_code from public.circles where creation_key = 'key-sunday'),
+  (select short_code from public.circles where name = 'Sunday Crew'),
   null,
   'the circle has a short code'
 );
@@ -565,7 +565,7 @@ select is(
 );
 select isnt(
   (select (public.create_circle('Twice', 'sky', 'Australia/Melbourne', 'key-2')).id),
-  (select id from public.circles where name = 'Twice' and creation_key = 'key-1'),
+  (select id from public.circles where name = 'Twice'),
   'a different key is a different circle, because it is a different intention'
 );
 

@@ -5,6 +5,16 @@
 -- bookkeeping to get wrong and no row to expire before it is read: every caller
 -- in the same window computes the same `window_start` and lands on the same row.
 --
+-- **Fixed windows, on purpose (SUS-125).** A caller can spend a full allowance
+-- at the end of one window and another at the start of the next, so across a
+-- boundary the real ceiling is up to twice `p_limit`. That is accepted. Every
+-- limit here is a volume brake, never authorisation (`_shared/rate.ts`): the
+-- rules that matter are enforced in the database, and a factor of two on a
+-- brake changes how fast a script is slowed, not what it can reach. A sliding
+-- window costs a row per attempt, or two counters and a weighted sum, and this
+-- one is a single upsert on the hot path of every join. Revisit it only if a
+-- limit is ever asked to do more than slow a script down (SUS-62 owns tuning).
+--
 -- Counting happens whether or not the answer is yes. A refused attempt is still
 -- an attempt, and a limiter that only counts successes is one that can be held
 -- open indefinitely by failing.

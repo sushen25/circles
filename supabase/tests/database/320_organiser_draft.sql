@@ -65,7 +65,7 @@ select throws_ok(
 );
 
 select is(
-  (select count(*)::integer from public.circles where creation_key = 'key-draft-1'),
+  (select count(*)::integer from public.circles where name = 'Draft Crew'),
   0,
   'the refused attempt left no circle'
 );
@@ -109,7 +109,7 @@ select lives_ok(
 );
 select is(
   (select (public.create_circle('Draft Crew', 'sky', 'Australia/Melbourne', 'key-draft-2', 'monthly')).id),
-  (select id from public.circles where creation_key = 'key-draft-2'),
+  (select id from public.circles where name = 'Draft Crew'),
   'and a resumed finish with the same key returns the same circle, not a second'
 );
 
