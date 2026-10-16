@@ -229,29 +229,29 @@ describe('the hostname Cloudflare reports', () => {
   });
 
   it('must be on the list when there is one, in any case', async () => {
-    process.env.TURNSTILE_ALLOWED_HOSTNAMES = 'wenna.app, www.wenna.app';
-    cloudflareSays(true, 'WWW.Wenna.app');
+    process.env.TURNSTILE_ALLOWED_HOSTNAMES = 'app.example, www.app.example';
+    cloudflareSays(true, 'WWW.App.example');
 
     await expect(verifyTurnstile(request('web'), 'a-token')).resolves.toBeUndefined();
   });
 
   it('refuses a good token solved somewhere else', async () => {
-    process.env.TURNSTILE_ALLOWED_HOSTNAMES = 'wenna.app';
+    process.env.TURNSTILE_ALLOWED_HOSTNAMES = 'app.example';
     cloudflareSays(true, 'evil.example');
 
     await expect(verifyTurnstile(request('web'), 'a-token')).rejects.toBeInstanceOf(Refusal);
   });
 
   it('refuses one that names no hostname at all', async () => {
-    process.env.TURNSTILE_ALLOWED_HOSTNAMES = 'wenna.app';
+    process.env.TURNSTILE_ALLOWED_HOSTNAMES = 'app.example';
     cloudflareSays(true);
 
     await expect(verifyTurnstile(request('web'), 'a-token')).rejects.toBeInstanceOf(Refusal);
   });
 
   it('is not an exact-suffix match: a lookalike parent is refused', async () => {
-    process.env.TURNSTILE_ALLOWED_HOSTNAMES = 'wenna.app';
-    cloudflareSays(true, 'notwenna.app');
+    process.env.TURNSTILE_ALLOWED_HOSTNAMES = 'app.example';
+    cloudflareSays(true, 'notapp.example');
 
     await expect(verifyTurnstile(request('web'), 'a-token')).rejects.toBeInstanceOf(Refusal);
   });
