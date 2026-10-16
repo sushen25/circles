@@ -1670,6 +1670,10 @@ export type Database = {
         Args: { p_circle_id: string; p_user_id: string }
         Returns: string[]
       }
+      rename_in_circle: {
+        Args: { p_circle_id: string; p_display_name: string }
+        Returns: undefined
+      }
       replace_response: {
         Args: {
           p_plan_id: string

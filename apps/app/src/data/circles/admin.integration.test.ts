@@ -222,3 +222,108 @@ describe('removing a member', () => {
     expect(await refusalOf(self.error)).toEqual({ status: 409, reason: 'cannot_remove_owner' });
   });
 });
+
+describe('changing the name a circle calls you (SUS-205)', () => {
+  const rename = (client: SupabaseClient, circleId: string, name: string, extra = {}) =>
+    client.functions.invoke('rename-in-circle', {
+      body: { idempotency_key: key(), circle_id: circleId, display_name: name, ...extra },
+    });
+
+  const namesIn = async (client: SupabaseClient, circleId: string): Promise<string[]> => {
+    const { data } = await client
+      .from('circle_roster')
+      .select('display_name_snapshot')
+      .eq('circle_id', circleId);
+    return (data ?? []).map((row) => row.display_name_snapshot);
+  };
+
+  it('renames only the caller, in that circle, and everyone in it reads the new name', async () => {
+    const maya = await owner();
+    const { circleId, secret } = await circleOf(maya);
+    const nina = await guestJoining(secret, 'Nina');
+    const second = await circleOf(await owner());
+    const joinedSecond = await nina.functions.invoke('redeem-invite', {
+      body: { idempotency_key: key(), secret: second.secret, display_name: 'Nina' },
+    });
+    expect(joinedSecond.error).toBeNull();
+    const before = await namesIn(maya, circleId);
+
+    const renamed = await rename(nina, circleId, '  Nina  B ');
+    expect(renamed.error).toBeNull();
+    expect(renamed.data).toEqual({ ok: true });
+
+    // The owner reads it; nobody else's name moved; the other circle is untouched.
+    const after = await namesIn(maya, circleId);
+    expect(after).toContain('Nina B');
+    expect(after).not.toContain('Nina');
+    expect(after.filter((name) => name !== 'Nina B').sort()).toEqual(
+      before.filter((name) => name !== 'Nina').sort(),
+    );
+    expect(await namesIn(nina, second.circleId)).toContain('Nina');
+  });
+
+  it('refuses a name another active member has, and lets a member keep their own', async () => {
+    const maya = await owner();
+    const { circleId, secret } = await circleOf(maya);
+    const nina = await guestJoining(secret, 'Nina');
+    await guestJoining(secret, 'Tom');
+
+    const taken = await rename(nina, circleId, 'tom');
+    expect(await refusalOf(taken.error)).toEqual({ status: 409, reason: 'duplicate_name' });
+    expect((await rename(nina, circleId, 'Nina')).error).toBeNull();
+    expect(await namesIn(maya, circleId)).toContain('Nina');
+  });
+
+  it('has no way to rename somebody else, the owner included', async () => {
+    const maya = await owner();
+    const { circleId, secret } = await circleOf(maya);
+    const nina = await guestJoining(secret, 'Nina');
+    const ninaId = (await nina.auth.getUser()).data.user?.id ?? '';
+
+    // A user_id in the body is not a field: the owner's call renames the owner.
+    const byOwner = await rename(maya, circleId, 'Maya M', { user_id: ninaId });
+    expect(byOwner.error).toBeNull();
+    const names = await namesIn(maya, circleId);
+    expect(names).toContain('Maya M');
+    expect(names).toContain('Nina');
+  });
+
+  it('refuses somebody who was removed, and somebody who was never in', async () => {
+    const maya = await owner();
+    const { circleId, secret } = await circleOf(maya);
+    const tom = await guestJoining(secret, 'Tom');
+    const tomId = (await tom.auth.getUser()).data.user?.id ?? '';
+    const removed = await maya.functions.invoke('remove-member', {
+      body: { idempotency_key: key(), circle_id: circleId, user_id: tomId },
+    });
+    expect(removed.error).toBeNull();
+
+    const byRemoved = await rename(tom, circleId, 'Tom Back');
+    expect(await refusalOf(byRemoved.error)).toEqual({ status: 404, reason: 'member_not_found' });
+    const stranger = clientFor(`stranger-${key()}`);
+    expect((await stranger.auth.signInAnonymously()).error).toBeNull();
+    const byStranger = await rename(stranger, circleId, 'Hello');
+    expect(await refusalOf(byStranger.error)).toEqual({ status: 404, reason: 'member_not_found' });
+  });
+
+  it('writes no event and no audit row, and limits one person to twenty an hour', async () => {
+    const maya = await owner();
+    const { circleId, secret } = await circleOf(maya);
+    const nina = await guestJoining(secret, 'Nina');
+    sql(stack, 'delete from jobs.rate_counters');
+    const counts = () =>
+      sql(
+        stack,
+        `select (select count(*) from jobs.outbox)::text || '/' ||
+                (select count(*) from private.audit_log)::text`,
+      );
+    const before = counts();
+
+    for (let n = 1; n <= 20; n += 1) {
+      expect((await rename(nina, circleId, `Nina ${n}`)).error).toBeNull();
+    }
+    const over = await rename(nina, circleId, 'Nina 21');
+    expect(await refusalOf(over.error)).toEqual({ status: 429, reason: 'too_many_requests' });
+    expect(counts()).toBe(before);
+  });
+});

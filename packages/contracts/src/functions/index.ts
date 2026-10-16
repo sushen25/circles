@@ -29,6 +29,7 @@ export * from './join-plan.js';
 export * from './redeem-invite.js';
 export * from './register-push-device.js';
 export * from './remove-member.js';
+export * from './rename-in-circle.js';
 export * from './report-outcome.js';
 export * from './request-email-updates.js';
 export * from './revise-plan.js';

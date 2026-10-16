@@ -66,6 +66,7 @@ const handlers = {
   'get-invite-link': await serveOf('get-invite-link'),
   'rotate-invite': await serveOf('rotate-invite'),
   'remove-member': await serveOf('remove-member'),
+  'rename-in-circle': await serveOf('rename-in-circle'),
   'create-circle': await serveOf('create-circle'),
 };
 
@@ -351,5 +352,65 @@ describe('remove-member', () => {
     expect(response.status).toBe(status);
     expect(await response.json()).toMatchObject({ reason });
     expect(called('engine_input')).toHaveLength(0);
+  });
+});
+
+describe('rename-in-circle', () => {
+  const body = { idempotency_key: KEY, circle_id: CIRCLE, display_name: '  Nina \n B ' };
+
+  it('renames through the database as the caller, with the name tidied', async () => {
+    const response = await handlers['rename-in-circle'](post(body));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    expect(called('rename_in_circle')[0]?.args).toEqual({
+      p_circle_id: CIRCLE,
+      p_display_name: 'Nina B',
+    });
+  });
+
+  it('counts the attempt against the person, hashed, and not against the circle', async () => {
+    await handlers['rename-in-circle'](post(body));
+
+    const counted = called('take_rate_token');
+    expect(counted).toHaveLength(1);
+    expect(counted[0]?.args).toMatchObject({ p_scope: 'rename_in_circle', p_limit: 20 });
+    expect(JSON.stringify(counted[0]?.args)).not.toContain('Nina');
+  });
+
+  it('refuses with 429 and writes nothing once the limit is spent', async () => {
+    state.answer = (fn) =>
+      fn === 'take_rate_token'
+        ? { data: false, error: null }
+        : (bookkeeping(fn) ?? { data: null, error: null });
+
+    const response = await handlers['rename-in-circle'](post(body));
+
+    expect(response.status).toBe(429);
+    expect(called('rename_in_circle')).toHaveLength(0);
+  });
+
+  it('refuses a name the join screen would refuse, before the database', async () => {
+    const response = await handlers['rename-in-circle'](post({ ...body, display_name: '   ' }));
+
+    expect(response.status).toBe(400);
+    expect(called('rename_in_circle')).toHaveLength(0);
+  });
+
+  it.each([
+    ['duplicate_name', 409],
+    ['display_name_unusable', 400],
+    ['member_not_found', 404],
+  ])('says %s as the database does', async (reason, status) => {
+    state.answer = (fn) =>
+      bookkeeping(fn) ??
+      (fn === 'rename_in_circle'
+        ? { data: null, error: { code: 'P0001', message: reason } }
+        : { data: null, error: null });
+
+    const response = await handlers['rename-in-circle'](post(body));
+
+    expect(response.status).toBe(status);
+    expect(await response.json()).toMatchObject({ reason });
   });
 });

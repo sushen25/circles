@@ -101,3 +101,38 @@ test('the owner resets a link nobody can show, and removes a member, from settin
   ).toBe('removed');
   await expect(page.getByRole('button', { name: 'Remove Nina' })).toBeVisible();
 });
+
+test('a member changes the name this circle calls them from settings, and nothing else', async ({
+  page,
+}) => {
+  const maya = await accountToSignInTo('Maya');
+  const circleId = circleOwnedBy(maya.userId, 'Rename Crew');
+  guestIn(circleId, 'Nina');
+
+  await signInByCode(page, maya.email);
+  await page.getByRole('button', { name: /^Rename Crew\./ }).click();
+  await page.getByRole('button', { name: 'Circle settings' }).click();
+
+  // On the reader's own row only, though the owner could remove Nina.
+  await expect(page.getByRole('button', { name: 'Change my name here' })).toHaveCount(1);
+  await page.getByRole('button', { name: 'Change my name here' }).click();
+  const sheet = page.getByLabel('What should Rename Crew call you?');
+  await expect(sheet.getByText(/This is only what Rename Crew will call you/)).toBeVisible();
+
+  // A name somebody active has is refused in the join screen's words.
+  await sheet.getByLabel('Your name').fill('nina');
+  await sheet.getByRole('button', { name: 'Save' }).click();
+  await expect(sheet.getByText(/Someone in Rename Crew is already called nina/)).toBeVisible();
+
+  await sheet.getByLabel('Your name').fill('Maya M');
+  await sheet.getByRole('button', { name: 'Save' }).click();
+  await expect(sheet).toHaveCount(0);
+  await expect(page.getByText('Maya M', { exact: true })).toBeVisible();
+
+  expect(memberNamed(circleId, 'Maya M')).toBeDefined();
+  expect(memberNamed(circleId, 'Nina')).toBeDefined();
+  // The account keeps its own name.
+  expect(
+    sql(`select display_name from public.profiles where user_id = '${maya.userId}'`)[0]?.[0],
+  ).toBe('Maya');
+});

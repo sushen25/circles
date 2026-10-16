@@ -35,6 +35,7 @@ import {
   policyOf,
   policyOptions,
 } from './settingsWords';
+import { RenameSheet } from './RenameSheet';
 import { ConfirmSheet, PickerSheet } from './sheets';
 import { fullHint, fullLine, isFull } from './words';
 
@@ -50,6 +51,8 @@ import { fullHint, fullLine, isFull } from './words';
  * - **The owner's settings** are updates through RLS; **the reader's quiet-asks
  *   switch** is their own membership row.
  * - **Remove** goes through `remove-member`, **Archive** is the owner's update.
+ * - **Change my name here** is on the reader's own row only: `rename-in-circle`
+ *   (SUS-205, ADR 0070) sets what this one circle calls them.
  */
 export function SettingsFlow({ id }: { id: string }) {
   return hasBackend() ? <LiveSettings id={id} /> : <FixtureSettings />;
@@ -69,6 +72,7 @@ type Asking =
   | { kind: 'reset' }
   | { kind: 'remove'; userId: string; name: string }
   | { kind: 'archive' }
+  | { kind: 'rename' }
   | { kind: 'cadence' }
   | { kind: 'policy' };
 
@@ -268,6 +272,7 @@ function LiveSettings({ id }: { id: string }) {
           name: data.members.find((m) => m.userId === userId)?.name ?? '',
         })
       }
+      onRename={() => setAsking({ kind: 'rename' })}
       onArchiveThisCircle={() => setAsking({ kind: 'archive' })}
       onBringBack={() =>
         void save({ status: 'active' }).then(() =>
@@ -286,6 +291,22 @@ function LiveSettings({ id }: { id: string }) {
         onConfirm={() => void confirm()}
         onDismiss={close}
       />
+      {asking?.kind === 'rename' ? (
+        <RenameSheet
+          circleId={id}
+          circleName={data.name}
+          currentName={data.members.find((m) => m.userId === data.me)?.name ?? ''}
+          onDone={async () => {
+            // Everything that shows a name: this circle's home and every plan
+            // roster read the column again, so the old name is not shown
+            // anywhere (SUS-205 chose the new name everywhere, locked-in
+            // plans included).
+            await queryClient.invalidateQueries();
+            close();
+          }}
+          onClose={close}
+        />
+      ) : null}
       <PickerSheet<Cadence>
         visible={asking?.kind === 'cadence'}
         title={t('settings', 'cadence_title')}

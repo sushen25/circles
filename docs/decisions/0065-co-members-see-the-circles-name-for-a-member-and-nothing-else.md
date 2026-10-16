@@ -5,10 +5,11 @@ status: proposed
 date: 2026-10-11
 amends: [32]
 builds_on: [60]
+amended_by: [70]
 ---
 # ADR 0065: Co-members see the circle's name for a member and nothing else of their name: no view of account names, and a rename leaves every circle alone
 
-_Status: proposed · 11 October 2026 · amends [ADR 0032](0032-the-circles-zone-is-shown-when-the-readers-device-differs.md) (the name-and-id view it kept is gone), builds on [ADR 0060](0060-a-quiet-asks-initiator-is-not-inferable-from-member-data.md)_
+_Status: proposed · 11 October 2026 · amends [ADR 0032](0032-the-circles-zone-is-shown-when-the-readers-device-differs.md) (the name-and-id view it kept is gone), builds on [ADR 0060](0060-a-quiet-asks-initiator-is-not-inferable-from-member-data.md); amended by [ADR 0070](0070-a-member-changes-the-name-a-circle-calls-them-from-circle-settings.md): a member can now change the name a circle calls them from circle settings_
 
 ## Context
 
@@ -69,6 +70,7 @@ joining, not a link.
   are untouched: circles keep the names they have.
 - Until a per-circle rename exists, the only way to change the name a circle
   knows somebody by is to leave and rejoin it. A follow-up ticket owns that.
+  (It landed: [ADR 0070](0070-a-member-changes-the-name-a-circle-calls-them-from-circle-settings.md).)
 - A person who renames their account is not renamed in the circles they have
   already joined, owned circles included.
 - pgTAP `450_circle_name_only.sql` proves a co-member cannot read an account
