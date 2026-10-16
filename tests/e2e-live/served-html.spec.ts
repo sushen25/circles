@@ -1,6 +1,8 @@
 // @e2e: locale
-import { expect, isHydrationError, test, type Page } from './fixtures';
-import { accountToSignInTo, latestCodeFor, memberNamed, sundayCrew } from './stack';
+import { createHash } from 'node:crypto';
+
+import { expect, isCspViolation, isHydrationError, test, type Page } from './fixtures';
+import { accountToSignInTo, latestCodeFor, memberNamed, stackConfig, sundayCrew } from './stack';
 
 /**
  * What the served HTML says before any script runs, and what happens to a
@@ -89,6 +91,11 @@ test('the bare host is the site, in the served HTML, with no shell and no script
   expect(html).not.toContain('Getting things ready');
   expect(html).not.toMatch(/<script/i);
   expect(html).not.toMatch(/<(input|textarea)\b/);
+  // It carries its own headers (SUS-119): no script to allow, and no framing.
+  const headers = response.headers();
+  expect(headers['content-security-policy']).toContain("default-src 'none'");
+  expect(headers['content-security-policy']).toContain("frame-ancestors 'none'");
+  expect(headers['permissions-policy']).toContain('camera=()');
 });
 
 test('a name typed the moment the field appears is the name that is sent', async ({ page }) => {
@@ -133,6 +140,85 @@ test('an email typed the moment the field appears is the address the code goes t
     'the code step, for the address typed',
   ).toBeVisible();
   expect(await latestCodeFor(email)).toMatch(/^\d{6}$/);
+});
+
+/** The text of every inline `<script>` in `html`. */
+function inlineScripts(html: string): string[] {
+  return [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(
+    (match) => match[1] ?? '',
+  );
+}
+
+test.describe('the security headers', () => {
+  test.beforeEach(() => {
+    test.skip(test.info().project.name !== 'android-chrome', 'the same in every project');
+  });
+
+  // The routes whose HTML the router wrote: the three that carry a secret, the
+  // front door, a gated screen and the not-found page.
+  const pages = (): string[] => {
+    const crew = sundayCrew();
+    return [`/p/${crew.planCode}`, `/j/${crew.planCode}`, '/join', '/start', '/sign-in', '/nope'];
+  };
+
+  test('every page carries a policy, nosniff and a permissions policy (SUS-119)', async ({
+    request,
+  }) => {
+    for (const path of pages()) {
+      const response = await request.get(path);
+      const headers = response.headers();
+      const policy = headers['content-security-policy'] ?? '';
+      expect(policy, `${path} has a policy`).not.toBe('');
+      expect(headers['x-content-type-options'], path).toBe('nosniff');
+      expect(headers['permissions-policy'], path).toBe('camera=(), microphone=(), geolocation=()');
+      expect(headers['referrer-policy'], path).toBe('no-referrer');
+      // The ones that are what the policy is for.
+      expect(policy, path).toContain("frame-ancestors 'none'");
+      expect(policy, path).toContain("default-src 'self'");
+      expect(policy, path).not.toContain('unsafe-eval');
+      expect(policy.match(/script-src[^;]*/)?.[0], path).not.toContain("'unsafe-inline'");
+    }
+  });
+
+  test('allows the backend the page was built for, and Turnstile', async ({ request }) => {
+    const policy = (await request.get('/start')).headers()['content-security-policy'] ?? '';
+    const backend = new URL(stackConfig().apiUrl);
+    expect(policy.match(/connect-src[^;]*/)?.[0]).toContain(backend.origin);
+    expect(policy.match(/script-src[^;]*/)?.[0]).toContain('https://challenges.cloudflare.com');
+    expect(policy.match(/frame-src[^;]*/)?.[0]).toContain('https://challenges.cloudflare.com');
+  });
+
+  // The hash in the policy is computed from a constant in `@circles/config`.
+  // This reads the script out of the HTML the router actually wrote, so a router
+  // that changes it fails here, not as a blank page in production.
+  test('allows exactly the inline script the router wrote, by its hash', async ({ request }) => {
+    for (const path of pages()) {
+      const response = await request.get(path);
+      const policy = response.headers()['content-security-policy'] ?? '';
+      const scripts = inlineScripts(await response.text());
+      expect(scripts.length, `${path} has its hydrate script`).toBeGreaterThan(0);
+      for (const script of scripts) {
+        const hash = `sha256-${createHash('sha256').update(script).digest('base64')}`;
+        expect(
+          policy,
+          `${path}: the policy allows the inline script ${script.slice(0, 40)}`,
+        ).toContain(`'${hash}'`);
+      }
+    }
+  });
+
+  test('the guard knows a policy violation when the console reports one', () => {
+    test.skip(test.info().project.name !== 'android-chrome', 'no browser involved');
+    expect(
+      isCspViolation(
+        'Refusing to execute inline script because it violates the following Content Security Policy directive: "script-src \'self\'".',
+      ),
+    ).toBe(true);
+    expect(isCspViolation('csp-violation: script-src-elem https://example.com/x.js')).toBe(true);
+    expect(
+      isCspViolation('Failed to load resource: the server responded with a status of 404'),
+    ).toBe(false);
+  });
 });
 
 test('the guard knows every way React reports a failed hydration', () => {

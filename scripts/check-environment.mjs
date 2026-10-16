@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
  * Checks a *deployed* environment from the outside: does the domain serve the
- * app over HTTPS with HSTS, and is the sending subdomain authenticated for
- * email (architecture §5.2, §14)?
+ * app over HTTPS with HSTS and the security headers (a Content-Security-Policy,
+ * nosniff, a Permissions-Policy), and is the sending subdomain authenticated
+ * for email (architecture §5.2, §14)?
  *
  * Run by hand after the vendor setup in docs/runbooks/environment-setup.md.
  * Not part of `pnpm check`: it needs the network and a domain that exists.
@@ -72,6 +73,45 @@ try {
     'Referrer-Policy: no-referrer',
     referrer === 'no-referrer',
     referrer ?? 'absent — required before invite links are shared (§14)',
+  );
+
+  // The policy is the second wall behind a session that lives in localStorage
+  // on web (SUS-119). Report-Only is not enforcement, so it does not pass.
+  const csp = res.headers.get('content-security-policy');
+  const directive = (name) =>
+    (csp ?? '')
+      .split(';')
+      .map((d) => d.trim())
+      .find((d) => d.startsWith(`${name} `));
+  const scripts = directive('script-src') ?? '';
+  record(
+    'Content-Security-Policy',
+    Boolean(csp) &&
+      directive('default-src') !== undefined &&
+      scripts !== '' &&
+      !/'unsafe-(inline|eval)'/.test(scripts),
+    csp
+      ? `${csp.slice(0, 60)}…`
+      : res.headers.get('content-security-policy-report-only')
+        ? 'only Content-Security-Policy-Report-Only, which blocks nothing'
+        : 'absent — see apps/app/app.config.ts',
+  );
+  record(
+    'CSP frame-ancestors',
+    directive('frame-ancestors') === "frame-ancestors 'none'",
+    directive('frame-ancestors') ?? 'absent — the app can be framed',
+  );
+
+  const nosniff = res.headers.get('x-content-type-options');
+  record('X-Content-Type-Options: nosniff', nosniff === 'nosniff', nosniff ?? 'absent');
+
+  const permissions = res.headers.get('permissions-policy');
+  record(
+    'Permissions-Policy',
+    /camera=\(\)/.test(permissions ?? '') &&
+      /microphone=\(\)/.test(permissions ?? '') &&
+      /geolocation=\(\)/.test(permissions ?? ''),
+    permissions ?? 'absent — camera, microphone and geolocation should be off',
   );
 } catch (error) {
   record('HTTPS serves the app', false, error instanceof Error ? error.message : String(error));

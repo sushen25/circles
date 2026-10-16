@@ -1,4 +1,4 @@
-import { brand } from '@circles/config';
+import { PERMISSIONS_POLICY, STATIC_PAGE_POLICY, brand } from '@circles/config';
 import { color } from '@circles/tokens';
 
 import { t } from '../../copy';
@@ -64,4 +64,6 @@ export const SITE_HEADERS: Readonly<Record<string, string>> = {
   'cache-control': 'public, max-age=300, stale-while-revalidate=3600',
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'strict-origin-when-cross-origin',
+  'content-security-policy': STATIC_PAGE_POLICY,
+  'permissions-policy': PERMISSIONS_POLICY,
 };

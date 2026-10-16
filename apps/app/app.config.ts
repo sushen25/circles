@@ -1,6 +1,8 @@
+import { createHash } from 'node:crypto';
+
 import type { ExpoConfig } from 'expo/config';
 
-import { brand } from '@circles/config';
+import { HYDRATE_SCRIPT, brand, securityHeaders } from '@circles/config';
 
 /**
  * Every user-visible string and host comes from `@circles/config` (§5.4); every
@@ -50,6 +52,10 @@ const easProjectId = '81371189-91d3-4ee8-859c-bf60a35ca7e0';
 // failed with a message that named the app but never the viewer. Stating the
 // owner here means a mismatch is a clear error instead of a silent one.
 const easOwner = 'sushen25s-team';
+
+// The hash the Content-Security-Policy allows the router's inline script by.
+// Computed from the script, never typed (SUS-119).
+const hydrateScriptHash = `sha256-${createHash('sha256').update(HYDRATE_SCRIPT).digest('base64')}`;
 
 const config: ExpoConfig = {
   owner: easOwner,
@@ -134,10 +140,25 @@ const config: ExpoConfig = {
         // deployed app serves none — `pnpm check:env` fails on it, which is how
         // it was found.
         //
-        // One limit that applies to both: they do not reach redirect responses
-        // or static assets. Neither of those carries a secret. A route that
-        // sets either header itself still wins.
-        headers: { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' },
+        // The other three (SUS-119) are `packages/config/src/securityHeaders.ts`: a
+        // Content-Security-Policy, `X-Content-Type-Options: nosniff` and a
+        // `Permissions-Policy`. The policy is the second wall behind a session
+        // that lives in `localStorage` on web.
+        //
+        // One limit that applies to all of them: they do not reach redirect
+        // responses or static assets. Neither of those carries a secret. A
+        // route that sets one of them itself still wins.
+        headers: {
+          'Cache-Control': 'no-store',
+          'Referrer-Policy': 'no-referrer',
+          ...securityHeaders({
+            hydrateScriptHash,
+            supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+          }),
+        },
+        // `/_sitemap` lists every route, dev routes included, and ships in
+        // every export. It is a development aid: off in production (SUS-119).
+        sitemap: appEnv !== 'production',
       },
     ],
     'expo-font',
