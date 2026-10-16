@@ -601,3 +601,20 @@ The same step was also broken on `workflow_dispatch`: `head_commit` exists only
 on `push`, so a manual run sent an empty message and `eas update` refused it.
 Any value read from the event payload has to have a defined meaning under
 **every** trigger the workflow declares.
+
+## Many live tests fail at once, all on a join, save or sign-in (SUS-223)
+
+If a live shard fails dozens of tests within a minute, on screens that say
+"Something went wrong" or "That didn't save", do not look for a race in the
+join flow first. Open a failed test's trace (network tab): a `503` from
+`/functions/v1/…` with a 36-byte body served by `kong` means Kong could no
+longer resolve the Edge runtime container, which had exited. `supabase status`
+in the log then lists `supabase_edge_runtime_circles` under "Stopped services".
+That happened to two shards on 15 Oct 2026 (runs 38821256265 and
+38824773662), within twenty seconds of the first test, and both passed when
+re-run.
+
+The live job now gives the container a restart policy (`on-failure:5`), so a
+crash costs a few tests that the retry covers, and on any failure it prints each
+Supabase container's exit code, OOM flag and the runtime's last log lines. Read
+"Why a stack container went" in the job: that is where the cause will be.

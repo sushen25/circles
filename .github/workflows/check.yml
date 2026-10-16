@@ -274,6 +274,20 @@ jobs:
       - name: Start Supabase
         run: pnpm exec supabase start -x realtime,storage-api,imgproxy,studio,logflare,vector,supavisor
 
+      # SUS-223. On 15 Oct two shards lost their Edge runtime container within
+      # twenty seconds of the first test: Kong answered 503 "name resolution
+      # failed" to every function call from then on, so each join, save and
+      # sign-in failed at once and the run looked like a join-flow race. The
+      # container has no restart policy, so a crash is permanent for the
+      # shard. This gives it one, which turns a dead runtime into a few
+      # failed tests that the retry covers. It does not hide the crash: the
+      # step below records why the container went.
+      - name: Let the Edge runtime restart if it dies
+        run: |
+          for c in $(docker ps --format '{{.Names}}' | grep '^supabase_edge_runtime_'); do
+            docker update --restart=on-failure:5 "$c"
+          done
+
       - name: pnpm test:e2e:live (shard ${{ matrix.shard }})
         env:
           SHARD: ${{ matrix.shard }}
@@ -284,6 +298,20 @@ jobs:
         env:
           SHARD: ${{ matrix.shard }}
         run: node scripts/live-summary.mjs playwright-report/live-results.json "$SHARD"
+
+      - name: Why a stack container went (exit code, OOM, last log lines)
+        if: ${{ !success() }}
+        run: |
+          docker ps -a --format 'table {{.Names}}\t{{.Status}}'
+          for c in $(docker ps -a --format '{{.Names}}' | grep '^supabase_'); do
+            echo "== $c"
+            docker inspect "$c" --format 'status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} restarts={{.RestartCount}} error={{.State.Error}} finished={{.State.FinishedAt}}'
+          done
+          echo "== edge runtime log"
+          for c in $(docker ps -a --format '{{.Names}}' | grep '^supabase_edge_runtime_'); do docker logs --tail 80 "$c" 2>&1; done
+          echo "== host"
+          free -m; sysctl fs.inotify.max_user_instances fs.inotify.max_user_watches
+          sudo dmesg 2>/dev/null | grep -i -E 'oom|killed process' | tail -5 || true
 
       - name: Upload the Playwright report and traces
         # Not `failure()`: a job that hit its timeout is cancelled, and that is
