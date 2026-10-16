@@ -28,16 +28,23 @@ function request(platform?: string): Request {
   });
 }
 
-function cloudflareSays(success: boolean): void {
+function cloudflareSays(success: boolean, hostname?: string): void {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () => new Response(JSON.stringify({ success }), { status: 200 })),
+    vi.fn(
+      async () =>
+        new Response(JSON.stringify(hostname === undefined ? { success } : { success, hostname }), {
+          status: 200,
+        }),
+    ),
   );
 }
 
 beforeEach(() => {
   delete process.env.TURNSTILE_SECRET_KEY;
   delete process.env.TURNSTILE_SECRET;
+  delete process.env.CIRCLES_ENV;
+  delete process.env.TURNSTILE_ALLOWED_HOSTNAMES;
   process.env.SUPABASE_URL = LOCAL;
 });
 
@@ -87,6 +94,34 @@ describe('a local stack with no secret', () => {
 
     await expect(verifyTurnstile(request('web'), undefined)).resolves.toBeUndefined();
   });
+});
+
+describe('what counts as hosted', () => {
+  it('is whatever CIRCLES_ENV says, over the URL either way', async () => {
+    process.env.SUPABASE_URL = LOCAL;
+    process.env.CIRCLES_ENV = 'hosted';
+    await expect(verifyTurnstile(request('web'), 'a-token')).rejects.toBeInstanceOf(Unavailable);
+
+    process.env.SUPABASE_URL = HOSTED;
+    process.env.CIRCLES_ENV = 'local';
+    await expect(verifyTurnstile(request('web'), undefined)).resolves.toBeUndefined();
+  });
+
+  it('fails closed on a custom domain with nothing declared', async () => {
+    // The case the `.supabase.co` test got wrong: it read this as a laptop.
+    process.env.SUPABASE_URL = 'https://api.wenna.example';
+
+    await expect(verifyTurnstile(request('web'), 'a-token')).rejects.toBeInstanceOf(Unavailable);
+  });
+
+  it.each(['http://kong:8000', 'http://localhost:54321', 'http://host.docker.internal:54321'])(
+    'still treats %s as a laptop',
+    async (url) => {
+      process.env.SUPABASE_URL = url;
+
+      await expect(verifyTurnstile(request('web'), undefined)).resolves.toBeUndefined();
+    },
+  );
 });
 
 describe('with a secret configured', () => {
@@ -178,5 +213,46 @@ describe('a Cloudflare that does not answer', () => {
     );
 
     await expect(verifyTurnstile(request('web'), 'a-token')).rejects.toBeInstanceOf(TypeError);
+  });
+});
+
+describe('the hostname Cloudflare reports', () => {
+  beforeEach(() => {
+    process.env.SUPABASE_URL = HOSTED;
+    process.env.TURNSTILE_SECRET_KEY = 'the-real-secret';
+  });
+
+  it('is not judged when no list is configured, so the check can be armed later', async () => {
+    cloudflareSays(true, 'anywhere.example');
+
+    await expect(verifyTurnstile(request('web'), 'a-token')).resolves.toBeUndefined();
+  });
+
+  it('must be on the list when there is one, in any case', async () => {
+    process.env.TURNSTILE_ALLOWED_HOSTNAMES = 'app.example, www.app.example';
+    cloudflareSays(true, 'WWW.App.example');
+
+    await expect(verifyTurnstile(request('web'), 'a-token')).resolves.toBeUndefined();
+  });
+
+  it('refuses a good token solved somewhere else', async () => {
+    process.env.TURNSTILE_ALLOWED_HOSTNAMES = 'app.example';
+    cloudflareSays(true, 'evil.example');
+
+    await expect(verifyTurnstile(request('web'), 'a-token')).rejects.toBeInstanceOf(Refusal);
+  });
+
+  it('refuses one that names no hostname at all', async () => {
+    process.env.TURNSTILE_ALLOWED_HOSTNAMES = 'app.example';
+    cloudflareSays(true);
+
+    await expect(verifyTurnstile(request('web'), 'a-token')).rejects.toBeInstanceOf(Refusal);
+  });
+
+  it('is not an exact-suffix match: a lookalike parent is refused', async () => {
+    process.env.TURNSTILE_ALLOWED_HOSTNAMES = 'app.example';
+    cloudflareSays(true, 'notapp.example');
+
+    await expect(verifyTurnstile(request('web'), 'a-token')).rejects.toBeInstanceOf(Refusal);
   });
 });

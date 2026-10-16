@@ -79,6 +79,7 @@ declare
   created public.plans;
   code text;
   i integer;
+  pick integer;
 begin
   if caller is null then
     raise exception 'create_quiet_ask requires a signed-in actor'
@@ -127,11 +128,14 @@ begin
   loop
     code := '';
     for i in 1..8 loop
-      code := code || substr(
-        alphabet,
-        1 + (get_byte(extensions.gen_random_bytes(1), 0) % length(alphabet)),
-        1
-      );
+      -- Rejection sampling: a byte is 0..255 and 256 is not a multiple of 31,
+      -- so `% 31` would favour the first eight letters. Bytes from the last,
+      -- partial run are thrown away and redrawn (about 3% of them).
+      loop
+        pick := get_byte(extensions.gen_random_bytes(1), 0);
+        exit when pick < (256 / length(alphabet)) * length(alphabet);
+      end loop;
+      code := code || substr(alphabet, 1 + (pick % length(alphabet)), 1);
     end loop;
     exit when not exists (select 1 from public.plans p where p.short_code = code);
   end loop;

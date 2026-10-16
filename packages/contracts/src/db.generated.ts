@@ -1694,6 +1694,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      reissue_invite: {
+        Args: {
+          p_circle_id: string
+          p_invite_id: string
+          p_replaces: string
+          p_secret_hash: string
+        }
+        Returns: boolean
+      }
       release_request: {
         Args: { p_function: string; p_key: string; p_user: string }
         Returns: undefined
