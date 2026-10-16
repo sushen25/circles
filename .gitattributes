@@ -1,0 +1,3 @@
+# The ADR index is generated; two branches that each add an ADR add different rows,
+# and union keeps both (SUS-228). Row order is repaired by `pnpm gen:adrs`.
+docs/decisions/index.md merge=union

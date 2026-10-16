@@ -1,7 +1,7 @@
 // `docs/` is read in three places that cannot see each other break: GitHub,
 // Obsidian and whoever greps it. This checks the two things only a reader
 // would notice — a link to a file that is not there, and an ADR whose
-// frontmatter, status line and README row have stopped agreeing. `docs/Home.md`
+// frontmatter and status line (the generated index is checked against both) have stopped agreeing. `docs/Home.md`
 // has the writing rules; this enforces the ones a script can.
 //
 // Not checked: `audits/` (git-excluded, so CI never sees it), `_templates/`
@@ -12,6 +12,8 @@
 // Obsidian-specific rules are for the vault.
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
+
+import { INDEX, frontmatter, indexRows, renderIndex } from './adrs.mjs';
 
 const ROOT = process.cwd();
 const DOCS = join(ROOT, 'docs');
@@ -75,42 +77,25 @@ function checkLinks(file, text, { vault }) {
   return links;
 }
 
-// The frontmatter this repository writes: scalars, double-quoted strings and
-// `[1, 2]` lists of numbers. Anything richer is a reason to reach for a parser.
-function frontmatter(text) {
-  if (!text.startsWith('---\n')) return null;
-  const end = text.indexOf('\n---\n', 4);
-  if (end < 0) return null;
-  const fields = {};
-  for (const line of text.slice(4, end).split('\n')) {
-    const match = /^([a-z_]+):\s*(.*)$/.exec(line);
-    if (!match) continue;
-    let value = match[2].trim();
-    if (value.startsWith('[') && value.endsWith(']')) {
-      value = value
-        .slice(1, -1)
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean)
-        .map(Number);
-    } else if (value.startsWith('"') && value.endsWith('"')) {
-      value = JSON.parse(value);
-    }
-    fields[match[1]] = value;
-  }
-  return fields;
-}
-
 const pad = (n) => String(n).padStart(2, '0');
-const escapeRe = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function checkAdrs() {
   const dir = join(DOCS, 'decisions');
-  const readme = readFileSync(join(dir, 'README.md'), 'utf8');
   const files = readdirSync(dir)
     .filter((name) => /^\d{4}-.*\.md$/.test(name))
     .sort();
   const numbers = new Set(files.map((name) => Number(name.slice(0, 4))));
+  // The index merges by union, so two branches that took the same number no
+  // longer meet in a conflict on its last row; this is what catches them.
+  if (numbers.size !== files.length) {
+    const seen = new Map();
+    for (const name of files) {
+      const n = name.slice(0, 4);
+      seen.set(n, [...(seen.get(n) ?? []), name]);
+    }
+    for (const [n, names] of seen)
+      if (names.length > 1) fail(dir, `ADR ${n} is taken twice: ${names.join(', ')}`);
+  }
   for (const name of files) {
     const file = join(dir, name);
     const text = readFileSync(file, 'utf8');
@@ -127,6 +112,8 @@ function checkAdrs() {
     if (Number(fm.adr) !== number) fail(file, `frontmatter adr: ${fm.adr}, the file is ${number}`);
     if (heading && fm.title !== heading[2].trim())
       fail(file, 'frontmatter title differs from the heading');
+    if (typeof fm.title === 'string' && fm.title.includes('|'))
+      fail(file, 'title contains `|`, which breaks the generated index table');
     if (!STATUSES.has(fm.status)) {
       fail(file, `status \`${fm.status}\` is not proposed, accepted or superseded`);
     }
@@ -142,7 +129,7 @@ function checkAdrs() {
       if (iso !== fm.date)
         fail(file, `frontmatter date ${fm.date}, the status line says ${iso ?? 'no date'}`);
     }
-    for (const key of ['amends', 'amended_by', 'builds_on']) {
+    for (const key of ['amends', 'amended_by', 'builds_on', 'superseded_by']) {
       if (fm[key] === undefined) continue;
       if (!Array.isArray(fm[key]) || fm[key].some((n) => !Number.isInteger(n))) {
         fail(file, `${key} must be a list of ADR numbers`);
@@ -152,13 +139,22 @@ function checkAdrs() {
         if (!numbers.has(n)) fail(file, `${key} names ADR ${n}, which does not exist`);
       }
     }
-    const row = new RegExp(
-      `^\\| \\[${name.slice(0, 4)}\\]\\(\\./${escapeRe(name)}\\) \\| [^|]* \\| ([a-z]+)`,
-      'm',
-    ).exec(readme);
-    if (!row) fail(file, 'no row in docs/decisions/README.md');
-    else if (row[1] !== fm.status)
-      fail(file, `the README row says ${row[1]}, the frontmatter says ${fm.status}`);
+  }
+  // The index is generated (SUS-228). Rows are compared as a set, in any order:
+  // the file merges with `merge=union`, so two branches that each add an ADR
+  // meet without a conflict but may leave the rows out of order until the next
+  // `pnpm gen:adrs`. A missing, extra or different row is stale.
+  const have = existsSync(INDEX) ? readFileSync(INDEX, 'utf8') : '';
+  const want = renderIndex();
+  const sameRows = (a, b) =>
+    indexRows(a).slice().sort().join('\n') === indexRows(b).slice().sort().join('\n');
+  const header = (text) =>
+    text
+      .split('\n')
+      .filter((line) => !line.startsWith('| ['))
+      .join('\n');
+  if (!sameRows(have, want) || header(have) !== header(want)) {
+    fail(INDEX, 'is stale: run `pnpm gen:adrs` (or `pnpm gen`) and commit the result');
   }
   return files.length;
 }
@@ -181,5 +177,5 @@ if (problems.length > 0) {
   process.exit(1);
 }
 console.log(
-  `check:docs: ${notes} notes and ${ROOT_FILES.length} root files, ${links} links resolve, ${adrs} ADRs agree with their status line and README row`,
+  `check:docs: ${notes} notes and ${ROOT_FILES.length} root files, ${links} links resolve, ${adrs} ADRs agree with their status line, and the generated index is current`,
 );

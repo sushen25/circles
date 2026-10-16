@@ -297,8 +297,8 @@ that only `pnpm check` found. Report the gate, not the filtered run.
 says "the spec says X and the code does Y", either conform or write the ADR and
 update the spec — a decision recorded in a Linear ticket is not the spec, and a
 client built against the spec will disagree with the code. The ADR starts from
-`docs/_templates/adr.md`, with its frontmatter, its row in
-`docs/decisions/README.md` and the spec change in the same PR; the next round
+`docs/_templates/adr.md`, with its frontmatter, the regenerated
+`docs/decisions/index.md` and the spec change in the same PR; the next round
 checks that the three say the same thing.
 
 **Findings in code this change only moved** go on the ticket that owns that

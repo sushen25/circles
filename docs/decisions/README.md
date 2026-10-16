@@ -2,81 +2,14 @@
 
 Short records of decisions that shape the product or the code. A new ADR is required whenever a rule in the [spec](../mvp-product-spec.md) or the [architecture](../technical-architecture.md) changes. Numbering is sequential; superseded records stay in place with a status line.
 
-| ADR | Decision | Status |
-|---|---|---|
-| [0001](./0001-eas-hosting-starter-server-output.md) | Host the web app on EAS Hosting Starter with Expo Router `server` output | accepted |
-| [0002](./0002-stylesheet-with-generated-tokens.md) | `StyleSheet` with tokens generated from the design source | accepted |
-| [0003](./0003-domain-events-via-postgres-outbox.md) | Domain events through a Postgres outbox drained by cron | accepted |
-| [0004](./0004-organiser-requires-permanent-identity.md) | Organising requires a saved place; responding never does | accepted |
-| [0005](./0005-willing-windows-retained-12-months.md) | Willing windows retained 12 months | accepted |
-| [0006](./0006-continue-as-reattachment-without-owner-approval.md) | Continue-as reattachment without owner approval | accepted |
-| [0007](./0007-pnpm-monorepo-with-shared-domain-package.md) | pnpm monorepo with a shared pure domain package | accepted |
-| [0008](./0008-react-email-templates-in-edge-functions.md) | React Email templates rendered in Edge Functions | accepted |
-| [0009](./0009-half-hour-availability-cells-with-a-scrolling-row.md) | Availability cells are half an hour each, and the day row scrolls | accepted |
-| [0010](./0010-tonight-deadline-gives-up-its-margin.md) | Tonight's deadline gives up its margin rather than the plan | accepted |
-| [0011](./0011-near-misses-need-someone.md) | A near-miss needs someone, unless nobody is anywhere | accepted |
-| [0012](./0012-circle-member-cap-of-twenty.md) | A circle holds up to twenty active members | accepted (threshold line corrected by 0035) |
-| [0013](./0013-availability-written-only-through-replace-response.md) | A member's availability is written only through `replace_response` | accepted |
-| [0014](./0014-retention-runs-in-the-database.md) | Retention runs in the database from pg_cron, not in the dispatcher | accepted |
-| [0015](./0015-sql-functions-live-in-one-file-each.md) | A database function's definition lives in one file, generated into migrations | accepted |
-| [0016](./0016-idempotency-key-travels-in-the-request-body.md) | The idempotency key travels in the request body, not in a header | accepted |
-| [0017](./0017-quorum-and-deadline-adjust-a-plan-without-a-revision.md) | Changing a quorum or a deadline adjusts a plan; it does not revise it | accepted |
-| [0018](./0018-the-recalculation-runs-in-the-request-that-caused-it.md) | The recalculation runs in the request that caused it | accepted |
-| [0019](./0019-consent-is-recorded-when-it-is-given.md) | Consent is recorded when it is given, and a preferences link does not expire on use | accepted |
-| [0020](./0020-the-verification-token-is-minted-by-the-sender.md) | The verification token is minted by whoever sends the email | accepted |
-| [0021](./0021-the-link-preview-is-not-rate-limited.md) | The link preview is not rate-limited; the code space is the control | accepted |
-| [0022](./0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md) | A plan link admits new members while the plan is taking answers | accepted (one point narrowed by 0026; circle-of-one remark superseded by 0035; rate limits restated by 0064) |
-| [0023](./0023-emailed-tokens-travel-in-the-fragment.md) | Emailed tokens travel in the URL fragment, never the path | accepted |
-| [0024](./0024-availability-days-first-then-a-time-once.md) | Availability is answered days first, then a time once | accepted |
-| [0025](./0025-the-preferences-link-is-minted-with-each-email.md) | The preferences link is minted with each email, and both footer links open it | accepted (organiser-email question answered by 0029; stop links on every account-holder letter by 0069) |
-| [0026](./0026-first-run-shares-a-plan-and-a-defaulted-quorum-follows-the-circle.md) | First run shares a plan, not an invite, and a defaulted quorum follows the circle | accepted |
-| [0027](./0027-the-organisers-auth-address-is-an-email-contact.md) | The organiser's auth address is an email contact, verified by auth | accepted |
-| [0028](./0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md) | An invite secret is derived, so its owner can see it again | accepted |
-| [0029](./0029-an-organiser-turns-organiser-email-off-in-the-app.md) | An organiser turns organiser email off in the app, not by a link | accepted (replies closed inside the switch, and a stop link on every organiser letter, by 0069) |
-| [0030](./0030-a-plan-may-ask-about-up-to-thirty-days.md) | A plan may ask about up to thirty days | accepted |
-| [0031](./0031-a-meetup-may-last-up-to-five-hours.md) | A meetup may last up to five hours | accepted |
-| [0032](./0032-the-circles-zone-is-shown-when-the-readers-device-differs.md) | The circle's zone is shown when the reader's device differs, not when a member's does | accepted |
-| [0033](./0033-one-open-plan-per-circle.md) | A circle has one open plan at a time | accepted |
-| [0034](./0034-ink-3-is-dark-enough-to-read.md) | `ink-3` is dark enough to read | proposed |
-| [0035](./0035-the-quiet-ask-at-twenty-members.md) | The quiet ask at twenty members: its threshold, its stop time, and what it does beside an open plan | accepted |
-| [0036](./0036-the-cadence-nudge-is-decided-once-per-cycle.md) | The cadence nudge is decided once per cycle, when circle home says it is about time | proposed |
-| [0037](./0037-usual-times-are-read-not-written.md) | A member's usual times are worked out when they are read, not written when they answer | proposed (not applied on open, 0077) |
-| [0038](./0038-the-quiet-asks-initiator-is-written-to-at-their-own-address.md) | The quiet ask's initiator is written to at their own address | accepted (both letters carry a stop link by 0069) |
-| [0039](./0039-replies-closed-is-told-per-deadline-and-once-a-day-later.md) | Replies closed is told once per deadline and once a day later; one more day is a day from now, once per revision | proposed |
-| [0040](./0040-the-served-html-is-a-shell.md) | The served HTML is a neutral shell; every screen renders on the device | proposed |
-| [0041](./0041-keen-members-may-take-the-role-as-soon-as-it-opens.md) | Keen members may take the organiser role as soon as a quiet ask opens, and the quiet ask's analytics name nobody | proposed |
-| [0043](./0043-the-product-is-wenna-and-confirmations-sign-off-with-the-day.md) | The product is Wenna, the link preview says what the brand doc says, and a confirmation signs off with the day | proposed |
-| [0044](./0044-production-is-wenna-app-and-the-host-is-permanent-once-a-link-leaves.md) | Production is `wenna.app`, and the host is permanent once a link leaves the founder | proposed |
-| [0045](./0045-the-editor-shows-what-others-have-said-as-counts.md) | The availability editor shows what others have said, as counts | proposed |
-| [0046](./0046-an-edit-that-clears-answers-asks-those-people-again.md) | An edit that clears answers asks those people again | proposed |
-| [0047](./0047-a-plan-may-ask-about-days-with-gaps.md) | A plan may ask about days with gaps between them | proposed |
-| [0048](./0048-the-consent-sentence-is-the-one-string-that-lives-in-config.md) | The consent sentence is the one user-facing string that lives in `packages/config` | proposed |
-| [0049](./0049-continue-as-resolves-a-code-only-while-it-is-live.md) | Continue-as resolves a code only while it is live, and its limits are enforced in SQL | proposed |
-| [0050](./0050-verifying-an-address-promotes-only-the-same-persons-contacts.md) | Verifying an address promotes only the contacts that belong to the same person | proposed |
-| [0051](./0051-the-organiser-sets-the-final-plan.md) | The organiser sets the final plan: any day and time, edited afterwards without asking everyone again | proposed |
-| [0052](./0052-the-bare-host-is-the-website.md) | The bare host is the website, and the app's front door on the web is `/start` | proposed |
-| [0053](./0053-the-organiser-gate-moves-to-before-the-share.md) | The first run drafts the circle and plan with no account; the saved-place gate moves to before the share | proposed |
-| [0054](./0054-the-link-preview-may-say-a-plan-is-locked-in.md) | The link preview may say a plan is locked in, as one of two words next to the name | proposed |
-| [0055](./0055-after-sending-one-step-keeps-your-place-and-turns-on-the-updates.md) | After sending, one step keeps the guest's place and turns on the plan's updates | proposed |
-| [0056](./0056-members-can-see-who-has-saved-a-place.md) | A circle's members can see which of them has saved a place | proposed |
-| [0057](./0057-who-started-a-plan-is-kept-as-long-as-the-plan.md) | Who started a plan is kept as long as the plan, not for twelve months | proposed |
-| [0058](./0058-every-circle-carries-a-cohort-only-the-founder-can-see.md) | Every circle carries a cohort that only the founder can see | proposed |
-| [0059](./0059-continue-as-resolves-plan-codes-only.md) | Continue-as resolves plan codes only, never a circle's own code | proposed |
-| [0060](./0060-a-quiet-asks-initiator-is-not-inferable-from-member-data.md) | A quiet ask's initiator is not inferable from member data: who has saved a place and who has muted are each member's own | proposed |
-| [0061](./0061-the-chasing-survey-never-holds-lock-it-in.md) | The chasing survey never holds Lock it in: an unanswered question is stored as not answered and counted on its own | proposed |
-| [0062](./0062-a-continue-as-pick-does-not-carry-the-quiet-ask-answer.md) | A Continue-as pick does not hand the taker the previous holder's quiet-ask answer | proposed |
-| [0063](./0063-the-calendar-file-is-served-at-a-link-with-a-short-lived-signed-token.md) | The calendar file is served at a link with a short-lived signed token | proposed |
-| [0064](./0064-join-limits-charge-the-person-asking-and-a-members-call-is-free.md) | Join limits charge the person asking, and a member's call is free | proposed |
-| [0065](./0065-co-members-see-the-circles-name-for-a-member-and-nothing-else.md) | Co-members see the circle's name for a member and nothing else of their name: no view of account names, and a rename leaves every circle alone | proposed |
-| [0066](./0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md) | The group sees who can make each option, and nobody sees anyone's whole availability | proposed |
-| [0067](./0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md) | Every cadence nudge carries a stop link that needs no sign-in, and the Sent card says an account is made | proposed |
-| [0068](./0068-a-tapped-day-has-a-time-and-the-answer-is-one-line.md) | A tapped day already has a time, and the answer is one line: the first screen asks only which days | proposed (previous times not applied on open, 0077) |
-| [0069](./0069-every-account-holder-letter-carries-a-stop-link-that-needs-no-sign-in.md) | Every letter to an account holder carries a stop link that needs no sign-in | proposed |
-| [0070](./0070-a-member-changes-the-name-a-circle-calls-them-from-circle-settings.md) | A member changes the name a circle calls them from circle settings, and the new name shows everywhere, plans already locked in included | proposed |
-| [0071](./0071-the-functions-a-client-can-call-carry-their-own-rate-limits.md) | The functions a client can call carry their own rate limits, and an address is sent one verification letter an hour | proposed |
-| [0073](./0073-an-invite-digest-and-a-re-entry-digest-are-not-a-way-in.md) | A stored invite or re-entry digest is not a way in: the functions that take one are the service role's | proposed |
-| [0074](./0074-a-suppressed-contact-keeps-a-hash-and-the-sign-in-log-and-events-are-bounded.md) | A suppressed contact keeps a hash and not the address; the sign-in log is pruned; an event follows its user | proposed |
-| [0077](./0077-an-answer-never-given-opens-empty-previous-times-wait-for-a-tap.md) | An answer never given opens empty: previous times are not applied on open, they wait for a tap | proposed |
+The table of every record is [index.md](./index.md). It is generated from each
+record's frontmatter (`adr`, `title`, `status`, `amends`, `amended_by`, `superseded_by`) by
+`pnpm gen:adrs`, which `pnpm gen` runs. Adding an ADR needs no edit to it by
+hand: write the record, run `pnpm gen:adrs`, commit the result. Two branches that
+each add an ADR rebase locally without a conflict (`.gitattributes` marks the
+index `merge=union`; GitHub's own merge button does not read it, so rebase
+before you merge); if the rows land out of order, `pnpm gen:adrs` puts them right.
+`pnpm check:docs` fails when the index is stale.
 
 ## Template
 

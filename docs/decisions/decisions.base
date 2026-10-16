@@ -1,5 +1,5 @@
 # The ADR index as a live table. Rows come from each record's frontmatter;
-# the hand-written table in README.md stays the GitHub-facing index.
+# the generated table in index.md is the GitHub-facing index.
 filters:
   and:
     - file.inFolder("decisions")
