@@ -200,8 +200,10 @@ export const catalogue = {
     window_count: count.optional(),
     /**
      * Whether the answer began from "Use my previous times", even if it was
-     * edited afterwards (SUS-159). A yes or no, never a day-part. Optional so
-     * an older client's event, which has none, still validates.
+     * edited afterwards (SUS-159). A yes or no, never a day-part. Since ADR
+     * 0077 (SUS-226) nothing starts an answer that way, so every new send says
+     * `false`. Optional so an older client's event, which has none, still
+     * validates.
      */
     usual_used: z.boolean().optional(),
   }),
