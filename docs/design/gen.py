@@ -1434,7 +1434,7 @@ S["PlanAnother"] = shell(
         stack(dl("Same as last time?"), p("Filled in from September's catch-up. Change anything you like."), gap=8),
         stack(lbl("What are we doing?"), chips("*Catch up", "Dinner", "Drinks", "Coffee", "Activity"), gap=8),
         stack(lbl("When?"), chips("Tonight", "This weekend", "Next 7 days", "*Next 14 days", "Custom"), gap=8),
-        card(between(stack(title("3 hrs · At least 2 of 5 need to make it"), sm("Same as last time"), gap=2, grow=True), f'<div class="sm" style="flex-shrink:0;">Change</div>', top=True), divider(), between(stack(title("Replies close in 3 days"), sm("Fri 16 Oct, 6 pm"), gap=2), ic("chev",18,T["ink3"])), gap=12),
+        card(between(stack(title("2 hours · at least 4 of 6"), sm("Same as last time"), gap=2, grow=True), f'<div class="sm" style="flex-shrink:0;">Change</div>', top=True), divider(), between(stack(title("Replies close in 3 days"), sm("Fri 16 Oct, 6 pm"), gap=2), ic("chev",18,T["ink3"])), gap=12),
     ) +
     foot(pri("Ask the group"), sec("See if people are keen instead"))
 )

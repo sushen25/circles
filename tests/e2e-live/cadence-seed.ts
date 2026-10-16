@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { sql } from './stack';
 
-/** The seed the cadence specs share: a circle that met `daysAgo`, and the prompt the dispatcher would write. */
+/** The seed the cadence and Plan another specs share: a circle that met `daysAgo`, and the prompt the dispatcher would write. */
 
 /**
  * Last time, as it would be after the morning after: a dinner over a week of

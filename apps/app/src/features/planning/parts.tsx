@@ -17,9 +17,9 @@ import { bandWords } from './words';
 /**
  * The words take the width that is left and may shrink, so a long summary wraps
  * instead of pushing Change past the card's edge (SUS-225); the button keeps
- * its size and sits level with the first line.
+ * its size and its top edge lines up with the title's.
  */
-export const settingLineStyles = StyleSheet.create({
+const settingLineStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: space.related },
   words: { flex: 1, minWidth: 0 },
   action: { flexShrink: 0 },

@@ -63,7 +63,7 @@ for (const width of [390, 320]) {
     expect(b.x + b.width).toBeLessThanOrEqual(c.x + c.width + 0.5);
     // The words stop short of the button rather than running under it.
     expect(t.x + t.width).toBeLessThanOrEqual(b.x + 0.5);
-    // Level with the first line, not centred against both.
-    expect(b.y).toBeLessThan(t.y + t.height);
+    // Top-aligned with the title, not centred against both lines.
+    expect(Math.abs(b.y - t.y)).toBeLessThanOrEqual(2);
   });
 }
