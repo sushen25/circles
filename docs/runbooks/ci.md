@@ -110,12 +110,20 @@ If it recurs, the lead to follow is the Edge runtime's memory (the live job
 starts a fresh stack where `pnpm check` used to start it after `db:test` and the
 integration suite).
 
-**Not yet observed:** the ticket's bar is a median under 15 minutes over ten
-consecutive green runs, and three is what exists before merge. Watch the next
-seven on `main` and on PRs (`gh run list --workflow check`), and the job
-summary's run count on each live shard: 205 and 167 now. If a shard passes
-10 minutes, add a third shard (`shard: ['1/3', '2/3', '3/3']`; `check:workflows`
-accepts any complete set).
+**Measured since (16 October 2026, SUS-143):** the median wall clock of the
+last 50 green `check` runs on 15 and 16 October is **10.6 minutes** (10.8 over
+the 48 that ran the suites, p90 11.8, max 13.1; the other two were prose-only
+and took about a minute). That is the ticket's bar (under 15) met on far more
+than ten runs. How it was measured, so it can be repeated:
+
+```bash
+gh run list --workflow check --status success --limit 50 \
+  --json startedAt,updatedAt   # median of (updatedAt - startedAt), in minutes
+```
+
+`startedAt` is reset by a re-run, so a run that was re-run counts from its last
+attempt. If a live shard passes 10 minutes, add a third shard
+(`shard: ['1/3', '2/3', '3/3']`; `check:workflows` accepts any complete set).
 
 The live suite is 372 runs now, not 556: Chromium and WebKit run every spec, and
 the two in-app-browser projects and the en-AU one run only the specs that say they
