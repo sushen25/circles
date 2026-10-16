@@ -6,8 +6,9 @@ The table of every record is [index.md](./index.md). It is generated from each
 record's frontmatter (`adr`, `title`, `status`, `amends`, `amended_by`) by
 `pnpm gen:adrs`, which `pnpm gen` runs. Adding an ADR needs no edit to it by
 hand: write the record, run `pnpm gen:adrs`, commit the result. Two branches that
-each add an ADR merge without a conflict (`.gitattributes` marks the index
-`merge=union`); if the rows land out of order, `pnpm gen:adrs` puts them right.
+each add an ADR rebase locally without a conflict (`.gitattributes` marks the
+index `merge=union`; GitHub's own merge button does not read it, so rebase
+before you merge); if the rows land out of order, `pnpm gen:adrs` puts them right.
 `pnpm check:docs` fails when the index is stale.
 
 ## Template

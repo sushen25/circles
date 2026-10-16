@@ -91,7 +91,7 @@ Steps, in order:
    `.md` extension, no heading links, no Obsidian-only syntax, no renames —
    `docs/Home.md` says why. `pnpm check:docs`, inside the gate, fails on a
    link to nothing or on an ADR whose frontmatter, status line
-   disagree or the generated index is stale, so a doc left behind fails the check rather than the reader.
+   disagree, or the generated index is stale, so a doc left behind fails the check rather than the reader.
 7. **Check.**
 
 ```bash
