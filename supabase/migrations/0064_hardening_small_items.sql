@@ -32,9 +32,6 @@ comment on policy circles_no_anonymous_insert on public.circles is
   'Defence in depth (ADR 0004). Nothing applies it today, because no client role has an INSERT grant on circles; it is here so that a future insert policy, or grant, still cannot let an anonymous caller create a circle.';
 
 -- BEGIN GENERATED: function definitions (scripts/gen-sql-functions.mjs)
--- END GENERATED
-
--- BEGIN GENERATED: function definitions (scripts/gen-sql-functions.mjs)
 
 -- supabase/sql/functions/public/create_plan.sql
 -- ---------------------------------------------------------------------------
