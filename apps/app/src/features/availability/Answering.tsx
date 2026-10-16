@@ -217,15 +217,19 @@ export function Answering({
   // answer it was sent with, and a success clears the draft an edit would
   // have been written to.
   const sending = phase.kind === 'sending' ? phase.status : undefined;
+  const changesDays = (action: EditorAction) =>
+    JSON.stringify(reducer(state, action).days) !== JSON.stringify(state.days);
   const edit = (action: EditorAction) => {
     if (sending !== undefined) return;
     // Opening a day changes what is on screen, not the answer: it is not an
     // edit, and it writes no draft.
     if (!VIEW_ONLY.has(action.type)) {
       edited();
-      // A change by hand ends the offer, and the note, for the rest of the
-      // opening; the tap itself and "I'm easy" do not.
-      if (action.type !== 'usual' && action.type !== 'flexible') {
+      // A change to the days or their times by hand ends the offer, and the
+      // note, for the rest of the opening; the tap itself and "I'm easy" do
+      // not, and nor does one that leaves the days as they were (Same for
+      // every day on days that already share a time).
+      if (action.type !== 'usual' && action.type !== 'flexible' && changesDays(action)) {
         setHandTapped(true);
         setFromUsual(false);
       }
