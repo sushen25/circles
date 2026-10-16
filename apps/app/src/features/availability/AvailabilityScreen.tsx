@@ -4,6 +4,7 @@ import {
   Body,
   BodyText,
   Button,
+  CompactButton,
   DayGrid,
   DisplayL,
   Foot,
@@ -81,11 +82,17 @@ export type AvailabilityProps = {
   /** "Evening": the choice that day had before its clock was tapped. */
   backTo?: string | undefined;
   flexible?: boolean | undefined;
+  /** "Use my usual days", with the usual said in words; absent when it is not on offer (SUS-227). */
+  usual?: { says: string } | undefined;
+  /** The answer is what the usual days filled in: "Filled in from your usual days. Undo". */
+  filledFromUsual?: boolean | undefined;
   /** The plan changed under a draft (the rescheduled state). */
   changed?: boolean | undefined;
   problem?: string | undefined;
   reference?: string | undefined;
   busy?: boolean | undefined;
+  onUseUsual?: (() => void) | undefined;
+  onUndoUsual?: (() => void) | undefined;
   onTick?: ((day: number) => void) | undefined;
   onChooseWindow?: ((kind: BlockKind) => void) | undefined;
   onExpand?: (() => void) | undefined;
@@ -123,9 +130,13 @@ export function AvailabilityScreen({
   backTo,
   flexible = false,
   changed = false,
+  usual,
+  filledFromUsual = false,
   problem,
   reference,
   busy = false,
+  onUseUsual,
+  onUndoUsual,
   onTick,
   onChooseWindow,
   onExpand,
@@ -226,21 +237,47 @@ export function AvailabilityScreen({
           {closes === undefined ? null : <Small>{closes}</Small>}
           {zoneNote === undefined ? null : <Small>{zoneNote}</Small>}
         </Stack>
+        {usual === undefined ? null : (
+          <Stack gap={6}>
+            <View style={styles.offer}>
+              <CompactButton
+                tone="plain"
+                icon="undo"
+                label={t('availability', 'usual_button')}
+                disabled={locked}
+                onPress={onUseUsual}
+              />
+            </View>
+            <Small>{usual.says}</Small>
+          </Stack>
+        )}
         {block === undefined ? null : (
           <View style={dimmed && styles.dimmed}>
-            <AnswerBlock
-              block={block}
-              single={single}
-              singleHeading={singleHeading}
-              expanded={expanded}
-              rows={rows}
-              locked={locked || flexible}
-              onChoose={onChooseWindow}
-              onExpand={onExpand}
-              onCollapse={onCollapse}
-              onChooseDay={onChooseDay}
-              onOpenDay={onOpenDay}
-            />
+            <Stack gap={12}>
+              <AnswerBlock
+                block={block}
+                single={single}
+                singleHeading={singleHeading}
+                expanded={expanded}
+                rows={rows}
+                locked={locked || flexible}
+                onChoose={onChooseWindow}
+                onExpand={onExpand}
+                onCollapse={onCollapse}
+                onChooseDay={onChooseDay}
+                onOpenDay={onOpenDay}
+              />
+              {filledFromUsual ? (
+                <Row gap={4}>
+                  <Small>{t('availability', 'usual_filled')}</Small>
+                  <Tertiary
+                    label={t('availability', 'usual_undo')}
+                    aria-label={t('availability', 'usual_undo_for')}
+                    onPress={locked ? undefined : onUndoUsual}
+                  />
+                </Row>
+              ) : null}
+            </Stack>
           </View>
         )}
         <Row>
@@ -291,4 +328,5 @@ const styles = StyleSheet.create({
   dimmed: { opacity: 0.45 },
   room: { opacity: 0 },
   over: { position: 'absolute', top: 0, left: 0, right: 0 },
+  offer: { alignSelf: 'flex-start' },
 });

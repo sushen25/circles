@@ -8,7 +8,7 @@ builds_on: [5]
 ---
 # ADR 0077: An answer never given opens empty: previous times are not applied on open, they wait for a tap
 
-_Status: proposed · 16 October 2026 · amends [ADR 0068](0068-a-tapped-day-has-a-time-and-the-answer-is-one-line.md) and [ADR 0037](0037-usual-times-are-read-not-written.md) (previous times are no longer applied when the editor opens); builds on [ADR 0005](0005-willing-windows-retained-12-months.md)_
+_Status: proposed (the explicit tap now exists: SUS-227, below) · 16 October 2026 · amends [ADR 0068](0068-a-tapped-day-has-a-time-and-the-answer-is-one-line.md) and [ADR 0037](0037-usual-times-are-read-not-written.md) (previous times are no longer applied when the editor opens); builds on [ADR 0005](0005-willing-windows-retained-12-months.md)_
 
 ## Context
 
@@ -37,32 +37,61 @@ reopens as the person left it ([ADR 0024](0024-availability-days-first-then-a-ti
 **Previous times are kept for an explicit tap, not applied.** The read
 (`usePreviousTimes`, the `previous_dayparts` function of ADR 0037, wrapped by `usualTimes`) and the editor's
 `usual` action stay in the code, tested, and nothing calls them on open. The
-founder has decided they come back later as a button the person presses
-("Use my usual days"); that is a separate ticket, designed on the canvas first.
-Until it lands no screen reads them, and the first screen makes no request for them.
+founder has decided they come back as a button the person presses ("Use my
+usual days"). The first version of this record left that to a follow-up; it is
+SUS-227 and is described under "The tap" below.
 
-**The measurement stays truthful.** `availability_started.usual_offered` is sent
-as `false` on every opening, because nothing is offered, and `usual_used` is
-`false` on every send, because no answer begins from them. The fields stay in
-the catalogue, unchanged and at version 1, for the follow-up and for the history
-already stored; the `previous_times_used` rate reads as empty from this change
-until then. The start no longer waits for the read, so it is sent as the editor
-opens.
+**The measurement stays truthful.** `availability_started.usual_offered` is true
+exactly when the tap was on show as the editor opened, and false otherwise;
+`availability_submitted.usual_used` is true exactly when the tap was used and
+the answer sent with it still in force. The fields are unchanged and at version
+1. The start waits for the read to settle, so the flag is a yes or no, but never
+for long: after a moment it is sent without the flag, which says "unknown"
+(ADR 0045), and a guest who has nothing to read (no backend, a stored answer, a
+draft) is not waited for.
+
+### The tap (SUS-227, 16 October 2026)
+
+**Before the tap, nothing is tapped.** Under the instructions sits a quiet pill,
+**Use my usual days**, with a small undo-style icon, and under it one line that
+says what the usual is in words, from the parts the read returned, so the tap is
+never a surprise: "Weekday evenings and weekend afternoons, from your last plans
+in this circle." A group with all three parts of the day reads "any time on
+weekdays". The words are the copy file's; no date, count or day-part reaches an
+analytics event.
+
+**It shows only to someone who has answered in this circle before, whose usual
+days fall inside this plan (`canUseUsual`), and who has not answered this plan
+yet.** A first-time guest, a guest with a stored answer (including "none of
+these") and a guest reopening an unsent draft never see it, and the first two
+make no request for it. A failed read offers nothing. It disappears once any
+day is tapped by hand, and stays gone for the rest of that opening.
+
+**After the tap** the usual days are tapped with their usual times (the `usual`
+action), the answer line shows as for any other answer, and under it reads
+"Filled in from your usual days. **Undo**". Send is enabled. Undo returns to
+nothing tapped, brings the offer back, and takes `usual_used` back to false.
+From the tap on everything is an ordinary answer: days tapped off or on, Change
+time, Send. The note goes as soon as the person changes a day or a time;
+`usual_used` stays true, because the answer began from the tap (SUS-159).
 
 ## Alternatives considered
 
-- **Retire the two fields.** Rejected: the follow-up reuses them, and a retired
+- **Retire the two fields.** Rejected: the tap reuses them, and a retired
   field would have to come back at a new version.
 - **Delete the read and the `usual` action.** Rejected: the founder wants the
   explicit tap, and rebuilding the read costs more than keeping a tested unit.
 - **Keep the prefill but ask first.** That is the button of ADR 0037, which ADR
-  0068 removed because the first screen carried too much; the follow-up decides
-  whether it returns, on the canvas.
+  0068 removed because the first screen carried too much; SUS-227 brings back a
+  quiet tap instead, drawn on the canvas (`AvailabilityReturning`,
+  `AvailabilityReturningTapped`), with nothing tapped until it is pressed.
 
 ## Consequences
 
-- The first screen is the same for a first-time and a returning guest.
-- `usePreviousTimes` has no caller in the app until the follow-up; its tests keep
-  it reachable. `useStartedEvent` stays in the same file and is used.
-- Spec §5.5's "Previous times" paragraph is rewritten in the same change.
+- The first screen opens the same for a first-time and a returning guest, bar
+  the one offer a returning guest has under the instructions.
+- `usePreviousTimes` has one caller, the editor, which asks for the read only
+  when the offer could be made. `useStartedEvent` stays in the same file.
+- Spec §5.5's "Previous times" paragraph is rewritten in the same change, and
+  again for the tap. The `previous_times_used` rate reads from the tap onward.
 - The `previous_dayparts` database function is untouched.

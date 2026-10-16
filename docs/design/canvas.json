@@ -241,11 +241,20 @@
       "w": 390,
       "h": 980,
       "page": "guest",
-      "title": "Availability \u00b7 returning member, opens empty"
+      "title": "Availability \u00b7 returning member, Use my usual days offered"
+    },
+    {
+      "file": "AvailabilityReturningTapped.dc.html",
+      "x": 1440,
+      "y": 5200,
+      "w": 390,
+      "h": 1070,
+      "page": "guest",
+      "title": "Availability \u00b7 after Use my usual days, with Undo"
     },
     {
       "file": "AvailabilityOthersFirst.dc.html",
-      "x": 1440,
+      "x": 1920,
       "y": 5200,
       "w": 390,
       "h": 900,
@@ -254,7 +263,7 @@
     },
     {
       "file": "SentSwitchOff.dc.html",
-      "x": 1920,
+      "x": 2400,
       "y": 5200,
       "w": 390,
       "h": 844,
@@ -263,8 +272,8 @@
     },
     {
       "file": "SentCode.dc.html",
-      "x": 2400,
-      "y": 5200,
+      "x": 0,
+      "y": 6500,
       "w": 390,
       "h": 844,
       "page": "guest",
@@ -272,7 +281,7 @@
     },
     {
       "file": "SentDone.dc.html",
-      "x": 0,
+      "x": 480,
       "y": 6500,
       "w": 390,
       "h": 844,
@@ -281,7 +290,7 @@
     },
     {
       "file": "SentPartial.dc.html",
-      "x": 480,
+      "x": 960,
       "y": 6500,
       "w": 390,
       "h": 844,
@@ -290,7 +299,7 @@
     },
     {
       "file": "SentMember.dc.html",
-      "x": 960,
+      "x": 1440,
       "y": 6500,
       "w": 390,
       "h": 844,
@@ -299,7 +308,7 @@
     },
     {
       "file": "SentMemberDone.dc.html",
-      "x": 1440,
+      "x": 1920,
       "y": 6500,
       "w": 390,
       "h": 844,
@@ -308,7 +317,7 @@
     },
     {
       "file": "SentSuppressed.dc.html",
-      "x": 1920,
+      "x": 2400,
       "y": 6500,
       "w": 390,
       "h": 844,
@@ -317,8 +326,8 @@
     },
     {
       "file": "SentSuppressedSaved.dc.html",
-      "x": 2400,
-      "y": 6500,
+      "x": 0,
+      "y": 7800,
       "w": 390,
       "h": 844,
       "page": "guest",
@@ -326,7 +335,7 @@
     },
     {
       "file": "SentOrganiser.dc.html",
-      "x": 0,
+      "x": 480,
       "y": 7800,
       "w": 390,
       "h": 844,
@@ -335,7 +344,7 @@
     },
     {
       "file": "NamePlanLink.dc.html",
-      "x": 480,
+      "x": 960,
       "y": 7800,
       "w": 390,
       "h": 844,

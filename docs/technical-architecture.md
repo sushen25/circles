@@ -439,7 +439,7 @@ All ids are `uuid` (v7 where ordering helps). All tables have `created_at`, `upd
 
 | Table | Columns of note | Constraints |
 |---|---|---|
-| `member_dayparts` | `circle_id`, `user_id`, `summary` (`{parts, counts}` — `DayPartSummary` without `userId`), `computed_at` | a running total: each retention run adds the counts of the windows it is about to delete to what is stored, then re-derives `parts` (ADR 0005); readable by that member only, and only while a member; deleted 30 days after removal or archiving; no client writes. "Use my previous times" adds it to the member's own retained answers when it is read, in `public.previous_dayparts(p_plan_id)`, which returns only the parts the plan asks about and no window (ADR 0037, amended): the table holds what has been deleted, the answers hold the rest, and nothing writes it when somebody answers |
+| `member_dayparts` | `circle_id`, `user_id`, `summary` (`{parts, counts}` — `DayPartSummary` without `userId`), `computed_at` | a running total: each retention run adds the counts of the windows it is about to delete to what is stored, then re-derives `parts` (ADR 0005); readable by that member only, and only while a member; deleted 30 days after removal or archiving; no client writes. "Use my usual days" (an explicit tap, ADR 0077) adds it to the member's own retained answers when it is read, in `public.previous_dayparts(p_plan_id)`, which returns only the parts the plan asks about and no window (ADR 0037, amended): the table holds what has been deleted, the answers hold the rest, and nothing writes it when somebody answers |
 
 **Growth (`public`)**
 

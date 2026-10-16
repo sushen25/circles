@@ -5,9 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * The previous-times read and the start event (ADR 0005, ADR 0037, SUS-159,
- * ADR 0068). Nothing on the first screen uses the read since ADR 0077
- * (SUS-226): it is kept, with these tests, for the explicit tap a follow-up
- * ticket brings.
+ * ADR 0068). Since ADR 0077 the read is not applied on open; the editor asks
+ * for it only to offer the explicit "Use my usual days" tap (SUS-227).
  */
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
