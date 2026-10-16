@@ -53,6 +53,12 @@ Deno.serve(
       //
       // Five a day per caller and twenty per connection stand behind it, for
       // the volume the pair cannot see: an anonymous identity is cheap.
+      //
+      // There is still no counter on the address here, and the answer is still
+      // the same whatever happened. The one-letter-an-hour cap on an address
+      // lives in `request_email_updates` and is silent (ADR 0071): it declines
+      // to enqueue and returns what an enqueued letter returns, so nothing in
+      // this response, a refusal included, says the address was just asked about.
       // None of this is authorisation — the membership check in the database is.
       await enforce(service, [
         { scope: 'email_request', key: `${actor.userId}:${body.email}`, max: 3, window: '1 day' },

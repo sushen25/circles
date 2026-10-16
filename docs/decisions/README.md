@@ -73,6 +73,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0068](./0068-a-tapped-day-has-a-time-and-the-answer-is-one-line.md) | A tapped day already has a time, and the answer is one line: the first screen asks only which days | proposed |
 | [0069](./0069-every-account-holder-letter-carries-a-stop-link-that-needs-no-sign-in.md) | Every letter to an account holder carries a stop link that needs no sign-in | proposed |
 | [0070](./0070-a-member-changes-the-name-a-circle-calls-them-from-circle-settings.md) | A member changes the name a circle calls them from circle settings, and the new name shows everywhere, plans already locked in included | proposed |
+| [0071](./0071-the-functions-a-client-can-call-carry-their-own-rate-limits.md) | The functions a client can call carry their own rate limits, and an address is sent one verification letter an hour | proposed |
 
 ## Template
 
