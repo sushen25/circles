@@ -1,7 +1,7 @@
 // `docs/` is read in three places that cannot see each other break: GitHub,
 // Obsidian and whoever greps it. This checks the two things only a reader
 // would notice — a link to a file that is not there, and an ADR whose
-// frontmatter, status line and README row have stopped agreeing. `docs/Home.md`
+// frontmatter and status line (the generated index is checked against both) have stopped agreeing. `docs/Home.md`
 // has the writing rules; this enforces the ones a script can.
 //
 // Not checked: `audits/` (git-excluded, so CI never sees it), `_templates/`
@@ -85,6 +85,17 @@ function checkAdrs() {
     .filter((name) => /^\d{4}-.*\.md$/.test(name))
     .sort();
   const numbers = new Set(files.map((name) => Number(name.slice(0, 4))));
+  // The index merges by union, so two branches that took the same number no
+  // longer meet in a conflict on its last row; this is what catches them.
+  if (numbers.size !== files.length) {
+    const seen = new Map();
+    for (const name of files) {
+      const n = name.slice(0, 4);
+      seen.set(n, [...(seen.get(n) ?? []), name]);
+    }
+    for (const [n, names] of seen)
+      if (names.length > 1) fail(dir, `ADR ${n} is taken twice: ${names.join(', ')}`);
+  }
   for (const name of files) {
     const file = join(dir, name);
     const text = readFileSync(file, 'utf8');
@@ -101,6 +112,8 @@ function checkAdrs() {
     if (Number(fm.adr) !== number) fail(file, `frontmatter adr: ${fm.adr}, the file is ${number}`);
     if (heading && fm.title !== heading[2].trim())
       fail(file, 'frontmatter title differs from the heading');
+    if (typeof fm.title === 'string' && fm.title.includes('|'))
+      fail(file, 'title contains `|`, which breaks the generated index table');
     if (!STATUSES.has(fm.status)) {
       fail(file, `status \`${fm.status}\` is not proposed, accepted or superseded`);
     }
@@ -116,7 +129,7 @@ function checkAdrs() {
       if (iso !== fm.date)
         fail(file, `frontmatter date ${fm.date}, the status line says ${iso ?? 'no date'}`);
     }
-    for (const key of ['amends', 'amended_by', 'builds_on']) {
+    for (const key of ['amends', 'amended_by', 'builds_on', 'superseded_by']) {
       if (fm[key] === undefined) continue;
       if (!Array.isArray(fm[key]) || fm[key].some((n) => !Number.isInteger(n))) {
         fail(file, `${key} must be a list of ADR numbers`);

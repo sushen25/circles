@@ -48,6 +48,8 @@ export function renderIndex() {
     const notes = [];
     if (Array.isArray(fm.amended_by) && fm.amended_by.length > 0)
       notes.push(`amended by ${list(fm.amended_by)}`);
+    if (Array.isArray(fm.superseded_by) && fm.superseded_by.length > 0)
+      notes.push(`superseded by ${list(fm.superseded_by)}`);
     if (Array.isArray(fm.amends) && fm.amends.length > 0) notes.push(`amends ${list(fm.amends)}`);
     if (notes.length > 0) status += ` (${notes.join('; ')})`;
     rows.push(`| [${name.slice(0, 4)}](./${name}) | ${fm.title} | ${status} |`);
