@@ -17,6 +17,8 @@ import { AvailabilityScreen } from './AvailabilityScreen';
 import type { BlockTiming } from './blocks';
 import { ExactHoursScreen } from './ExactHoursScreen';
 import { dayRows, deviceTimeFormat } from './days';
+import { handoffKey } from './hoursStep';
+import { useHoursHandoff, useHoursStep } from './useHoursStep';
 import {
   editorFrom,
   editorReducer,
@@ -120,8 +122,16 @@ export function Answering({
   // Where the answer starts: the device's draft when it is the newer of the
   // two, the stored answer otherwise, and nothing when there is neither.
   const [opened] = useState(() => (draftIsNewer(draft, answer) ? draft : undefined));
+  // "A time for each day" is the plan link's `?step=hours`, an entry of its own
+  // in the history (SUS-209). This page load pushed it, so this is the step's
+  // editor, started from the first screen's answer. The first screen's own
+  // address never gains the step, so which of the two this is does not change.
+  const handoff = handoffKey(code, plan, userId);
+  const hours = useHoursStep(code, handoff);
+  const { exact, focused } = hours;
   const [state, dispatch] = useReducer(reducer, undefined, (): EditorState => {
     const start = (): EditorState => {
+      if (hours.handed !== undefined) return hours.handed.state;
       if (opened !== undefined) return editorFrom(rows, timing, opened.windows, opened.flexible);
       if (answer !== null) {
         const windows = answer.status === 'windows' ? answer.windows : [];
@@ -137,8 +147,12 @@ export function Answering({
   const [sheetOpen, setSheetOpen] = useState(false);
   // Once the person has changed anything, previous times no longer start the
   // answer: clearing their last day is a choice, not an empty answer to fill.
-  const [touched, setTouched] = useState(false);
-  const [exact, setExact] = useState(false);
+  const [touched, setTouched] = useState(() => hours.handed?.touched ?? false);
+  const openHours = () => hours.open(state, touched);
+  const closeHours = hours.close;
+  // Leaving the step waits for the answer to be handed back: the change and the
+  // pop in one tap would unmount the step before its last change was shared.
+  const [leaving, setLeaving] = useState(false);
 
   // The device's back button leaves the half hours for the answer, as the
   // screen's own does, rather than the page (Android; the web has no such button
@@ -148,7 +162,7 @@ export function Answering({
     if (!exact || Platform.OS === 'web') return;
     const hardware = BackHandler.addEventListener('hardwareBackPress', () => {
       dispatch({ type: 'close' });
-      setExact(false);
+      setLeaving(true);
       return true;
     });
     return () => hardware.remove();
@@ -164,7 +178,7 @@ export function Answering({
     enabled: plan.acceptingAnswers,
   });
 
-  const said = useOthersSaid({ plan, userId, step, fixtureOthers });
+  const said = useOthersSaid({ plan, userId, step: exact ? 'none' : step, fixtureOthers });
 
   const { phase, send, savedAt, edited } = useSendAnswer({
     code,
@@ -198,11 +212,33 @@ export function Answering({
   const startsEmpty = answer === null && opened === undefined;
   const view = editorView(state, rows, timing, format, undefined, previous.parts, said);
   useStartedEvent({
-    active: step === 'times' && answerable,
+    active: step === 'times' && answerable && !exact,
     planId: plan.id,
     settled: previous.settled,
     offered: startsEmpty && view.canUseUsual,
   });
+
+  // Painting a day's last half hour off untaps it: with no day left there is
+  // nothing to give a time to, so the step is left for the first screen.
+  const noDays = exact && view.cards.length === 0;
+  useHoursHandoff({
+    exact,
+    handoff,
+    state,
+    touched,
+    restore: (answer) => {
+      dispatch({ type: 'load', state: answer.state });
+      setTouched(answer.touched);
+    },
+  });
+  useEffect(() => {
+    if (leaving) closeHours();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leaving]);
+  useEffect(() => {
+    if (noDays) closeHours();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noDays]);
 
   // Previous times start an answer that has never been given: the days are
   // tapped and the line says what they are. View-only — a start, not an edit,
@@ -257,10 +293,12 @@ export function Answering({
 
   // "A time for each day": every tapped day is a card with the plan's quick
   // choices, and the half hours are one tap away on each.
-  const openEach = () => setExact(true);
+  const openEach = openHours;
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const title = titleOf(plan);
+
+  if (!focused) return null;
 
   if (!answerable || phase.kind === 'closed') {
     return <AvailabilityScreen state="expired" title={title} onBack={back} />;
@@ -300,11 +338,7 @@ export function Answering({
     );
   }
 
-  // Painting a day's last half hour off untaps it: with no day left there is
-  // nothing to give a time to, so the screen is the first one again.
-  if (exact && view.cards.length === 0) setExact(false);
-
-  if (exact) {
+  if (exact && !noDays) {
     return (
       <ExactHoursScreen
         title={title}
@@ -327,11 +361,11 @@ export function Answering({
         onOneTime={() => {
           edit({ type: 'use_one_time' });
           edit({ type: 'close' });
-          setExact(false);
+          setLeaving(true);
         }}
         onDone={() => {
           edit({ type: 'close' });
-          setExact(false);
+          setLeaving(true);
         }}
       />
     );
