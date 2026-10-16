@@ -364,13 +364,6 @@ export const en = {
     sunday_crew: 'Sunday Crew',
     brand: '{brand}',
     not_going_ahead: 'Not going ahead',
-    thursdays_catch_up_is_off: "Thursday's catch-up is off.",
-    maya_cancelled_it_nothing_you_sent_has:
-      "Maya cancelled it. Nothing you sent has been shared, and the circle's record isn't affected.",
-    mayas_note: "Maya's note",
-    work_thing_came_up_sorry_all_will:
-      '“Work thing came up, sorry all. Will try again in October.”',
-    back_to_sunday_crew: 'Back to Sunday Crew',
     headline_day: "{day}'s catch-up is off.",
     headline_plain: 'The catch-up is off.',
     body: "It's been called off. Nothing you sent has been shared, and the circle's record isn't affected.",
@@ -500,16 +493,8 @@ export const en = {
   changeTime: {
     back: 'Back',
     ask_for_new_times: 'Ask for new times?',
-    thursday_will_be_marked_as_no_longer:
-      'Thursday will be marked as no longer happening and everyone will be asked again for a new window. Your place and note are kept.',
     new_window: 'New window',
-    next_7_days: 'Next 7 days',
-    next_14_days: 'Next 14 days',
-    custom: 'Custom',
-    everyone_will_see_thursday_is_off_and:
-      "Everyone will see Thursday is off and get a fresh ask. Nobody's earlier times are reused without asking.",
     ask_again: 'Ask again',
-    keep_thursday: 'Keep Thursday',
     body_day:
       '{day} will be marked as no longer happening, and everyone will be asked for their times again.',
     warn_day:
@@ -2341,9 +2326,6 @@ export const en = {
     sunday_crew: 'Sunday Crew',
     brand: '{brand}',
     change_of_plan: 'Change of plan',
-    thursday_is_off_the_table_new_times: 'Thursday is off the table. New times?',
-    maya_reopened_the_plan_for_the_week:
-      "Maya reopened the plan for the week after. Your earlier times don't carry over, so it's a fresh ask.",
     previously: 'Previously',
     thu_17_sep_6_30_8_30: 'Thu 17 Sep, 6:30–8:30 pm',
     now_asking_about: 'Now asking about',
