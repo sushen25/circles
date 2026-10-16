@@ -42,7 +42,7 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0034](./0034-ink-3-is-dark-enough-to-read.md) | `ink-3` is dark enough to read | proposed |
 | [0035](./0035-the-quiet-ask-at-twenty-members.md) | The quiet ask at twenty members — its threshold, its stop time, and what it does beside an open plan | accepted |
 | [0036](./0036-the-cadence-nudge-is-decided-once-per-cycle.md) | The cadence nudge is decided once per cycle, when circle home says it is about time | proposed |
-| [0037](./0037-usual-times-are-read-not-written.md) | A member's usual times are worked out when they are read, not written when they answer | proposed (amended by 0068) |
+| [0037](./0037-usual-times-are-read-not-written.md) | A member's usual times are worked out when they are read, not written when they answer | proposed (amended by 0068, 0077) |
 | [0038](./0038-the-quiet-asks-initiator-is-written-to-at-their-own-address.md) | The quiet ask's initiator is written to at their own address | accepted (amended by 0069) |
 | [0039](./0039-replies-closed-is-told-per-deadline-and-once-a-day-later.md) | Replies closed is told once per deadline and once a day later; one more day is a day from now, once per revision | proposed |
 | [0040](./0040-the-served-html-is-a-shell.md) | The served HTML is a neutral shell; every screen renders on the device | proposed |
@@ -72,9 +72,10 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0065](./0065-co-members-see-the-circles-name-for-a-member-and-nothing-else.md) | Co-members see the circle's name for a member and nothing else of their name: no view of account names, and a rename leaves every circle alone | proposed (amended by 0070; amends 0032) |
 | [0066](./0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md) | The group sees who can make each option, and nobody sees anyone's whole availability | proposed (amends 0045) |
 | [0067](./0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md) | Every cadence nudge carries a stop link that needs no sign-in, and the Sent card says an account is made | proposed (amended by 0069; amends 0027, 0055) |
-| [0068](./0068-a-tapped-day-has-a-time-and-the-answer-is-one-line.md) | A tapped day already has a time, and the answer is one line: the first screen asks only which days | proposed (amends 0024, 0037) |
+| [0068](./0068-a-tapped-day-has-a-time-and-the-answer-is-one-line.md) | A tapped day already has a time, and the answer is one line: the first screen asks only which days | proposed (amended by 0077; amends 0024, 0037) |
 | [0069](./0069-every-account-holder-letter-carries-a-stop-link-that-needs-no-sign-in.md) | Every letter to an account holder carries a stop link that needs no sign-in | proposed (amends 0025, 0029, 0038, 0067) |
 | [0070](./0070-a-member-changes-the-name-a-circle-calls-them-from-circle-settings.md) | A member changes the name a circle calls them from circle settings, and the new name shows everywhere, plans already locked in included | proposed (amends 0065) |
 | [0071](./0071-the-functions-a-client-can-call-carry-their-own-rate-limits.md) | The functions a client can call carry their own rate limits, and an address is sent one verification letter an hour | proposed (amended by 0073) |
 | [0073](./0073-an-invite-digest-and-a-re-entry-digest-are-not-a-way-in.md) | A stored invite or re-entry digest is not a way in: the functions that take one are the service role's | proposed (amends 0071) |
 | [0074](./0074-a-suppressed-contact-keeps-a-hash-and-the-sign-in-log-and-events-are-bounded.md) | A suppressed contact keeps a hash and not the address; the sign-in log is pruned; an event follows its user | proposed |
+| [0077](./0077-an-answer-never-given-opens-empty-previous-times-wait-for-a-tap.md) | An answer never given opens empty: previous times are not applied on open, they wait for a tap | proposed (amends 0037, 0068) |
