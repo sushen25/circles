@@ -48,7 +48,7 @@ const view = (
   return editorView(state, rows, timing, { hour12: true }, 'en-AU', usual);
 };
 
-describe('use my previous times', () => {
+describe('use my usual days', () => {
   it('paints weekday evenings on the weekdays and nothing on the weekend', () => {
     const { rows, run, start } = setUp(WEEK);
     const filled = run(start, { type: 'usual', parts: ['weekday_evening'] });

@@ -4,7 +4,7 @@ import { authClient } from '../auth/client';
 
 /**
  * The day-parts this person has offered before in this plan's circle, limited
- * to the ones this plan asks about, for "Use my previous times" (ADR 0005,
+ * to the ones this plan asks about, for "Use my usual days" (ADR 0005,
  * SUS-159, ADR 0037's amendment).
  *
  * **One call, `public.previous_dayparts`, which reads the caller's own rows.**

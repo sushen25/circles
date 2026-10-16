@@ -176,7 +176,12 @@ export function Answering({
   const previous = usePreviousTimes({
     planId: plan.id,
     userId,
-    enabled: step === 'times' && plan.acceptingAnswers && answer === null && opened === undefined,
+    enabled:
+      step === 'times' &&
+      !exact &&
+      plan.acceptingAnswers &&
+      answer === null &&
+      opened === undefined,
   });
   // Any day tapped by hand ends the offer for good; the tap itself and Undo do not.
   const [handTapped, setHandTapped] = useState(false);
@@ -196,7 +201,8 @@ export function Answering({
     onStale,
     onNarrowed,
     returnTo,
-    usedPrevious: previous.used,
+    // An "I'm easy" answer carries none of the usual days.
+    usedPrevious: previous.used && !state.flexible,
   });
 
   // Judged by the server when the plan was read (`acceptingAnswers`): state and
@@ -238,6 +244,12 @@ export function Answering({
     state,
     touched,
     restore: (answer) => {
+      // The hours step changed the answer by hand: the note goes, and so does
+      // the offer for the rest of the opening.
+      if (JSON.stringify(answer.state.days) !== JSON.stringify(state.days)) {
+        setHandTapped(true);
+        setFromUsual(false);
+      }
       dispatch({ type: 'load', state: answer.state });
       setTouched(answer.touched);
     },
