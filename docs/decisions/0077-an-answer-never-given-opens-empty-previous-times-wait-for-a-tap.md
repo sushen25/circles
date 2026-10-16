@@ -44,8 +44,8 @@ SUS-227 and is described under "The tap" below.
 **The measurement stays truthful.** `availability_started.usual_offered` is true
 exactly when the tap was on show as the editor opened, and false otherwise;
 `availability_submitted.usual_used` is true exactly when the tap was used and
-the answer sent with it still in force. The fields are unchanged and at version
-1. The start waits for the read to settle, so the flag is a yes or no, but never
+the answer sent with it still in force. The fields are unchanged and at
+version 1. The start waits for the read to settle, so the flag is a yes or no, but never
 for long: after a moment it is sent without the flag, which says "unknown"
 (ADR 0045), and a guest who has nothing to read (no backend, a stored answer, a
 draft) is not waited for.
