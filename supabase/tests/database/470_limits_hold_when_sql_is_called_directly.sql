@@ -19,7 +19,7 @@
 -- none.
 
 begin;
-select plan(29);
+select plan(34);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default true)
 returns uuid language sql as $$
@@ -288,7 +288,9 @@ select lives_ok(
 select pg_temp.act_as_postgres();
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 values ('00000000-0000-0000-0000-0000000009c1', '00000000-0000-0000-0000-0000000009a2', 'Eve'),
-       ('00000000-0000-0000-0000-0000000009c1', '00000000-0000-0000-0000-0000000009a3', 'Ada');
+       ('00000000-0000-0000-0000-0000000009c1', '00000000-0000-0000-0000-0000000009a3', 'Ada')
+on conflict (circle_id, user_id) do update
+  set display_name_snapshot = excluded.display_name_snapshot, status = 'active';
 
 create or replace function pg_temp.letters_for(addr text) returns integer
 language sql security definer as $$
@@ -336,6 +338,48 @@ select is(
   'another address is a separate allowance, and its answer is the same shape'
 );
 select is(pg_temp.letters_for('other@example.org'), 1, 'and its own letter goes out');
+
+-- ---------------------------------------------------------------------------
+-- rename_in_circle (SUS-224): 120 an hour, and each member's own
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values ('00000000-0000-0000-0000-0000000009c1', '00000000-0000-0000-0000-0000000009a2', 'Eve'),
+       ('00000000-0000-0000-0000-0000000009c1', '00000000-0000-0000-0000-0000000009a3', 'Ada')
+on conflict (circle_id, user_id) do update
+  set display_name_snapshot = excluded.display_name_snapshot, status = 'active';
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000009a3');
+select is(
+  pg_temp.refused_at($$select public.rename_in_circle('00000000-0000-0000-0000-0000000009c1', 'Ada')$$, 125),
+  121,
+  'rename_in_circle: a hundred and twenty renames an hour called directly, and the next is refused'
+);
+select throws_ok(
+  $$select public.rename_in_circle('00000000-0000-0000-0000-0000000009c1', 'Ada L')$$,
+  'P0003', 'too_many_requests',
+  'and it stays refused, whatever name is asked for'
+);
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000009a2');
+select lives_ok(
+  $$select public.rename_in_circle('00000000-0000-0000-0000-0000000009c1', 'Eve B')$$,
+  'Eve, in the same circle, is not affected by Ada having used her allowance'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000009a1');
+select lives_ok(
+  $$select public.rename_in_circle('00000000-0000-0000-0000-0000000009c1', 'Maya M')$$,
+  'nor is the owner'
+);
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from jobs.rate_counters
+   where scope = 'rename_in_circle_sql'
+     and key_hash in (extensions.digest('00000000-0000-0000-0000-0000000009a2', 'sha256'),
+                      extensions.digest('00000000-0000-0000-0000-0000000009a1', 'sha256'))),
+  2,
+  'each was counted in a bucket named by the person, never by the circle'
+);
 
 select * from finish();
 rollback;

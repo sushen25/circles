@@ -49,6 +49,17 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
 
+  -- A limit that holds when this is called directly over RPC, where the Edge
+  -- Function's own (20 an hour) never runs (SUS-224, ADR 0071). Keyed on the
+  -- caller alone: a bucket named by the circle id would let anybody spend a
+  -- circle's members' allowance by naming it. Sized well above the Edge limit,
+  -- so that one is the limit a person meets.
+  if not public.take_rate_token(
+    'rename_in_circle_sql', extensions.digest(caller::text, 'sha256'), 120, interval '1 hour'
+  ) then
+    raise exception 'too_many_requests' using errcode = 'too_many_rows';
+  end if;
+
   if p_display_name is null then
     raise exception 'display_name_unusable' using errcode = 'check_violation';
   end if;
