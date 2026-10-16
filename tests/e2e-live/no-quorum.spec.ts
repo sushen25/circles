@@ -134,7 +134,7 @@ test('the organiser reaches it with real answers, and sees the closest time and 
     ['Tom', 1],
     ['Nina', 4],
   ] as const) {
-    const guest = await browser.newContext(test.info().project.use);
+    const guest = await browser.newContext();
     await joinsAndAnswers(await guest.newPage(), crew, name, day);
     await guest.close();
   }
