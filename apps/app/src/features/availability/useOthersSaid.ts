@@ -23,7 +23,7 @@ export function useOthersSaid(input: {
   userId: string | undefined;
   step: 'times' | 'none';
   fixtureOthers: OthersSaid | undefined;
-}): OthersSaid | undefined {
+}): { said: OthersSaid | undefined; pending: boolean } {
   const { plan, userId, step, fixtureOthers } = input;
   const others = useQuery({
     queryKey: ['others-said', plan.id, plan.revision, userId],
@@ -46,6 +46,14 @@ export function useOthersSaid(input: {
         : undefined;
 
   const settled = userId === undefined || others.isFetchedAfterMount;
+  // The read is on its way: the screen holds room for the longer guidance line
+  // until it is back (SUS-136), so the counts arriving do not move the grid.
+  const pending =
+    userId !== undefined &&
+    plan.acceptingAnswers &&
+    !others.isFetchedAfterMount &&
+    // Offline the query is paused, not on its way: no room is held for it.
+    others.fetchStatus !== 'paused';
   const shown = said !== undefined && othersShown(said);
   const reported = useRef(false);
   useEffect(() => {
@@ -54,5 +62,5 @@ export function useOthersSaid(input: {
     track('availability_others_read', { plan_id: plan.id as PlanId, others_shown: shown });
   }, [step, plan.acceptingAnswers, settled, shown, plan.id]);
 
-  return said;
+  return { said, pending };
 }

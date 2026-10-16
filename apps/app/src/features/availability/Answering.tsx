@@ -169,7 +169,12 @@ export function Answering({
     return () => hardware.remove();
   }, [exact]);
 
-  const said = useOthersSaid({ plan, userId, step: exact ? 'none' : step, fixtureOthers });
+  const { said, pending: othersPending } = useOthersSaid({
+    plan,
+    userId,
+    step: exact ? 'none' : step,
+    fixtureOthers,
+  });
 
   const { phase, send, savedAt, edited } = useSendAnswer({
     code,
@@ -353,6 +358,7 @@ export function Answering({
       single={view.single}
       onPaintDays={paintDays}
       guide={guideOf(view.counted, view.band, view.single)}
+      guideRoom={othersPending ? guideOf(true, view.band, view.single) : undefined}
       closes={closesOf(plan, format)}
       zoneNote={zoneNoteOf(plan)}
       grid={view.grid}
