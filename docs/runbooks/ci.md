@@ -615,6 +615,8 @@ That happened to two shards on 15 Oct 2026 (runs 38821256265 and
 re-run.
 
 The live job now gives the container a restart policy (`on-failure:5`), so a
-crash costs a few tests that the retry covers, and on any failure it prints each
-Supabase container's exit code, OOM flag and the runtime's last log lines. Read
-"Why a stack container went" in the job: that is where the cause will be.
+crash should cost a few tests that the retry can cover. A run that restarted a
+container carries a warning annotation, green or not, and the step "Why a stack
+container went" prints each Supabase container's exit code, OOM flag and the
+runtime's last log lines. Read that step first; a container that exits 0 is not
+restarted and may leave little in its log.

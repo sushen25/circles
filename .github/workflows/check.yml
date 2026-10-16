@@ -279,14 +279,19 @@ jobs:
       # failed" to every function call from then on, so each join, save and
       # sign-in failed at once and the run looked like a join-flow race. The
       # container has no restart policy, so a crash is permanent for the
-      # shard. This gives it one, which turns a dead runtime into a few
-      # failed tests that the retry covers. It does not hide the crash: the
-      # step below records why the container went.
+      # shard. This gives it one, so a dead runtime should cost a few failed
+      # tests that the retry can cover. It does not hide the crash: the step
+      # below warns on any restart and records why the container went.
       - name: Let the Edge runtime restart if it dies
         run: |
-          for c in $(docker ps --format '{{.Names}}' | grep '^supabase_edge_runtime_'); do
+          n=0
+          for c in $(docker ps --format '{{.Names}}' | grep '^supabase_edge_runtime_' || true); do
             docker update --restart=on-failure:5 "$c"
+            n=$((n + 1))
           done
+          if [ "$n" -eq 0 ]; then
+            echo "::warning::no Edge runtime container found to give a restart policy"
+          fi
 
       - name: pnpm test:e2e:live (shard ${{ matrix.shard }})
         env:
@@ -300,8 +305,15 @@ jobs:
         run: node scripts/live-summary.mjs playwright-report/live-results.json "$SHARD"
 
       - name: Why a stack container went (exit code, OOM, last log lines)
-        if: ${{ !success() }}
+        if: ${{ !cancelled() }}
         run: |
+          restarted=$(docker ps -a --format '{{.Names}}' | grep '^supabase_' | xargs -r -n1 docker inspect --format '{{if gt .RestartCount 0}}{{.Name}} {{end}}')
+          if [ -n "$restarted" ]; then
+            echo "::warning::Stack container(s) restarted during the run: $restarted"
+          elif [ "${{ job.status }}" = "success" ]; then
+            echo "no stack container restarted"
+            exit 0
+          fi
           docker ps -a --format 'table {{.Names}}\t{{.Status}}'
           for c in $(docker ps -a --format '{{.Names}}' | grep '^supabase_'); do
             echo "== $c"
