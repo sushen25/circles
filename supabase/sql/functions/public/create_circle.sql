@@ -50,6 +50,7 @@ declare
   created public.circles;
   code text;
   i integer;
+  pick integer;
 begin
   if not public.auth_is_permanent() then
     -- The organiser gate (ADR 0004). Worded as a practical need by the client;
@@ -99,11 +100,14 @@ begin
   loop
     code := '';
     for i in 1..10 loop
-      code := code || substr(
-        alphabet,
-        1 + (get_byte(extensions.gen_random_bytes(1), 0) % length(alphabet)),
-        1
-      );
+      -- Rejection sampling: a byte is 0..255 and 256 is not a multiple of 31,
+      -- so `% 31` would favour the first eight letters. Bytes from the last,
+      -- partial run are thrown away and redrawn (about 3% of them).
+      loop
+        pick := get_byte(extensions.gen_random_bytes(1), 0);
+        exit when pick < (256 / length(alphabet)) * length(alphabet);
+      end loop;
+      code := code || substr(alphabet, 1 + (pick % length(alphabet)), 1);
     end loop;
     exit when not exists (select 1 from public.circles c where c.short_code = code);
   end loop;
