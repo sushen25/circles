@@ -15,6 +15,12 @@ import type { ScreenState } from '../state';
 export type LinkInvalidReason =
   /** `invite_inactive`: the artboard's own copy. */
   | 'inactive'
+  /**
+   * A plan link that is cancelled, expired or made up (ADR 0049 keeps one
+   * refusal for all of them). The reset sentence is about invite links, so a
+   * plan link just says whom to ask.
+   */
+  | 'plan_inactive'
   /** A circle or plan page, no membership, no invite in hand to join with. */
   | 'ask_for_invite'
   /** The invite fragment was lost between steps — a reload mid-join. */
@@ -38,6 +44,7 @@ export type LinkInvalidProps = {
 
 const COPY = {
   inactive: ['this_link_isnt_active_any_more', 'the_circles_owner_may_have_reset_it'],
+  plan_inactive: ['this_link_isnt_active_any_more', 'ask_for_a_new_plan_link'],
   ask_for_invite: ['you_need_the_invite', 'ask_whoever_shared_it'],
   open_again: ['open_the_link_again', 'open_it_from_the_chat'],
   expired: ['this_link_has_expired', 'open_the_plan_from_the_chat'],

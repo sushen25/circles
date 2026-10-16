@@ -123,6 +123,7 @@ export function resolveEdit(
       draft.deadline,
       latestStart,
       now,
+      plan.zone,
     );
     if (typeof next === 'string') return { ok: false, problem: next };
     deadline = next.deadline;

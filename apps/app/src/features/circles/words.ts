@@ -14,7 +14,7 @@ import { dayWords } from '../planning/when';
 
 /**
  * The circle home's sentences, from the copy file and the data (spec §5.2).
- * Cadence copy is the spec's own — "No rush", "Due soon", "No goal set" —
+ * Cadence copy is the spec's own — "No rush", "Due soon", "Whenever suits" —
  * and never a count of days or a score.
  */
 const CADENCE: Record<Cadence, () => string> = {

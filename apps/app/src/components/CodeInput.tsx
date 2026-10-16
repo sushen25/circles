@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { faceFor, radius, size } from '@circles/tokens';
@@ -28,6 +28,11 @@ type Props = {
   onSubmitEditing?: (() => void) | undefined;
   autoFocus?: boolean | undefined;
   editable?: boolean | undefined;
+  /**
+   * Take focus again whenever this changes (not on the first render), so a
+   * screen that has just emptied the boxes can leave the cursor in the first.
+   */
+  refocusKey?: number | boolean | undefined;
 };
 
 export function digitsOnly(text: string, length: number): string {
@@ -42,7 +47,17 @@ export function CodeInput({
   onSubmitEditing,
   autoFocus = false,
   editable = true,
+  refocusKey,
 }: Props) {
+  const field = useRef<TextInput>(null);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    field.current?.focus();
+  }, [refocusKey]);
   const palette = usePalette();
   const [focused, setFocused] = useState(false);
   const digits = digitsOnly(value, length);
@@ -68,6 +83,7 @@ export function CodeInput({
         );
       })}
       <TextInput
+        ref={field}
         aria-label={label}
         value={digits}
         onChangeText={(text) => onChangeText(digitsOnly(text, length))}

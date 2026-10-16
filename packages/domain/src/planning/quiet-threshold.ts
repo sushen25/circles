@@ -97,7 +97,7 @@ export function onThreshold(ask: QuietAsk, context: ThresholdContext): Result<Qu
   });
   if (!moved.ok) return moved;
 
-  const deadline = defaultDeadline(context.preset, context.now, lastPossibleStart(plan));
+  const deadline = defaultDeadline(context.preset, context.now, lastPossibleStart(plan), plan.zone);
   if (deadline === undefined) return refuse('window_has_passed');
 
   // No organiser until somebody accepts (§8.2). A seeking ask never has one;
