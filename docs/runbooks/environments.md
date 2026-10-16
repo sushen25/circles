@@ -343,7 +343,8 @@ the function is executable by nobody but the owner.
 `INVITE_LINK_KEY` derives every invite secret (HMAC of the invite's id, [ADR 0028](../decisions/0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md)). The key alone is not enough to open a circle: the digest in the database and the invite ids are not readable by a client, so a leak is a risk to confirm, not an open door. But rotating the key by itself changes nothing that matters, because the old links keep working and merely stop being showable. Do this:
 
 1. Invent the new key: `openssl rand -base64 32`. Keep it in your shell only.
-2. Dry run against the project (reads, counts, changes nothing). The service role key is under Dashboard → Settings → API Keys:
+2. **Set it on the project first**: `make secret ENV=<env> K=INVITE_LINK_KEY V=<the new key>`. From then on every link an owner creates or resets is derived under the new key, so nothing made while the sweep runs can slip past it. Until the sweep finishes, owners are offered a reset instead of their link, because the live link was derived under the old key.
+3. Dry run against the project (reads, counts, changes nothing). The service role key is under Dashboard → Settings → API Keys:
 
    ```bash
    SUPABASE_URL=https://<ref>.supabase.co \
@@ -352,8 +353,7 @@ the function is executable by nobody but the owner.
    node scripts/rotate-invite-key.mjs --hosted
    ```
 
-3. Apply it with `--apply`. Every circle with a live invite gets a new one derived under the new key, and the old one is revoked in the same statement. It is safe to run twice: an invite already under the new key is skipped. The script prints counts only.
-4. Straight away, set the new key as the secret: `make secret ENV=<env> K=INVITE_LINK_KEY V=<the new key>`. Until you do, owners are offered a reset instead of their link.
+4. Apply it with `--apply`. Every circle with a live invite under the old key gets a new one derived under the new key, and the old one is revoked in the same statement. It sweeps again until a pass finds nothing left, and says so. It is safe to run twice: an invite already under the new key is skipped. If it reports invites under another key after three passes, the secret in step 2 has not reached the functions: check it, then run it again. It prints counts only.
 5. Tell the owners. Every link already shared is dead: they open the circle's settings and share the link again. Nothing else changes for members, who are already in. The audit log has one `circles.invite_reissued` row per circle, with no actor.
 
 Rehearse it on a local stack first (`http://127.0.0.1:54321`, the key in `supabase/config.toml`, no `--hosted`). The database half is `public.reissue_invite`, callable by `service_role` alone.

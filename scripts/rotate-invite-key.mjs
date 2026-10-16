@@ -8,6 +8,7 @@
 // new key, and revokes the old one, through `public.reissue_invite`, which only
 // the service role can call.
 //
+//   (set INVITE_LINK_KEY on the project to the new key first, then:)
 //   SUPABASE_URL=...  SUPABASE_SERVICE_ROLE_KEY=...  INVITE_LINK_KEY_NEW=...  \
 //     node scripts/rotate-invite-key.mjs [--apply] [--hosted]
 //
@@ -37,6 +38,7 @@ export function digestHex(secret) {
 
 const LOCAL = new Set(['localhost', '127.0.0.1', '[::1]']);
 const PAGE = 500;
+const MAX_PASSES = 3;
 
 export function isLocal(url) {
   try {
@@ -120,28 +122,38 @@ export async function run({
     throw new Error(`${new URL(base).hostname} is not this machine; add --hosted if you mean it`);
   }
 
-  const live = await liveInvites(base, serviceKey);
-  const todo = live.map((invite) => planFor(invite, newKey)).filter((step) => step !== null);
-  out(
-    `${live.length} live invite(s); ${live.length - todo.length} already under the new key; ` +
-      `${todo.length} to reissue.`,
-  );
-
-  if (!apply) {
-    out('Dry run: nothing changed. Add --apply to reissue.');
-    return { live: live.length, reissued: 0 };
-  }
-
+  // Passes, because an owner can make or reset a link while this runs. With the
+  // new key already set on the project (the runbook's order) those links come
+  // out under the new key and are skipped; a pass that finds nothing left to
+  // do is the proof the sweep is complete, so it runs until it sees one.
   let reissued = 0;
-  for (const step of todo) {
-    await rest(base, serviceKey, 'rpc/reissue_invite', {
-      method: 'POST',
-      body: JSON.stringify(step),
-    });
-    reissued += 1;
+  for (let pass = 1; pass <= MAX_PASSES; pass += 1) {
+    const live = await liveInvites(base, serviceKey);
+    const todo = live.map((invite) => planFor(invite, newKey)).filter((step) => step !== null);
+    out(
+      `Pass ${pass}: ${live.length} live invite(s); ${live.length - todo.length} under the new key; ` +
+        `${todo.length} to reissue.`,
+    );
+    if (!apply) {
+      out('Dry run: nothing changed. Add --apply to reissue.');
+      return { live: live.length, reissued: 0, remaining: todo.length };
+    }
+    if (todo.length === 0) {
+      out(`Reissued ${reissued}. Every live invite is under the new key.`);
+      return { live: live.length, reissued, remaining: 0 };
+    }
+    for (const step of todo) {
+      await rest(base, serviceKey, 'rpc/reissue_invite', {
+        method: 'POST',
+        body: JSON.stringify(step),
+      });
+      reissued += 1;
+    }
   }
-  out(`Reissued ${reissued}. Now set INVITE_LINK_KEY to the new key on the project.`);
-  return { live: live.length, reissued };
+  throw new Error(
+    `still finding invites under another key after ${MAX_PASSES} passes: ` +
+      'is INVITE_LINK_KEY on the project the new key? Set it, then run this again.',
+  );
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
