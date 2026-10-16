@@ -1,3 +1,7 @@
+import { StyleSheet, View } from 'react-native';
+
+import { space } from '@circles/tokens';
+
 import { Chip, Chips, CompactButton, Label, Small, Tertiary, Title } from '../../components';
 import { Between, Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -10,6 +14,17 @@ import { bandWords } from './words';
  * worked out, or is a copy key.
  */
 
+/**
+ * The words take the width that is left and may shrink, so a long summary wraps
+ * instead of pushing Change past the card's edge (SUS-225); the button keeps
+ * its size and sits level with the first line.
+ */
+export const settingLineStyles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: space.related },
+  words: { flex: 1, minWidth: 0 },
+  action: { flexShrink: 0 },
+});
+
 export function SettingLine({
   title,
   detail,
@@ -20,19 +35,23 @@ export function SettingLine({
   onChange?: (() => void) | undefined;
 }) {
   return (
-    <Between>
-      <Stack>
-        <Title>{title}</Title>
-        {detail === undefined || detail === '' ? null : <Small>{detail}</Small>}
-      </Stack>
+    <View style={settingLineStyles.row}>
+      <View style={settingLineStyles.words}>
+        <Stack>
+          <Title>{title}</Title>
+          {detail === undefined || detail === '' ? null : <Small>{detail}</Small>}
+        </Stack>
+      </View>
       {onChange === undefined ? null : (
-        <Tertiary
-          label={t('planSetup', 'change')}
-          accessibilityHint={t('planSetup', 'change_hint', { what: title })}
-          onPress={onChange}
-        />
+        <View style={settingLineStyles.action}>
+          <Tertiary
+            label={t('planSetup', 'change')}
+            accessibilityHint={t('planSetup', 'change_hint', { what: title })}
+            onPress={onChange}
+          />
+        </View>
       )}
-    </Between>
+    </View>
   );
 }
 
