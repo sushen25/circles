@@ -1666,24 +1666,10 @@ export type Database = {
         Args: {
           p_circle_id: string
           p_invite_id: string
+          p_replaces: string
           p_secret_hash: string
         }
-        Returns: {
-          circle_id: string
-          created_at: string
-          created_by: string
-          id: string
-          revoked_at: string | null
-          secret_hash: string
-          updated_at: string
-          use_count: number
-        }
-        SetofOptions: {
-          from: "*"
-          to: "circle_invites"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+        Returns: boolean
       }
       release_request: {
         Args: { p_function: string; p_key: string; p_user: string }
