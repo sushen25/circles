@@ -77,7 +77,10 @@ async function engineRuns(planId: string): Promise<void> {
  * The answers are written as `replace_response`, as `closedWithAnOption` does,
  * and the engine is the dispatcher's, run until it has near-misses to show.
  */
-async function stuck({ requiredNina = false }: { requiredNina?: boolean } = {}): Promise<Stuck> {
+async function stuck(
+  page: Page,
+  { requiredNina = false }: { requiredNina?: boolean } = {},
+): Promise<Stuck> {
   const maya = await signedInAccount('Maya');
   const circleId = circleOwnedBy(maya.userId, 'Sunday Crew');
   const plan = planFor(circleId, maya.userId, requiredNina ? 2 : 3);
@@ -97,9 +100,14 @@ async function stuck({ requiredNina = false }: { requiredNina?: boolean } = {}):
     sql(`insert into public.plan_required_members (plan_id, revision, user_id)
          values ('${plan.id}', 1, '${nina}')`);
   }
-  answers(plan.id, maya.userId, 8, false);
   answers(plan.id, tom, 8, true);
   answers(plan.id, nina, 11, true);
+  // Maya answers last, through the editor: `submit-availability` runs the
+  // engine in the request that caused it, so the near-misses do not wait on
+  // the dispatcher's sweep, which is shared with every other test.
+  await signedInAs(page, maya.stored);
+  await page.goto(`/j/${plan.code}`);
+  await sendEvenings(page, plan.code, 1);
   await engineRuns(plan.id);
   return { maya, crew, tom, nina };
 }
@@ -108,9 +116,9 @@ const planOf = (planId: string) =>
   sql(`select state, quorum, revision, window_end - window_start,
          quorum_source from public.plans where id = '${planId}'`)[0]!;
 
-async function opens(page: Page, { maya, crew }: Stuck): Promise<void> {
-  await signedInAs(page, maya.stored);
-  await page.goto(`/circles/${crew.circleId}/plan/${crew.planId}/no-quorum`);
+/** Opens the plan the way an organiser does, on its candidates route: the data picks the screen. */
+async function opens(page: Page, { crew }: Stuck): Promise<void> {
+  await page.goto(`/circles/${crew.circleId}/plan/${crew.planId}/candidates`);
   await expect(page.getByText("There wasn't enough overlap this time.")).toBeVisible();
 }
 
@@ -155,7 +163,7 @@ test('the organiser reaches it with real answers, and sees the closest time and 
   // near-miss says who is out, and nobody is named as having let anyone down.
   await expect(page.getByText('Closest', { exact: true })).toBeVisible();
   await expect(page.getByText('2 of 3').first()).toBeVisible();
-  await expect(page.getByText('Nina').first()).toBeVisible();
+  await expect(page.getByText("Doesn't work for Nina").first()).toBeVisible();
 
   // And the four exits, each with its row.
   await expect(page.getByRole('button', { name: /^Lower to 2 people\./ })).toBeVisible();
@@ -168,7 +176,7 @@ test('the organiser reaches it with real answers, and sees the closest time and 
 test('lowering the number unlocks the closest time, and the plan keeps the number', async ({
   page,
 }) => {
-  const plan = await stuck();
+  const plan = await stuck(page);
   await opens(page, plan);
   const lower = page.getByRole('button', { name: /^Lower to 2 people\./ });
   await expect(lower).toContainText('keeps 2 as its number');
@@ -185,13 +193,13 @@ test('lowering the number unlocks the closest time, and the plan keeps the numbe
 test('a wider window shows who is asked again, can be kept as it is, and then asks the new question', async ({
   page,
 }) => {
-  const plan = await stuck();
+  const plan = await stuck(page);
   await opens(page, plan);
   const before = planOf(plan.crew.planId);
 
   await page.getByRole('button', { name: /^Try a wider window\./ }).click();
   await expect(page.getByText('Ask about more days?')).toBeVisible();
-  await expect(page.getByText(/asked again: /)).toBeVisible();
+  await expect(page.getByText(/asked again: you, (Nina and Tom|Tom and Nina)\./)).toBeVisible();
 
   // Keep it as it is: nothing is saved.
   await page.getByRole('button', { name: 'Keep it as it is' }).first().click();
@@ -215,20 +223,21 @@ test('a wider window shows who is asked again, can be kept as it is, and then as
 test('"Set the time yourself" opens the picker for this plan, in lock-in mode', async ({
   page,
 }) => {
-  const plan = await stuck();
+  const plan = await stuck(page);
   await opens(page, plan);
   await page.getByRole('button', { name: /^Set the time yourself\./ }).click();
 
   await expect(page).toHaveURL(
     new RegExp(`/circles/${plan.crew.circleId}/plan/${plan.crew.planId}/set-time\\?.*mode=lock`),
   );
+  await expect(page.getByText('Pick the time yourself')).toBeVisible();
   expect(planOf(plan.crew.planId)[0]).toBe('collecting');
 });
 
 test('closing the attempt asks first, can be kept open, and then takes the circle home', async ({
   page,
 }) => {
-  const plan = await stuck();
+  const plan = await stuck(page);
   await opens(page, plan);
 
   await page.getByRole('button', { name: /^Close this attempt\./ }).click();
@@ -249,7 +258,7 @@ test('closing the attempt asks first, can be kept open, and then takes the circl
 });
 
 test('once replies have closed, one more day stands in for the wider window', async ({ page }) => {
-  const plan = await stuck();
+  const plan = await stuck(page);
   sql(`update public.plans set response_deadline = now() - interval '1 minute'
        where id = '${plan.crew.planId}'`);
   await opens(page, plan);
@@ -272,7 +281,7 @@ test('once replies have closed, one more day stands in for the wider window', as
 test('when a required member is the rule, the way out is the editor, and the number is not offered', async ({
   page,
 }) => {
-  const plan = await stuck({ requiredNina: true });
+  const plan = await stuck(page, { requiredNina: true });
   await opens(page, plan);
 
   await expect(page.getByText(/Nina has to be there and can't make any of these\./)).toBeVisible();
@@ -282,26 +291,29 @@ test('when a required member is the rule, the way out is the editor, and the num
   await expect(page).toHaveURL(
     new RegExp(`/circles/${plan.crew.circleId}/plan/${plan.crew.planId}/edit$`),
   );
+  await expect(page.getByText('Edit plan').first()).toBeVisible();
 });
 
 test('the organiser changes their own times from it, and comes back to it', async ({ page }) => {
-  const plan = await stuck();
+  const plan = await stuck(page);
   await opens(page, plan);
   await page.getByRole('button', { name: 'Change my times' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/j/${plan.crew.planCode}\\?.*returnTo=plan`));
   await expect(page.getByText('Which evenings could work?')).toBeVisible();
 
-  // Adding a day sends her back to the plan, not to the sent screen.
+  // Adding a day sends her back to the plan she came from, not to the sent screen.
   await page.waitForLoadState('networkidle');
   await days(page).nth(2).click();
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page).toHaveURL(
-    new RegExp(`/circles/${plan.crew.circleId}/plan/${plan.crew.planId}`),
+    new RegExp(`/circles/${plan.crew.circleId}/plan/${plan.crew.planId}/candidates$`),
   );
-  await expect(page.getByText("There wasn't enough overlap this time.").last()).toBeVisible();
+  await expect(page.getByText("There wasn't enough overlap this time.")).toBeVisible();
+  // Her answer now holds both evenings.
   expect(
-    sql(`select count(*) from public.plan_responses
-         where plan_id = '${plan.crew.planId}' and user_id = '${plan.maya.userId}'`),
-  ).toEqual([['1']]);
+    sql(`select count(*) from public.willing_windows w
+         join public.plan_responses r on r.id = w.response_id
+         where r.plan_id = '${plan.crew.planId}' and r.user_id = '${plan.maya.userId}'`),
+  ).toEqual([['2']]);
 });
