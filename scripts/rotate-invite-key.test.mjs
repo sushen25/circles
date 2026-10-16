@@ -19,7 +19,11 @@ test('digests the way the Edge Functions do, in the form PostgREST reads', async
 });
 
 test('leaves an invite that is already under the new key, and replaces one that is not', () => {
-  const current = { id: ID, circle_id: 'c1', secret_hash: digestHex(deriveInviteSecret('new', ID)) };
+  const current = {
+    id: ID,
+    circle_id: 'c1',
+    secret_hash: digestHex(deriveInviteSecret('new', ID)),
+  };
   assert.equal(planFor(current, 'new'), null);
 
   const stale = { ...current, secret_hash: digestHex(deriveInviteSecret('old', ID)) };

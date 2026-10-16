@@ -101,7 +101,11 @@ async function liveInvites(base, serviceKey) {
   }
 }
 
-export async function run({ env = process.env, argv = process.argv.slice(2), out = console.log } = {}) {
+export async function run({
+  env = process.env,
+  argv = process.argv.slice(2),
+  out = console.log,
+} = {}) {
   const base = (env.SUPABASE_URL ?? '').replace(/\/+$/, '');
   const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY ?? '';
   const newKey = env.INVITE_LINK_KEY_NEW ?? '';
