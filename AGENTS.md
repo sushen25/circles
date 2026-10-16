@@ -33,7 +33,8 @@ pnpm dev:android       # native development build
 pnpm check             # the gate: everything CI runs
 pnpm db:test           # reset the database and run pgTAP
 pnpm gen:types         # regenerate database types from the local schema
-pnpm gen               # every generator in order: events, transitions, functions, types
+pnpm gen               # every generator in order: adrs, events, transitions, functions, types
+pnpm gen:adrs          # regenerate docs/decisions/index.md from the ADRs' frontmatter (never edit it by hand)
 pnpm gen:migration <name>  # the branch's one new, numbered migration; the generators write into it
 pnpm gen:functions     # re-render supabase/sql/functions/ into that migration (ADR 0015)
 pnpm check:migrations  # fails if a migration already on origin/main was edited (inside pnpm check)

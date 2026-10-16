@@ -43,7 +43,7 @@ export function renderIndex() {
     .filter((n) => /^\d{4}-.*\.md$/.test(n))
     .sort()) {
     const fm = frontmatter(readFileSync(join(DIR, name), 'utf8'));
-    if (!fm) throw new Error(`${name}: no frontmatter; start from docs/_templates/adr.md`);
+    if (!fm) continue; // check-docs reports the missing frontmatter
     let status = String(fm.status);
     const notes = [];
     if (Array.isArray(fm.amended_by) && fm.amended_by.length > 0)

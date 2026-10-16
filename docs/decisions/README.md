@@ -3,7 +3,7 @@
 Short records of decisions that shape the product or the code. A new ADR is required whenever a rule in the [spec](../mvp-product-spec.md) or the [architecture](../technical-architecture.md) changes. Numbering is sequential; superseded records stay in place with a status line.
 
 The table of every record is [index.md](./index.md). It is generated from each
-record's frontmatter (`adr`, `title`, `status`, `amends`, `amended_by`) by
+record's frontmatter (`adr`, `title`, `status`, `amends`, `amended_by`, `superseded_by`) by
 `pnpm gen:adrs`, which `pnpm gen` runs. Adding an ADR needs no edit to it by
 hand: write the record, run `pnpm gen:adrs`, commit the result. Two branches that
 each add an ADR rebase locally without a conflict (`.gitattributes` marks the
