@@ -305,9 +305,9 @@ jobs:
         run: node scripts/live-summary.mjs playwright-report/live-results.json "$SHARD"
 
       - name: Why a stack container went (exit code, OOM, last log lines)
-        if: ${{ !cancelled() }}
+        if: always()
         run: |
-          restarted=$(docker ps -a --format '{{.Names}}' | grep '^supabase_' | xargs -r -n1 docker inspect --format '{{if gt .RestartCount 0}}{{.Name}} {{end}}')
+          restarted=$(docker ps -a --format '{{.Names}}' | grep '^supabase_' | xargs -r -n1 docker inspect --format '{{if gt .RestartCount 0}}{{.Name}} {{end}}' || true)
           if [ -n "$restarted" ]; then
             echo "::warning::Stack container(s) restarted during the run: $restarted"
           elif [ "${{ job.status }}" = "success" ]; then
