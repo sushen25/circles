@@ -99,6 +99,7 @@ function bookkeeping(fn: string): { data: unknown; error: unknown } | undefined 
 
 beforeEach(() => {
   process.env.SUPABASE_URL = 'https://example.test';
+  process.env.CIRCLES_ENV = 'local';
   process.env.SUPABASE_ANON_KEY = 'anon';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service';
   // Tuesday 15 September 2026, 10 am in Melbourne.

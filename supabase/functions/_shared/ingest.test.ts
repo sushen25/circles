@@ -70,6 +70,7 @@ function recorder() {
 
 beforeEach(() => {
   process.env.SUPABASE_URL = 'https://example.test';
+  process.env.CIRCLES_ENV = 'local';
   process.env.SUPABASE_ANON_KEY = ANON;
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service';
   state.getUserCalls = [];
