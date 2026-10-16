@@ -447,6 +447,36 @@ test('the job summary names the runs and the minutes, per project', () => {
   assert.match(text, /\| iphone-safari \| 1 \| 1 \|/);
 });
 
+test('a test that passed only on a retry is named in the job summary', () => {
+  const report = {
+    stats: { duration: 60_000, expected: 1, unexpected: 0, flaky: 1, skipped: 0 },
+    suites: [
+      {
+        file: 'a.spec.ts',
+        specs: [
+          {
+            title: 'steady',
+            file: 'a.spec.ts',
+            tests: [{ projectName: 'android-chrome', status: 'expected' }],
+          },
+          {
+            title: 'sometimes',
+            file: 'a.spec.ts',
+            tests: [{ projectName: 'iphone-safari', status: 'flaky' }],
+          },
+        ],
+      },
+    ],
+  };
+  const s = summarise(report);
+  assert.deepEqual(s.flakyTests, ['iphone-safari: a.spec.ts › sometimes']);
+  const text = markdown(s, '', 'Smoke suite');
+  assert.match(text, /### Smoke suite: 2 runs/);
+  assert.match(text, /1 passed only on a retry/);
+  assert.match(text, /- iphone-safari: a\.spec\.ts › sometimes/);
+  assert.doesNotMatch(markdown(summarise({ stats: {}, suites: [] })), /only on a retry/);
+});
+
 /**
  * `check:workflows` run on a copy of the repo's workflows with one edit, in a
  * directory of its own, so the rule is proved by the thing it guards.

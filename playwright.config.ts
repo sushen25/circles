@@ -34,7 +34,13 @@ export default defineConfig({
   // The report is uploaded when the job fails (SUS-143); the live suite writes
   // its own beside it.
   reporter: process.env.CI
-    ? [['github'], ['html', { open: 'never', outputFolder: 'playwright-report/smoke' }]]
+    ? [
+        ['github'],
+        ['html', { open: 'never', outputFolder: 'playwright-report/smoke' }],
+        // What `scripts/live-summary.mjs` writes the job summary from, so a
+        // smoke test that passed only on its second or third try is named.
+        ['json', { outputFile: 'playwright-report/smoke-results.json' }],
+      ]
     : 'list',
   use: {
     baseURL,

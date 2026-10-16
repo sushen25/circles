@@ -175,7 +175,11 @@ run against a local stack with seeded people, and no secret is in a trace.
 
 Each live shard writes its run count and minutes to the job summary
 (`scripts/live-summary.mjs`), per project, so growth shows on the run's page
-before it shows on the clock.
+before it shows on the clock. It also names every test that passed only on a
+retry (and puts a warning annotation on the run for each), for the live shards
+and, in the `database` job, the smoke suite, which retries twice: a retry keeps a
+bad minute from failing the gate, and this is how a test that needs one is seen
+(SUS-124).
 
 **It blocks what it should.** Verified on a throwaway PR: a `react` import in
 `packages/domain` fails with `domain is not allowed to import "react"
