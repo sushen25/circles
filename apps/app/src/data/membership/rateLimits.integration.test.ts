@@ -2,7 +2,13 @@ import { CONSENT } from '@circles/config';
 import { createClient } from '@supabase/supabase-js';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
-import { accountFor, readStackConfig, sql, type Stack } from '../testing/stack.integration';
+import {
+  accountFor,
+  readStackConfig,
+  someone,
+  sql,
+  type Stack,
+} from '../testing/stack.integration';
 
 /**
  * Four of the rate-limit families, reached for real (SUS-219).
@@ -159,10 +165,11 @@ describe('the limits, reached through the real functions (SUS-219)', () => {
 
   it('request-email-updates: the fourth ask for one address by one caller is refused', async () => {
     const { token, planId } = await organiserWithPlan();
+    const address = someone('rate');
     const ask = () =>
       call(token, 'request-email-updates', {
         plan_id: planId,
-        email: 'rate-limit@example.test',
+        email: address,
         consent_version: CONSENT.version,
       });
     // Three a day for this person and this address; every answer is the same.
