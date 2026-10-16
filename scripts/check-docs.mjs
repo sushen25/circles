@@ -13,6 +13,8 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 
+import { INDEX, frontmatter, indexRows, renderIndex } from './adrs.mjs';
+
 const ROOT = process.cwd();
 const DOCS = join(ROOT, 'docs');
 const ROOT_FILES = ['AGENTS.md', 'README.md', 'CLAUDE.md'];
@@ -75,38 +77,11 @@ function checkLinks(file, text, { vault }) {
   return links;
 }
 
-// The frontmatter this repository writes: scalars, double-quoted strings and
-// `[1, 2]` lists of numbers. Anything richer is a reason to reach for a parser.
-function frontmatter(text) {
-  if (!text.startsWith('---\n')) return null;
-  const end = text.indexOf('\n---\n', 4);
-  if (end < 0) return null;
-  const fields = {};
-  for (const line of text.slice(4, end).split('\n')) {
-    const match = /^([a-z_]+):\s*(.*)$/.exec(line);
-    if (!match) continue;
-    let value = match[2].trim();
-    if (value.startsWith('[') && value.endsWith(']')) {
-      value = value
-        .slice(1, -1)
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean)
-        .map(Number);
-    } else if (value.startsWith('"') && value.endsWith('"')) {
-      value = JSON.parse(value);
-    }
-    fields[match[1]] = value;
-  }
-  return fields;
-}
-
 const pad = (n) => String(n).padStart(2, '0');
 const escapeRe = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function checkAdrs() {
   const dir = join(DOCS, 'decisions');
-  const readme = readFileSync(join(dir, 'README.md'), 'utf8');
   const files = readdirSync(dir)
     .filter((name) => /^\d{4}-.*\.md$/.test(name))
     .sort();
@@ -152,13 +127,22 @@ function checkAdrs() {
         if (!numbers.has(n)) fail(file, `${key} names ADR ${n}, which does not exist`);
       }
     }
-    const row = new RegExp(
-      `^\\| \\[${name.slice(0, 4)}\\]\\(\\./${escapeRe(name)}\\) \\| [^|]* \\| ([a-z]+)`,
-      'm',
-    ).exec(readme);
-    if (!row) fail(file, 'no row in docs/decisions/README.md');
-    else if (row[1] !== fm.status)
-      fail(file, `the README row says ${row[1]}, the frontmatter says ${fm.status}`);
+  }
+  // The index is generated (SUS-228). Rows are compared as a set, in any order:
+  // the file merges with `merge=union`, so two branches that each add an ADR
+  // meet without a conflict but may leave the rows out of order until the next
+  // `pnpm gen:adrs`. A missing, extra or different row is stale.
+  const have = existsSync(INDEX) ? readFileSync(INDEX, 'utf8') : '';
+  const want = renderIndex();
+  const sameRows = (a, b) =>
+    indexRows(a).slice().sort().join('\n') === indexRows(b).slice().sort().join('\n');
+  const header = (text) =>
+    text
+      .split('\n')
+      .filter((line) => !line.startsWith('| ['))
+      .join('\n');
+  if (!sameRows(have, want) || header(have) !== header(want)) {
+    fail(INDEX, 'is stale: run `pnpm gen:adrs` (or `pnpm gen`) and commit the result');
   }
   return files.length;
 }
@@ -181,5 +165,5 @@ if (problems.length > 0) {
   process.exit(1);
 }
 console.log(
-  `check:docs: ${notes} notes and ${ROOT_FILES.length} root files, ${links} links resolve, ${adrs} ADRs agree with their status line and README row`,
+  `check:docs: ${notes} notes and ${ROOT_FILES.length} root files, ${links} links resolve, ${adrs} ADRs agree with their status line, and the generated index is current`,
 );
