@@ -31,31 +31,32 @@ flows do not, because the sheet it opened named a fixture circle.
 
 ### availability
 
-| Artboard                             | Route                                   | Component                   |
-| ------------------------------------ | --------------------------------------- | --------------------------- |
-| `Availability.dc.html`               | `/j/[code]`                             | `AvailabilityScreen`        |
-| `AvailabilityPicking.dc.html`        | `/j/[code]` (three days tapped)         | `AvailabilityScreen`        |
-| `AvailabilityTime.dc.html`           | `/j/[code]` (Change time sheet)         | `ChangeTimeSheet`           |
-| `AvailabilityAdjusting.dc.html`      | `/j/[code]` (a time for each day)       | `ExactHoursScreen`          |
-| `AvailabilityMixed.dc.html`          | `/j/[code]` (days with different times) | `AvailabilityScreen`        |
-| `AvailabilityOneChoice.dc.html`      | `/j/[code]` (a plan with one window)    | `AvailabilityScreen`        |
-| `AvailabilityOneChoiceHours.dc.html` | `/j/[code]` (its list of hours)         | `ExactHoursScreen`          |
-| `AvailabilityReturning.dc.html`      | `/j/[code]` (a returning member, empty) | `AvailabilityScreen`        |
-| `AvailabilityOthersFirst.dc.html`    | `/j/[code]` (first to answer)           | `AvailabilityScreen`        |
-| `AvailabilityOverlay.dc.html`        | `/j/[code]/overlay`                     | `AvailabilityOverlayScreen` |
-| `CalendarDenied.dc.html`             | `/j/[code]/calendar/denied`             | `CalendarDeniedScreen`      |
-| `CalendarExplain.dc.html`            | `/j/[code]/calendar`                    | `CalendarExplainScreen`     |
-| `CalendarPick.dc.html`               | `/j/[code]/calendar/pick`               | `CalendarPickScreen`        |
-| `NoneWork.dc.html`                   | `/j/[code]/none`                        | `NoneWorkScreen`            |
-| `Sent.dc.html`                       | `/j/[code]/sent`                        | `SentScreen`                |
-| `SentSwitchOff.dc.html`              | `/j/[code]/sent` (switch off)           | `SentScreen`                |
-| `SentCode.dc.html`                   | `/j/[code]/sent?state=code`             | `EnterCodeScreen`           |
-| `SentDone.dc.html`                   | `/j/[code]/sent?state=done`             | `SentScreen`                |
-| `SentPartial.dc.html`                | `/j/[code]/sent?state=partial`          | `SentScreen`                |
-| `SentMember.dc.html`                 | `/j/[code]/sent?state=member`           | `SentScreen` (`SentCard`)   |
-| `SentMemberDone.dc.html`             | `/j/[code]/sent?state=joined`           | `SentScreen`                |
-| `SentSuppressed.dc.html`             | `/j/[code]/sent?state=suppressed`       | `SentScreen`                |
-| `SentSuppressedSaved.dc.html`        | `/j/[code]/sent?state=suppressed_saved` | `SentScreen`                |
+| Artboard                              | Route                                                    | Component                   |
+| ------------------------------------- | -------------------------------------------------------- | --------------------------- |
+| `Availability.dc.html`                | `/j/[code]`                                              | `AvailabilityScreen`        |
+| `AvailabilityPicking.dc.html`         | `/j/[code]` (three days tapped)                          | `AvailabilityScreen`        |
+| `AvailabilityTime.dc.html`            | `/j/[code]` (Change time sheet)                          | `ChangeTimeSheet`           |
+| `AvailabilityAdjusting.dc.html`       | `/j/[code]` (a time for each day)                        | `ExactHoursScreen`          |
+| `AvailabilityMixed.dc.html`           | `/j/[code]` (days with different times)                  | `AvailabilityScreen`        |
+| `AvailabilityOneChoice.dc.html`       | `/j/[code]` (a plan with one window)                     | `AvailabilityScreen`        |
+| `AvailabilityOneChoiceHours.dc.html`  | `/j/[code]` (its list of hours)                          | `ExactHoursScreen`          |
+| `AvailabilityReturning.dc.html`       | `/j/[code]` (a returning member, offered the usual days) | `AvailabilityScreen`        |
+| `AvailabilityReturningTapped.dc.html` | `/j/[code]` (after the tap, with Undo)                   | `AvailabilityScreen`        |
+| `AvailabilityOthersFirst.dc.html`     | `/j/[code]` (first to answer)                            | `AvailabilityScreen`        |
+| `AvailabilityOverlay.dc.html`         | `/j/[code]/overlay`                                      | `AvailabilityOverlayScreen` |
+| `CalendarDenied.dc.html`              | `/j/[code]/calendar/denied`                              | `CalendarDeniedScreen`      |
+| `CalendarExplain.dc.html`             | `/j/[code]/calendar`                                     | `CalendarExplainScreen`     |
+| `CalendarPick.dc.html`                | `/j/[code]/calendar/pick`                                | `CalendarPickScreen`        |
+| `NoneWork.dc.html`                    | `/j/[code]/none`                                         | `NoneWorkScreen`            |
+| `Sent.dc.html`                        | `/j/[code]/sent`                                         | `SentScreen`                |
+| `SentSwitchOff.dc.html`               | `/j/[code]/sent` (switch off)                            | `SentScreen`                |
+| `SentCode.dc.html`                    | `/j/[code]/sent?state=code`                              | `EnterCodeScreen`           |
+| `SentDone.dc.html`                    | `/j/[code]/sent?state=done`                              | `SentScreen`                |
+| `SentPartial.dc.html`                 | `/j/[code]/sent?state=partial`                           | `SentScreen`                |
+| `SentMember.dc.html`                  | `/j/[code]/sent?state=member`                            | `SentScreen` (`SentCard`)   |
+| `SentMemberDone.dc.html`              | `/j/[code]/sent?state=joined`                            | `SentScreen`                |
+| `SentSuppressed.dc.html`              | `/j/[code]/sent?state=suppressed`                        | `SentScreen`                |
+| `SentSuppressedSaved.dc.html`         | `/j/[code]/sent?state=suppressed_saved`                  | `SentScreen`                |
 
 **Real since S1-25:** `/j/[code]` and `/j/[code]/none` render
 `AvailabilityFlow`, which reads the plan and the member's own answer, keeps a
@@ -81,8 +82,8 @@ thin bar, and one line about the others (the domain's `freeStretches`). Everythi
 `answerLine.ts` from the reducer in `editor.ts`; the blocks are the domain's
 shortcuts (`blocks.ts`). The chosen time of day and the open day are view state
 and never stored. An answer never given opens empty, for a returning member as for a
-first-timer; previous times are not applied on open (ADR 0077). `AvailabilityPicking`, `AvailabilityTime`,
-`AvailabilityAdjusting`, `AvailabilityMixed` and `AvailabilityReturning` are states of the same
+first-timer; previous times are not applied on open: a returning member is offered "Use my usual days" instead (ADR 0077, SUS-227). `AvailabilityPicking`, `AvailabilityTime`,
+`AvailabilityAdjusting`, `AvailabilityMixed`, `AvailabilityReturning` and `AvailabilityReturningTapped` are states of the same
 route, not routes of their own.
 
 **Counts of what others said, SUS-129 (ADR 0045), on the tiles in SUS-206:** the

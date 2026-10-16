@@ -4,6 +4,7 @@ import {
   Body,
   BodyText,
   Button,
+  CompactButton,
   DateText,
   DayGrid,
   DisplayL,
@@ -68,11 +69,17 @@ export type AvailabilityProps = {
   sheetOpen?: boolean | undefined;
   sheet?: SheetView | undefined;
   flexible?: boolean | undefined;
+  /** "Use my usual days", with the usual said in words; absent when it is not on offer (SUS-227). */
+  usual?: { says: string } | undefined;
+  /** The answer is what the usual days filled in: "Filled in from your usual days. Undo". */
+  filledFromUsual?: boolean | undefined;
   /** The plan changed under a draft (the rescheduled state). */
   changed?: boolean | undefined;
   problem?: string | undefined;
   reference?: string | undefined;
   busy?: boolean | undefined;
+  onUseUsual?: (() => void) | undefined;
+  onUndoUsual?: (() => void) | undefined;
   onTick?: ((day: number) => void) | undefined;
   onChangeTime?: (() => void) | undefined;
   onChooseWindow?: ((kind: BlockKind) => void) | undefined;
@@ -102,9 +109,13 @@ export function AvailabilityScreen({
   sheet,
   flexible = false,
   changed = false,
+  usual,
+  filledFromUsual = false,
   problem,
   reference,
   busy = false,
+  onUseUsual,
+  onUndoUsual,
   onTick,
   onChangeTime,
   onChooseWindow,
@@ -172,6 +183,20 @@ export function AvailabilityScreen({
           <DisplayL>{question ?? t('availability', 'which_days_could_work')}</DisplayL>
           {guide === undefined ? null : <BodyText>{guide}</BodyText>}
         </Stack>
+        {usual === undefined ? null : (
+          <Stack gap={6}>
+            <View style={styles.offer}>
+              <CompactButton
+                tone="plain"
+                icon="undo"
+                label={t('availability', 'usual_button')}
+                disabled={locked}
+                onPress={onUseUsual}
+              />
+            </View>
+            <Small>{usual.says}</Small>
+          </Stack>
+        )}
         {changed ? <Notice kind="warn">{t('availability', 'plan_changed')}</Notice> : null}
         <DayGrid
           days={grid}
@@ -201,6 +226,16 @@ export function AvailabilityScreen({
                 onPress={locked || flexible ? undefined : onChangeTime}
               />
             </Between>
+            {filledFromUsual ? (
+              <Row gap={4}>
+                <Small>{t('availability', 'usual_filled')}</Small>
+                <Tertiary
+                  label={t('availability', 'usual_undo')}
+                  aria-label={t('availability', 'usual_undo_for')}
+                  onPress={locked ? undefined : onUndoUsual}
+                />
+              </Row>
+            ) : null}
           </View>
         )}
         <Row>
@@ -250,4 +285,5 @@ const styles = StyleSheet.create({
   line: { flexShrink: 1, gap: 4 },
   days: { fontSize: 24, lineHeight: 28 },
   dimmed: { opacity: 0.45 },
+  offer: { alignSelf: 'flex-start' },
 });

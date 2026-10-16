@@ -6,10 +6,11 @@ import { resetHoursRouter } from '../../test/hours-router';
 import type * as AvailabilityData from '../../data/availability';
 
 /**
- * An answer never given opens empty, and tonight's editor (ADR 0077 over ADR
- * 0068 and ADR 0037, SUS-226): somebody who has offered times before in the
- * circle still lands with no day tapped, nothing is sent and no draft is kept,
- * and the analytics say so truthfully. The read and its reducer action are
+ * An answer never given opens empty, and the usual days wait for a tap (ADR
+ * 0077 over ADR 0068 and ADR 0037, SUS-226, SUS-227): somebody who has offered
+ * times before in the circle still lands with no day tapped, nothing is sent
+ * and no draft is kept, and is offered "Use my usual days"; the tap, Undo, a
+ * tap by hand and the analytics are here. The read and its reducer action are
  * `usePreviousTimes.test.tsx` and `usual.test.ts`. A plan about tonight offers
  * From now and Later tonight.
  */
@@ -67,26 +68,27 @@ afterEach(() => {
 
 const EVENINGS = 'Evenings, from 5:30 pm';
 
+const OFFER = 'Use my usual days';
+const SAYS = 'Weekday evenings, from your last plans in this circle.';
+const offer = () => screen.queryByRole('button', { name: OFFER });
+const tapOffer = () => fireEvent.click(screen.getByRole('button', { name: OFFER }));
+const tapMonday = () => fireEvent.click(screen.getAllByRole('button', { name: /^Monday/ })[0]!);
+
 describe('an answer never given opens empty, whatever the person offered before', () => {
-  it('taps no day, writes no line, sends nothing and keeps no draft, then lets the person tap', async () => {
+  it('taps no day, writes no line, sends nothing and keeps no draft, and offers the usual days', async () => {
     open();
     await screen.findByText('Which evenings could work?');
-    await act(async () => undefined);
+    expect(await screen.findByRole('button', { name: OFFER })).toBeVisible();
+    expect(screen.getByText(SAYS)).toBeVisible();
     expect(tapped()).toHaveLength(0);
     expect(screen.queryByText(EVENINGS)).toBeNull();
     expect(screen.getByRole('button', { name: 'Send my times' })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: /^Use my previous times/ })).toBeNull();
     expect(submitAnswer).not.toHaveBeenCalled();
     expect(await readDraft('nina', PLAN.code)).toBeUndefined();
-    // Nothing reads previous times on open: there is nothing to apply them to.
-    expect(usualTimes).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getAllByRole('button', { name: /^Monday/ })[0]!);
-    expect(tapped()).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Send my times' })).toBeEnabled();
+    expect(usualTimes).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves a stored "none of these" as it is, with nothing tapped', async () => {
+  it('leaves a stored "none of these" as it is, with nothing tapped and no offer', async () => {
     planToAnswer.mockResolvedValue({
       plan: PLAN,
       answer: { status: 'none_work', windows: [], submittedAt: '2026-09-01T09:00:00Z' },
@@ -95,26 +97,114 @@ describe('an answer never given opens empty, whatever the person offered before'
     await screen.findByText('Which evenings could work?');
     await act(async () => undefined);
     expect(tapped()).toHaveLength(0);
+    expect(offer()).toBeNull();
+    expect(usualTimes).not.toHaveBeenCalled();
   });
 
-  it('leaves an answer already given as it is', async () => {
+  it('leaves an answer already given as it is, with no offer', async () => {
     planToAnswer.mockResolvedValue(answerable);
     open();
     await screen.findByText(/, but /);
     await act(async () => undefined);
     // The stored answer's three days, not the ten weekdays.
     expect(tapped()).toHaveLength(3);
+    expect(offer()).toBeNull();
+    expect(usualTimes).not.toHaveBeenCalled();
   });
+});
 
-  it('is never worded as "usual", anywhere on the screen', async () => {
+describe('who is offered "Use my usual days"', () => {
+  it('does not offer it to a first-time guest, who has nothing in this circle', async () => {
+    usualTimes.mockResolvedValue([]);
     const { container } = open();
     await screen.findByText('Which evenings could work?');
+    await waitFor(() => expect(usualTimes).toHaveBeenCalled());
+    await act(async () => undefined);
+    expect(offer()).toBeNull();
     expect(container.textContent).not.toMatch(/usual/i);
+  });
+
+  it('does not offer it when none of the usual falls inside this plan', async () => {
+    // Weekend mornings: the plan only asks about weekday evenings.
+    usualTimes.mockResolvedValue(['weekend_morning']);
+    open();
+    await screen.findByText('Which evenings could work?');
+    await act(async () => undefined);
+    expect(offer()).toBeNull();
+  });
+
+  it('offers nothing when the read fails: it is a shortcut, not an error', async () => {
+    usualTimes.mockRejectedValue(new Error('down'));
+    open();
+    await screen.findByText('Which evenings could work?');
+    await act(async () => undefined);
+    expect(offer()).toBeNull();
+    expect(screen.queryByText(/went wrong/i)).toBeNull();
+  });
+});
+
+describe('the tap, Undo and a tap by hand', () => {
+  it('taps the usual days with their usual times and says so', async () => {
+    open();
+    await screen.findByRole('button', { name: OFFER });
+    tapOffer();
+    expect(tapped()).toHaveLength(10);
+    expect(screen.getByText(EVENINGS)).toBeVisible();
+    expect(screen.getByText('Filled in from your usual days.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Send my times' })).toBeEnabled();
+    expect(offer()).toBeNull();
+  });
+
+  it('Undo returns to nothing tapped, and the offer is back', async () => {
+    open();
+    await screen.findByRole('button', { name: OFFER });
+    tapOffer();
+    fireEvent.click(screen.getByRole('button', { name: /^Undo/ }));
+    expect(tapped()).toHaveLength(0);
+    expect(screen.queryByText(EVENINGS)).toBeNull();
+    expect(screen.queryByText('Filled in from your usual days.')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Send my times' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: OFFER })).toBeVisible();
+  });
+
+  it('is an ordinary answer afterwards: a day tapped off or on drops the note', async () => {
+    open();
+    await screen.findByRole('button', { name: OFFER });
+    tapOffer();
+    fireEvent.click(tapped()[0]!);
+    expect(tapped()).toHaveLength(9);
+    expect(screen.queryByText('Filled in from your usual days.')).toBeNull();
+    expect(offer()).toBeNull();
+  });
+
+  it('hides the offer for good once any day is tapped by hand', async () => {
+    open();
+    await screen.findByRole('button', { name: OFFER });
+    tapMonday();
+    expect(offer()).toBeNull();
+    // Even with every day tapped off again.
+    tapMonday();
+    expect(tapped()).toHaveLength(0);
+    expect(offer()).toBeNull();
   });
 });
 
 describe('what the answer is measured by', () => {
-  it('says on the start that nothing was offered, and on the send that nothing was used', async () => {
+  const started = () => track.mock.calls.filter(([name]) => name === 'availability_started');
+
+  it('says the offer was on show, once', async () => {
+    open();
+    await waitFor(() =>
+      expect(track).toHaveBeenCalledWith('availability_started', {
+        plan_id: PLAN.id,
+        usual_offered: true,
+      }),
+    );
+    expect(started()).toHaveLength(1);
+  });
+
+  it('says nothing was offered to a first-time guest', async () => {
+    usualTimes.mockResolvedValue([]);
     open();
     await waitFor(() =>
       expect(track).toHaveBeenCalledWith('availability_started', {
@@ -122,25 +212,52 @@ describe('what the answer is measured by', () => {
         usual_offered: false,
       }),
     );
-    expect(track.mock.calls.filter(([name]) => name === 'availability_started')).toHaveLength(1);
+  });
 
-    fireEvent.click(screen.getAllByRole('button', { name: /^Monday/ })[0]!);
+  const send = async () => {
     submitAnswer.mockResolvedValue({ revision: 1 });
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Send my times' }));
     });
     await waitFor(() => expect(submitAnswer).toHaveBeenCalled());
+  };
+
+  it('says the usual days were used when the tap was used and the answer was sent', async () => {
+    open();
+    await screen.findByRole('button', { name: OFFER });
+    tapOffer();
+    await send();
     await waitFor(() =>
       expect(track).toHaveBeenCalledWith(
         'availability_submitted',
-        expect.objectContaining({ status: 'windows', usual_used: false }),
+        expect.objectContaining({ status: 'windows', usual_used: true }),
+      ),
+    );
+  });
+
+  it('says they were not used after Undo, or when the offer was ignored', async () => {
+    open();
+    await screen.findByRole('button', { name: OFFER });
+    tapOffer();
+    fireEvent.click(screen.getByRole('button', { name: /^Undo/ }));
+    tapMonday();
+    await send();
+    await waitFor(() =>
+      expect(track).toHaveBeenCalledWith(
+        'availability_submitted',
+        expect.objectContaining({ usual_used: false }),
       ),
     );
   });
 
   it('carries no day-part in any event', async () => {
     open();
-    await waitFor(() => expect(track).toHaveBeenCalled());
+    await screen.findByRole('button', { name: OFFER });
+    tapOffer();
+    await send();
+    await waitFor(() =>
+      expect(track).toHaveBeenCalledWith('availability_submitted', expect.anything()),
+    );
     expect(JSON.stringify(track.mock.calls)).not.toMatch(/weekday|weekend|morning|evening/);
   });
 });

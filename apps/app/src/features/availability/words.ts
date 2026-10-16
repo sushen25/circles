@@ -4,6 +4,7 @@ import {
   localDate,
   toLocal,
   zone as toZone,
+  type DayPart,
   type LocalDate,
   type TimeFormat,
 } from '@circles/domain';
@@ -110,4 +111,38 @@ export function timeOfDay(iso: string): string {
   return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(
     new Date(iso),
   );
+}
+
+const USUAL_WEEKDAY = ['weekday_morning', 'weekday_afternoon', 'weekday_evening'] as const;
+const USUAL_WEEKEND = ['weekend_morning', 'weekend_afternoon', 'weekend_evening'] as const;
+
+/**
+ * What the usual is, in words, so the tap is not a surprise (SUS-227): "Weekday
+ * evenings and weekend afternoons, from your last plans in this circle." Built
+ * from the parts the read returned, never from a date or a count: a group with
+ * all three parts of the day is "any time on weekdays".
+ */
+export function usualSaid(parts: readonly DayPart[]): string {
+  const has = new Set<string>(parts);
+  const phrases: string[] = [];
+  for (const [group, all] of [
+    [USUAL_WEEKDAY, 'usual_weekday_all'],
+    [USUAL_WEEKEND, 'usual_weekend_all'],
+  ] as const) {
+    if (group.every((part) => has.has(part))) phrases.push(t('availability', all));
+    else {
+      for (const part of group) {
+        if (has.has(part)) phrases.push(t('availability', `usual_${part}`));
+      }
+    }
+  }
+  const what =
+    phrases.length < 2
+      ? (phrases[0] ?? '')
+      : t('availability', 'usual_and', {
+          rest: phrases.slice(0, -1).join(', '),
+          last: phrases[phrases.length - 1]!,
+        });
+  const line = t('availability', 'usual_says', { what });
+  return line.charAt(0).toUpperCase() + line.slice(1);
 }

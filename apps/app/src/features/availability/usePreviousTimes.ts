@@ -37,18 +37,18 @@ export function usePreviousTimes(input: {
   return {
     parts: fresh ? read.data : undefined,
     used,
-    markUsed: () => markUsed(true),
-    /** Answered or failed for this opening; with no backend there is nothing to wait for. */
-    settled: userId === undefined || read.isFetchedAfterMount,
+    /** The tap was used (true) or undone (false). */
+    markUsed: (on = true) => markUsed(on),
+    /** Answered or failed for this opening; with no backend, or no offer to make, there is nothing to wait for. */
+    settled: userId === undefined || !enabled || read.isFetchedAfterMount,
   };
 }
 
 /**
  * `availability_started`, once per opening (§11.2's "median response after
- * link open"), with whether the offer was on show. Since ADR 0077 the first
- * screen offers nothing and passes `settled` with `offered: false`; the wait
- * below is for the explicit tap to come. It waits for the read to
- * settle so the flag is true or false, but never for long: the start is never
+ * link open"), with whether the offer was on show (the explicit "Use my usual
+ * days" tap, ADR 0077). It waits for the read to settle so the flag is true or
+ * false, but never for long: the start is never
  * held back for an optional read (ADR 0045), so after a moment it is sent
  * without the flag, which says "unknown". A yes or no, never a day-part.
  */
