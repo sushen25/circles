@@ -119,9 +119,17 @@ export function useSendAnswer({
   const touched = useRef(false);
   useEffect(() => {
     if (!touched.current || userId === undefined) return;
+    const windows = windowsOf({ days }, rows, timing);
+    // Nothing tapped and nothing waiting to send is an answer never started
+    // (Undo of the usual days, or every day tapped off): no draft, so the
+    // plan reopens as a first visit and the usual days are offered again.
+    if (windows.length === 0 && !flexible && pending.current === undefined) {
+      void clearDraft(userId, code);
+      return;
+    }
     void writeDraft(userId, code, {
       plan,
-      windows: windowsOf({ days }, rows, timing),
+      windows,
       flexible,
       ...(pending.current === undefined
         ? {}

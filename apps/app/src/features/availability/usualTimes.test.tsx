@@ -165,6 +165,18 @@ describe('the tap, Undo and a tap by hand', () => {
     expect(screen.getByRole('button', { name: OFFER })).toBeVisible();
   });
 
+  it('keeps no draft after Undo, so a reopened plan offers the usual days again', async () => {
+    const first = open();
+    await screen.findByRole('button', { name: OFFER });
+    tapOffer();
+    await waitFor(async () => expect(await readDraft('nina', PLAN.code)).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: /^Undo/ }));
+    await waitFor(async () => expect(await readDraft('nina', PLAN.code)).toBeUndefined());
+    first.unmount();
+    open();
+    expect(await screen.findByRole('button', { name: OFFER })).toBeVisible();
+  });
+
   it('is an ordinary answer afterwards: a day tapped off or on drops the note', async () => {
     open();
     await screen.findByRole('button', { name: OFFER });
@@ -244,6 +256,20 @@ describe('what the answer is measured by', () => {
       expect(track).toHaveBeenCalledWith(
         'availability_submitted',
         expect.objectContaining({ usual_used: false }),
+      ),
+    );
+  });
+
+  it('says they were not used on an "I\'m easy" answer', async () => {
+    open();
+    await screen.findByRole('button', { name: OFFER });
+    tapOffer();
+    fireEvent.click(screen.getByRole('switch'));
+    await send();
+    await waitFor(() =>
+      expect(track).toHaveBeenCalledWith(
+        'availability_submitted',
+        expect.objectContaining({ status: 'flexible', usual_used: false }),
       ),
     );
   });

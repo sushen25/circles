@@ -73,7 +73,7 @@ action), the answer line shows as for any other answer, and under it reads
 nothing tapped, brings the offer back, and takes `usual_used` back to false.
 From the tap on everything is an ordinary answer: days tapped off or on, Change
 time, Send. The note goes as soon as the person changes a day or a time;
-`usual_used` stays true, because the answer began from the tap (SUS-159).
+`usual_used` stays true, because the answer began from the tap (SUS-159), unless the answer sent is "I'm easy", which carries none of the days. A reload restores the days from the draft but not the note or the flag, so an answer begun from the tap and sent after a reload says `usual_used: false`: a known undercount, not worth carrying in the draft.
 
 ## Alternatives considered
 

@@ -179,7 +179,8 @@ export function Answering({
     onStale,
     onNarrowed,
     returnTo,
-    usedPrevious: previous.used,
+    // An "I'm easy" answer carries none of the usual days.
+    usedPrevious: previous.used && !state.flexible,
   });
 
   // Judged by the server when the plan was read (`acceptingAnswers`): state and
