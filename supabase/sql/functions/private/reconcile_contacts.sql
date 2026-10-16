@@ -114,8 +114,9 @@ begin
         -- global by hash (spec §9). Uniqueness is `(email_hash, user_id)`, so two
         -- identities holding one address is what 0009 made legal.
         insert into private.email_contacts
-          (user_id, email_normalized, status, verified_at, suppressed_at, suppression_reason)
-        select p_to, ec.email_normalized, ec.status, ec.verified_at, ec.suppressed_at,
+          (user_id, email_normalized, email_hash, status, verified_at, suppressed_at,
+           suppression_reason)
+        select p_to, ec.email_normalized, ec.email_hash, ec.status, ec.verified_at, ec.suppressed_at,
                ec.suppression_reason
         from private.email_contacts ec
         where ec.id = contact.id

@@ -6,7 +6,7 @@
 -- test that runs today.
 
 begin;
-select plan(51);
+select plan(55);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -246,7 +246,13 @@ insert into private.email_contacts (user_id, email_normalized, status, verified_
   ('00000000-0000-0000-0000-0000000006a4', 'sam-live@example.com', 'verified', now() - interval '60 days', now() - interval '60 days'),
   ('00000000-0000-0000-0000-0000000006a4', 'sam-stopped@example.com', 'verified', now() - interval '60 days', now() - interval '60 days');
 insert into private.email_contacts (user_id, email_normalized, status, suppressed_at, suppression_reason, created_at) values
-  ('00000000-0000-0000-0000-0000000006a4', 'sam-bounced@example.com', 'suppressed', now() - interval '400 days', 'bounced', now() - interval '400 days');
+  ('00000000-0000-0000-0000-0000000006a4', 'sam-bounced@example.com', 'suppressed', now() - interval '400 days', 'bounced', now() - interval '400 days'),
+  ('00000000-0000-0000-0000-0000000006a4', 'sam-fresh-bounce@example.com', 'suppressed', now() - interval '5 days', 'complained', now() - interval '60 days');
+
+-- GoTrue's audit log: one entry past 90 days, one inside it.
+insert into auth.audit_log_entries (instance_id, id, payload, created_at) values
+  ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), '{"action": "login"}', now() - interval '91 days'),
+  ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), '{"action": "login"}', now() - interval '89 days');
 select pg_temp.make_plan((select circle_id from t), 'pnretdd', date '2099-10-05') as plan_done \gset
 select planning.transition_plan(:'plan_done', 'cancel', '00000000-0000-0000-0000-0000000006a1', '{"cancel_note": "x"}');
 -- Fire the queued deferred constraint triggers first: a table with pending
@@ -316,9 +322,31 @@ select is(
   'the addresses nobody verified in a week went, the one whose email was already sent included; the one with a link still clickable stayed, and so did the one whose link has not been minted yet'
 );
 select is(
-  (select array_agg(email_normalized order by email_normalized) from private.email_contacts where user_id = '00000000-0000-0000-0000-0000000006a4'),
-  array['sam-bounced@example.com', 'sam-live@example.com'],
-  'the verified contact whose only plan finished a month ago went, and so did the one who withdrew; the live one stayed; the suppressed one is kept forever'
+  (select array_agg(coalesce(email_normalized, '(suppressed)') order by coalesce(email_normalized, '(suppressed)'))
+   from private.email_contacts where user_id = '00000000-0000-0000-0000-0000000006a4'),
+  array['(suppressed)', 'sam-live@example.com'],
+  'the verified contact whose only plan finished a month ago went, and so did the one who withdrew; the live one stayed; the contact suppressed over a year ago went too, and the one suppressed five days ago stayed'
+);
+select is(
+  (select count(*)::integer from private.email_contacts where status = 'suppressed' and email_normalized is not null),
+  0,
+  'no suppressed contact holds an address, even before retention comes for it'
+);
+select is(
+  (select count(*)::integer from private.email_suppressions
+   where email_hash in (extensions.digest('sam-bounced@example.com', 'sha256'), extensions.digest('sam-fresh-bounce@example.com', 'sha256'))),
+  2,
+  'and the tombstones outlive the contacts, so the promise not to send holds'
+);
+select is(
+  (select count(*)::integer from auth.audit_log_entries where payload ->> 'action' = 'login' and created_at < now() - interval '90 days'),
+  0,
+  'the sign-in audit entry older than 90 days went'
+);
+select is(
+  (select count(*)::integer from auth.audit_log_entries where payload ->> 'action' = 'login'),
+  1,
+  'and the one inside 90 days stayed'
 );
 select is(
   (select array_agg(id::text order by id) from auth.users where id::text like '00000000-0000-0000-0000-0000000006b%'),
@@ -443,7 +471,7 @@ select is(
 -- Idempotent: a further run finds nothing.
 select is(
   (select jobs.run_retention() - 'daypart_summaries'),
-  '{"outbox": 0, "audit_rows": 0, "windows_aged": 0, "rate_counters": 0, "delivery_events": 0, "revoked_invites": 0, "pending_contacts": 0, "served_requests": 0, "notification_jobs": 0, "plan_only_contacts": 0, "expired_action_links": 0, "windows_of_the_gone": 0, "anonymous_identities": 0, "daypart_summaries_purged": 0}'::jsonb,
+  '{"outbox": 0, "audit_rows": 0, "windows_aged": 0, "rate_counters": 0, "delivery_events": 0, "revoked_invites": 0, "pending_contacts": 0, "served_requests": 0, "notification_jobs": 0, "plan_only_contacts": 0, "auth_audit_entries": 0, "expired_action_links": 0, "windows_of_the_gone": 0, "anonymous_identities": 0, "daypart_summaries_purged": 0}'::jsonb,
   'a second run deletes nothing'
 );
 

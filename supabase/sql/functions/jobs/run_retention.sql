@@ -8,8 +8,9 @@
 -- job in the database.
 --
 -- Things this deliberately does not delete:
---   * suppressed contacts — the suppression list is the promise not to send
---     again, and it has to outlive the address it is about;
+--   * the suppression list (`private.email_suppressions`) — it is the promise
+--     not to send again, it holds only a hash, and it has to outlive the
+--     contact it came from;
 --   * analytics events — the record;
 --   * plans, responses, confirmations — the product's history.
 -- ---------------------------------------------------------------------------
@@ -37,6 +38,7 @@ declare
   n_counters integer;
   n_audit integer;
   n_audit_plans integer;
+  n_auth_audit integer;
   result jsonb;
 begin
   -- Outbox and pipeline bookkeeping: 30 days. An unprocessed outbox row is
@@ -90,7 +92,7 @@ begin
     );
   get diagnostics n_pending_contacts = row_count;
 
-  -- Verified plan-only contacts: 30 days after every plan they were subscribed
+  -- Plan-only contacts, verified or suppressed: 30 days after every plan they were subscribed
   -- to has finished. "Plan-only" used to mean "verified and not suppressed",
   -- because every contact in the MVP was one somebody gave for a plan (spec
   -- §3: no marketing consent). Two of them are not, and each would otherwise
@@ -108,8 +110,17 @@ begin
   --     contact under it is the one failure nobody would ever see. The
   --     `notification_jobs` rule above still takes jobs older than thirty
   --     days, so this cannot keep a contact for ever.
+  --
+  -- A suppressed contact is on the same clock. It holds no address any more
+  -- (`apply_suppression` nulls it the moment the row is suppressed), only the
+  -- hash that the tombstone in `private.email_suppressions` also holds, so the
+  -- row is deleted for the same reason a verified one is: nothing is owed to it.
+  -- The tombstone stays, and a contact made later for that address arrives
+  -- suppressed. Its subscriptions were withdrawn and its letters skipped when it
+  -- was suppressed, and the same "no plan still running, no job still waiting"
+  -- tests apply, so the cascade takes nothing that matters.
   delete from private.email_contacts c
-  where c.status = 'verified'
+  where c.status in ('verified', 'suppressed')
     and not exists (
       select 1
       from private.email_subscriptions s
@@ -119,17 +130,20 @@ begin
         and (p.state not in ('completed', 'cancelled', 'expired')
              or p.updated_at > now() - interval '30 days')
     )
-    and not exists (
-      select 1 from auth.users u
-      where u.id = c.user_id
-        and u.email_confirmed_at is not null
-        and c.email_hash = extensions.digest(lower(btrim(u.email)), 'sha256')
+    and not (
+      c.status = 'verified'
+      and exists (
+        select 1 from auth.users u
+        where u.id = c.user_id
+          and u.email_confirmed_at is not null
+          and c.email_hash = extensions.digest(lower(btrim(u.email)), 'sha256')
+      )
     )
     and not exists (
       select 1 from jobs.notification_jobs j
       where j.contact_id = c.id and j.status = 'scheduled'
     )
-    and c.verified_at < now() - interval '30 days';
+    and coalesce(c.verified_at, c.suppressed_at) < now() - interval '30 days';
   get diagnostics n_plan_contacts = row_count;
 
   -- Willing windows, rule one (ADR 0005): 12 months, for members of active
@@ -240,6 +254,13 @@ begin
   get diagnostics n_audit_plans = row_count;
   n_audit := n_audit + n_audit_plans;
 
+  -- GoTrue's own audit log: 90 days. It records every sign-in with the address
+  -- that signed in, in clear, so it is bounded far shorter than ours. Its
+  -- `created_at` is not indexed; the daily run deletes one day's worth, and the
+  -- first run after this rule shipped deletes the backlog in one statement.
+  delete from auth.audit_log_entries where created_at < now() - interval '90 days';
+  get diagnostics n_auth_audit = row_count;
+
   result := jsonb_build_object(
     'outbox', n_outbox,
     'notification_jobs', n_jobs,
@@ -257,7 +278,8 @@ begin
     'anonymous_identities', n_anonymous,
     'served_requests', n_requests,
     'rate_counters', n_counters,
-    'audit_rows', n_audit
+    'audit_rows', n_audit,
+    'auth_audit_entries', n_auth_audit
   );
 
   -- The run is itself a fact worth keeping for a year: counts only.

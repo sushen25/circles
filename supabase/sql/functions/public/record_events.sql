@@ -38,7 +38,13 @@ begin
     circle_id, plan_id, properties, occurred_at
   )
   select
-    e.event_id, e.event_name, e.schema_version, e.user_id, e.anonymous_id,
+    e.event_id, e.event_name, e.schema_version,
+    -- A user who was deleted a moment ago still holds a bearer that verifies
+    -- for the rest of its hour, and `events.user_id` is a foreign key that
+    -- nulls on deletion (SUS-191). The event lands without the identity
+    -- rather than failing the whole batch with it.
+    case when exists (select 1 from auth.users u where u.id = e.user_id) then e.user_id end,
+    e.anonymous_id,
     e.circle_id, e.plan_id, coalesce(e.properties, '{}'::jsonb), e.occurred_at
   from jsonb_to_recordset(p_rows) as e (
     event_id uuid,

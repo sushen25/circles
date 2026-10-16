@@ -48,12 +48,12 @@ $$;
 
 create or replace function pg_temp.contact_of(addr text, who uuid) returns uuid
 language sql security definer as $$
-  select c.id from private.email_contacts c where c.email_normalized = addr and c.user_id = who
+  select c.id from private.email_contacts c where c.email_hash = extensions.digest(addr, 'sha256') and c.user_id = who
 $$;
 create or replace function pg_temp.status_of(addr text, who uuid) returns text
 language sql security definer as $$
   select c.status from private.email_contacts c
-  where c.email_normalized = addr and c.user_id = who
+  where c.email_hash = extensions.digest(addr, 'sha256') and c.user_id = who
 $$;
 create or replace function pg_temp.verify_jobs(who uuid) returns integer
 language sql security definer as $$
@@ -137,7 +137,7 @@ select is(
 select ok(
   exists (select 1 from private.email_contacts c
     where c.user_id = '00000000-0000-0000-0000-0000000009a1' and c.verified_at is not null
-      and c.email_normalized = 'ada@proof.test'),
+      and c.email_hash = extensions.digest('ada@proof.test', 'sha256')),
   'the contact records when it was verified');
 
 select pg_temp.act_as_service();

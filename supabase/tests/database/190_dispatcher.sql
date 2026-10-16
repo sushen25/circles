@@ -54,7 +54,7 @@ $$;
 create or replace function pg_temp.contact_of(addr text, who uuid) returns uuid
 language sql security definer as $$
   select c.id from private.email_contacts c
-  where c.email_normalized = addr and c.user_id = who
+  where c.email_hash = extensions.digest(addr, 'sha256') and c.user_id = who
 $$;
 
 create or replace function pg_temp.status_of(contact uuid) returns text
@@ -135,7 +135,7 @@ values ('00000000-0000-0000-0000-0000000019a2', 'nina@example.com', 'verified', 
 
 insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, status, consent_text_version)
 select c.id, c.user_id, 'plan_updates', pg_temp.live_plan(), 'active', '2026-09-14'
-from private.email_contacts c where c.email_normalized = 'nina@example.com';
+from private.email_contacts c where c.email_hash = extensions.digest('nina@example.com', 'sha256');
 
 -- ---------------------------------------------------------------------------
 -- Who may call any of it
@@ -316,10 +316,10 @@ select encode(extensions.digest('locked-in-nina-one', 'sha256'), 'hex') as key_o
        encode(extensions.digest('locked-in-nina-two', 'sha256'), 'hex') as key_two,
        encode(extensions.digest('reminder-nina-one', 'sha256'), 'hex') as key_reminder,
        (select c.id from private.email_contacts c
-        where c.email_normalized = 'nina@example.com'
+        where c.email_hash = extensions.digest('nina@example.com', 'sha256')
           and c.user_id = '00000000-0000-0000-0000-0000000019a2') as contact_one,
        (select c.id from private.email_contacts c
-        where c.email_normalized = 'nina@example.com'
+        where c.email_hash = extensions.digest('nina@example.com', 'sha256')
           and c.user_id = '00000000-0000-0000-0000-0000000019a3') as contact_two;
 grant select on tk to anon, authenticated, service_role;
 
@@ -379,7 +379,7 @@ update public.circle_members m set status = 'removed'
 where m.user_id = (
   select c.user_id from private.email_contacts c
   join jobs.notification_jobs j on j.contact_id = c.id
-  where c.email_normalized = 'nina@example.com' and j.kind = 'locked_in'
+  where c.email_hash = extensions.digest('nina@example.com', 'sha256') and j.kind = 'locked_in'
   order by j.scheduled_for, j.created_at, j.id limit 1);
 
 select pg_temp.act_as_service();
@@ -463,7 +463,7 @@ set status = 'sent', sent_at = now(), provider_message_id = 'already-gone'
 where j.id = (
   select j2.id from jobs.notification_jobs j2
   join private.email_contacts c on c.id = j2.contact_id
-  where c.email_normalized = 'nina@example.com' and j2.kind = 'locked_in'
+  where c.email_hash = extensions.digest('nina@example.com', 'sha256') and j2.kind = 'locked_in'
   order by j2.scheduled_for, j2.created_at, j2.id limit 1);
 
 select pg_temp.act_as_service();
@@ -747,7 +747,10 @@ select pg_temp.act_as_postgres();
 -- happen?" letter due at nine the next morning with it.
 update private.email_contacts c
 set status = 'verified', verified_at = now() - interval '31 days',
-    suppressed_at = null, suppression_reason = null
+    suppressed_at = null, suppression_reason = null,
+    -- A suppressed contact holds no address (SUS-191); this fixture turns one
+    -- back into a live one by hand, so it gives the address back too.
+    email_normalized = '00000000-0000-0000-0000-0000000019a1@example.com'
 where c.user_id = '00000000-0000-0000-0000-0000000019a1';
 
 -- And a contact that is nobody's auth address, with nothing subscribed, that
@@ -762,20 +765,20 @@ insert into jobs.notification_jobs (
 select 'email', 'did_it_happen_participant', c.id, pg_temp.live_plan(), 1,
   now() + interval '3 days',
   encode(extensions.digest('waiting-on-tom', 'sha256'), 'hex')
-from private.email_contacts c where c.email_normalized = 'tom-elsewhere@example.com';
+from private.email_contacts c where c.email_hash = extensions.digest('tom-elsewhere@example.com', 'sha256');
 
 select jobs.run_retention();
 
 select is(
   (select count(*)::integer from private.email_contacts c
    where c.user_id = '00000000-0000-0000-0000-0000000019a1'
-     and c.email_normalized = '00000000-0000-0000-0000-0000000019a1@example.com'),
+     and c.email_hash = extensions.digest('00000000-0000-0000-0000-0000000019a1@example.com', 'sha256')),
   1,
   'the organiser''s own auth address is not a plan''s contact, and retention leaves it alone'
 );
 select is(
   (select count(*)::integer from private.email_contacts c
-   where c.email_normalized = 'tom-elsewhere@example.com'),
+   where c.email_hash = extensions.digest('tom-elsewhere@example.com', 'sha256')),
   1,
   'and no contact with a letter still waiting is deleted from under it'
 );

@@ -73,7 +73,8 @@ export type DueJob = {
   readonly confirmation_id?: string | null;
   readonly idempotency_key: string;
   readonly attempt_count: number;
-  readonly email: string;
+  /** Null for a suppressed contact: its address is gone, only the hash is kept. */
+  readonly email: string | null;
   readonly contact_status: string;
   /** Whether `private.email_recipients_for` still names this contact, now. */
   readonly subscribed: boolean;
@@ -196,7 +197,9 @@ function copyKey(job: DueJob): string {
     job.plan_id ?? '',
     job.plan_revision ?? '',
     job.confirmation_id ?? '',
-    job.email,
+    // A suppressed contact has no address; the contact stands in, so two of
+    // them are never mistaken for copies of one letter.
+    job.email ?? job.contact_id,
   ].join('\u0000');
 }
 
@@ -282,7 +285,7 @@ export async function send(
     // Checked for every kind, including `verify_email`: a suppressed address is
     // never written to again, and re-verifying it is exactly the automatic
     // reactivation spec §9 forbids.
-    if (job.contact_status === 'suppressed') {
+    if (job.contact_status === 'suppressed' || job.email === null) {
       await finish('skipped', 'contact_suppressed');
       continue;
     }

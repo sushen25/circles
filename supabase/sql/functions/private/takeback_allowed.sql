@@ -110,12 +110,12 @@ as $$
         and (
           exists (
             select 1 from auth.users u
-            where u.id = p_holder and lower(btrim(u.email)) = lower(btrim(k.email_normalized))
+            where u.id = p_holder and extensions.digest(lower(btrim(u.email)), 'sha256') = k.email_hash
           )
           or exists (
             select 1 from auth.identities i
             where i.user_id = p_holder
-              and lower(btrim(i.identity_data ->> 'email')) = lower(btrim(k.email_normalized))
+              and extensions.digest(lower(btrim(i.identity_data ->> 'email')), 'sha256') = k.email_hash
           )
         )
     );

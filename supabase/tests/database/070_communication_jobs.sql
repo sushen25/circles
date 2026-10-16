@@ -321,13 +321,16 @@ select is(
   extensions.digest('nina@example.com', 'sha256'),
   'with its hash derived from the address, not supplied'
 );
-select throws_ok(
-  $$insert into private.email_contacts (user_id, email_normalized, email_hash)
-    values ('00000000-0000-0000-0000-0000000004a1', 'other@example.com', extensions.digest('x', 'sha256'))$$,
-  '428C9',
-  null,
-  'and a supplied hash is refused outright'
+-- Since SUS-191 the hash is a plain column, so a writer can supply one; what it
+-- cannot do is make it disagree with the address.
+insert into private.email_contacts (user_id, email_normalized, email_hash)
+values ('00000000-0000-0000-0000-0000000004a1', 'other@example.com', extensions.digest('x', 'sha256'));
+select is(
+  (select email_hash from private.email_contacts where email_normalized = 'other@example.com'),
+  extensions.digest('other@example.com', 'sha256'),
+  'and a supplied hash is overwritten with the address''s own'
 );
+delete from private.email_contacts where email_normalized = 'other@example.com';
 select id as contact from private.email_contacts where user_id = '00000000-0000-0000-0000-0000000004a2' \gset
 -- Spec §9: "one verified address on multiple guest memberships in one plan".
 -- Two people sharing a mailbox, or one person back from a second device, are
@@ -346,7 +349,7 @@ select throws_ok(
   'but one identity cannot hold it twice'
 );
 select is(
-  (select count(*)::integer from private.email_contacts where email_normalized = 'nina@example.com'),
+  (select count(*)::integer from private.email_contacts where email_hash = extensions.digest('nina@example.com', 'sha256')),
   2,
   'so one address, two contacts, and neither knows about the other'
 );
@@ -379,13 +382,13 @@ select is(
 -- there.
 select is(
   (select array_agg(distinct status) from private.email_contacts
-   where email_normalized = 'nina@example.com'),
+   where email_hash = extensions.digest('nina@example.com', 'sha256')),
   array['suppressed'],
   'and every other identity holding that address is suppressed with it'
 );
 select is(
   (select count(*)::integer from private.email_contacts
-   where email_normalized = 'nina@example.com' and verified_at is not null),
+   where email_hash = extensions.digest('nina@example.com', 'sha256') and verified_at is not null),
   0,
   'none of them left verified'
 );

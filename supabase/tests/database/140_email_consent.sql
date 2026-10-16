@@ -58,7 +58,7 @@ language sql as $$ select extensions.digest(token, 'sha256') $$;
 create or replace function pg_temp.contact_of(addr text, who uuid) returns uuid
 language sql security definer as $$
   select c.id from private.email_contacts c
-  where c.email_normalized = addr and c.user_id = who
+  where c.email_hash = extensions.digest(addr, 'sha256') and c.user_id = who
 $$;
 
 -- Maya owns the circle; Jules is a guest who reads email; Nobody is elsewhere.
@@ -91,7 +91,7 @@ grant select on tp to anon, authenticated, service_role;
 create or replace function pg_temp.status_of(addr text, who uuid) returns text
 language sql security definer as $$
   select c.status from private.email_contacts c
-  where c.email_normalized = addr and c.user_id = who
+  where c.email_hash = extensions.digest(addr, 'sha256') and c.user_id = who
 $$;
 create or replace function pg_temp.plan_id() returns uuid
 language sql security definer as $$ select plan_id from tp $$;
@@ -137,7 +137,7 @@ select is(
 select pg_temp.act_as_postgres();
 select is(
   (select array[c.status, c.email_normalized] from private.email_contacts c
-   where c.email_normalized = 'jules@example.com'),
+   where c.email_hash = extensions.digest('jules@example.com', 'sha256')),
   array['pending', 'jules@example.com'],
   'the address is held once, pending, in the only table that holds one'
 );
@@ -145,7 +145,7 @@ select is(
 select is(
   (select array[s.status, s.consent_text_version] from private.email_subscriptions s
    join private.email_contacts c on c.id = s.contact_id
-   where c.email_normalized = 'jules@example.com' and s.plan_id = pg_temp.plan_id()),
+   where c.email_hash = extensions.digest('jules@example.com', 'sha256') and s.plan_id = pg_temp.plan_id()),
   array['active', '2026-09-14'],
   'with the consent recorded now, and the words it was given for'
 );
@@ -156,7 +156,7 @@ select is(
 select is(
   (select count(*)::integer from private.email_action_tokens tok
    join private.email_contacts c on c.id = tok.contact_id
-   where c.email_normalized = 'jules@example.com' and tok.purpose = 'verify'),
+   where c.email_hash = extensions.digest('jules@example.com', 'sha256') and tok.purpose = 'verify'),
   0,
   'asking writes no token at all: the link is minted by whoever sends the email'
 );
@@ -220,7 +220,7 @@ select pg_temp.act_as_postgres();
 select is(
   (select count(*)::integer from private.email_action_tokens tok
    join private.email_contacts c on c.id = tok.contact_id
-   where c.email_normalized = 'jules@example.com' and tok.purpose = 'verify' and tok.used_at is null),
+   where c.email_hash = extensions.digest('jules@example.com', 'sha256') and tok.purpose = 'verify' and tok.used_at is null),
   1,
   'while the first link stops working: one live token, not two'
 );
@@ -242,7 +242,7 @@ select is(
 select pg_temp.act_as_postgres();
 select is(
   (select count(*)::integer from private.email_contacts c
-   where c.email_normalized = 'jules@example.com'),
+   where c.email_hash = extensions.digest('jules@example.com', 'sha256')),
   2,
   'which is one contact per identity, as the constraint has said since 0009'
 );
@@ -265,7 +265,7 @@ select is(
 select pg_temp.act_as_postgres();
 select is(
   (select c.status from private.email_contacts c
-   where c.email_normalized = 'bounced@example.com'),
+   where c.email_hash = extensions.digest('bounced@example.com', 'sha256')),
   'suppressed',
   'the contact arrives suppressed, by the trigger that reads the tombstone — not pending'
 );
@@ -273,7 +273,7 @@ select is(
 select is(
   (select count(*)::integer from private.email_subscriptions s
    join private.email_contacts c on c.id = s.contact_id
-   where c.email_normalized = 'bounced@example.com'),
+   where c.email_hash = extensions.digest('bounced@example.com', 'sha256')),
   0,
   'and no consent, no token and no email are written for it'
 );
@@ -297,7 +297,7 @@ select is(
 select pg_temp.act_as_postgres();
 select is(
   (select c.status from private.email_contacts c
-   where c.email_normalized = 'jules@example.com'
+   where c.email_hash = extensions.digest('jules@example.com', 'sha256')
      and c.user_id = '00000000-0000-0000-0000-0000000008a2'),
   'verified',
   'the contact the link named, held by the person who clicked, is verified'
@@ -311,7 +311,7 @@ select is(
 -- contact, are in 300_verify_same_person.sql.
 select is(
   (select c.status from private.email_contacts c
-   where c.email_normalized = 'jules@example.com'
+   where c.email_hash = extensions.digest('jules@example.com', 'sha256')
      and c.user_id = '00000000-0000-0000-0000-0000000008a1'),
   'pending',
   'another identity''s contact at the same address stays pending'
@@ -391,7 +391,7 @@ select pg_temp.act_as_postgres();
 select is(
   (select s.status from private.email_subscriptions s
    join private.email_contacts c on c.id = s.contact_id
-   where c.email_normalized = 'late@example.com'),
+   where c.email_hash = extensions.digest('late@example.com', 'sha256')),
   'withdrawn',
   'and the subscription is closed rather than left waiting for a plan that is over'
 );
@@ -404,7 +404,7 @@ select is(
 insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
 select c.id, 'prefs', pg_temp.hash_of('t-prefs'), now() + interval '90 days'
 from private.email_contacts c
-where c.email_normalized = 'jules@example.com'
+where c.email_hash = extensions.digest('jules@example.com', 'sha256')
   and c.user_id = '00000000-0000-0000-0000-0000000008a2';
 
 select pg_temp.act_as_service();
@@ -439,7 +439,7 @@ insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, st
 select c.id, c.user_id, 'plan_updates',
   (select id from public.plans where short_code = 'pnemkb'), 'active', '2026-09-14'
 from private.email_contacts c
-where c.email_normalized = 'jules@example.com'
+where c.email_hash = extensions.digest('jules@example.com', 'sha256')
   and c.user_id = '00000000-0000-0000-0000-0000000008a1';
 
 select pg_temp.act_as_service();
@@ -482,7 +482,7 @@ select is(
 select is(
   (select count(*)::integer from private.email_subscriptions s
    join private.email_contacts c on c.id = s.contact_id
-   where c.email_normalized = 'jules@example.com'
+   where c.email_hash = extensions.digest('jules@example.com', 'sha256')
      and s.plan_id = pg_temp.plan_id() and s.status = 'active'),
   0,
   'which is both consents to *this* meetup withdrawn, each with an event of its own'
@@ -490,7 +490,7 @@ select is(
 
 select is(
   (select c.status from private.email_contacts c
-   where c.email_normalized = 'jules@example.com'
+   where c.email_hash = extensions.digest('jules@example.com', 'sha256')
      and c.user_id = '00000000-0000-0000-0000-0000000008a2'),
   'verified',
   'and the address itself is untouched: stopping one meetup is not asking to be forgotten'
@@ -506,7 +506,7 @@ select is(
 select pg_temp.act_as_postgres();
 select is(
   (select count(*)::integer from private.email_contacts c
-   where c.email_normalized = 'jules@example.com'
+   where c.email_hash = extensions.digest('jules@example.com', 'sha256')
      and c.user_id = '00000000-0000-0000-0000-0000000008a2'),
   0,
   'which takes the address with it: "remove" has to mean the plaintext is gone (§14)'
@@ -525,7 +525,7 @@ select is(
 -- it for ever, which is exactly what the link promised to undo.
 select is(
   (select count(*)::integer from private.email_contacts c
-   where c.email_normalized = 'jules@example.com'),
+   where c.email_hash = extensions.digest('jules@example.com', 'sha256')),
   0,
   'and no row holding that address is left anywhere, not even a suppressed one'
 );
@@ -566,11 +566,11 @@ values ('00000000-0000-0000-0000-0000000008a4', 'bouncing@example.com', 'verifie
 
 insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, status, consent_text_version)
 select c.id, c.user_id, 'plan_updates', pg_temp.plan_id(), 'active', '2026-09-14'
-from private.email_contacts c where c.email_normalized = 'bouncing@example.com';
+from private.email_contacts c where c.email_hash = extensions.digest('bouncing@example.com', 'sha256');
 
 insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
 select c.id, 'prefs', pg_temp.hash_of('t-bounce-prefs'), now() + interval '90 days'
-from private.email_contacts c where c.email_normalized = 'bouncing@example.com';
+from private.email_contacts c where c.email_hash = extensions.digest('bouncing@example.com', 'sha256');
 
 select pg_temp.act_as_service();
 select is(
@@ -587,7 +587,7 @@ select is(
 select pg_temp.act_as_postgres();
 update private.email_contacts
 set status = 'suppressed', suppressed_at = now(), suppression_reason = 'bounced', verified_at = null
-where email_normalized = 'bouncing@example.com';
+where email_hash = extensions.digest('bouncing@example.com', 'sha256');
 
 select pg_temp.act_as_service();
 select is(
@@ -694,7 +694,7 @@ select pg_temp.act_as_postgres();
 select is(
   (select count(*)::integer from jobs.notification_jobs j
    join private.email_contacts c on c.id = j.contact_id
-   where c.email_normalized = 'departing@example.com' and j.kind = 'locked_in'),
+   where c.email_hash = extensions.digest('departing@example.com', 'sha256') and j.kind = 'locked_in'),
   0,
   'and no "locked in" is queued for them: the plan stopped being theirs when the membership did'
 );
@@ -708,7 +708,7 @@ select is(
 select pg_temp.act_as_postgres();
 insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
 select c.id, 'prefs', pg_temp.hash_of('t-left-prefs'), now() + interval '90 days'
-from private.email_contacts c where c.email_normalized = 'departing@example.com';
+from private.email_contacts c where c.email_hash = extensions.digest('departing@example.com', 'sha256');
 
 select pg_temp.act_as_service();
 select is(
@@ -888,7 +888,7 @@ select pg_temp.act_as_postgres();
 -- rather than one contact with itself.
 select is(
   (select count(*)::integer from private.email_contacts c
-   where c.email_normalized = 'twins@example.com'),
+   where c.email_hash = extensions.digest('twins@example.com', 'sha256')),
   2,
   'there really are two contacts at that address'
 );
