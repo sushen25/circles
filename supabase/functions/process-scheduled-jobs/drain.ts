@@ -10,7 +10,7 @@ import {
 
 import type { Db } from '../_shared/db.ts';
 import { log } from '../_shared/logging.ts';
-import { supersedeClosing } from './closing.ts';
+import { coveredByHandOff, supersedeClosing } from './closing.ts';
 import { type PlanContext, loadContext } from './context.ts';
 import { needsQuietAudience, withQuietAudience } from './quiet.ts';
 import {
@@ -233,7 +233,17 @@ export async function drain(
             if (error !== null) throw error;
           }
 
-          for (const intent of intentsFor(event, context, now)) {
+          // The sweep's letter, when a hand-off has already sent it (SUS-96).
+          const covered = await coveredByHandOff(service, event, context);
+          if (covered) {
+            log('info', {
+              fn: 'process-scheduled-jobs',
+              request_id: requestId,
+              event: 'replies_closed_covered_by_hand_off',
+            });
+          }
+          const intents = covered ? [] : intentsFor(event, context, now);
+          for (const intent of intents) {
             // The quiet kinds' audience facts, read for that kind alone and
             // dropped with this iteration (S2-02, `quiet.ts`).
             const addressed = needsQuietAudience(intent.kind)

@@ -6,6 +6,7 @@ import {
   isAfter,
   notificationSpec,
   occurrenceFor,
+  toISO,
 } from '@circles/domain';
 
 import type { Db } from '../_shared/db.ts';
@@ -59,6 +60,37 @@ export function repliesClosedIntent(
     }),
     desiredAt: now,
   };
+}
+
+/**
+ * Whether the sweep's letter for this deadline is already covered by a
+ * hand-off (SUS-96).
+ *
+ * The dispatcher drains before it sweeps, so a plan handed on after its
+ * deadline but before the sweep announced it has told the new organiser
+ * already: the hand-off's `replies_closed`, written with the deadline behind
+ * it. The sweep's letter would be a second one to the same person, and by day
+ * the first has gone, so nothing later can take it back. Only the first letter
+ * of a deadline is asked about: the follow-up a day on is refused after a
+ * hand-off by `dispatch_timed_work`, and an *extended* deadline's letter is a different
+ * deadline, which a hand-off made before it passed has not covered
+ * (`dispatch_handed_off_since`).
+ */
+export async function coveredByHandOff(
+  service: Db,
+  event: OutboxEvent,
+  context: PlanContext,
+): Promise<boolean> {
+  if (event.event_name !== 'planning.deadline_passed') return false;
+  if (event.payload['follow_up'] === FOLLOW_UP) return false;
+  const deadline = deadlineOf(event, context);
+  if (deadline === undefined) return false;
+  const { data, error } = await service.rpc('dispatch_handed_off_since', {
+    p_plan_id: context.planId,
+    p_since: toISO(deadline),
+  });
+  if (error !== null) throw error;
+  return data === true;
 }
 
 /** Still waiting on its organiser: asking, or with options, and not locked in. */

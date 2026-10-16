@@ -8,7 +8,7 @@
 -- SUS-36 found the job layer silently throwing away.
 
 begin;
-select plan(54);
+select plan(61);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean)
 returns uuid language sql as $$
@@ -615,6 +615,74 @@ select is(
   'sent',
   'a letter already sent, and any other kind, is left alone'
 );
+
+-- ---------------------------------------------------------------------------
+-- dispatch_handed_off_since (SUS-96): has a hand-off already told the new
+-- organiser replies are closed, for a deadline that passed at p_since?
+-- The plan already holds replies_closed jobs written just now (above).
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+select ok(
+  not has_function_privilege('authenticated', 'public.dispatch_handed_off_since(uuid, timestamptz)', 'execute')
+  and not has_function_privilege('anon', 'public.dispatch_handed_off_since(uuid, timestamptz)', 'execute')
+  and has_function_privilege('service_role', 'public.dispatch_handed_off_since(uuid, timestamptz)', 'execute'),
+  'only the service role asks whether a hand-off covered a deadline'
+);
+delete from jobs.outbox where aggregate_id = pg_temp.plan_id() and event_name = 'planning.organiser_changed';
+select pg_temp.act_as_service();
+select is(
+  public.dispatch_handed_off_since(pg_temp.plan_id(), now() - interval '1 hour'),
+  false,
+  'no hand-off, nothing covered'
+);
+
+select pg_temp.act_as_postgres();
+insert into jobs.outbox (event_name, aggregate_type, aggregate_id, occurred_at, processed_at, attempts, last_error)
+values ('planning.organiser_changed', 'plan', pg_temp.plan_id(), now(), null, 0, null);
+select pg_temp.act_as_service();
+select is(
+  public.dispatch_handed_off_since(pg_temp.plan_id(), now() - interval '1 hour'),
+  false,
+  'a hand-off the drain has not got to has told nobody'
+);
+
+select pg_temp.act_as_postgres();
+update jobs.outbox set processed_at = now(), attempts = 5, last_error = 'db:XX000'
+where aggregate_id = pg_temp.plan_id() and event_name = 'planning.organiser_changed';
+select pg_temp.act_as_service();
+select is(
+  public.dispatch_handed_off_since(pg_temp.plan_id(), now() - interval '1 hour'),
+  false,
+  'a hand-off the drain gave up on wrote no letter, so it covers nothing'
+);
+
+select pg_temp.act_as_postgres();
+update jobs.outbox set last_error = null
+where aggregate_id = pg_temp.plan_id() and event_name = 'planning.organiser_changed';
+select pg_temp.act_as_service();
+select is(
+  public.dispatch_handed_off_since(pg_temp.plan_id(), now() - interval '1 hour'),
+  true,
+  'a hand-off the drain finished with, and a replies_closed written since the deadline, cover it'
+);
+select is(
+  public.dispatch_handed_off_since(pg_temp.plan_id(), now() + interval '1 hour'),
+  false,
+  'a hand-off finished with before the deadline (an extended one) covers nothing, so that deadline''s letter is owed'
+);
+
+-- Finished with at or after the deadline, but wrote no replies_closed since:
+-- it ran just before the deadline by the dispatcher''s clock and wrote options_ready.
+select pg_temp.act_as_postgres();
+update jobs.outbox set processed_at = now() + interval '2 hours'
+where aggregate_id = pg_temp.plan_id() and event_name = 'planning.organiser_changed';
+select pg_temp.act_as_service();
+select is(
+  public.dispatch_handed_off_since(pg_temp.plan_id(), now() + interval '1 hour'),
+  false,
+  'a hand-off that wrote no replies_closed since the deadline covers nothing'
+);
+
 
 select * from finish();
 rollback;

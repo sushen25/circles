@@ -133,15 +133,19 @@ export async function releaseHeld(planId: string): Promise<void> {
 }
 
 /**
- * A zone where it is about two in the morning now, well inside quiet hours
- * (9 pm–8 am), whenever the suite runs. `Etc/GMT` signs are inverted:
- * `Etc/GMT-10` is ten hours ahead of UTC.
+ * A zone where it is `hour` o'clock now, whenever the suite runs. `Etc/GMT`
+ * signs are inverted: `Etc/GMT-10` is ten hours ahead of UTC.
  */
-export function zoneAtTwoInTheMorning(): string {
-  let ahead = (2 - new Date().getUTCHours() + 24) % 24;
+function zoneAtHour(hour: number): string {
+  let ahead = (hour - new Date().getUTCHours() + 24) % 24;
   if (ahead > 12) ahead -= 24;
   if (ahead === 0) return 'Etc/UTC';
   return `Etc/GMT${ahead > 0 ? '-' : '+'}${Math.abs(ahead)}`;
+}
+
+/** About two in the morning, well inside quiet hours (9 pm-8 am): letters are held. */
+export function zoneAtTwoInTheMorning(): string {
+  return zoneAtHour(2);
 }
 
 /**
@@ -152,11 +156,44 @@ export function zoneAtTwoInTheMorning(): string {
  * eleven hours a day. The send path is the real one; only the recipient's
  * clock is chosen. Same `Etc/GMT` sign rule as `zoneAtTwoInTheMorning`.
  */
-export function zoneAtNoon(now: Date = new Date()): string {
-  let ahead = (12 - now.getUTCHours() + 24) % 24;
-  if (ahead > 12) ahead -= 24;
-  if (ahead === 0) return 'Etc/UTC';
-  return `Etc/GMT${ahead > 0 ? '-' : '+'}${Math.abs(ahead)}`;
+export function zoneAtNoon(): string {
+  return zoneAtHour(12);
+}
+
+/**
+ * Runs the dispatcher until the sweep's `deadline_passed` for the plan has been
+ * drained, which is the tick after it was emitted. After it, every letter
+ * either path will write has been written.
+ */
+export async function drainedTheSweep(planId: string): Promise<void> {
+  const drained = () =>
+    sql(`select count(*) from jobs.outbox
+         where event_name = 'planning.deadline_passed' and aggregate_id = '${planId}'
+           and processed_at is not null`)[0]![0] !== '0';
+  for (let attempt = 0; attempt < 20 && !drained(); attempt += 1) await runDispatcher();
+  expect(drained()).toBe(true);
+}
+
+/**
+ * Maya's plan, a minute past its deadline, and the hand-off to Nina, in one
+ * transaction: no dispatcher, this test's or another's, can sweep in between,
+ * so the deadline is announced after the hand-off every time. Both of them are
+ * put in `zone` first, so a test says whether the letters are held.
+ */
+export async function handedOffInTheSameBreathAsTheDeadline(zone: string) {
+  const { maya, plan, nina } = await closedWithAnOption({ closed: false });
+  sql(`update public.profiles set time_zone = '${zone}'
+       where user_id in ('${maya.userId}', '${nina.userId}')`);
+  sql(`
+    begin;
+    update public.plans set response_deadline = now() - interval '1 minute' where id = '${plan.id}';
+    select set_config('role', 'authenticated', true);
+    select set_config('request.jwt.claims',
+      '{"sub": "${maya.userId}", "role": "authenticated", "is_anonymous": false}', true);
+    select organiser_user_id from public.hand_off_organiser('${plan.id}', '${nina.userId}');
+    commit;
+  `);
+  return { maya, plan, nina };
 }
 
 /**

@@ -8,10 +8,7 @@ import {
   closedLetters,
   closedWithAnOption,
   closingJobsFor,
-  closingJobsToNina,
-  releaseHeld,
   signedInAs,
-  zoneAtTwoInTheMorning,
 } from './replies-closed';
 import { sql } from './stack';
 
@@ -82,101 +79,6 @@ test('the organiser is told, gives it one more day, and is told again when that 
   });
   await expect(again).toBeVisible();
   await expect(again).toHaveAttribute('aria-disabled', 'true');
-});
-
-test('the organiser hands it to a member with a saved place, never to a guest', async ({
-  page,
-}) => {
-  const { maya, circleId, plan, nina } = await closedWithAnOption();
-  await signedInAs(page, maya.stored);
-
-  // The deadline's sweep announces it first, as it does within the minute on
-  // a deployed project, and Maya opens the screen from that letter. Left to
-  // chance, the sweep sometimes landed after the hand-off — whenever no other
-  // test's dispatcher happened to run first — and by day that sends Nina a
-  // second letter after the first has gone (SUS-95; the product half is
-  // SUS-96). That order is pinned in the test below instead.
-  const announced = () =>
-    sql(`select count(*) from jobs.notification_jobs
-         where plan_id = '${plan.id}' and kind = 'replies_closed'`)[0]![0];
-  for (let attempt = 0; attempt < 20 && announced() === '0'; attempt += 1) await runDispatcher();
-  expect(announced()).toBe('1');
-
-  await page.goto(`/circles/${circleId}/plan/${plan.id}/deadline`);
-  await page.getByRole('button', { name: /^Hand this to someone else/ }).click();
-
-  const tom = page.getByRole('button', { name: 'Tom. Needs a saved place' });
-  await expect(tom).toBeVisible();
-  await expect(tom).toHaveAttribute('aria-disabled', 'true');
-  await page.getByRole('button', { name: 'Nina', exact: true }).click();
-  await expect(page.getByText('Hand it to Nina?')).toBeVisible();
-  await page.getByRole('button', { name: 'Hand it to Nina' }).click();
-
-  // Maya is a member of it now, and sees it as one.
-  await expect(page.getByText('Replies have closed. Nina picks one of these.')).toBeVisible();
-  const change = page.getByRole('button', { name: 'Change my times' });
-  await expect(change).toHaveAttribute('aria-disabled', 'true');
-  expect(sql(`select organiser_user_id from public.plans where id = '${plan.id}'`)[0]![0]).toBe(
-    nina.userId,
-  );
-
-  // Nina is told it is hers, with the letter that opens the three ways out.
-  // It is written by the next drain, and held until morning in the evening,
-  // so it is released before it is counted or read (SUS-91): one letter, gone.
-  for (
-    let attempt = 0;
-    attempt < 20 && closingJobsToNina(plan.id, nina.userId).length === 0;
-    attempt += 1
-  ) {
-    await runDispatcher();
-  }
-  await releaseHeld(plan.id);
-  expect(closingJobsToNina(plan.id, nina.userId)).toEqual([['sent', '']]);
-  await letterTo(nina.email, CLOSED);
-  expect(await closedLetters(nina.email)).toBe(1);
-});
-
-test('a sweep that lands after the hand-off, overnight, replaces the letter rather than adding one', async () => {
-  // Overnight for everybody, whenever this runs, so both letters are held.
-  const { maya, plan, nina } = await closedWithAnOption({ closed: false });
-  sql(`update public.profiles set time_zone = '${zoneAtTwoInTheMorning()}'
-       where user_id in ('${maya.userId}', '${nina.userId}')`);
-
-  // The deadline passes and Maya hands it over in one transaction, so no
-  // dispatcher — this test's or another's — can sweep in between: the
-  // deadline is announced after the hand-off, every time.
-  sql(`
-    begin;
-    update public.plans set response_deadline = now() - interval '1 minute' where id = '${plan.id}';
-    select set_config('role', 'authenticated', true);
-    select set_config('request.jwt.claims',
-      '{"sub": "${maya.userId}", "role": "authenticated", "is_anonymous": false}', true);
-    select organiser_user_id from public.hand_off_organiser('${plan.id}', '${nina.userId}');
-    commit;
-  `);
-
-  // One tick writes the hand-off's letter and sweeps; the next writes the
-  // sweep's, which takes the place of the held one (`supersedeClosing`).
-  for (
-    let attempt = 0;
-    attempt < 20 && closingJobsToNina(plan.id, nina.userId).length < 2;
-    attempt += 1
-  ) {
-    await runDispatcher();
-  }
-  expect(closingJobsToNina(plan.id, nina.userId)).toEqual([
-    ['scheduled', ''],
-    ['skipped', 'superseded'],
-  ]);
-
-  // Morning: one letter reaches her.
-  await releaseHeld(plan.id);
-  expect(closingJobsToNina(plan.id, nina.userId)).toEqual([
-    ['sent', ''],
-    ['skipped', 'superseded'],
-  ]);
-  await letterTo(nina.email, CLOSED);
-  expect(await closedLetters(nina.email)).toBe(1);
 });
 
 test('the organiser locks in the top option from the replies-closed screen, through to Locked in', async ({
