@@ -1,0 +1,102 @@
+# Deletes a pull request's preview alias once the pull request is closed.
+#
+# `preview` gives every pull request a `pr-<number>` alias on EAS Hosting, and
+# nothing ever took one away. The account allows 200 aliases for its worker
+# deployments, and PR #225 was the one that met the limit: the deployment was
+# created and the alias refused, so `preview` failed for a reason that had
+# nothing to do with the change (SUS-231).
+#
+# Only the alias goes. The deployment stays, as do `dev` and production, which
+# this never names: it only ever deletes `pr-<number>` for a closed pull request.
+# Never call `eas deploy:alias:delete` with an empty name: with no name it
+# means the production alias (eas-cli 23, `deploy/alias/delete.js`). Every call
+# here passes `pr-<number>`, and `--non-interactive` refuses an empty one.
+#
+# `workflow_dispatch` is the backfill: every closed pull request in the
+# repository, once, to free the aliases that piled up before this existed.
+name: preview-cleanup
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  # The same group as `preview`, so a deploy still running for this pull
+  # request is cancelled rather than re-creating the alias after it is gone.
+  group: preview-${{ github.event.pull_request.number || 'backfill' }}
+  cancel-in-progress: true
+
+jobs:
+  cleanup:
+    name: preview-cleanup
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Forks never got a preview, and do not get the token.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Is Expo configured
+        id: config
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -n "$EXPO_TOKEN" ]; then echo "ready=true" >> "$GITHUB_OUTPUT";
+          else echo "ready=false" >> "$GITHUB_OUTPUT"; fi
+
+      - uses: actions/checkout@v4
+        if: steps.config.outputs.ready == 'true'
+      - uses: pnpm/action-setup@v4
+        if: steps.config.outputs.ready == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.config.outputs.ready == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.config.outputs.ready == 'true'
+
+      # `eas` reads app.config.ts to find the project, and that imports
+      # @circles/config from dist/, which exists only after a build.
+      - name: Build the workspace packages
+        if: steps.config.outputs.ready == 'true'
+        run: pnpm run build
+
+      - name: Delete this pull request's alias
+        if: steps.config.outputs.ready == 'true' && github.event_name == 'pull_request'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          ALIAS: pr-${{ github.event.pull_request.number }}
+        # A pull request that only touched Markdown never got a preview, so a
+        # failure here is a warning in the run, not a red cross on the PR.
+        run: |
+          if pnpm --filter app exec eas deploy:alias:delete "$ALIAS" --non-interactive; then
+            echo "Deleted $ALIAS." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::Could not delete $ALIAS (it may never have existed)."
+          fi
+
+      - name: Delete the alias of every closed pull request
+        if: steps.config.outputs.ready == 'true' && github.event_name == 'workflow_dispatch'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        # Most closed pull requests will have an alias and some will not, so one
+        # failure proves nothing. None succeeding means the token or the command
+        # is wrong, and that fails the run.
+        run: |
+          deleted=0
+          missed=0
+          for n in $(gh api --paginate "repos/${{ github.repository }}/pulls?state=closed&per_page=100" --jq '.[].number'); do
+            if pnpm --silent --filter app exec eas deploy:alias:delete "pr-$n" --non-interactive > /dev/null 2>&1; then
+              deleted=$((deleted + 1))
+            else
+              missed=$((missed + 1))
+            fi
+          done
+          echo "Deleted $deleted aliases; $missed closed pull requests had none or could not be deleted." | tee -a "$GITHUB_STEP_SUMMARY"
+          [ "$deleted" -gt 0 ]
