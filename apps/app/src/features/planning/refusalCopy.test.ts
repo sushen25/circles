@@ -55,7 +55,6 @@ describe('every reason either has a sentence on the planning screens or is liste
     'target_is_permanent',
     'caller_is_permanent',
     'already_member',
-    'reattach_limit',
     'token_invalid',
     'source_is_permanent',
     'destination_is_not_permanent',

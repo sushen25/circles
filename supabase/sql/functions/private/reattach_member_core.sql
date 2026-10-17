@@ -241,16 +241,12 @@ begin
     raise exception 'already_member' using errcode = 'unique_violation';
   end if;
 
-  -- Three per membership per seven days (ADR 0006), **counting only the moves made
-  -- by picking a name** (ADR 0049; `private.list_moves_this_week`). A move made with
-  -- an emailed re-entry link is never refused here, a take-back from a saved account
-  -- included, so a member with a live link can always return. What that leaves open
-  -- is in ADR 0049, decision 4.
-  if p_reentry_token_hash is null
-    and private.list_moves_this_week(target_circle, target) >= 3
-  then
-    raise exception 'reattach_limit' using errcode = 'too_many_rows';
-  end if;
+  -- No cap on how often a membership moves (ADR 0078, which removed ADR 0006's
+  -- three-a-week). A guest who opens the link in a new browser is a new session
+  -- every time, and they may pick their own name as often as that happens. What
+  -- bounds a stranger doing the same is the hourly throttle per circle
+  -- (`take_rate_token` above, twenty an hour) and "rejoined from a new
+  -- device" on circle home.
 
   -- The move itself lives in `private.move_membership`, shared with
   -- `claim_identity`: one list of the tables a membership owns, because two
@@ -315,7 +311,7 @@ end;
 $$;
 
 comment on function private.reattach_member_core(uuid, uuid, uuid, bytea) is
-  'Moves a guest membership and everything scoped to it onto p_caller, from the Continue-as list (a circle and a member) or an emailed re-entry token digest (ADR 0006): only in an active circle, and on the list path only while one of its plans is live (ADR 0059); a per-circle hourly limit on the list path; at most three list moves per membership per seven days, and a move made with a valid re-entry token is never refused by that cap (ADR 0049); never onto a saved-place member, but a valid token takes a place back from a saved account whose own address is not the link''s (ADR 0049, decision 6). Called only by reattach_member and reattach_with_token, which say who p_caller is.';
+  'Moves a guest membership and everything scoped to it onto p_caller, from the Continue-as list (a circle and a member) or an emailed re-entry token digest (ADR 0006): only in an active circle, and on the list path only while one of its plans is live (ADR 0059); a per-circle hourly limit on the list path; no cap on how often one membership moves (ADR 0078); never onto a saved-place member, but a valid token takes a place back from a saved account whose own address is not the link''s (ADR 0049, decision 6). Called only by reattach_member and reattach_with_token, which say who p_caller is.';
 
 revoke all on function private.reattach_member_core(uuid, uuid, uuid, bytea) from public;
 revoke all on function private.reattach_member_core(uuid, uuid, uuid, bytea) from anon, authenticated;

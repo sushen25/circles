@@ -54,7 +54,7 @@ describe('problemFor', () => {
   });
 
   it('calls a limit rate_limited rather than forbidden', () => {
-    expect(problemFor('reattach_limit', 'slow down', 'r').status).toBe(429);
+    expect(problemFor('too_many_requests', 'slow down', 'r').status).toBe(429);
     expect(problemFor('too_many_requests', 'slow down', 'r').body.error).toBe('rate_limited');
   });
 
