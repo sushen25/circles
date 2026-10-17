@@ -7,7 +7,7 @@
 -- membership can never be moved onto somebody with a saved place.
 
 begin;
-select plan(148);
+select plan(147);
 
 -- SUS-114: the token form of reattachment is `reattach_with_token`, the service
 -- role's, called by its Edge Function with the person it verified. This is that
@@ -275,8 +275,9 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------
--- Three in seven days, and the fourth is refused (ADR 0006). The count walks a
--- chain of identities, because every move changes the one the rows name.
+-- A membership may move as often as its guest needs (ADR 0078 removed ADR
+-- 0006's three-a-week): a second, third and fourth move in a week all succeed,
+-- and the answer follows along the whole chain.
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as('95000000-0000-0000-0000-0000000000c1', true);
 select lives_ok(
@@ -291,28 +292,16 @@ select lives_ok(
 );
 
 select pg_temp.act_as('95000000-0000-0000-0000-0000000000e1', true);
-select throws_ok(
+select lives_ok(
   $$ select public.reattach_member(pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000d1') $$,
-  'reattach_limit',
-  'the fourth inside seven days is refused'
+  'and a fourth inside seven days: there is no weekly cap'
 );
 
 select pg_temp.act_as_postgres();
 select is(
   (select r.user_id from public.plan_responses r where r.plan_id = pg_temp.plan_id()),
-  '95000000-0000-0000-0000-0000000000d1'::uuid,
+  '95000000-0000-0000-0000-0000000000e1'::uuid,
   'the answer followed the membership along the whole chain'
-);
-
--- The limit is seven days, not forever: age the chain and the door opens again.
-update private.audit_log a
-set occurred_at = occurred_at - interval '8 days'
-where a.action = 'circles.member_reattached';
-
-select pg_temp.act_as('95000000-0000-0000-0000-0000000000e1', true);
-select lives_ok(
-  $$ select public.reattach_member(pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000d1') $$,
-  'once the week has passed, the allowance is back'
 );
 
 -- ---------------------------------------------------------------------------
@@ -622,10 +611,9 @@ select lives_ok(
 );
 
 select pg_temp.act_as('95000000-0000-0000-0000-00000000c0d3', true);
-select throws_ok(
+select lives_ok(
   $$ select public.reattach_member(pg_temp.cycle_circle(), '95000000-0000-0000-0000-00000000c0d4') $$,
-  'reattach_limit',
-  'and the loop is still counted as three moves, not as two or as infinity'
+  'and a fourth around the loop, which nothing counts any more'
 );
 
 -- ---------------------------------------------------------------------------

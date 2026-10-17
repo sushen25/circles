@@ -10,12 +10,12 @@ import { callerAddress, enforce } from '../_shared/rate.ts';
  * §10).
  *
  * Every safeguard is in `private.reattach_member_core`, behind `public.reattach_member` (the list) and `public.reattach_with_token` (the emailed link): the caller must be a guest, the
- * target must be a guest, three moves per membership per seven days. None of them
+ * target must be a guest. (There is no per-membership cap; ADR 0078.) None of them
  * is repeated here, deliberately — a guard in an Edge Function is a guard the
  * next Edge Function has to remember to write again.
  *
- * What this adds is a per-address limit, because the rule ADR 0006 names is per
- * *membership* and a script does not have to use one membership.
+ * What this adds is a per-address limit, the only limit a script spreading
+ * itself across memberships meets besides the per-circle one.
  */
 Deno.serve(
   jsonHandler({
@@ -23,9 +23,9 @@ Deno.serve(
     schema: ReattachMemberRequest,
     guard: async ({ body, service, request }) => {
       // Per circle as well as per address, because §9.1 says this endpoint is
-      // "rate-limited per circle" and the rule ADR 0006 names is per *membership*
-      // — which a script does not have to reuse. Requests spread across addresses
-      // and memberships had no counter scoped to the circle at all.
+      // "rate-limited per circle", and nothing limits a single membership any more
+      // (ADR 0078). Requests spread across addresses and memberships would
+      // otherwise have no counter scoped to the circle at all.
       //
       // The token path cannot be keyed by circle: the circle is inside the token,
       // and only the database can read it. So it is keyed by the token's own

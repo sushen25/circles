@@ -14,7 +14,9 @@ import { Mutation } from './shared.js';
  * ways is a request the server should not guess at.
  *
  * Reasons it can refuse: `member_not_found`, `target_is_permanent`,
- * `caller_is_permanent`, `already_member`, `reattach_limit`, `token_invalid`.
+ * `caller_is_permanent`, `already_member`, `token_invalid`. How often a
+ * membership moves is not limited (ADR 0078); the per-address and per-circle
+ * hourly limits answer `too_many_requests`.
  */
 export const ReattachMemberRequest = Mutation.extend({
   circle_id: CircleId.optional(),

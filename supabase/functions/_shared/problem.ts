@@ -48,7 +48,6 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   target_is_permanent: { status: 403, error: 'forbidden' },
   caller_is_permanent: { status: 403, error: 'forbidden' },
   already_member: { status: 409, error: 'conflict' },
-  reattach_limit: { status: 429, error: 'rate_limited' },
   token_invalid: { status: 404, error: 'not_found' },
   consent_version_unknown: { status: 400, error: 'invalid_request' },
   source_is_permanent: { status: 403, error: 'forbidden' },

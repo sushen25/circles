@@ -56,8 +56,6 @@ export const ProblemReason = z.enum([
   'caller_is_permanent',
   /** `reattach-member`: the caller is already in this circle under their own name. */
   'already_member',
-  /** `reattach-member`: three moves in seven days is the limit (ADR 0006). */
-  'reattach_limit',
   /** `reattach-member`: the re-entry token is unknown, spent or expired. */
   'token_invalid',
   /** `claim-identity`: the session being merged from is not an anonymous one. */
