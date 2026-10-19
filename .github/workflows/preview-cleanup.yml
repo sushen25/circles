@@ -85,7 +85,7 @@ jobs:
           esac
           # An alias that is already gone (the PR never deployed, or it was
           # cleared by hand) is the state we want, not a failure. Any other
-          # error still fails the job. eas-cli 24 says, for a missing alias:
+          # error still fails the job. eas-cli says, for a missing alias:
           # "No hosting deployment alias with the name 'pr-1' exists."
           if pnpm --filter app exec eas deploy:alias:delete "pr-$PR_NUMBER" --non-interactive > eas-alias-delete.log 2>&1; then
             cat eas-alias-delete.log
