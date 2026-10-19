@@ -11,6 +11,10 @@
  * give without it. It finds the commit production was last deployed from (the
  * most recent `production` deployment whose status is `success`) and lists the
  * migrations and Edge Functions that differ between that commit and this one.
+ * A rollback deploys a tag's commit, but GitHub records the commit the workflow
+ * was dispatched on; the `tag` job therefore adds a status to that deployment
+ * whose description names the commit actually deployed (SUS-212,
+ * scripts/record-deployed.mjs), and that commit is the baseline for code.
  * The dry run itself still runs, in the approved job, and prints the CLI's own
  * list.
  *
@@ -66,13 +70,21 @@ export function sharedChanged(paths) {
   );
 }
 
-export function render({ base, sha, migrations, functions, shared = [], note }) {
+export function render({ base, schemaBase, sha, migrations, functions, shared = [], note }) {
   const lines = ['### Production plan: what this deploy changes', ''];
   lines.push(
     base
       ? `Production was last deployed from \`${base}\`. This deploys \`${sha}\`.`
       : `No earlier successful production deployment was found, so every migration is listed. This deploys \`${sha}\`.`,
   );
+  if (base && schemaBase !== undefined && schemaBase !== base) {
+    lines.push(
+      '',
+      schemaBase
+        ? `Production's code was rolled back to \`${base}\`. Functions are listed from there; migrations from \`${schemaBase}\`, the last forward deployment, because a rollback applies none.`
+        : `Production's code was rolled back to \`${base}\`. Functions are listed from there; no earlier forward deployment was found, so every migration is listed.`,
+    );
+  }
   if (note) lines.push('', note);
   lines.push('', `**Migrations to apply: ${migrations.length}**`, '');
   if (migrations.length === 0) {
@@ -103,30 +115,57 @@ export function render({ base, sha, migrations, functions, shared = [], note }) 
 const git = (...a) => execFileSync('git', a, { encoding: 'utf8' });
 const gh = (...a) => execFileSync('gh', a, { encoding: 'utf8' });
 
-function lastDeployed(repo) {
-  const rows = gh(
-    'api',
-    `repos/${repo}/deployments?environment=production&per_page=30`,
-    '--jq',
-    '.[] | "\\(.id) \\(.sha)"',
-  )
-    .split('\n')
-    .filter(Boolean);
-  for (const row of rows) {
-    const [id, deployed] = row.split(' ');
-    const state = gh(
-      'api',
-      `repos/${repo}/deployments/${id}/statuses?per_page=1`,
-      '--jq',
-      '.[0].state // ""',
-    ).trim();
-    if (state === 'success') return deployed;
-  }
-  return null;
+/** The description the `tag` job gives a rollback's deployment: `deployed:<40 hex>`. */
+export const RECORDED = /^deployed:([0-9a-f]{40})$/;
+
+/** Who writes the `deployed:` status: the `tag` job's own token. */
+export const RECORDER = 'github-actions[bot]';
+
+/**
+ * Production's baselines from its deployments, newest first, each
+ * `{ sha, state, recorded }`: `state` is the latest status's, `recorded` the
+ * commit a `deployed:` status from {@link RECORDER} names, if any.
+ *
+ * `code` is what is actually live: the newest successful deployment's recorded
+ * commit when a rollback wrote one, else the commit it was dispatched on.
+ * `schema` is the newest successful deployment that was not a rollback, because
+ * only those apply migrations; a rollback's dispatched commit never migrated.
+ * `inactive` counts as successful: GitHub only marks a deployment inactive
+ * after it succeeded, when a later one replaced it.
+ */
+export function pickBaselines(rows) {
+  const ok = rows.filter((r) => r.state === 'success' || r.state === 'inactive');
+  if (ok.length === 0) return { code: null, schema: null };
+  return {
+    code: ok[0].recorded ?? ok[0].sha,
+    schema: ok.find((r) => !r.recorded)?.sha ?? null,
+  };
 }
 
-function lastDeployedSha(repo, sha) {
-  const deployed = lastDeployed(repo);
+/** A deployment's row from its statuses, newest first. */
+export function rowOf(sha, statuses) {
+  const recorded = statuses
+    .filter((s) => s.state === 'success' && s.creator?.login === RECORDER)
+    .map((s) => RECORDED.exec(s.description ?? '')?.[1])
+    .find(Boolean);
+  return { sha, state: statuses[0]?.state ?? '', recorded: recorded ?? null };
+}
+
+function deploymentRows(repo) {
+  const deployments = JSON.parse(
+    gh('api', `repos/${repo}/deployments?environment=production&per_page=100`),
+  );
+  return deployments.map((d) =>
+    rowOf(d.sha, JSON.parse(gh('api', `repos/${repo}/deployments/${d.id}/statuses?per_page=20`))),
+  );
+}
+
+function lastDeployed(repo) {
+  return pickBaselines(deploymentRows(repo));
+}
+
+/** Keeps a baseline only if it is an ancestor of `sha` in this clone. */
+function ancestorOnly(deployed, sha) {
   if (!deployed) return { base: null, note: null };
   try {
     git('merge-base', '--is-ancestor', deployed, sha);
@@ -137,6 +176,33 @@ function lastDeployedSha(repo, sha) {
       note: `Production's last deployment (\`${deployed}\`) is not an ancestor of this commit, or is not in the clone. Listing every migration instead.`,
     };
   }
+}
+
+/**
+ * What differs between production and `sha`: `migrations` are `[status, file]`
+ * since `schemaBase`, `changed` is every path under the function sources since
+ * `base`. A null base lists everything in `sha`.
+ */
+export function forwardDiff({ base, schemaBase, sha, run = git }) {
+  const migrations = schemaBase
+    ? parseNameStatus(run('diff', '--name-status', schemaBase, sha, '--', 'supabase/migrations'))
+    : run('ls-tree', '--name-only', sha, 'supabase/migrations/')
+        .split('\n')
+        .filter(Boolean)
+        .map((f) => ['A', f]);
+  const changed = base
+    ? run(
+        'diff',
+        '--name-only',
+        base,
+        sha,
+        '--',
+        'supabase/functions',
+        'packages',
+        'pnpm-lock.yaml',
+      ).split('\n')
+    : run('ls-tree', '-r', '--name-only', sha, 'supabase/functions/').split('\n');
+  return { migrations, changed };
 }
 
 /**
@@ -200,13 +266,12 @@ function main() {
       );
       process.exit(2);
     }
-    const base = lastDeployed(repo);
+    // Migrations never roll back, so the schema baseline is the last forward deploy.
+    const base = lastDeployed(repo).schema;
     const migrationsBetween = (from, to) =>
       parseNameStatus(git('diff', '--name-status', from, to, '--', 'supabase/migrations'))
         .filter(([, file]) => file.endsWith('.sql'))
         .map(([, file]) => file.replace(/^supabase\/migrations\//, ''));
-    // The deployments API records the dispatched commit, not the one a rollback
-    // deployed. For the schema that is the right base: migrations never roll back.
     const applied = base ? migrationsBetween(sha, base) : migrationsBetween(sha, head);
     const possible = base ? migrationsBetween(base, head).filter((f) => !applied.includes(f)) : [];
     const out = renderRollback({
@@ -225,33 +290,15 @@ function main() {
     return;
   }
 
-  const { base, note } = lastDeployedSha(repo, sha);
-  let migrations;
-  let functions;
-  let changed;
-  if (base) {
-    migrations = parseNameStatus(
-      git('diff', '--name-status', base, sha, '--', 'supabase/migrations'),
-    );
-    changed = git(
-      'diff',
-      '--name-only',
-      base,
-      sha,
-      '--',
-      'supabase/functions',
-      'packages',
-      'pnpm-lock.yaml',
-    ).split('\n');
-    functions = changedFunctions(changed);
-  } else {
-    migrations = git('ls-tree', '--name-only', sha, 'supabase/migrations/')
-      .split('\n')
-      .filter(Boolean)
-      .map((f) => ['A', f]);
-    changed = git('ls-tree', '-r', '--name-only', sha, 'supabase/functions/').split('\n');
-    functions = changedFunctions(changed);
-  }
+  const deployed = lastDeployed(repo);
+  const code = ancestorOnly(deployed.code, sha);
+  const schema = deployed.schema === deployed.code ? code : ancestorOnly(deployed.schema, sha);
+  const { base } = code;
+  const { migrations, changed } = forwardDiff({ base, schemaBase: schema.base, sha });
+  const functions = changedFunctions(changed);
+  const note = [code.note, schema.note !== code.note ? schema.note : null]
+    .filter(Boolean)
+    .join('\n\n');
 
   const rows = migrations
     .filter(([, file]) => file.endsWith('.sql'))
@@ -263,11 +310,12 @@ function main() {
 
   const out = render({
     base,
+    schemaBase: schema.base,
     sha,
     migrations: rows,
     functions,
     shared: base ? sharedChanged(changed) : [],
-    note,
+    note: note || null,
   });
   console.log(out);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${out}\n`);

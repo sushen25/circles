@@ -143,10 +143,12 @@ migration cannot be written in time.
 head` lists releases, newest first. After a normal deploy the newest tag is
 live. After a **rollback** it is not: a rollback makes no tag, and GitHub's
 Deployments (Code → Deployments → `production`), which `plan` reads, records the
-commit the workflow was *dispatched* on, not the tag it redeployed. So after a
-rollback the run summary ("Rolled back to …") is the record, and you should
-write the tag down. The next normal deploy puts live what it is dispatched on
-and tags it again.
+commit the workflow was *dispatched* on, not the tag it redeployed. So a
+rollback's `tag` job adds a status to that deployment whose description is
+`deployed:<sha>`, the commit it actually deployed (`scripts/record-deployed.mjs`),
+and `plan` reads it back. The run summary ("Rolled back to …") still says which
+tag it was. The next normal deploy puts live what it is dispatched on and tags
+it again.
 
 ## Rolling back
 
@@ -189,14 +191,20 @@ migration written and shipped as a normal deploy.
   touched by this.
 
 **Afterwards.** Read the smoke test summary, run *After the deploy* from the
-release checklist, and then fix forward on `main`. The next deploy's plan diffs
-from the last successful deployment, which is now the rolled-back commit, so it
-lists the migrations production already has as if they were new. `db push`
-skips what the database has recorded, so they are not applied twice; the
-dry-run in `apply` prints the CLI's own list, which is the one to trust. The
-list of Edge Functions with changes is informational (`functions deploy` deploys
-all of them) and is also measured from the dispatched commit, so after a
-rollback it can under-list what the redeploy brings back.
+release checklist, and then fix forward on `main`. The next deploy's plan lists
+Edge Functions and shared code from the commit the rollback deployed (the
+recorded `deployed:<sha>`), so it shows what coming forward changes. Migrations
+are listed from the last *forward* deployment, because a rollback applies none;
+the plan says so when the two differ. A rollback whose deployment carries no
+record (one made before SUS-212, or one whose *Record the commit that was
+deployed* step failed) falls back to the dispatched commit and can under-list
+functions and migrations. **If that step fails, re-run the `tag` job** (it is
+safe to repeat: it finds this run's own deployment by run id) before the next
+deploy. A deploy or rollback that failed part-way (after `functions deploy` or
+`db push`, before the smoke test) also leaves production differing from the last
+successful deployment, and the plan cannot see that. The dry-run in `apply`
+prints the CLI's own migration list, which is the one to trust;
+`functions deploy` deploys all of them anyway.
 
 ### Walking it once
 

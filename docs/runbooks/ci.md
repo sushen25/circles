@@ -233,7 +233,7 @@ the steps a person takes.
 |---|---|---|
 | `plan` | none | Refuses a dispatch without `confirm: deploy` and `backup: backed-up`; refuses a commit whose `check` is not green; writes the pending migrations and functions to the run summary (`scripts/prod-plan.mjs`) |
 | `apply` | `production`, `needs: plan` | The required reviewer's approval; then the missing-secret check, the dry run, migrations, functions and the web build, and last a smoke test of the live site (`scripts/smoke-web.mjs`, `pnpm check:env`). With `rollback_to` it deploys that tag's commit and skips the migrations |
-| `tag` | none, `needs: plan, apply` | Pushes `prod-<yyyymmdd>-<shortsha>` (`scripts/release.mjs`). The only job with `contents: write`; it reads no secret and runs only after the smoke test passed |
+| `tag` | none, `needs: plan, apply` | Pushes `prod-<yyyymmdd>-<shortsha>` (`scripts/release.mjs`). After a rollback it instead records the commit deployed on the deployment's status (`scripts/record-deployed.mjs`), which the next plan uses as its baseline. The only job with `contents: write` or `deployments: write`; it reads no secret and runs only after the smoke test passed |
 
 The approval prompt therefore comes after the plan is readable and the commit is
 known to be green. `plan` has no environment, so it cannot read the production

@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
+import { deploymentOfRun, descriptionFor } from './record-deployed.mjs';
 import { decide, judge } from './green-check.mjs';
 import { judgeNeeds } from './check-verdict.mjs';
 import { markdown, summarise } from './live-summary.mjs';
@@ -16,7 +17,11 @@ import {
   renderRollback,
   changedFunctions,
   isTransactional,
+  forwardDiff,
   parseNameStatus,
+  pickBaselines,
+  RECORDER,
+  rowOf,
   render,
   sharedChanged,
 } from './prod-plan.mjs';
@@ -282,6 +287,115 @@ test('rollback plan lists applied and possibly applied migrations, and never cla
   assert.doesNotMatch(none, /additive/);
 });
 
+test('after a rollback, the next plan is measured from the commit that was deployed', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sus212-'));
+  const git = (...a) => execFileSync('git', ['-C', dir, ...a], { encoding: 'utf8' }).trim();
+  git('init', '-q', '-b', 'main');
+  git('config', 'user.email', 'a@example.com');
+  git('config', 'user.name', 'a');
+  git('config', 'commit.gpgsign', 'false');
+  const commit = (path, body) => {
+    mkdirSync(join(dir, dirname(path)), { recursive: true });
+    writeFileSync(join(dir, path), body);
+    git('add', path);
+    git('commit', '-q', '-m', path);
+    return git('rev-parse', 'HEAD');
+  };
+  const a = commit('supabase/functions/alpha/index.ts', '1'); // the release rolled back to
+  const b = commit('supabase/functions/beta/index.ts', '1'); // the last forward deploy
+  const c = commit('supabase/migrations/0002_x.sql', 'select 1;'); // the rollback was dispatched here
+  commit('supabase/functions/gamma/index.ts', '1'); // main now
+  const d = git('rev-parse', 'HEAD');
+  const run = (...args) => git(...args);
+  const diff = (rows) => {
+    const { code, schema } = pickBaselines(rows);
+    return {
+      code,
+      schema,
+      ...forwardDiff({ base: code, schemaBase: schema, sha: d, run }),
+    };
+  };
+
+  const bot = { login: RECORDER };
+  const rollback = rowOf(c, [
+    { state: 'success', description: descriptionFor(a), creator: bot },
+    { state: 'success', description: '', creator: { login: 'sushen25' } },
+  ]);
+  const forward = rowOf(b, [{ state: 'success', description: '' }]);
+  const after = diff([rollback, forward]);
+  assert.equal(after.code, a);
+  assert.equal(after.schema, b); // a rollback applies no migration
+  assert.deepEqual(changedFunctions(after.changed), ['beta', 'gamma']);
+  assert.deepEqual(after.migrations, [['A', 'supabase/migrations/0002_x.sql']]);
+
+  // GitHub marks a replaced deployment inactive; it is still the schema baseline.
+  const inactive = diff([rollback, rowOf(b, [{ state: 'inactive' }, { state: 'success' }])]);
+  assert.equal(inactive.schema, b);
+  assert.deepEqual(inactive.migrations, after.migrations);
+
+  // A second rollback in a row, to the same release: still measured from it.
+  const twice = diff([
+    rowOf(d, [{ state: 'success', description: descriptionFor(a), creator: bot }]),
+    rollback,
+    forward,
+  ]);
+  assert.equal(twice.code, a);
+  assert.equal(twice.schema, b);
+
+  // Without the record, the dispatched commit is the baseline and `beta` is lost.
+  const before = pickBaselines([rowOf(c, [{ state: 'success', description: '' }]), forward]);
+  const old = forwardDiff({ base: before.code, schemaBase: before.schema, sha: d, run });
+  assert.equal(before.code, c);
+  assert.deepEqual(changedFunctions(old.changed), ['gamma']);
+});
+
+test('baselines: failed and unrecorded deployments, and descriptions that are not ours', () => {
+  const x = 'b'.repeat(40);
+  const y = 'c'.repeat(40);
+  const bot = { login: RECORDER };
+  const ok = (sha, description = '', creator = bot) =>
+    rowOf(sha, [{ state: 'success', description, creator }]);
+  assert.deepEqual(pickBaselines([]), { code: null, schema: null });
+  assert.deepEqual(pickBaselines([rowOf(x, [{ state: 'failure' }])]), { code: null, schema: null });
+  // A failed rollback records nothing and is skipped; the last success stands.
+  assert.deepEqual(pickBaselines([rowOf(y, [{ state: 'failure' }]), ok(x)]), {
+    code: x,
+    schema: x,
+  });
+  // Only an exact `deployed:<40 hex>` counts.
+  for (const description of ['deployed:abc', `deployed:${y};x`, `Deployed ${y}`, 'rollback']) {
+    assert.equal(pickBaselines([ok(x, description)]).code, x, description);
+  }
+  // Only a status the `tag` job's token wrote counts, wherever it sits in the list.
+  assert.equal(pickBaselines([ok(x, `deployed:${y}`, { login: 'someone' })]).code, x);
+  assert.equal(
+    pickBaselines([
+      rowOf(x, [
+        { state: 'inactive' },
+        { state: 'success', description: `deployed:${y}`, creator: bot },
+      ]),
+    ]).code,
+    y,
+  );
+  assert.equal(descriptionFor(y), `deployed:${y}`);
+  assert.throws(() => descriptionFor('main'), /40-character/);
+});
+
+test('record-deployed finds the deployment by its run, not by recency', () => {
+  const head = 'd'.repeat(40);
+  const calls = [];
+  const gh = (...a) => {
+    calls.push(a.join(' '));
+    if (a[1].includes('/deployments?')) return JSON.stringify([2, 1]); // 2 is a later deploy of the same commit
+    if (a[1].includes('/deployments/2/'))
+      return JSON.stringify(['https://github.com/o/r/actions/runs/900/job/1']);
+    return JSON.stringify(['', 'https://github.com/o/r/actions/runs/800/job/7']);
+  };
+  assert.equal(deploymentOfRun({ repo: 'o/r', head, run: '800', gh }), 1);
+  assert.equal(deploymentOfRun({ repo: 'o/r', head, run: '80', gh }), null);
+  assert.match(calls[0], new RegExp(`sha=${head}`));
+});
+
 const shell =
   '<!DOCTYPE html><html><body><div id="root"></div><script src="/_expo/static/js/web/index-1.js" defer></script></body></html>';
 
@@ -512,6 +626,25 @@ test('mutation: a job that runs green-check without actions and checks read fail
   );
   assert.equal(r.status, 1);
   assert.match(r.output, /runs green-check\.mjs without `actions: read`/);
+});
+
+test('mutation: a rollback must be recorded by the one job that may write deployments', () => {
+  const prod = '.github/workflows/deploy-prod.yml';
+  let r = checkWorkflowsOn(null, prod, (t) =>
+    t.replace('node scripts/record-deployed.mjs', 'echo skipped'),
+  );
+  assert.equal(r.status, 1);
+  assert.match(r.output, /never runs `record-deployed\.mjs`/);
+  r = checkWorkflowsOn(null, prod, (t) =>
+    t.replace('      deployments: read', '      deployments: write'),
+  );
+  assert.equal(r.status, 1);
+  assert.match(r.output, /exactly one job, the tagging job, may have `deployments: write`/);
+  r = checkWorkflowsOn(null, prod, (t) =>
+    t.replace(/(tag:[\s\S]*?ref: )\$\{\{ github\.sha \}\}/, '$1${{ needs.plan.outputs.sha }}'),
+  );
+  assert.equal(r.status, 1);
+  assert.match(r.output, /must check out `\$\{\{ github\.sha \}\}`/);
 });
 
 test('check.yml as it is passes', () => {
