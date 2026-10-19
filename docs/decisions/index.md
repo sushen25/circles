@@ -83,5 +83,4 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0077](./0077-an-answer-never-given-opens-empty-previous-times-wait-for-a-tap.md) | An answer never given opens empty: previous times are not applied on open, they wait for a tap | proposed (amends 0037, 0068) |
 | [0078](./0078-a-guest-may-continue-as-themselves-as-often-as-they-need.md) | A guest may continue as themselves as often as they need: no cap on how often a membership moves | proposed (amends 0006, 0049) |
 | [0079](./0079-the-time-of-day-is-on-the-first-screen-and-a-time-for-each-day-opens-in-place.md) | The time of day is on the first screen as pills, and a time for each day opens in place | proposed (amends 0068) |
-| [0079](./0079-the-reattach-and-verified-gates-count-product-rows-not-events.md) | The reattach and verified gates count product rows, not events | proposed |
 | [0080](./0080-the-reattach-and-verified-gates-count-product-rows-not-events.md) | The reattach and verified gates count product rows, not events | proposed |
