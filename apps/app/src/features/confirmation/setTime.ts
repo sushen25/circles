@@ -1,5 +1,6 @@
 import {
   dayFreeCount,
+  fromISO,
   formatMinutesOfDay,
   localDate,
   othersShown,
@@ -11,6 +12,7 @@ import {
 
 import type { GridDay } from '../../components';
 import { t } from '../../copy';
+import type { OwnAnswer } from '../../data/availability';
 import type { PlanCandidates } from '../../data/scheduling';
 import {
   dateWords,
@@ -84,6 +86,23 @@ function othersOn(others: OthersSaid | undefined, day: string): number | undefin
 }
 
 /**
+ * Whether the organiser's own answer puts them on a day (SUS-233): one for each
+ * day they have a window on, every day the plan asks about for "I'm easy", and
+ * none for "none of these" or an answer with no times. Their own answer only,
+ * read as the guest editor reads it; nobody else's is in it.
+ */
+export function ownOn(own: OwnAnswer | null | undefined, plan: PlanCandidates, day: string) {
+  if (own === null || own === undefined) return false;
+  if (own.status === 'flexible') {
+    return plan.days === undefined
+      ? day >= plan.windowStart && day <= plan.windowEnd
+      : plan.days.includes(day);
+  }
+  const zone = toZone(plan.zone);
+  return own.windows.some((w) => toLocal(fromISO(w.start), zone).date === day);
+}
+
+/**
  * The month's days, one picked. A day gone is faded and says so; so is a day
  * past the last the plan may be set on. A day the plan never asked about is not
  * faded: it is allowed, and the caution says so (ADR 0051).
@@ -93,15 +112,18 @@ export function gridDays(input: {
   pick: TimePick;
   plan: PlanCandidates;
   others: OthersSaid | undefined;
+  own?: OwnAnswer | null | undefined;
   now: Instant;
 }): GridDay[] {
-  const { month, pick, plan, others, now } = input;
+  const { month, pick, plan, others, own, now } = input;
   const today = toLocal(now, toZone(plan.zone)).date;
   const last = lastDay(plan);
   return monthDays(month, today, [], today).map((day) => {
     const selected = day.date === pick.day;
     const tooFar = day.why === undefined && day.date > last;
-    const count = othersOn(others, day.date);
+    const you = ownOn(own, plan, day.date);
+    const total = (othersOn(others, day.date) ?? 0) + (you ? 1 : 0);
+    const count = total > 0 ? total : undefined;
     const words = dateWords(localDate(day.date), 'long');
     const label =
       day.why === 'past'
@@ -114,6 +136,7 @@ export function gridDays(input: {
                 : count === 1
                   ? t('setTime', 'day_others_one', { date: words })
                   : t('setTime', 'day_others_many', { date: words, count }),
+              you ? t('setTime', 'day_you_included') : undefined,
               selected ? t('setTime', 'day_picked') : undefined,
             ]
               .filter((part): part is string => part !== undefined)
@@ -138,6 +161,7 @@ export function calendarOf(input: {
   pick: TimePick;
   plan: PlanCandidates;
   others: OthersSaid | undefined;
+  own?: OwnAnswer | null | undefined;
   now: Instant;
   canEarlier: boolean;
   onDay: (date: string) => void;

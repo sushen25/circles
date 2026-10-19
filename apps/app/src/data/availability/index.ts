@@ -8,6 +8,7 @@ export { planToAnswer, timingOf } from './plan';
 export type { AnswerablePlan, OwnAnswer, PlanToAnswer, Span } from './plan';
 export { onChanceToResend } from './reconnect';
 export { othersSaid } from './others';
+export { ownResponse } from './own';
 export { submitAnswer } from './submit';
 export { usualTimes } from './usual';
 export type { SubmitAnswerOptions } from './submit';

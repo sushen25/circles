@@ -1293,9 +1293,9 @@ S["DeadlinePassed"] = shell(
 # The organiser sets the final plan (SUS-138, ADR 0051). One day at a time from
 # today, a start and an end by the half hour, and, live, who it works for by
 # name. Friday 18 Sep, 7-9 pm, which no option offered and which works for two
-# of six: so the caution says it. The figure on a day is how many of the others
-# could make some of it (SUS-129).
-ST_COUNTS = {15: 1, 16: 1, 17: 4, 18: 2, 19: 3, 20: 3}
+# of six: so the caution says it. The figure on a day is how many people
+# could make some of it, the organiser included (SUS-129, SUS-233).
+ST_COUNTS = {15: 2, 16: 1, 17: 5, 18: 2, 19: 4, 20: 4}
 
 def st_day(n, picked=18):
     if not n:
@@ -1311,7 +1311,7 @@ def st_day(n, picked=18):
 def st_calendar():
     return stack(
         between(lbl("September 2026"), row(mini("Earlier month"), mini("Later month"), gap=6)),
-        sm("The number on a day is how many of the others could make some of it."),
+        sm("The number on a day is how many people could make some of it, you included."),
         '<div style="display:grid;grid-template-columns:repeat(7, minmax(0, 1fr));gap:4px;">' +
         "".join(f'<div class="sm" style="text-align:center;">{d}</div>' for d in ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]) +
         "".join(st_day(n) for n in [0] + list(range(1, 31))) + '</div>', gap=8)
