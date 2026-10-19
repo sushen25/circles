@@ -1,4 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { envSnapshot } from './_shared/testEnv.ts';
+
+afterAll(envSnapshot());
 
 /**
  * The quiet ask's three doors (S2-02): `create-plan` with `mode: 'quiet'`,

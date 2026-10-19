@@ -1,5 +1,8 @@
 import { CONSENT, CONSENT_VERSIONS, consentTextFor } from '@circles/config';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { envSnapshot } from './_shared/testEnv.ts';
+
+afterAll(envSnapshot());
 
 /**
  * The three functions themselves, loaded and driven.

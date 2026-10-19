@@ -1,5 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
+import { envSnapshot } from './testEnv.ts';
+
+afterAll(envSnapshot());
 
 /**
  * Who `ingestHandler` asks the auth server about.

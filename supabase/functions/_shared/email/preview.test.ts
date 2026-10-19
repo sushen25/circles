@@ -1,8 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
 import { SUNDAY_CREW } from './fixtures.ts';
 import { render } from './render.tsx';
 import { sendEmail } from './resend.ts';
+import { envSnapshot } from '../testEnv.ts';
+
+afterAll(envSnapshot());
 
 /**
  * `pnpm email:preview` — every email, rendered against the Sunday Crew and

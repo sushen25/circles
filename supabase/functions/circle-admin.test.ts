@@ -1,6 +1,9 @@
 import { createHash, createHmac } from 'node:crypto';
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { envSnapshot } from './_shared/testEnv.ts';
+
+afterAll(envSnapshot());
 
 /**
  * The three functions that run a circle (S1-23), loaded and driven the way

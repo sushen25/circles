@@ -1,9 +1,12 @@
 import { instant } from '@circles/domain';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { Db } from '../_shared/db.ts';
 import { cadenceWork } from './cadence.ts';
 import { type DueJob, send } from './send.ts';
+import { envSnapshot } from '../_shared/testEnv.ts';
+
+afterAll(envSnapshot());
 
 /**
  * The cadence nudge through the dispatcher (S2-04), against a fake database.
@@ -306,6 +309,9 @@ describe('sending a cadence nudge', () => {
     fetched = [];
     process.env.EMAIL_CAPTURE_URL = 'http://capture.test';
     process.env.EXPO_PUBLIC_APP_ORIGIN = 'https://app.test';
+    // The capture override only works on a local stack; say so rather than
+    // inherit whatever an earlier file in this process left (SUS-239).
+    process.env.CIRCLES_ENV = 'local';
     (globalThis as { fetch?: unknown }).fetch = (url: string, init?: { body?: string }) => {
       fetched.push({ url: String(url), body: String(init?.body ?? '') });
       return Promise.resolve(new Response(JSON.stringify({ ID: 'captured' })));
@@ -315,6 +321,7 @@ describe('sending a cadence nudge', () => {
   afterEach(() => {
     delete process.env.EMAIL_CAPTURE_URL;
     delete process.env.EXPO_PUBLIC_APP_ORIGIN;
+    delete process.env.CIRCLES_ENV;
     globalThis.fetch = realFetch;
   });
 

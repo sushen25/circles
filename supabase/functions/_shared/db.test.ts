@@ -1,6 +1,9 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
 import { asService, DB_TIMEOUT_MS, timeBounded } from './db.ts';
+import { envSnapshot } from './testEnv.ts';
+
+afterAll(envSnapshot());
 
 /** The fetch every Supabase client is given: nothing waits longer than ten seconds. */
 

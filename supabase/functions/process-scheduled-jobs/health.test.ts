@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
 const sent = vi.hoisted(() => ({ messages: [] as { html: string; text: string }[] }));
 
@@ -11,6 +11,9 @@ vi.mock('../_shared/email/resend.ts', () => ({
 }));
 
 import { escapeHtml, reportHealth } from './health.ts';
+import { envSnapshot } from '../_shared/testEnv.ts';
+
+afterAll(envSnapshot());
 
 const HOSTILE = '</pre><img src=x onerror=alert(1)>&"\'';
 
