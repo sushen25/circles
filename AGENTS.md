@@ -37,6 +37,7 @@ pnpm gen               # every generator in order: adrs, events, transitions, fu
 pnpm gen:adrs          # regenerate docs/decisions/index.md from the ADRs' frontmatter (never edit it by hand)
 pnpm gen:migration <name>  # the branch's one new, numbered migration; the generators write into it
 pnpm gen:functions     # re-render supabase/sql/functions/ into that migration (ADR 0015)
+pnpm check:audit       # pnpm audit --prod --audit-level high: runtime dependencies with a known high or critical advisory (inside pnpm check; needs the network)
 pnpm check:migrations  # fails if a migration already on origin/main was edited (inside pnpm check)
 pnpm check:docs        # links in docs/ resolve; each ADR's frontmatter and status line agree, the generated ADR index is current (inside pnpm check)
 node scripts/check-unimported.mjs  # fails on a source file nothing imports; exemptions, each with a reason, are in that file (inside pnpm check:static)
