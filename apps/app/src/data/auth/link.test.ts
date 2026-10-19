@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { SavePlaceError, resumePendingClaim, savePlace } from './link';
+import { CLAIM_TTL_MS, SavePlaceError, resumePendingClaim, savePlace } from './link';
 
 /**
  * Saving a place, and the one ordering the whole endpoint depends on.
@@ -454,6 +454,76 @@ describe('a claim that never got an answer', () => {
 
     await expect(resumePendingClaim()).resolves.toBeUndefined();
     expect(state.invocations).toEqual([]);
+  });
+});
+
+describe('how long a claim is kept', () => {
+  const stranded = async () => {
+    state.answers = [{ error: new Error('network') }];
+    await expect(
+      savePlace({ moment: 'after_answer', signIn: async () => ({ session: SAVED as never }) }),
+    ).rejects.toBeInstanceOf(SavePlaceError);
+    state.invocations = [];
+    state.session = SAVED;
+  };
+  const stored = () => globalThis.localStorage.getItem('circles.pending_claims');
+
+  afterEach(() => vi.useRealTimers());
+
+  it('still resumes just inside the limit', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    await stranded();
+    vi.setSystemTime(Date.now() + CLAIM_TTL_MS - 60_000);
+
+    await resumePendingClaim();
+
+    expect(state.invocations).toHaveLength(1);
+  });
+
+  it('is dropped, with the anonymous tokens in it, once the limit has passed', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    await stranded();
+    expect(stored()).toContain('anon.refresh.v1');
+    vi.setSystemTime(Date.now() + CLAIM_TTL_MS + 60_000);
+
+    await expect(resumePendingClaim()).resolves.toBeUndefined();
+
+    expect(state.invocations).toEqual([]);
+    expect(stored()).toBeNull();
+  });
+
+  it('is not kept longer by being touched again: the limit runs from the first write', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    await stranded();
+    const first = stored();
+    vi.setSystemTime(Date.now() + CLAIM_TTL_MS / 2);
+    state.answers = [{ error: new Error('network') }];
+    await resumePendingClaim().catch(() => undefined);
+    vi.setSystemTime(Date.now() + CLAIM_TTL_MS / 2 + 60_000);
+
+    await expect(resumePendingClaim()).resolves.toBeUndefined();
+    expect(first).not.toBeNull();
+    expect(stored()).toBeNull();
+  });
+
+  it('drops a record written before claims carried a time, rather than keeping it for ever', async () => {
+    globalThis.localStorage.setItem(
+      'circles.pending_claims',
+      JSON.stringify({
+        [SAVED_ID]: {
+          anonymous_session: 'anon.token',
+          idempotency_key: 'k'.repeat(32),
+          moment: 'after_answer',
+          destination_user_id: SAVED_ID,
+        },
+      }),
+    );
+    state.session = SAVED;
+
+    await expect(resumePendingClaim()).resolves.toBeUndefined();
+
+    expect(state.invocations).toEqual([]);
+    expect(stored()).toBeNull();
   });
 });
 

@@ -71,6 +71,17 @@ export class SavePlaceError extends Error {
  */
 const PENDING_KEY = 'circles.pending_claims';
 
+/**
+ * How long a claim is kept: seven days from the first write.
+ *
+ * A record holds another identity's access and refresh tokens in storage that
+ * nothing clears, on a browser that may be shared. The mechanism exists for the
+ * app killed mid-claim and reopened the next morning, and a week is generous
+ * for that; past it the evidence is more liability than recovery. The limit
+ * runs from the first write, not the last, so retrying never extends it.
+ */
+export const CLAIM_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 interface PendingClaim {
   anonymous_session: string;
   idempotency_key: string;
@@ -100,15 +111,20 @@ interface PendingClaim {
    * "recoverable".
    */
   anonymous_refresh_token?: string;
+  /** Epoch milliseconds of the first write; the claim is dropped `CLAIM_TTL_MS` after it. */
+  created_at: number;
 }
 
 function usable(claim: PendingClaim | undefined): claim is PendingClaim {
   // A record missing any part is not resumable, and that includes one written
-  // by an older build with a different shape.
+  // by an older build with a different shape — among them one with no time,
+  // which has no way to expire and so is not kept.
   return (
     typeof claim?.anonymous_session === 'string' &&
     typeof claim.idempotency_key === 'string' &&
-    typeof claim.destination_user_id === 'string'
+    typeof claim.destination_user_id === 'string' &&
+    typeof claim.created_at === 'number' &&
+    Date.now() - claim.created_at <= CLAIM_TTL_MS
   );
 }
 
@@ -118,7 +134,11 @@ async function allClaims(): Promise<Record<string, PendingClaim>> {
     if (raw === null || raw === undefined) return {};
     const parsed = JSON.parse(raw) as Record<string, PendingClaim>;
     if (typeof parsed !== 'object' || parsed === null) return {};
-    return Object.fromEntries(Object.entries(parsed).filter(([, claim]) => usable(claim)));
+    const entries = Object.entries(parsed);
+    const kept = entries.filter(([, claim]) => usable(claim));
+    // Expired and malformed records are removed from storage, not just hidden.
+    if (kept.length !== entries.length) await writeClaims(Object.fromEntries(kept));
+    return Object.fromEntries(kept);
   } catch {
     return {};
   }
@@ -148,11 +168,13 @@ async function writeClaims(claims: Record<string, PendingClaim>): Promise<void> 
  * caller; only the fields a caller actually has should move.
  */
 async function rememberClaim(
-  claim: Partial<PendingClaim> & { destination_user_id: string },
+  claim: Partial<Omit<PendingClaim, 'created_at'>> & { destination_user_id: string },
 ): Promise<void> {
   const claims = await allClaims();
   const existing = claims[claim.destination_user_id];
-  const merged = { ...existing, ...claim } as PendingClaim;
+  // `created_at` is stamped once and never moved, so the limit runs from the
+  // first write.
+  const merged = { created_at: Date.now(), ...existing, ...claim } as PendingClaim;
   if (!usable(merged)) return;
   claims[claim.destination_user_id] = merged;
   await writeClaims(claims);
@@ -164,6 +186,19 @@ async function forgetClaim(destinationUserId: string): Promise<void> {
   if (!(destinationUserId in claims)) return;
   delete claims[destinationUserId];
   await writeClaims(claims);
+}
+
+/**
+ * Drops the claims kept for one identity — for sign-out, which ends the only
+ * session they could be resumed in. Never throws; storage refusing is not a
+ * reason to fail a sign-out.
+ */
+export async function forgetPendingClaim(destinationUserId: string): Promise<void> {
+  try {
+    await forgetClaim(destinationUserId);
+  } catch {
+    // Nothing to do: the limit on the record is the backstop.
+  }
 }
 
 async function pendingClaim(destinationUserId: string): Promise<PendingClaim | undefined> {
