@@ -156,9 +156,11 @@ const config: ExpoConfig = {
             supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
           }),
         },
-        // `/_sitemap` lists every route, dev routes included, and ships in
-        // every export. It is a development aid: off in production (SUS-119).
-        sitemap: appEnv !== 'production',
+        // `/_sitemap` lists every route, dev routes and the founder's screens
+        // included, and ships in every export. It is a development aid: off in
+        // production (SUS-119) and in previews (SUS-192). A deployed `dev` is
+        // built as `development` (deploy-dev.yml) and still ships it.
+        sitemap: appEnv === 'development',
       },
     ],
     'expo-font',

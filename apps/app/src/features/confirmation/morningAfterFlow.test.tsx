@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -88,7 +89,7 @@ describe('the organiser', () => {
 
   it('asks "did the plan change outside the app?" as its own tap, and waits for it', async () => {
     show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('radio', { name: 'It happened' }));
+    await tap(screen.findByRole('radio', { name: 'It happened' }));
     const save = screen.getByRole('button', { name: 'Save' });
     expect(save.getAttribute('aria-disabled')).toBe('true');
     expect(screen.getByText('Did the plan change outside the app?')).toBeTruthy();
@@ -106,7 +107,7 @@ describe('the organiser', () => {
 
   it('fills in the obvious yes for "we moved it outside", and lets it be changed', async () => {
     show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('radio', { name: /^We moved it outside/ }));
+    await tap(screen.findByRole('radio', { name: /^We moved it outside/ }));
     expect(screen.getByRole('checkbox', { name: 'Yes' }).getAttribute('aria-checked')).toBe('true');
     fireEvent.click(screen.getByRole('checkbox', { name: 'No' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -119,7 +120,7 @@ describe('the organiser', () => {
 
   it('reports the answer with its note, records it, and goes to the circle', async () => {
     show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('radio', { name: 'It happened' }));
+    await tap(screen.findByRole('radio', { name: 'It happened' }));
     fireEvent.click(screen.getByRole('checkbox', { name: 'No' }));
     fireEvent.change(screen.getByLabelText("A line for the circle's record, optional"), {
       target: { value: 'Great night' },
@@ -141,7 +142,7 @@ describe('the organiser', () => {
   it('sends a retry of the same answer with the same key, and a new answer with a new one', async () => {
     reportOutcome.mockRejectedValueOnce(new FunctionError(undefined, 'report-outcome failed'));
     show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('radio', { name: 'Not sure' }));
+    await tap(screen.findByRole('radio', { name: 'Not sure' }));
     fireEvent.click(screen.getByRole('checkbox', { name: 'No' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText("That didn't save. Please try again.")).toBeTruthy();
@@ -163,7 +164,7 @@ describe('the organiser', () => {
       ),
     );
     show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('radio', { name: 'It happened' }));
+    await tap(screen.findByRole('radio', { name: 'It happened' }));
     fireEvent.click(screen.getByRole('checkbox', { name: 'No' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(
@@ -188,7 +189,7 @@ describe('the organiser', () => {
       ),
     );
     show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('radio', { name: 'It was cancelled' }));
+    await tap(screen.findByRole('radio', { name: 'It was cancelled' }));
     fireEvent.click(screen.getByRole('checkbox', { name: 'No' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(
@@ -221,7 +222,7 @@ describe('the organiser', () => {
   it('answers as a member on the attendance door, once the outcome is in', async () => {
     planConfirmation.mockResolvedValue(reported);
     show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} door="attendance" />);
-    fireEvent.click(await screen.findByRole('button', { name: 'I was there' }));
+    await tap(screen.findByRole('button', { name: 'I was there' }));
     await waitFor(() =>
       expect(reportAttendance).toHaveBeenCalledWith(
         expect.objectContaining({ attendance: 'was_there' }),
@@ -253,7 +254,7 @@ describe('a member', () => {
 
   it('says they were there through report-outcome, and hears the same words either way', async () => {
     show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'I was there' }));
+    await tap(screen.findByRole('button', { name: 'I was there' }));
     expect(await screen.findByText('Thanks, noted.')).toBeTruthy();
     expect(reportAttendance).toHaveBeenCalledWith(
       expect.objectContaining({ confirmationId: 'confirmation-1', attendance: 'was_there' }),
@@ -271,7 +272,7 @@ describe('a member', () => {
       ),
     );
     show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'I was there' }));
+    await tap(screen.findByRole('button', { name: 'I was there' }));
     expect(
       await screen.findByText("That's still going through. Give it a moment, then try again."),
     ).toBeTruthy();
@@ -284,7 +285,7 @@ describe('a member', () => {
   it('after "I was there" on the circle\'s first, asks to start a circle instead of "Thanks, noted."', async () => {
     askToShow.mockResolvedValue({ suppressed: false });
     show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'I was there' }));
+    await tap(screen.findByRole('button', { name: 'I was there' }));
 
     expect(await screen.findByText('Glad it happened.')).toBeTruthy();
     expect(screen.queryByText('Thanks, noted.')).toBeNull();
@@ -308,8 +309,8 @@ describe('a member', () => {
   it('"Maybe later" dismisses it and goes to the circle', async () => {
     askToShow.mockResolvedValue({ suppressed: false });
     show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'I was there' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Maybe later' }));
+    await tap(screen.findByRole('button', { name: 'I was there' }));
+    await tap(screen.findByRole('button', { name: 'Maybe later' }));
 
     expect(recordAnswer).toHaveBeenCalledWith(
       { moment: 'after_attendance_start_circle', planId: 'thu-17' },
@@ -322,7 +323,7 @@ describe('a member', () => {
   it('never asks after "I couldn\'t make it": only "I was there" is the moment', async () => {
     askToShow.mockResolvedValue({ suppressed: false });
     show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('button', { name: "I couldn't make it" }));
+    await tap(screen.findByRole('button', { name: "I couldn't make it" }));
 
     expect(await screen.findByText('Thanks, noted.')).toBeTruthy();
     expect(askToShow).not.toHaveBeenCalled();
@@ -330,7 +331,7 @@ describe('a member', () => {
 
   it('can say they missed it, which records no attendance', async () => {
     show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('button', { name: "I couldn't make it" }));
+    await tap(screen.findByRole('button', { name: "I couldn't make it" }));
     expect(await screen.findByText('Thanks, noted.')).toBeTruthy();
     expect(reportAttendance).toHaveBeenCalledWith(
       expect.objectContaining({ attendance: 'missed' }),
@@ -340,7 +341,7 @@ describe('a member', () => {
 
   it('can say "Not now", which this device remembers, and goes to the circle', async () => {
     show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Not now' }));
+    await tap(screen.findByRole('button', { name: 'Not now' }));
     await waitFor(() => expect(dismissTo).toHaveBeenCalledWith(TO_CIRCLE));
     expect(setAttendanceDismissed).toHaveBeenCalledWith('nina', 'confirmation-1');
     expect(reportAttendance).not.toHaveBeenCalled();
@@ -368,7 +369,7 @@ describe('a member', () => {
       ),
     });
     show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'I was there' }));
+    await tap(screen.findByRole('button', { name: 'I was there' }));
     expect(await screen.findByText('Thanks, noted.')).toBeTruthy();
     expect(track).not.toHaveBeenCalledWith('attendance_confirmed', expect.anything());
   });
@@ -384,7 +385,7 @@ describe('the confirmed screen, once the meetup is over', () => {
   it("offers the organiser the way in until they've answered", async () => {
     planConfirmation.mockResolvedValue(fixture.morningAfter);
     show(<ConfirmedFlow target={{ planId: 'thu-17' }} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Did it happen?' }));
+    await tap(screen.findByRole('button', { name: 'Did it happen?' }));
     expect(push).toHaveBeenCalledWith({
       pathname: '/circles/[id]/plan/[planId]/outcome',
       params: { id: 'sunday-crew', planId: 'thu-17' },
@@ -394,7 +395,7 @@ describe('the confirmed screen, once the meetup is over', () => {
   it('offers a member "Were you there?"', async () => {
     planConfirmation.mockResolvedValue(fixture.morningAfterAsMember);
     show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Were you there?' }));
+    await tap(screen.findByRole('button', { name: 'Were you there?' }));
     expect(push).toHaveBeenCalledWith({
       pathname: '/p/[code]/attendance',
       params: { code: 'pnsundaycr' },

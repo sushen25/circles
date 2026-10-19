@@ -6,7 +6,7 @@ import { setAccessToken } from '../session';
 import { clearDraft } from '../draft';
 import { forgetJourneys } from './journey';
 import { authClient } from './client';
-import { resumePendingClaim } from './link';
+import { forgetPendingClaim, resumePendingClaim } from './link';
 
 /**
  * Who is here, as the rest of the app asks it (architecture §10, §11).
@@ -212,7 +212,11 @@ export function startSessionTracking(): () => void {
     // Another tab, an expiry or this one: whoever was here has gone, and what
     // they were part-way through (an address typed into a card) goes with them.
     // A guest becoming an account is `SIGNED_IN`, not this, so a journey survives it.
-    if (event === 'SIGNED_OUT') forgetJourneys();
+    if (event === 'SIGNED_OUT') {
+      forgetJourneys();
+      // The claims kept for them hold another identity's tokens (SUS-192).
+      if (state.userId !== undefined) void forgetPendingClaim(state.userId);
+    }
     // Synchronously, before any await: the transport may send between the state
     // change and the profile query, and an event attributed to the previous
     // identity is worse than one attributed to nobody.
@@ -277,6 +281,7 @@ export function sessionState(): SessionState {
  */
 export async function signOut(): Promise<void> {
   const client = authClient();
+  const leaving = state.userId;
   const { error } = await client.auth.signOut();
   if (error !== null) {
     const local = await client.auth.signOut({ scope: 'local' });
@@ -287,6 +292,9 @@ export async function signOut(): Promise<void> {
   // fail the sign-out.
   // Nor a journey in progress, with the address typed into it (SUS-162).
   forgetJourneys();
+  // And the identity claims kept for them: another identity's tokens, which
+  // nothing else clears (SUS-192).
+  if (leaving !== undefined) await forgetPendingClaim(leaving);
   await clearDraft();
 }
 

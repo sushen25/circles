@@ -20,6 +20,7 @@ create or replace function public.soft_quorum(active_member_count integer)
 returns integer
 language sql
 immutable
+set search_path = ''
 as $$
   select greatest(3, greatest(2, ceil(coalesce(active_member_count, 0) * 0.6)::integer));
 $$;

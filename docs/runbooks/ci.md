@@ -525,9 +525,12 @@ development client is only wanted when someone asks for one.
 ## What runs, and when it does not
 
 A prose change cannot break the suites, so it does not pay for them. "Prose"
-means **Markdown anywhere and `.claude/`, and nothing else** — `docs/design/`
-is excluded on purpose, because `gen.py` is the source the design tokens are
-generated from and `check:tokens` reads it.
+means **Markdown anywhere, and nothing else** — `docs/design/` is excluded on
+purpose, because `gen.py` is the source the design tokens are generated from
+and `check:tokens` reads it, and a script under `.claude/` is code: the skills'
+shell scripts run on the founder's machine with `gh` and Supabase credentials.
+(`preview` and `deploy-dev` still ignore `.claude/**`: it cannot alter a bundle
+or a database.)
 
 | Workflow | On a prose-only change |
 |---|---|
@@ -544,6 +547,12 @@ The two mechanisms differ on purpose:
   pastes a token, and `paths-ignore` would turn off secret scanning on the
   highest-risk file type. And a skipped job reports no conclusion, which leaves
   a required status check pending forever once branch protection is on.
+
+The gitleaks step uploads its report as a SARIF artifact (7 days, readable by
+anyone signed in). It is redacted: the action passes `--redact` to gitleaks, so
+a finding names the file, the rule and the commit and never the secret itself.
+Re-read the action's arguments when it is bumped; if `--redact` ever goes,
+set `GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false` on the step.
 
 `format:check` still runs on prose because root Markdown *is* formatted:
 `.prettierignore` excludes `docs/` and `.claude/`, but not `AGENTS.md`,
@@ -685,12 +694,62 @@ run: |
 Two values are still interpolated directly, and both are safe:
 `github.event.pull_request.number` is an integer, and
 `github.event.pull_request.head.sha` goes into a comment body as an action
-input, never into a script.
+input, never into a script. `check:workflows` enforces the rule (see "Actions are
+pinned by commit" below).
 
 The same step was also broken on `workflow_dispatch`: `head_commit` exists only
 on `push`, so a manual run sent an empty message and `eas update` refused it.
 Any value read from the event payload has to have a defined meaning under
 **every** trigger the workflow declares.
+
+## Actions are pinned by commit, and `check:workflows` refuses a tag (SUS-120)
+
+A tag is a pointer its owner can move. An action moved to a malicious commit runs
+in the same job as the steps that put `EXPO_TOKEN` and `SUPABASE_ACCESS_TOKEN`
+in the environment, so every `uses:` is the full 40-character commit SHA with the
+version in a trailing comment (`uses: actions/checkout@<sha> # v4.4.0`). To add
+or move one, resolve the tag to its commit; an annotated tag points at a tag
+object first, and the SHA to use is the commit under it:
+
+```bash
+gh api repos/<owner>/<repo>/git/ref/tags/<tag>   # type "tag" -> gh api repos/<owner>/<repo>/git/tags/<sha>
+```
+
+Dependabot (`.github/dependabot.yml`, `github-actions`, weekly, one grouped pull
+request) bumps the SHA and the comment together. Read the release notes before
+merging it: the deploy workflows do not run on a pull request, so a green `check`
+does not prove an action that only they use.
+
+`check:workflows` also fails when:
+
+- a `uses:` is anything but `owner/repo[/path]@<40 hex>` (a local `./` action is
+  exempt; a `docker://` image needs `@sha256:<digest>`);
+- a `run:` contains a `${{ }}` expression that is not on the safe list: GitHub's
+  own run and repository identity (`github.sha`, `run_id`, `run_number`,
+  `run_attempt`, `event_name`, `repository`, `repository_owner`, `job`,
+  `workspace`, `server_url`, `token`, `runner.os`, `arch` and `temp`,
+  `job.status`, `strategy.job-index`), the pull request number, `matrix.NAME`
+  (only when the matrix is written in the file, not built with `fromJSON`) and
+  `secrets.NAME`. Everything else (`inputs.*`,
+  `github.event.*`, `head_ref`, `ref_name`, `actor`, `steps.*.outputs`,
+  `needs.*.outputs`) goes through `env:`. Secrets are on the list because an
+  admin sets them and not the event; prefer `env:` for them anyway;
+- a workflow uses `pull_request_target` and is not on the list in
+  `scripts/workflow-hygiene.mjs` (only `preview-cleanup.yml`). A workflow on the
+  list may not check out the pull request (a `ref` or `repository` naming
+  `head_ref`, `github.event.pull_request` or `refs/pull/`) or fetch it in a
+  script, and may not carry `head_ref`, `pull_request.head`/`merge`, `event.after`,
+  `fromJSON` or index syntax in any `env:` or `with:`, call a reusable workflow
+  or use a checkout action other than `actions/checkout` (a checkout there may
+  name only the default branch): the trigger is safe only because the job runs
+  the default branch;
+- a pinned `uses:` has no `# vX.Y.Z` comment after it. (Only `run:` is scanned for
+  expressions: if an action that evaluates text, such as `actions/github-script`,
+  is ever added, its `script:` input needs the same care.)
+
+The repository setting "Require actions to be pinned to a full-length commit
+SHA" (Settings, Actions, General) makes GitHub refuse an unpinned action too. It
+is the founder's to turn on, and is belt to the check's braces.
 
 ## Many live tests fail at once, all on a join, save or sign-in (SUS-223)
 

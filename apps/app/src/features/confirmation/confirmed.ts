@@ -21,7 +21,7 @@ import {
 import type { Member } from '../../components';
 import { t } from '../../copy';
 import type { PlanConfirmation } from '../../data/confirmation';
-import { deviceTimeFormat } from '../availability/days';
+import { deviceTimeFormat } from '../../platform/timeFormat';
 import { nameList } from '../scheduling/names';
 import { listOf } from '../scheduling/sentences';
 import { dateOf, timeOf, weekdayOf, zoneNoteOf } from '../scheduling/words';

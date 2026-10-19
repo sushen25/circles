@@ -10,7 +10,7 @@
 -- cohort's reattach or verified gate.
 
 begin;
-select plan(18);
+select plan(21);
 
 create or replace function pg_temp.make_user(id uuid, name text)
 returns uuid language sql as $$
@@ -197,16 +197,25 @@ select other, 'founder', 'founder' from cs
 on conflict (circle_id) do update set cohort = 'founder';
 
 insert into analytics.events (event_id, event_name, schema_version, circle_id, properties, occurred_at)
-select gen_random_uuid(), n, 1, c, case when n = 'member_reattached' then '{"source": "list"}'::jsonb else '{}' end,
-       now() - interval '1 day'
+select gen_random_uuid(), 'session_missing_on_return', 1, c, '{}', now() - interval '1 day'
 from cs
-cross join lateral (values ('session_missing_on_return', cs.real), ('member_reattached', cs.real),
-                           ('session_missing_on_return', cs.other), ('member_reattached', cs.other)) v (n, c);
+cross join lateral (values (cs.real), (cs.other)) v (c);
+insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata, occurred_at)
+select '00000000-0000-0000-0000-0000000d0002', 'circles.member_reattached', 'circle', c,
+  jsonb_build_object('from_user_id', gen_random_uuid(), 'to_user_id', '00000000-0000-0000-0000-0000000d0002', 'source', 'list'),
+  now() - interval '1 day'
+from cs
+cross join lateral (values (cs.real), (cs.other)) v (c);
 insert into analytics.events (event_id, event_name, schema_version, user_id, circle_id, properties, occurred_at)
-select gen_random_uuid(), n, 1, '00000000-0000-0000-0000-0000000d0001', cs.real,
-       case when n = 'email_submitted' then '{"save_place": true}'::jsonb else '{}' end,
-       now() - interval '1 day' + (case when n = 'email_verified' then interval '1 minute' else interval '0' end)
-from cs, (values ('email_submitted'), ('email_verified')) v (n);
+select gen_random_uuid(), 'email_submitted', 1, '00000000-0000-0000-0000-0000000d0001', cs.real,
+       '{"save_place": true}'::jsonb, now() - interval '1 day'
+from cs;
+insert into analytics.events (event_id, event_name, schema_version, user_id, circle_id, properties, occurred_at)
+select gen_random_uuid(), 'email_submitted', 1, '00000000-0000-0000-0000-0000000d0003', cs.real,
+       '{"save_place": true}'::jsonb, now() - interval '1 day'
+from cs;
+insert into private.email_contacts (user_id, email_normalized, status, verified_at)
+values ('00000000-0000-0000-0000-0000000d0001', 'maya-forged-test@example.com', 'verified', now() - interval '1 day' + interval '1 minute');
 
 create temporary table gates_before as
 select
@@ -252,14 +261,43 @@ select is(
   0, 'an event with no circle, plan or user is counted in no cohort at all'
 );
 
--- And the contrast: the same events carrying the circle a script could name
--- before this ticket do move it, which is why the ingest now nulls it.
-insert into analytics.events (event_id, event_name, schema_version, circle_id, properties, occurred_at)
-select gen_random_uuid(), 'member_reattached', 1, cs.real, '{"source": "list"}', now() - interval '1 day'
-from cs, generate_series(1, 40);
-select isnt(
+-- And the contrast: forged events that carry a real circle and a real user,
+-- which is all a signed-in member could ever send, move neither gate now that
+-- neither reads them (SUS-213). Before it, 40 of these raised the reattach gate.
+insert into analytics.events (event_id, event_name, schema_version, user_id, circle_id, properties, occurred_at)
+select gen_random_uuid(), n, 1, '00000000-0000-0000-0000-0000000d0003', cs.real,
+       case n when 'member_reattached' then '{"source": "list"}'::jsonb else '{}'::jsonb end,
+       now() - interval '1 day' + interval '2 minutes'
+from cs, generate_series(1, 40), unnest(array['member_reattached', 'email_verified', 'account_claimed']) n;
+select is(
   (select array[sum(missing), sum(reattached)]::bigint[] from analytics.gate_reattach where cohort = 'external'),
-  (select ext_reattach from gates_before), 'whereas a forged event that names a real circle would have moved it'
+  (select ext_reattach from gates_before), 'forged member_reattached events naming a real circle do not move the reattach gate'
+);
+select is(
+  (select array[sum(submitted), sum(verified)]::bigint[] from analytics.gate_email_verified where cohort = 'external'),
+  (select ext_verified from gates_before), 'nor forged email_verified or account_claimed events the verified gate'
+);
+
+-- A real reattachment and a real verification do.
+insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata, occurred_at)
+select '00000000-0000-0000-0000-0000000d0002', 'circles.member_reattached', 'circle', cs.real,
+  jsonb_build_object('from_user_id', gen_random_uuid(), 'to_user_id', '00000000-0000-0000-0000-0000000d0002', 'source', 'list'),
+  now() - interval '1 day'
+from cs;
+select is(
+  (select sum(reattached)::bigint from analytics.gate_reattach where cohort = 'external'),
+  (select (ext_reattach)[2] + 1 from gates_before), 'a real reattachment by the list moves the reattach gate'
+);
+insert into analytics.events (event_id, event_name, schema_version, user_id, circle_id, properties, occurred_at)
+select gen_random_uuid(), 'email_submitted', 1, '00000000-0000-0000-0000-0000000d0004', cs.other,
+       '{"save_place": true}'::jsonb, now() - interval '2 days'
+from cs;
+insert into private.email_contacts (user_id, email_normalized, status, verified_at)
+values ('00000000-0000-0000-0000-0000000d0004', 'sam-gate-test@example.com', 'verified', now() - interval '1 day');
+select is(
+  (select array[sum(submitted), sum(verified)]::bigint[] from analytics.gate_email_verified where cohort = 'founder'),
+  array[1::bigint, 1::bigint],
+  'and a real verification moves the verified gate'
 );
 
 select * from finish();

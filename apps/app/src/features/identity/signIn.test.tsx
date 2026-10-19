@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -268,7 +269,7 @@ describe('Save your place, the gate of the first run (ADR 0053)', () => {
 
     it('records a skip as skipped and goes straight on', async () => {
       await throughTheCode();
-      fireEvent.click(await screen.findByRole('button', { name: 'Skip' }));
+      await tap(screen.findByRole('button', { name: 'Skip' }));
       expect(replace).toHaveBeenCalledWith('/circles/new/finish');
       expect(sourceEvents()).toEqual([['organiser_source', { source: 'skipped' }]]);
       expect(recordAnswer.mock.calls[0]?.[1]).toBe('tapped');
@@ -288,7 +289,7 @@ describe('Save your place, the gate of the first run (ADR 0053)', () => {
 
     it('is not asked again in this session by the same account at another gate', async () => {
       await throughTheCode();
-      fireEvent.click(await screen.findByRole('button', { name: 'Skip' }));
+      await tap(screen.findByRole('button', { name: 'Skip' }));
       cleanup();
       replace.mockReset();
       askToShow.mockClear();
@@ -627,7 +628,7 @@ describe('Your name', () => {
     auth.saveProfile.mockResolvedValue(undefined);
     wrap(<YourNameFlow />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Change' }));
+    await tap(screen.findByRole('button', { name: 'Change' }));
     fireEvent.change(screen.getByLabelText('Search time zones'), { target: { value: 'london' } });
     fireEvent.click(screen.getByRole('radio', { name: 'London' }));
     fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Maya' } });
@@ -641,7 +642,7 @@ describe('Your name', () => {
   it('refuses an empty name before sending anything', async () => {
     wrap(<YourNameFlow />);
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
+      await tap(screen.findByRole('button', { name: 'Continue' }));
     });
     expect(screen.getByText('Add a name of up to 40 characters.')).toBeVisible();
     expect(auth.saveProfile).not.toHaveBeenCalled();

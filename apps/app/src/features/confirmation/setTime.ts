@@ -14,13 +14,8 @@ import type { GridDay } from '../../components';
 import { t } from '../../copy';
 import type { OwnAnswer } from '../../data/availability';
 import type { PlanCandidates } from '../../data/scheduling';
-import {
-  dateWords,
-  dayName,
-  dayNumber,
-  deviceTimeFormat,
-  weekdayHeadings,
-} from '../availability/days';
+import { dateWords, dayName, dayNumber, weekdayHeadings } from '../availability/days';
+import { deviceTimeFormat } from '../../platform/timeFormat';
 import { monthDays } from '../planning/calendar';
 import { dateOf, timeOf } from '../scheduling/words';
 import { weekdayOf } from '../scheduling/words';

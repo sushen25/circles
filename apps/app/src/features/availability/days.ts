@@ -5,7 +5,6 @@ import {
   type Interval,
   type LocalDate,
   type PlanTiming,
-  type TimeFormat,
 } from '@circles/domain';
 
 /**
@@ -27,20 +26,6 @@ export type DayRow = {
   /** "Monday 14 September", the start of every cell's label. */
   spoken: string;
 };
-
-/** The device's own clock: 18:30 for most of the world, 6:30 pm for some. */
-export function deviceTimeFormat(): TimeFormat {
-  try {
-    const options = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions();
-    if (options.hour12 !== undefined) return { hour12: options.hour12 };
-    if (options.hourCycle !== undefined) {
-      return { hour12: options.hourCycle === 'h11' || options.hourCycle === 'h12' };
-    }
-  } catch {
-    // A runtime without Intl's resolved options. The canvas's 12-hour clock.
-  }
-  return { hour12: true };
-}
 
 /** A calendar date in words, as the device's locale writes it. Never a zone's. */
 export function dateWords(date: LocalDate, style: 'short' | 'long', locale?: string): string {

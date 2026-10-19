@@ -9,8 +9,9 @@ import {
   zone as toZone,
   type DurationMinutes,
   type Instant,
-  type TimeFormat,
 } from '@circles/domain';
+
+import { deviceTimeFormat } from '../../platform/timeFormat';
 
 /**
  * What FirstPlan's card shows before anything is sent (spec §5.1 step 7): the
@@ -95,16 +96,6 @@ export function firstPlanPreview(
     deadline: deadline === undefined ? undefined : toISO(deadline),
     latestStart: toISO(latest),
   };
-}
-
-/** This device's clock, for the band's times (manifesto §6). */
-export function deviceTimeFormat(): TimeFormat {
-  try {
-    const hour12 = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hour12;
-    return { hour12: hour12 ?? true };
-  } catch {
-    return { hour12: true };
-  }
 }
 
 export function bandWords(band: { startMin: number; endMin: number }): string {

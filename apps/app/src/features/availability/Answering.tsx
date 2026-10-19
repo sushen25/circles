@@ -14,7 +14,8 @@ import { t } from '../../copy';
 import { OfflineScreen } from '../system/OfflineScreen';
 import { AvailabilityScreen } from './AvailabilityScreen';
 import type { BlockKind, BlockTiming } from './blocks';
-import { dayRows, deviceTimeFormat } from './days';
+import { deviceTimeFormat } from '../../platform/timeFormat';
+import { dayRows } from './days';
 import {
   editorFrom,
   editorReducer,
@@ -26,7 +27,7 @@ import {
 import { NoneWorkScreen, type NoneWorkStatus } from './NoneWorkScreen';
 import { useOthersSaid } from './useOthersSaid';
 import { sharedTime } from './sharedTime';
-import { useStartedEvent } from './usePreviousTimes';
+import { usePreviousTimes, useStartedEvent } from './usePreviousTimes';
 import { useSendAnswer, type ReturnTo } from './useSendAnswer';
 import { editorView } from './view';
 import {
@@ -38,6 +39,7 @@ import {
   thingOf,
   timeOfDay,
   titleOf,
+  usualSaid,
   zoneNoteOf,
 } from './words';
 
@@ -146,6 +148,20 @@ export function Answering({
   // The choice a day had before its clock was tapped, for "Back to Evening instead".
   const [before, setBefore] = useState<BlockKind | undefined>(undefined);
 
+  // "Use my usual days" (SUS-227, ADR 0077): offered only to somebody who has
+  // answered in this circle before and has not answered this plan; read once
+  // per opening. A first-time guest, a stored answer and an unsent draft ask
+  // for nothing and see nothing.
+  const previous = usePreviousTimes({
+    planId: plan.id,
+    userId,
+    enabled: step === 'times' && plan.acceptingAnswers && answer === null && opened === undefined,
+  });
+  // Any day tapped by hand ends the offer for good; the tap itself and Undo do not.
+  const [handTapped, setHandTapped] = useState(false);
+  // The answer is still just what the tap filled in.
+  const [fromUsual, setFromUsual] = useState(false);
+
   const { said, pending: othersPending } = useOthersSaid({
     plan,
     userId,
@@ -164,6 +180,8 @@ export function Answering({
     onStale,
     onNarrowed,
     returnTo,
+    // An "I'm easy" answer carries none of the usual days.
+    usedPrevious: previous.used && !state.flexible,
   });
 
   // Judged by the server when the plan was read (`acceptingAnswers`): state and
@@ -178,26 +196,62 @@ export function Answering({
 
   // Opening the editor is the start of answering (§11.2's "median response
   // after link open" reads the last open before the answer). An answer never
-  // given opens empty (ADR 0077): previous times are not applied on open, so
-  // none are on offer and `usual_offered` is false, which is true.
-  const view = editorView(state, rows, timing, format, undefined, undefined, said);
+  // given opens empty (ADR 0077); `usual_offered` says whether the usual-days
+  // tap was on show when it did, which the view decides (`canUseUsual`).
+  const view = editorView(
+    state,
+    rows,
+    timing,
+    format,
+    undefined,
+    handTapped ? undefined : previous.parts,
+    said,
+  );
   useStartedEvent({
     active: step === 'times' && answerable,
     planId: plan.id,
-    settled: true,
-    offered: false,
+    settled: previous.settled,
+    offered: view.canUseUsual,
   });
 
   // While an answer is on its way it cannot change: the request has the
   // answer it was sent with, and a success clears the draft an edit would
   // have been written to.
   const sending = phase.kind === 'sending' ? phase.status : undefined;
+  const changesDays = (action: EditorAction) =>
+    JSON.stringify(reducer(state, action).days) !== JSON.stringify(state.days);
   const edit = (action: EditorAction) => {
     if (sending !== undefined) return;
     // Opening a day changes what is on screen, not the answer: it is not an
     // edit, and it writes no draft.
-    if (!VIEW_ONLY.has(action.type)) edited();
+    if (!VIEW_ONLY.has(action.type)) {
+      edited();
+      // A change to the days or their times by hand ends the offer, and the
+      // note, for the rest of the opening; the tap itself and "I'm easy" do
+      // not, and nor does one that leaves the days as they were (Same for
+      // every day on days that already share a time).
+      if (action.type !== 'usual' && action.type !== 'flexible' && changesDays(action)) {
+        setHandTapped(true);
+        setFromUsual(false);
+      }
+    }
     dispatch(action);
+  };
+
+  // The tap: the usual days with their usual times. It marks the answer as
+  // begun from them for `usual_used`, and Undo takes both back.
+  const tapUsual = () => {
+    if (previous.parts === undefined || !view.canUseUsual) return;
+    edit({ type: 'usual', parts: previous.parts });
+    previous.markUsed(true);
+    setFromUsual(true);
+  };
+  const undoUsual = () => {
+    if (sending !== undefined) return;
+    edited();
+    dispatch({ type: 'load', state: emptyEditor(rows, timing) });
+    previous.markUsed(false);
+    setFromUsual(false);
   };
 
   // Dragging across the grid taps or untaps the days it crosses, from the day
@@ -290,6 +344,14 @@ export function Answering({
       backTo={before === undefined ? undefined : BLOCK_LABEL[before]()}
       flexible={state.flexible}
       changed={changed}
+      usual={
+        view.canUseUsual && previous.parts !== undefined
+          ? { says: usualSaid(previous.parts) }
+          : undefined
+      }
+      onUseUsual={tapUsual}
+      filledFromUsual={fromUsual && !state.flexible && view.block !== undefined}
+      onUndoUsual={undoUsual}
       problem={problem}
       busy={sending !== undefined}
       onTick={(day) => edit({ type: 'toggle_day', day })}

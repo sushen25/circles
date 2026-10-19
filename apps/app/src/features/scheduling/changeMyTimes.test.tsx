@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -47,7 +48,7 @@ describe('Change my times, as the organiser', () => {
   it('opens the editor from the options and comes back to them afterwards', async () => {
     planCandidates.mockResolvedValue(fixture.ready);
     show(organiser());
-    fireEvent.click(await screen.findByRole('button', CHANGE));
+    await tap(screen.findByRole('button', CHANGE));
     expect(push).toHaveBeenCalledWith({
       pathname: '/j/[code]',
       params: { code: fixture.ready.code, returnTo: 'plan' },
@@ -57,7 +58,7 @@ describe('Change my times, as the organiser', () => {
   it('opens the editor from the waiting screen too', async () => {
     planCandidates.mockResolvedValue(fixture.waiting);
     show(organiser());
-    fireEvent.click(await screen.findByRole('button', CHANGE));
+    await tap(screen.findByRole('button', CHANGE));
     expect(push).toHaveBeenCalledWith({
       pathname: '/j/[code]',
       params: { code: fixture.waiting.code, returnTo: 'plan' },
@@ -67,7 +68,7 @@ describe('Change my times, as the organiser', () => {
   it('opens the editor from the no-overlap screen, where a wrong answer is what blocks it', async () => {
     planCandidates.mockResolvedValue(fixture.noQuorum);
     show(organiser());
-    fireEvent.click(await screen.findByRole('button', CHANGE));
+    await tap(screen.findByRole('button', CHANGE));
     expect(push).toHaveBeenCalledWith({
       pathname: '/j/[code]',
       params: { code: fixture.noQuorum.code, returnTo: 'plan' },
@@ -109,7 +110,7 @@ describe('Change my times, as the organiser', () => {
   it('does not change what a member is offered', async () => {
     planCandidates.mockResolvedValue(fixture.readyAsMember);
     show(organiser());
-    fireEvent.click(await screen.findByRole('button', CHANGE));
+    await tap(screen.findByRole('button', CHANGE));
     expect(push).toHaveBeenCalledWith({
       pathname: '/j/[code]',
       params: { code: fixture.readyAsMember.code },

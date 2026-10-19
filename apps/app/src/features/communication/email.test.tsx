@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -321,7 +322,7 @@ describe('round 2', () => {
 
   it('offers email updates at most once per plan: a second visit after "Not now" does not ask again', async () => {
     const first = wrap(<SentFlow code={PLAN.code} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Not now' }));
+    await tap(screen.findByRole('button', { name: 'Not now' }));
     first.unmount();
 
     wrap(<SentFlow code={PLAN.code} />);
@@ -472,9 +473,7 @@ describe('email preferences', () => {
       .mockResolvedValueOnce({ removed: true, subscriptions: [] });
     wrap(<EmailPrefsFlow />);
 
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Remove this email address entirely' }),
-    );
+    await tap(screen.findByRole('button', { name: 'Remove this email address entirely' }));
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Remove my email address' }));
     });
@@ -546,7 +545,7 @@ describe.each(STOP_PAGES)('the stop page for $family', (page) => {
     wrap(<StopLettersFlow family={page.family} />);
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: page.button }));
+      await tap(screen.findByRole('button', { name: page.button }));
     });
 
     expect(stopLetters).toHaveBeenCalledTimes(1);
@@ -573,7 +572,7 @@ describe.each(STOP_PAGES)('the stop page for $family', (page) => {
     wrap(<StopLettersFlow family={page.family} />);
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: page.button }));
+      await tap(screen.findByRole('button', { name: page.button }));
     });
 
     expect(await screen.findByText('This link has expired.')).toBeVisible();
@@ -585,7 +584,7 @@ describe.each(STOP_PAGES)('the stop page for $family', (page) => {
     wrap(<StopLettersFlow family={page.family} />);
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: page.button }));
+      await tap(screen.findByRole('button', { name: page.button }));
     });
     await screen.findByText(/weren't stopped/);
     await act(async () => {

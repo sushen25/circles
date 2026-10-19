@@ -1,7 +1,8 @@
 import { formatRange, fromISO, toLocal, zone as toZone } from '@circles/domain';
 
 import { t } from '../../copy';
-import { dateWords, deviceTimeFormat } from '../availability/days';
+import { deviceTimeFormat } from '../../platform/timeFormat';
+import { dateWords } from '../availability/days';
 import { whenWords } from '../planning/when';
 
 /**

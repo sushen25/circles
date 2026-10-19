@@ -374,7 +374,7 @@ small shared Free-plan quota. See `environments.md`; the lever is
       fails, and Resend retries, so creating it first is harmless.
 - [ ] Copy the **webhook signing secret** straight into the project, never into
       a file or a chat:
-      `make secret ENV=prod K=RESEND_WEBHOOK_SECRET V=…` (step 9 says why
+      `make secret ENV=prod K=RESEND_WEBHOOK_SECRET` (paste it at the prompt; step 9 says why
       `make`, not `supabase secrets set` from the repository).
       Without it the function refuses every event — it fails closed — and
       bounces go unrecorded.
@@ -513,10 +513,12 @@ secret is sent. Check afterwards with `make secrets ENV=prod`: **there must be
 no `EMAIL_CAPTURE_URL`**, and `CRON_SECRET`'s digest must not be
 `25bf8e1a…ddcf6`, which is the SHA-256 of `local`.
 
-The Apple private key is a file, so it goes as its contents:
+Every `make secret` reads the value from stdin: type or paste it at the hidden
+prompt, or redirect a file. The Apple private key is a file, so it goes as its
+contents:
 
 ```bash
-make secret ENV=prod K=APPLE_PRIVATE_KEY V="$(cat AuthKey_XXXX.p8)"
+make secret ENV=prod K=APPLE_PRIVATE_KEY < AuthKey_XXXX.p8
 ```
 
 **The two projects do not take the same set**, so one command for both is wrong
@@ -525,18 +527,19 @@ must not have, or leaves out `CRON_SECRET` and the internal functions refuse
 every call. Per project, one secret per line, matching the table below:
 
 ```bash
+# Each one prompts for its value (hidden).
 # circles-prod — the real Turnstile secret, and the only project that sends
-make secret ENV=prod K=CRON_SECRET V=...
-make secret ENV=prod K=TURNSTILE_SECRET_KEY V=...
-make secret ENV=prod K=RESEND_API_KEY V=...
-make secret ENV=prod K=RESEND_WEBHOOK_SECRET V=...
-make secret ENV=prod K=HEALTH_REPORT_TO V=...
+make secret ENV=prod K=CRON_SECRET
+make secret ENV=prod K=TURNSTILE_SECRET_KEY
+make secret ENV=prod K=RESEND_API_KEY
+make secret ENV=prod K=RESEND_WEBHOOK_SECRET
+make secret ENV=prod K=HEALTH_REPORT_TO
 ```
 
 ```bash
 # circles-dev — the dummy Turnstile secret, and no Resend at all
-make secret ENV=dev K=CRON_SECRET V=...
-make secret ENV=dev K=TURNSTILE_SECRET_KEY V=1x0000000000000000000000000000000AA
+make secret ENV=dev K=CRON_SECRET
+echo 1x0000000000000000000000000000000AA | make secret ENV=dev K=TURNSTILE_SECRET_KEY
 ```
 
 `APPLE_*` and `GOOGLE_*` go on both, and on neither yet — SUS-77.

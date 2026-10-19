@@ -33,7 +33,7 @@ vi.mock('../../data/availability', async (original) => ({
   planToAnswer: (...args: unknown[]) => planToAnswer(...args),
   submitAnswer: (...args: unknown[]) => submitAnswer(...args),
   othersSaid: (...args: unknown[]) => othersSaid(...args),
-  // No usual times here: `usualTimes.test.tsx` is the pre-fill's.
+  // No usual times here: `usualTimes.test.tsx` is the usual days'.
   usualTimes: async () => [],
   onChanceToResend: (retry: () => void) => {
     resend = retry;

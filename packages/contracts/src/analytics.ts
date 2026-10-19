@@ -194,9 +194,9 @@ export const catalogue = {
   availability_started: event(1, {
     /**
      * Whether previous times were on offer when the editor opened (SUS-159,
-     * ADR 0037): a yes or no, never a day-part. Since ADR 0077 (SUS-226) nothing
-     * is offered on open, so every new start says `false`; the field stays for
-     * the explicit tap to come and for the rows already stored. Optional because
+     * ADR 0037): a yes or no, never a day-part. Since ADR 0077 (SUS-226, SUS-227)
+     * nothing is applied on open; this is true when the explicit "Use my usual
+     * days" tap was on show, and false otherwise. Optional because
      * the start is never held back for an optional read (ADR 0045): when the
      * read has not settled in time the field is left out, which says
      * "unknown", and an older client's start has none either.
@@ -222,10 +222,9 @@ export const catalogue = {
     status: z.enum(['windows', 'flexible', 'none_work', 'more_notice', 'not_this_time']),
     window_count: count.optional(),
     /**
-     * Whether the answer began from "Use my previous times", even if it was
-     * edited afterwards (SUS-159). A yes or no, never a day-part. Since ADR
-     * 0077 (SUS-226) nothing starts an answer that way, so every new send says
-     * `false`. Optional so an older client's event, which has none, still
+     * Whether the answer began from the "Use my usual days" tap, even if it was
+     * edited afterwards (SUS-159, SUS-227); false when the tap was never used or
+     * was undone. A yes or no, never a day-part. Optional so an older client's event, which has none, still
      * validates.
      */
     usual_used: z.boolean().optional(),
