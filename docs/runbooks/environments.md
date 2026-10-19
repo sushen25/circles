@@ -399,15 +399,52 @@ red cross for infrastructure nobody has set up yet teaches people to ignore red
 crosses. `deploy-prod` fails instead: a production deploy that deployed nothing
 must not look like one that did.
 
+## Settings only the founder can change (to do)
+
+Nothing in the repository can set these, and no agent may: they are hosted
+project and repository settings. Each is written down here so it is a known
+gap with an owner, not a surprise.
+
+- [ ] **Enforce SSL on the database connection, on both projects.** Dashboard,
+  Database, Settings, SSL configuration, "Enforce SSL on incoming connections".
+  It is off today. The Supabase CLI and the pooler connect with TLS already, so
+  this is safe to switch on; `psql` by hand needs `sslmode=require`.
+- [ ] **Database network restrictions, on `circles-dev` and `circles-prod`.**
+  Both projects allow `0.0.0.0/0` and `::/0`. Nothing in the product connects
+  to Postgres directly (the app and the functions go through the API gateway),
+  **but the deploy workflows do: `supabase db push --linked` in `deploy-dev`
+  and `deploy-prod` connects to the database from a GitHub-hosted runner, whose
+  addresses are not fixed.** So "restrict to nothing" would turn every deploy
+  red. Decide knowingly: keep the open range and lean on enforced SSL and the
+  database password, or restrict to the founder's own address and move
+  migrations to a runner with a fixed address first. Whichever it is, record the
+  choice here.
+- [ ] **A branch policy on the `dev` GitHub environment.** It has none, so
+  `deploy-dev` can be dispatched from any branch and that branch's workflow
+  file runs with the dev credentials. Settings, Environments, `dev`,
+  "Deployment branches": selected branches, `main` only.
+- [ ] **`production`: its approval is a pause, not a review.** The required
+  reviewer is the founder and the environment allows self-review and admin
+  bypass, so the approval on `deploy-prod` gives the person who dispatched the
+  deploy a moment to read the migration plan, and nobody else sees it. Turn off
+  "Allow administrators to bypass protection rules" and add a second reviewer
+  if that is ever not enough.
+- [ ] **Revoke the old dev Resend key**, now that dev's Auth SMTP sender is on
+  `mail.wenna.app` (14 October).
+
 ## Checking it from the outside
 
 ```bash
 pnpm check:env <domain>
 ```
 
-HTTPS, HSTS, `Referrer-Policy: no-referrer`, a `Content-Security-Policy` (with
+Two requests, each held to its own headers. **`/start`, an app route:** HTTPS,
+HSTS, `Referrer-Policy: no-referrer`, a `Content-Security-Policy` (with
 no `unsafe-inline` or `unsafe-eval` for scripts, and `frame-ancestors 'none'`),
-`X-Content-Type-Options: nosniff`, a `Permissions-Policy`, and SPF/DKIM/DMARC on `mail.<domain>`
+`X-Content-Type-Options: nosniff` and a `Permissions-Policy`. **`/`, the
+website (ADR 0052):** HSTS, `strict-origin-when-cross-origin`, a policy with
+`default-src 'none'`, no script and `frame-ancestors 'none'`, and nosniff. Then
+SPF/DKIM/DMARC on `mail.<domain>`
 — queried against 1.1.1.1 rather than the system resolver, because a local cache
 will cheerfully serve a record that was deleted an hour ago. Not part of
 `pnpm check`: it needs the network and a domain that exists.

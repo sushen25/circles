@@ -548,6 +548,12 @@ The two mechanisms differ on purpose:
   highest-risk file type. And a skipped job reports no conclusion, which leaves
   a required status check pending forever once branch protection is on.
 
+The gitleaks step uploads its report as a SARIF artifact (7 days, readable by
+anyone signed in). It is redacted: the action passes `--redact` to gitleaks, so
+a finding names the file, the rule and the commit and never the secret itself.
+Re-read the action's arguments when it is bumped; if `--redact` ever goes,
+set `GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false` on the step.
+
 `format:check` still runs on prose because root Markdown *is* formatted:
 `.prettierignore` excludes `docs/` and `.claude/`, but not `AGENTS.md`,
 `README.md` or `CLAUDE.md`. Prose skips the suites, not the gate.
