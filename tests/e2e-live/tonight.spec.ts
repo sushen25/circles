@@ -96,7 +96,7 @@ test('a returning guest opens a new plan with nothing tapped, and sends only wha
   // Let anything that was going to tap a day do it before looking.
   await page.waitForLoadState('networkidle');
   await expect(tapped(page)).toHaveCount(0);
-  await expect(page.getByText('Evenings, from 5:30 pm')).toHaveCount(0);
+  await expect(page.getByText('From 5:30 pm')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Send my times' })).toBeDisabled();
   expect(answerOf(second.id, ren)).toBeUndefined();
 

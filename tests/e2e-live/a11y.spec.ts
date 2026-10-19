@@ -89,7 +89,8 @@ test('the availability editor has no serious accessibility violations', async ({
     .getByRole('button', { name: /^Free from, / })
     .first()
     .click();
-  await expect(page.getByRole('dialog', { name: 'Free from' })).toBeVisible();
+  // The picker replaces the pairs on the day's sheet: one dialog, not two.
+  await expect(page.getByRole('radio', { name: '6:00 pm', exact: true })).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
 });
 
@@ -183,7 +184,7 @@ test('at 200% text, the editor cuts off none of its decisions', async ({ page },
   });
 
   const decisions = [
-    page.getByRole('button', { name: /^Adjust hours for/ }),
+    page.getByRole('button', { name: 'Adjust hours', exact: true }),
     page.getByRole('switch', { name: "I'm easy" }),
     page.getByRole('button', { name: 'None of these evenings work for me' }),
     page.getByRole('button', { name: 'Send my times' }),

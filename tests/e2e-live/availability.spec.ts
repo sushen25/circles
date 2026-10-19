@@ -86,7 +86,7 @@ async function exactHours(page: Page) {
   await adjustHours(page).click();
   await expect(page.getByRole('heading', { name: 'Your hours each evening' })).toBeVisible();
   await firstClock(page).click();
-  await expect(timeButton(page, 'from', '\\d.*')).toBeVisible();
+  await expect(timeButton(page, 'from', '\\d.*').first()).toBeVisible();
 }
 
 test('three days tapped is the answer, in four taps, and it comes back as it was given', async ({
@@ -183,8 +183,8 @@ test('an answer can be given from the keyboard alone, by days, pills and a sheet
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'A time for each day' })).toBeVisible();
   // A day's own pills, and its clock.
-  await pill(page, 'Any').focus();
-  await expect(pill(page, 'Any')).toBeFocused();
+  await pill(page, 'Any time').focus();
+  await expect(pill(page, 'Any time')).toBeFocused();
   await firstClock(page).focus();
   await page.keyboard.press('Enter');
   // The picker is a list of radios a keyboard can reach: open it with Enter,
@@ -265,7 +265,7 @@ test('a day can have its own time of day, its clock sets exact hours, and Same f
   // Each row offers Evening, Daytime and Any, the evening selected, and a clock.
   await expect(pill(page, 'Evening')).toHaveCount(2);
   await expect(pill(page, 'Daytime')).toHaveCount(2);
-  await expect(pill(page, 'Any')).toHaveCount(2);
+  await expect(pill(page, 'Any time')).toHaveCount(2);
   await expect(pill(page, 'Evening').first()).toHaveAttribute('aria-checked', 'true');
   await pill(page, 'Daytime').nth(1).click();
   await expect(pill(page, 'Daytime').nth(1)).toHaveAttribute('aria-checked', 'true');
