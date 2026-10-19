@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { tap } from '../../test/tap';
 import type * as CircleData from '../../data/circles';
 import type * as CircleHomeData from '../../data/circles/home';
 import { FunctionError } from '../../data/functions';
@@ -114,7 +115,7 @@ describe('Change my name here', () => {
 
   it('opens the join screen’s field with the current name and saves the tidied name', async () => {
     wrap(<SettingsFlow id={CIRCLE} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Change my name here' }));
+    await tap(screen.findByRole('button', { name: 'Change my name here' }));
 
     const sheet = screen.getByLabelText('What should Sunday Crew call you?');
     expect(
@@ -142,7 +143,7 @@ describe('Change my name here', () => {
   it('keeps the sheet open and says so when the name is taken', async () => {
     renameInCircle.mockRejectedValue(refused('duplicate_name'));
     wrap(<SettingsFlow id={CIRCLE} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Change my name here' }));
+    await tap(screen.findByRole('button', { name: 'Change my name here' }));
     const sheet = screen.getByLabelText('What should Sunday Crew call you?');
 
     fireEvent.change(within(sheet).getByLabelText('Your name'), { target: { value: 'Nina' } });
@@ -161,7 +162,7 @@ describe('Change my name here', () => {
   it('reuses the key for the same name and uses another for a different one', async () => {
     renameInCircle.mockRejectedValue(refused('too_many_requests'));
     wrap(<SettingsFlow id={CIRCLE} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Change my name here' }));
+    await tap(screen.findByRole('button', { name: 'Change my name here' }));
     const sheet = screen.getByLabelText('What should Sunday Crew call you?');
     const save = async () => {
       const button = await screen.findByRole('button', { name: 'Save' });
@@ -183,7 +184,7 @@ describe('Change my name here', () => {
 
   it('does not send a name the join screen would refuse', async () => {
     wrap(<SettingsFlow id={CIRCLE} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Change my name here' }));
+    await tap(screen.findByRole('button', { name: 'Change my name here' }));
     const sheet = screen.getByLabelText('What should Sunday Crew call you?');
 
     fireEvent.change(within(sheet).getByLabelText('Your name'), {
@@ -200,7 +201,7 @@ describe('Change my name here', () => {
   it('says the name did not change when something else goes wrong', async () => {
     renameInCircle.mockRejectedValue(new Error('boom'));
     wrap(<SettingsFlow id={CIRCLE} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Change my name here' }));
+    await tap(screen.findByRole('button', { name: 'Change my name here' }));
     const sheet = screen.getByLabelText('What should Sunday Crew call you?');
 
     fireEvent.change(within(sheet).getByLabelText('Your name'), { target: { value: 'Mo' } });
