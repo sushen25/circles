@@ -17,6 +17,7 @@ export { LoadError, type LoadErrorExit } from './LoadError';
 export { Loading } from './Loading';
 export { Marks, type Member } from './Marks';
 export { Notice } from './Notice';
+export { Pills, type Pill } from './Pills';
 export { Radio } from './Radio';
 export { Body, Foot, Screen, TopBar } from './Screen';
 export { SettingRow } from './SettingRow';

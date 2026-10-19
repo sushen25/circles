@@ -60,7 +60,7 @@ test('from the chat to Sent in a name and five taps, and the email offer decline
     'aria-checked',
     'false',
   );
-  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
+  await expect(page.getByText('From 5:30 pm')).toBeVisible();
   await page.getByRole('button', { name: 'Send my times' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}/sent$`));

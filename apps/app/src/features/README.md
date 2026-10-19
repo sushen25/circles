@@ -35,11 +35,11 @@ flows do not, because the sheet it opened named a fixture circle.
 | ------------------------------------ | --------------------------------------- | --------------------------- |
 | `Availability.dc.html`               | `/j/[code]`                             | `AvailabilityScreen`        |
 | `AvailabilityPicking.dc.html`        | `/j/[code]` (three days tapped)         | `AvailabilityScreen`        |
-| `AvailabilityTime.dc.html`           | `/j/[code]` (Change time sheet)         | `ChangeTimeSheet`           |
-| `AvailabilityAdjusting.dc.html`      | `/j/[code]` (a time for each day)       | `ExactHoursScreen`          |
-| `AvailabilityMixed.dc.html`          | `/j/[code]` (days with different times) | `AvailabilityScreen`        |
+| `AvailabilityInline.dc.html`         | `/j/[code]` (the time of day inline)    | `AnswerBlock`               |
+| `AvailabilityPerDay.dc.html`         | `/j/[code]` (a time for each day)       | `AnswerBlock`, `DayRow`     |
+| `AvailabilityHours.dc.html`          | `/j/[code]` (a day's hours, its clock)  | `DayHoursSheet`             |
 | `AvailabilityOneChoice.dc.html`      | `/j/[code]` (a plan with one window)    | `AvailabilityScreen`        |
-| `AvailabilityOneChoiceHours.dc.html` | `/j/[code]` (its list of hours)         | `ExactHoursScreen`          |
+| `AvailabilityOneChoiceHours.dc.html` | `/j/[code]` (its list of hours)         | `AnswerBlock`, `DayRow`     |
 | `AvailabilityReturning.dc.html`      | `/j/[code]` (a returning member, empty) | `AvailabilityScreen`        |
 | `AvailabilityOthersFirst.dc.html`    | `/j/[code]` (first to answer)           | `AvailabilityScreen`        |
 | `AvailabilityOverlay.dc.html`        | `/j/[code]/overlay`                     | `AvailabilityOverlayScreen` |
@@ -68,22 +68,29 @@ still asking (`PlanLinkFlow`), and the member candidates screen otherwise.
 `Offline.dc.html` is a state of `/j/[code]` (`OfflineScreen`, offline and
 error); `/offline` renders it for the gallery.
 
-**Redesigned in S1-25b (ADR 0024), simplified in SUS-206 (ADR 0068):** days
-first, then a time once. `AvailabilityScreen` is the question, one line of
-guidance, the day grid, the deadline footnote and, once any day is tapped, the
-answer in one line with "Change time". Tapping a day gives it the current time
-of day (Evening unless the plan has none); `ChangeTimeSheet` gives every tapped
-day another; "A different time for each day" (or Change time, once the days
-differ; on a plan with one window, Adjust hours, with no sheet) opens `ExactHoursScreen`, "A time for each day": a `DayCard` per day
-with the plan's quick choices, and "Set exact hours" opening `HoursEditor`: the
+**Redesigned in S1-25b (ADR 0024), simplified in SUS-206 (ADR 0068), time of day
+inline in SUS-236 (ADR 0079):** days first, then a time once.
+`AvailabilityScreen` is the question, one line of guidance, the day grid, the
+deadline footnote and, once any day is tapped, `AnswerBlock`: "When, on those
+days?" with the count of days, the choices as `Pills` (Evening, Daytime, Any time;
+none on a plan with one window), the chosen one's hours, and "Not the same every
+day?" (Adjust hours on a plan with one window). Tapping a day gives it the current
+time of day (Evening unless the plan has none); a pill gives every tapped day
+another. The link swaps the block in place for "A time for each day": a `DayRow`
+for each tapped day with small pills and a clock, and "Same for every day" back.
+A day's clock opens `DayHoursSheet`, the app's `Sheet` over `HoursEditor`: the
 day's hours as From – to pairs with a picker (`hours.ts` is the pure part), a
-thin bar, and one line about the others (the domain's `freeStretches`). Everything it shows is worked out in `view.ts` and
-`answerLine.ts` from the reducer in `editor.ts`; the blocks are the domain's
-shortcuts (`blocks.ts`). The chosen time of day and the open day are view state
-and never stored. An answer never given opens empty, for a returning member as for a
-first-timer; previous times are not applied on open (ADR 0077). `AvailabilityPicking`, `AvailabilityTime`,
-`AvailabilityAdjusting`, `AvailabilityMixed` and `AvailabilityReturning` are states of the same
-route, not routes of their own.
+thin bar, and one line about the others (the domain's `freeStretches`). Everything
+it shows is worked out in `view.ts` and `sharedTime.ts` from the reducer in
+`editor.ts`; the blocks are the domain's shortcuts (`blocks.ts`). The list being
+open, the day whose sheet is open and the choice "Back to Evening instead" returns
+to are view state and never stored; the address does not change. An answer never
+given opens empty, for a returning member as for a first-timer; previous times are
+not applied on open (ADR 0077). `AvailabilityPicking`, `AvailabilityInline`,
+`AvailabilityPerDay`, `AvailabilityHours` and `AvailabilityReturning` are states of
+the same route, not routes of their own. With no backend the gallery opens the block
+in each state: `/j/abc?view=block`, `?view=each` and `?view=sheet` (a whole-day plan,
+since Sunday Crew's evenings have no choice to make).
 
 **Counts of what others said, SUS-129 (ADR 0045), on the tiles in SUS-206:** the
 figure on each day is `data/availability/others.ts` read on open

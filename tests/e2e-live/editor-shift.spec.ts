@@ -26,7 +26,7 @@ const top = (page: Page) =>
     .getByRole('group', { name: 'Days in this plan' })
     .evaluate((e) => e.getBoundingClientRect().top);
 
-const LONG = /The number is how many people can make it/;
+const LONG = /The number is how many can make it/;
 
 for (const width of [390, 195]) {
   test(`the day grid does not move when the counts arrive, at ${width} wide`, async ({
@@ -64,8 +64,6 @@ test('a read that fails leaves the editor with the short line and no room held',
   const crew = sundayCrew();
   await page.route('**/rpc/others_availability', (route) => route.abort());
   await arrives(page, crew, 'Ren');
-  await expect(
-    page.getByText("Tap every evening you'd be up for, or drag across them.", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText('Tap or drag across the evenings.', { exact: true })).toBeVisible();
   await expect(page.getByText(LONG)).toHaveCount(0);
 });

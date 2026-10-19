@@ -33,10 +33,10 @@ import type { DayRow } from './days';
  *
  * People pick days first and then a time once for all of them (ADR 0068, which
  * amends ADR 0024): tapping a day gives it the current time of day, so a tapped
- * day is a day with times, and "Change time" gives every tapped day another
- * one; "A time for each day" gives one day another, and "By the half hour"
- * opens a day's cells. The state also holds that time of day (`window`) and
- * which day is open for adjusting by the half hour. Those two are
+ * day is a day with times, and a pill gives every tapped day another one (ADR
+ * 0079); "A time for each day" gives one day another, and a day's clock opens
+ * its cells on a sheet. The state also holds that time of day (`window`) and
+ * which day's sheet is open. Those two are
  * **view state**: the draft on the device and the request to the server are
  * built from `days` and `flexible` alone (`useSendAnswer`), so a choice of
  * window never reaches storage or the network.
@@ -50,11 +50,11 @@ export type EditorState = {
   days: boolean[][];
   flexible: boolean;
   /**
-   * The time of day a newly tapped day gets, and the one "Change time" last
-   * applied. View state.
+   * The time of day a newly tapped day gets, and the one the pills last
+   * applied to every day. View state.
    */
   window: BlockKind;
-  /** The one day open for adjusting by the half hour. View state. */
+  /** The one day whose hours are open on a sheet. View state. */
   open: number | undefined;
 };
 
@@ -68,15 +68,15 @@ export type EditorAction =
    * so dragging back undoes what dragging forward did.
    */
   | { type: 'stroke'; days: boolean[][] }
-  /** "Change time": this time of day on every tapped day, whatever they had. */
+  /** A pill on the first screen: this time of day on every tapped day, whatever they had. */
   | { type: 'set_window'; kind: BlockKind }
-  /** "A time for each day": this time of day on this one day, and no other. */
+  /** A pill on a day's row: this time of day on this one day, and no other. */
   | { type: 'set_day_window'; day: number; kind: BlockKind }
-  /** "Use one time for all days": the shared time of day on every tapped day. */
+  /** "Same for every day": the shared time of day on every tapped day. */
   | { type: 'use_one_time' }
-  /** Opens a day for adjusting, or closes it if it is the one open. */
+  /** Opens a day's hours on a sheet, or closes it if it is the one open. */
   | { type: 'open'; day: number }
-  /** Closes whichever day is open, on the way out of the half hours. */
+  /** Closes whichever day's sheet is open. */
   | { type: 'close' }
   | { type: 'flexible'; on: boolean }
   /**

@@ -115,7 +115,7 @@ for (const size of SIZES) {
       await expectNoSidewaysOverflow(page);
     });
 
-    test('Your hours each evening: heading, day lines and Done share the column, Done in view', async ({
+    test('Your hours each evening: the heading, the day rows and the clock sheet share the column', async ({
       page,
     }) => {
       await page.clock.setFixedTime(new Date('2026-10-12T09:00:00+11:00'));
@@ -125,26 +125,29 @@ for (const size of SIZES) {
         await tuesday.click();
         await expect(tuesday).toHaveAttribute('aria-pressed', 'true', { timeout: 1000 });
       }).toPass();
-      // The fixture plan is evenings only: one window, so no sheet, straight to the days.
-      await page.getByRole('button', { name: /^Adjust hours for/ }).click();
+      // The fixture plan is evenings only: one window, so no pills, and Adjust hours
+      // swaps the block for the list of days in place.
+      await page.getByRole('button', { name: 'Adjust hours', exact: true }).click();
       const heading = page.getByRole('heading', { name: 'Your hours each evening' });
-      const done = page.getByRole('button', { name: 'Done', exact: true });
       await expect(heading).toBeVisible();
-      await expect(done).toBeVisible();
-
-      const h = (await heading.boundingBox())!;
-      const d = (await done.boundingBox())!;
       const gutter = 22;
       const column = Math.min(size.width, COLUMN);
       const left = (size.width - column) / 2;
-      expect(d.x).toBeCloseTo(h.x, 0);
-      expect(d.width).toBeCloseTo(column - 2 * gutter, 0);
-      expect(d.x + d.width / 2).toBeCloseTo(size.width / 2, 0);
-      expect(d.y + d.height).toBeLessThanOrEqual(size.height);
+      const h = (await heading.boundingBox())!;
+      expect(h.x).toBeGreaterThanOrEqual(left + gutter - 1);
+      expect(h.x + h.width).toBeLessThanOrEqual(left + column - gutter + 1);
       await expectNoSidewaysOverflow(page);
 
-      // A day's hours (HoursEditor) are inside the column too, and so is its picker sheet.
-      await page.getByRole('button', { name: /^Tuesday.*Set exact hours$/ }).click();
+      // A day's clock opens its hours on the app's sheet, inside the column too.
+      await page.getByRole('button', { name: /^Exact hours, Tuesday/ }).click();
+      const done = page.getByRole('button', { name: 'Done', exact: true });
+      await expectStill(done);
+      const dn = (await done.boundingBox())!;
+      expect(dn.width).toBeLessThanOrEqual(column - 2 * gutter + 1);
+      expect(dn.x + dn.width / 2).toBeCloseTo(size.width / 2, 0);
+      await expectNoSidewaysOverflow(page);
+
+      // The pairs are inside the column, and so is the picker sheet over them.
       const until = page.getByRole('button', { name: /^Free until, Tuesday/ });
       await expect(until).toBeVisible();
       const u = (await until.boundingBox())!;

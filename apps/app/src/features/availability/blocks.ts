@@ -47,10 +47,10 @@ export function blocksFor(timing: BlockTiming): readonly BlockKind[] {
 }
 
 /**
- * The times of day the "Change time" sheet offers (SUS-206): Evening,
+ * The times of day the first screen's pills offer (SUS-206, ADR 0079): Evening,
  * Daytime (9 am to 5 pm, the domain's `daytime`), Any time that day; and on tonight's plan, From now and Later
  * tonight. Morning is still a block (a day somebody's usual times painted can
- * be one, and the answer line names it), but it is not one of the three
+ * be one, and the hours line names it), but it is not one of the three
  * choices: it is reached through the half hours.
  */
 export const WINDOWS: readonly BlockKind[] = ['evening', 'daytime', 'any_time'];

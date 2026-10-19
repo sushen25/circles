@@ -3,7 +3,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetHoursRouter } from '../../test/hours-router';
 
 /**
  * After sending, a signed-in member with a confirmed address (SUS-164): their
@@ -18,8 +17,8 @@ import { resetHoursRouter } from '../../test/hours-router';
 const push = vi.fn();
 const replace = vi.fn();
 vi.mock('expo-router', async () => {
-  const { hoursRouter } = await import('../../test/hours-router');
-  return hoursRouter({ replace: (h) => replace(h), push: (h) => push(h) });
+  const { answerRouter } = await import('../../test/answer-router');
+  return answerRouter({ replace: (h) => replace(h), push: (h) => push(h) });
 });
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
@@ -86,7 +85,6 @@ async function tap() {
 }
 
 beforeEach(() => {
-  resetHoursRouter();
   Object.assign(session, {
     status: 'guest',
     userId: 'nina',

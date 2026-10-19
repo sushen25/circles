@@ -127,16 +127,14 @@ describe('the copy file', () => {
       'parts',
       'rest',
       'last',
-      // SUS-206's: the answer line and the sheet name the tapped days, and "and 5 more".
+      // SUS-206's, and SUS-236's: the count of tapped days, a day's hours, a choice.
       'days',
       'first',
       'word',
       'hours',
       'choice',
       'thing',
-      'lead',
-      'exceptions',
-      'what',
+      'things',
       // SUS-198's: circle home's marks say who answered and who has not yet.
       'answered',
       'waiting',

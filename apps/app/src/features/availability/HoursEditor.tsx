@@ -3,12 +3,12 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { color, faceFor, hit, radius } from '@circles/tokens';
 
-import { Icon, Label, Sheet, Small, Tertiary, usePalette } from '../../components';
+import { Icon, Label, Small, Tertiary, usePalette } from '../../components';
 import { spaceToPress } from '../../components/keys';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 import { addRange, cellsOf, removeRange, setEdge } from './hours';
-import type { DayCardView } from './view';
+import type { DayRowView } from './view';
 
 /**
  * A day's hours as From – to pairs (SUS-206, ADR 0068, replacing the painted
@@ -18,13 +18,14 @@ import type { DayCardView } from './view';
  * one line says when most others are free. The cells stay the answer (ADR 0009);
  * this only sets them, so a pair that runs into another merges with it.
  *
- * The picker is the app's `Sheet` with a list of buttons rather than a native
- * time input: the same on the web and on a phone, a half hour's step and the
+ * The picker is a list of radios that takes the pairs' place on the day's sheet
+ * (a second sheet over the first left it without its dialog role, which a screen
+ * reader notices), rather than a native time input: the same on the web and on a phone, a half hour's step and the
  * plan's band for that day as its only choices (a native input offers every
  * minute and no bounds), and every row a button a keyboard can reach.
  */
 type Props = {
-  card: DayCardView;
+  card: DayRowView;
   dimmed: boolean;
   onPaint?: ((day: number, cells: boolean[]) => void) | undefined;
 };
@@ -42,9 +43,53 @@ export function HoursEditor({ card, dimmed, onPaint }: Props) {
     onPaint?.(card.day, cellsOf(next, hours.length));
   const open = picking === undefined ? undefined : hours.ranges[picking.index];
 
+  if (open !== undefined && picking !== undefined) {
+    const options = picking.which === 'from' ? open.fromOptions : open.toOptions;
+    const chosenAt = picking.which === 'from' ? open.from : open.to;
+    return (
+      <Stack gap={12}>
+        <Text style={[styles.pickTitle, { color: palette.ink }]}>
+          {t('availability', picking.which === 'to' ? 'pick_until' : 'pick_from')}
+        </Text>
+        <ScrollView style={styles.list} role="radiogroup">
+          {options.map((option) => {
+            const chosen = option.boundary === chosenAt;
+            const choose = () => {
+              paint(setEdge(ranges, picking.index, picking.which, option.boundary, hours.length));
+              setPicking(undefined);
+            };
+            return (
+              <Pressable
+                key={option.boundary}
+                role="radio"
+                aria-checked={chosen}
+                aria-label={option.label}
+                onPress={choose}
+                {...spaceToPress(choose)}
+                style={[
+                  styles.option,
+                  { borderColor: palette.line },
+                  chosen && { backgroundColor: color.accentSoft, borderColor: palette.accent },
+                ]}
+              >
+                <Text style={[styles.optionText, { color: palette.ink }]}>{option.label}</Text>
+                {chosen ? <Icon name="check" size={18} color={palette.accent} /> : null}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+        <Tertiary
+          tone="plain"
+          label={t('availability', 'sheet_dismiss')}
+          onPress={() => setPicking(undefined)}
+        />
+      </Stack>
+    );
+  }
+
   return (
     <Stack gap={12}>
-      <Small>{t('availability', 'hours_guidance')}</Small>
+      <Small>{t('availability', 'day_hours_guidance')}</Small>
       <Label>{t('availability', 'free_from')}</Label>
       {hours.ranges.map((range, index) => (
         <View key={range.from} style={styles.pair}>
@@ -110,47 +155,6 @@ export function HoursEditor({ card, dimmed, onPaint }: Props) {
         </View>
       </View>
       {hours.others === undefined ? null : <Small>{hours.others}</Small>}
-      <Sheet
-        visible={open !== undefined}
-        onDismiss={() => setPicking(undefined)}
-        label={t('availability', picking?.which === 'to' ? 'pick_until' : 'pick_from')}
-        dismissLabel={t('availability', 'sheet_dismiss')}
-      >
-        <Text style={[styles.pickTitle, { color: palette.ink }]}>
-          {t('availability', picking?.which === 'to' ? 'pick_until' : 'pick_from')}
-        </Text>
-        <ScrollView style={styles.list} role="radiogroup">
-          {open === undefined || picking === undefined
-            ? null
-            : (picking.which === 'from' ? open.fromOptions : open.toOptions).map((option) => {
-                const chosen = option.boundary === (picking.which === 'from' ? open.from : open.to);
-                const choose = () => {
-                  paint(
-                    setEdge(ranges, picking.index, picking.which, option.boundary, hours.length),
-                  );
-                  setPicking(undefined);
-                };
-                return (
-                  <Pressable
-                    key={option.boundary}
-                    role="radio"
-                    aria-checked={chosen}
-                    aria-label={option.label}
-                    onPress={choose}
-                    {...spaceToPress(choose)}
-                    style={[
-                      styles.option,
-                      { borderColor: palette.line },
-                      chosen && { backgroundColor: color.accentSoft, borderColor: palette.accent },
-                    ]}
-                  >
-                    <Text style={[styles.optionText, { color: palette.ink }]}>{option.label}</Text>
-                    {chosen ? <Icon name="check" size={18} color={palette.accent} /> : null}
-                  </Pressable>
-                );
-              })}
-        </ScrollView>
-      </Sheet>
     </Stack>
   );
 }
