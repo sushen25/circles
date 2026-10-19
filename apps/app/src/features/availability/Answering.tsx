@@ -301,7 +301,7 @@ export function Answering({
       }}
       onChooseDay={(day, kind) => edit({ type: 'set_day_window', day, kind })}
       onOpenDay={(day) => {
-        setBefore(view.rows.find((row) => row.day === day)?.choices.find((c) => c.on)?.kind);
+        setBefore(view.rows.find((row) => row.day === day)?.window);
         edit({ type: 'open', day });
       }}
       onPaintDay={(day, cells) => edit({ type: 'paint', day, cells })}

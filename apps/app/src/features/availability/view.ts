@@ -72,6 +72,8 @@ export type DayRowView = {
   spoken: string;
   /** The hours match none of the choices: none is selected and the clock is lit. */
   own: boolean;
+  /** The time of day the day is exactly, whether or not the plan offers a choice of it. */
+  window: BlockKind | undefined;
   /** Only the choices this plan offers, and that exist on this day; none for one window. */
   choices: ChoiceView[];
   /** The day's hours in words, "6–9:30 pm". */
@@ -262,6 +264,7 @@ export function editorView(
       name: dayName(row.date, locale),
       spoken: row.spoken,
       own: matched === undefined,
+      window: matched,
       choices: (only !== undefined ? [] : offered)
         .filter((offer) => offer.days.includes(day))
         .map((offer) => ({

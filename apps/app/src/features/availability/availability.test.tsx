@@ -246,6 +246,21 @@ describe('painting and sending', () => {
 });
 
 describe('the list and the sheet are parts of the first screen (SUS-236)', () => {
+  it('goes Back to Evening from a one-window day too, without touching the other days', async () => {
+    open();
+    await screen.findByText('Which evenings could work?');
+    fireEvent.click(dayButton('Monday', 14));
+    fireEvent.click(dayButton('Tuesday', 15));
+    eachDay();
+
+    byTheHalfHour('Monday');
+    pick('to', 'Monday', '10:30 pm', '9:00 pm');
+    expect(dayButton('Monday', 14)).toHaveAccessibleName(/, 5:30–9 pm$/);
+    await tap(screen.getByRole('button', { name: 'Back to Evening instead' }));
+    expect(dayButton('Monday', 14)).toHaveAccessibleName(/, 5:30–10:30 pm$/);
+    expect(dayButton('Tuesday', 15)).toHaveAccessibleName(/, 5:30–10:30 pm$/);
+  });
+
   it('open and close in place: the address does not change and Back leaves the page', async () => {
     open();
     await screen.findByText('Which evenings could work?');

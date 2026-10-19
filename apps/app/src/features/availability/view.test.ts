@@ -148,6 +148,8 @@ describe('the answer block (SUS-236)', () => {
     expect(shown.single).toBe(true);
     expect(shown.band).toBe('evenings');
     expect(shown.rows[0]!.choices).toEqual([]);
+    // No pills, but the day still knows which time of day it is, to go Back to.
+    expect(shown.rows[0]!.window).toBe('evening');
   });
 
   it('turns none of the choices on once a day is adjusted by the half hour, and says its hours', () => {
