@@ -1,12 +1,9 @@
 import { instant } from '@circles/domain';
-import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { Db } from '../_shared/db.ts';
 import { cadenceWork } from './cadence.ts';
 import { type DueJob, send } from './send.ts';
-import { envSnapshot } from '../_shared/testEnv.ts';
-
-afterAll(envSnapshot());
 
 /**
  * The cadence nudge through the dispatcher (S2-04), against a fake database.

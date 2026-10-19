@@ -1,10 +1,7 @@
 import { readFileSync } from 'node:fs';
 
 import { EXTENSION_HOURS, EXTENSION_MARGIN_MINUTES } from '@circles/domain';
-import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { envSnapshot } from './_shared/testEnv.ts';
-
-afterAll(envSnapshot());
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * The two ways out of "replies closed with no decision" that are new endpoints

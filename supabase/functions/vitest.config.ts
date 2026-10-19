@@ -21,6 +21,8 @@ export default defineConfig({
     name: 'functions',
     include: ['**/*.test.ts'],
     environment: 'node',
+    // Restores `process.env` after each file; the files share a process.
+    setupFiles: ['./vitest.env.config.ts'],
     // One process for this project's files rather than one each.
     //
     // `handlers.test.ts` loads all three function modules at import time, and each

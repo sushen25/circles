@@ -1,9 +1,6 @@
-import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EmailSendError, sendEmail } from './resend.ts';
-import { envSnapshot } from '../testEnv.ts';
-
-afterAll(envSnapshot());
 
 /**
  * The provider is a `fetch` handed in, so nothing here reaches the network —

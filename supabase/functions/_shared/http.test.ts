@@ -1,8 +1,5 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { envSnapshot } from './testEnv.ts';
-
-afterAll(envSnapshot());
 
 /**
  * The wrapper, driven end to end with the database stubbed out.
