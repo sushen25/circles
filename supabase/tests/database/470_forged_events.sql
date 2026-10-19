@@ -210,6 +210,10 @@ insert into analytics.events (event_id, event_name, schema_version, user_id, cir
 select gen_random_uuid(), 'email_submitted', 1, '00000000-0000-0000-0000-0000000d0001', cs.real,
        '{"save_place": true}'::jsonb, now() - interval '1 day'
 from cs;
+insert into analytics.events (event_id, event_name, schema_version, user_id, circle_id, properties, occurred_at)
+select gen_random_uuid(), 'email_submitted', 1, '00000000-0000-0000-0000-0000000d0003', cs.real,
+       '{"save_place": true}'::jsonb, now() - interval '1 day'
+from cs;
 insert into private.email_contacts (user_id, email_normalized, status, verified_at)
 values ('00000000-0000-0000-0000-0000000d0001', 'maya-forged-test@example.com', 'verified', now() - interval '1 day' + interval '1 minute');
 
@@ -261,7 +265,7 @@ select is(
 -- which is all a signed-in member could ever send, move neither gate now that
 -- neither reads them (SUS-213). Before it, 40 of these raised the reattach gate.
 insert into analytics.events (event_id, event_name, schema_version, user_id, circle_id, properties, occurred_at)
-select gen_random_uuid(), n, 1, '00000000-0000-0000-0000-0000000d0001', cs.real,
+select gen_random_uuid(), n, 1, '00000000-0000-0000-0000-0000000d0003', cs.real,
        case n when 'member_reattached' then '{"source": "list"}'::jsonb else '{}'::jsonb end,
        now() - interval '1 day' + interval '2 minutes'
 from cs, generate_series(1, 40), unnest(array['member_reattached', 'email_verified', 'account_claimed']) n;

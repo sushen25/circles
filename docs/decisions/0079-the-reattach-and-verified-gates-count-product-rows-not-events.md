@@ -28,8 +28,9 @@ functions that own them.
 - **The verified gate's numerator is `private.email_contacts` and the audit log.**
   A guest who submitted an address counts as verified when they have a contact
   with `verified_at` at or after the submission, or a recorded claim
-  (`growth.account_claimed`, `circles.member_claimed`: signing in with the code
-  proves the address, the route the gate has always counted).
+  (`growth.account_claimed`, `circles.member_claimed`: signing in is the other
+  route the gate has always counted). A proof counts from five minutes before the
+  submission's client-reported time, so a fast clock does not lose it.
 - **The denominators stay client events** and are bounded: `session_missing_on_return`
   has no product table (a session that is missing leaves no row), and
   `email_submitted` is the guest's act before any contact is verified. A forged
@@ -48,6 +49,12 @@ functions that own them.
 
 - A forged `member_reattached`, `email_verified` or `account_claimed` event moves
   neither gate; a pgTAP test shows it, and shows a real reattachment and verification do.
-- A verified contact deleted by retention drops out of the numerator for that guest;
-  the gate is read over recent weeks, so this is rare and conservative.
+- **The verified numerator decays.** `verified_at` is cleared by an unsubscribe,
+  a bounce or a complaint, and retention deletes a finished plan's contact after
+  30 days, so an older verification drops out while its `email_submitted` stays.
+  The gate reads low over the longer periods, never high. A durable verification
+  row is the follow-up if the founder needs those periods exact.
+- The audit log is kept 12 months, so a window beyond that loses reattach
+  numerators. `gate_claim_moments` and `reattach_rate` (`founder_summary`) still
+  read client events and are outside this change.
 - The events are still recorded and still appear in the event counts.

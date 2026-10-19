@@ -50,7 +50,9 @@ select u.day, sum(u.missing)::bigint as missing, sum(u.reattached)::bigint as re
 from (select * from missing union all select * from reattached) u
 group by u.day, u.cohort;
 
--- A guest's cohort is the cohort of their first submission.
+-- A guest's cohort is the cohort of their first submission. `submitted.at` is the
+-- client's clock and the proofs are the server's, so a proof counts from five
+-- minutes before it.
 create or replace view analytics.gate_email_verified as
 with submitted as (
   select coalesce(e.user_id::text, e.anonymous_id) as actor,
@@ -75,12 +77,18 @@ verified as (
   select a.metadata ->> 'from_user_id', a.occurred_at
   from private.audit_log a
   where a.action = 'circles.member_claimed' and a.metadata ? 'from_user_id'
+  union all
+  -- The guest's events move to the account they sign in to, so the account is
+  -- the actor too (an account claimed before has no new `growth.account_claimed`).
+  select a.actor_user_id::text, a.occurred_at
+  from private.audit_log a
+  where a.action = 'circles.member_claimed' and a.actor_user_id is not null
 )
 select
   s.at::date as day,
   count(*) as submitted,
   count(*) filter (
-    where exists (select 1 from verified v where v.actor = s.actor and v.at >= s.at)
+    where exists (select 1 from verified v where v.actor = s.actor and v.at >= s.at - interval '5 minutes')
   ) as verified,
   s.cohort
 from submitted s
