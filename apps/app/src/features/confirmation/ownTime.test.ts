@@ -5,10 +5,10 @@ import { dateWords } from '../availability/days';
 import * as fixture from '../scheduling/fixtures';
 import { dateOf } from '../scheduling/words';
 import { detailsChanged, editNoticeOf } from './editLocked';
-import { fixtureOthers, fixtureStretch } from './fixtureStretch';
+import { fixtureOthers, fixtureOwn, fixtureStretch } from './fixtureStretch';
 import { ownReviewOf } from './ownReview';
 import { fieldsOf } from './review';
-import { gridDays, lengthWords, optionAt, primaryLabelOf } from './setTime';
+import { gridDays, lengthWords, optionAt, ownOn, primaryLabelOf } from './setTime';
 import { stretchWords } from './stretch';
 import { pickOf, type TimePick } from './time';
 
@@ -71,7 +71,7 @@ describe("who a time works for, in the cards' own words", () => {
 
 describe('the picker', () => {
   const days = (pick: TimePick) =>
-    gridDays({ month: '2026-09-01', pick, plan, others: fixtureOthers, now: NOW });
+    gridDays({ month: '2026-09-01', pick, plan, others: fixtureOthers, own: fixtureOwn, now: NOW });
 
   it('picks one day, fades the days gone and the days too far ahead, and says so', () => {
     const grid = days(fridayPick);
@@ -97,11 +97,85 @@ describe('the picker', () => {
   it("carries SUS-129's figure on days the others have times on", () => {
     const grid = days(fridayPick);
     const thursday = grid.find((d) => d.number === '17')!;
-    expect(thursday.others).toBe('4');
+    // Four others and Maya's own Thursday.
+    expect(thursday.others).toBe('5');
     expect(thursday.label).toBe(
-      `${dateWords(localDate('2026-09-17'), 'long')}, 4 others could make some of it`,
+      `${dateWords(localDate('2026-09-17'), 'long')}, 5 people could make some of it, you included`,
     );
     expect(grid.find((d) => d.number === '12')!.others).toBeUndefined();
+  });
+
+  it("adds the organiser's own answer to a day: with no others, one, or two", () => {
+    const own = (day: string, others: typeof fixtureOthers | undefined) =>
+      gridDays({
+        month: '2026-09-01',
+        pick: fridayPick,
+        plan,
+        others,
+        own: fixtureOwn,
+        now: NOW,
+      }).find((d) => d.key === day)!;
+    const said = (dayCounts: { date: string; count: number }[], withTimes: number) => ({
+      ...fixtureOthers,
+      withTimes,
+      flexible: 0,
+      dayCounts: dayCounts.map((d) => ({ date: localDate(d.date), count: d.count })),
+    });
+    // Maya has a window on the 15th. Nobody else: 1, her alone.
+    const alone = own('2026-09-15', undefined);
+    expect(alone.others).toBe('1');
+    expect(alone.label).toBe(
+      `${dateWords(localDate('2026-09-15'), 'long')}, 1 person could make some of it, you included`,
+    );
+    expect(own('2026-09-15', said([], 0)).others).toBe('1');
+    // One other, and two others.
+    expect(own('2026-09-15', said([{ date: '2026-09-15', count: 1 }], 1)).others).toBe('2');
+    expect(own('2026-09-15', said([{ date: '2026-09-15', count: 2 }], 2)).others).toBe('3');
+    // A day she has no window on is the others' count alone, and does not say "you".
+    const not = own('2026-09-16', said([{ date: '2026-09-16', count: 1 }], 1));
+    expect(not.others).toBe('1');
+    expect(not.label).toBe(
+      `${dateWords(localDate('2026-09-16'), 'long')}, 1 person could make some of it`,
+    );
+    expect(own('2026-09-18', undefined).others).toBeUndefined();
+  });
+
+  it('counts "I\'m easy" on every day in range and "none of these" on none', () => {
+    const easy = {
+      status: 'flexible' as const,
+      windows: [],
+      submittedAt: '2026-09-08T00:00:00.000Z',
+    };
+    const none = {
+      status: 'none_work' as const,
+      windows: [],
+      submittedAt: '2026-09-08T00:00:00.000Z',
+    };
+    // The plan runs 14 to 20 September.
+    expect(ownOn(easy, plan, '2026-09-14')).toBe(true);
+    expect(ownOn(easy, plan, '2026-09-20')).toBe(true);
+    expect(ownOn(easy, plan, '2026-09-13')).toBe(false);
+    expect(ownOn(easy, plan, '2026-09-21')).toBe(false);
+    // Where the window has gaps, only the days asked about.
+    expect(ownOn(easy, { ...plan, days: ['2026-09-15', '2026-09-17'] }, '2026-09-16')).toBe(false);
+    expect(ownOn(easy, { ...plan, days: ['2026-09-15', '2026-09-17'] }, '2026-09-17')).toBe(true);
+    for (const day of ['2026-09-14', '2026-09-17', '2026-09-20']) {
+      expect(ownOn(none, plan, day)).toBe(false);
+    }
+    expect(ownOn(null, plan, '2026-09-17')).toBe(false);
+    expect(ownOn(undefined, plan, '2026-09-17')).toBe(false);
+  });
+
+  it('shows the organiser alone on a day when the others are held back', () => {
+    const grid = gridDays({
+      month: '2026-09-01',
+      pick: fridayPick,
+      plan,
+      others: { ...fixtureOthers, withTimes: 0, dayCounts: [] },
+      own: fixtureOwn,
+      now: NOW,
+    });
+    expect(grid.find((d) => d.key === '2026-09-17')!.others).toBe('1');
   });
 
   it('names the length in words, and whether it is the one the plan asked for', () => {

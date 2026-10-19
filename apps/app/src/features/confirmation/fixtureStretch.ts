@@ -3,12 +3,14 @@ import {
   fromLocal,
   interval,
   localDate,
+  toISO,
   whoCanMake,
   zone as toZone,
   type OthersSaid,
   type UserId,
 } from '@circles/domain';
 
+import type { OwnAnswer } from '../../data/availability';
 import type { Stretch } from '../../data/confirmation';
 
 /**
@@ -119,4 +121,11 @@ export const fixtureOthers: OthersSaid = {
   readerAnswered: true,
   dayCounts: dayCountsOf(othersDays, ZONE),
   days: othersDays,
+};
+
+/** Maya's own answer, as she reads it: the organiser is among the people on a day (SUS-233). */
+export const fixtureOwn: OwnAnswer = {
+  status: 'windows',
+  windows: RESPONSES[0][1].windows.map((w) => ({ start: toISO(w.start), end: toISO(w.end) })),
+  submittedAt: '2026-09-08T00:00:00.000Z',
 };

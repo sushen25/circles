@@ -5,7 +5,7 @@ import { useState } from 'react';
 
 import { t } from '../../copy';
 import { hasBackend } from '../../data/auth/client';
-import { othersSaid } from '../../data/availability';
+import { othersSaid, ownResponse, type OwnAnswer } from '../../data/availability';
 import type { Stretch } from '../../data/confirmation';
 import type { PlanCandidates } from '../../data/scheduling';
 import { isOffline } from '../identity/join/failure';
@@ -13,7 +13,7 @@ import { clockNow, usePlanClock } from '../planning/clock';
 import { monthOf, shiftMonth } from '../planning/calendar';
 import * as fixture from '../scheduling/fixtures';
 import { useCandidates } from '../scheduling/useCandidates';
-import { fixtureOthers, fixtureStretch } from './fixtureStretch';
+import { fixtureOthers, fixtureOwn, fixtureStretch } from './fixtureStretch';
 import { SetTimeScreen } from './SetTimeScreen';
 import { calendarOf, clockOf, optionAt, primaryLabelOf } from './setTime';
 import { stretchWords } from './stretch';
@@ -71,6 +71,7 @@ function FixtureSetTime({ mode }: { mode: SetTimeMode }) {
       plan={plan}
       planId={plan.planId}
       others={fixtureOthers}
+      own={fixtureOwn}
       now={now}
       mode={mode}
       initial={undefined}
@@ -105,6 +106,16 @@ function LiveSetTime({
     staleTime: 30_000,
   });
 
+  // The organiser's own answer, which the counts above leave out: read as the
+  // guest editor reads it, through RLS, and nothing about anybody else (SUS-233).
+  const own = useQuery({
+    queryKey: ['own-answer', planId, data?.revision],
+    queryFn: () => ownResponse(planId, data?.revision ?? 0),
+    enabled: data?.isOrganiser === true,
+    // Read again each time the picker opens: they may have just changed it.
+    staleTime: 0,
+  });
+
   const back = () =>
     router.canGoBack()
       ? router.back()
@@ -137,6 +148,7 @@ function LiveSetTime({
       plan={data}
       planId={planId}
       others={others.data ?? undefined}
+      own={own.data ?? undefined}
       now={clock as Instant}
       mode={mode}
       initial={chosen}
@@ -175,6 +187,7 @@ function Picker({
   plan,
   planId,
   others,
+  own,
   now,
   mode,
   initial,
@@ -185,6 +198,7 @@ function Picker({
   plan: PlanCandidates;
   planId: string;
   others: OthersSaid | undefined;
+  own: OwnAnswer | undefined;
   now: Instant;
   mode: SetTimeMode;
   initial: { startsAt: string; endsAt: string } | undefined;
@@ -231,6 +245,7 @@ function Picker({
         pick,
         plan,
         others,
+        own,
         now,
         canEarlier: month > monthOf(today),
         onDay: (day) => setPick(onDay(pick, day as TimePick['day'])),
