@@ -823,7 +823,46 @@ describe('reattach-member', () => {
     expect(scopes).not.toContain('reattach_circle');
   });
 
-  it('counts against the circle when the membership was chosen from the list', async () => {
+  it("does not let somebody outside a circle use up its members' allowance", async () => {
+    const circle = '00000000-0000-4000-8000-0000000000c1';
+    const target = '00000000-0000-4000-8000-0000000000a1';
+    withRealCounters();
+    const base = state.answer;
+    const stranger = asPerson(1);
+    const member = asPerson(2);
+    let caller = stranger;
+    state.answer = (fn, args) =>
+      fn === 'reattach_member' && caller === stranger
+        ? { data: null, error: { message: 'member_not_found', code: 'P0002' } }
+        : base(fn, args);
+
+    // Far more junk than the old per-circle bucket allowed, each from a
+    // different address so the per-address limit is not what is being tested.
+    for (let n = 0; n < 60; n += 1) {
+      state.users = [{ id: stranger, is_anonymous: true }];
+      await load('reattach-member')(
+        postFrom(`198.51.100.${n + 1}`, {
+          idempotency_key: KEY,
+          circle_id: circle,
+          target_member_user_id: target,
+        }),
+      );
+    }
+
+    caller = member;
+    state.users = [{ id: member, is_anonymous: true }];
+    const response = await load('reattach-member')(
+      postFrom('203.0.113.9', {
+        idempotency_key: KEY,
+        circle_id: circle,
+        target_member_user_id: target,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+  });
+
+  it('counts only the address when the membership was chosen from the list', async () => {
     const handler = load('reattach-member');
     const answered = await handler(
       post({
@@ -835,7 +874,8 @@ describe('reattach-member', () => {
     expect(answered.status).toBe(200);
 
     const scopes = called('take_rate_token').map((call) => call.args['p_scope']);
-    expect(scopes.sort()).toEqual(['reattach_circle', 'reattach_ip']);
+    // The per-circle limit is the database's (ADR 0049), not an Edge counter.
+    expect(scopes).toEqual(['reattach_ip']);
     // The list form carries no token argument at all.
     expect(called('reattach_member')[0]?.args).toEqual({
       p_circle_id: '00000000-0000-4000-8000-0000000000c1',
@@ -987,6 +1027,29 @@ describe('create-plan', () => {
       }
       return { data: null, error: null };
     };
+  });
+
+  it("does not let somebody outside a circle use up its members' allowance", async () => {
+    const stranger = asPerson(1);
+    const member = asPerson(2);
+    withRealCounters();
+
+    // More than either bucket allows, from a saved-place account that is not in
+    // the circle but knows its id.
+    for (let n = 0; n < 60; n += 1) {
+      state.users = [{ id: stranger, is_anonymous: false }];
+      await load('create-plan')(postFrom('198.51.100.7', { ...body, circle_id: CIRCLE_ID }));
+    }
+    const scopes = called('take_rate_token').map((call) => call.args['p_scope']);
+    expect(scopes).toContain('create_plan_circle');
+
+    state.users = [{ id: member, is_anonymous: false }];
+    const response = await load('create-plan')(
+      postFrom('203.0.113.9', { ...body, circle_id: CIRCLE_ID }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(called('create_plan').length).toBeGreaterThan(0);
   });
 
   it('refuses a guest with the reason that opens InitiateGate', async () => {
