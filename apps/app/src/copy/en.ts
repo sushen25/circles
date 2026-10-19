@@ -1227,7 +1227,7 @@ export const en = {
     stage_quiet_ask: 'Quiet-ask value',
     stage_growth: 'Growth',
     stage_quiet_ask_missing:
-      'Not measured: whether the threshold was reached, who took the role and when asks expire are not recorded anywhere yet.',
+      'Not measured: who took the role and when asks expire are not recorded anywhere yet.',
     step_draft_started: 'Started a first plan',
     step_gate_shown: 'Reached the gate',
     step_gate_passed: 'Passed the gate',

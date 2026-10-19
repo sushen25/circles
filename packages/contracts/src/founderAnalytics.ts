@@ -408,8 +408,9 @@ export const FUNNEL: readonly FunnelStage[] = [
   },
   {
     // ADR 0041: only server-side aggregates with no user, plan or circle on them.
-    // The two unattributed events are counts; the rest of the stage is not
-    // recorded anywhere yet (SUS-97, SUS-50).
+    // The two unattributed events are counts. `quiet_threshold_reached` is
+    // recorded too (SUS-97) but is not a step here yet: it is a server event
+    // and this stage's test reads only the unattributed ones.
     id: 'quiet_ask',
     steps: [
       { id: 'asks_created', source: { event: 'quiet_ask_created' } },
