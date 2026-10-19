@@ -259,7 +259,7 @@ tests.
   every push.
 - **`check` runs `corepack pnpm check`** (`pnpm` is not installed globally here;
   `corepack` ships with Node 24). It takes about six minutes, or about one for a
-  change touching only Markdown and `.claude/` — those take the prose lane
+  change touching only Markdown (not `.claude/` scripts, SUS-192) — that takes the prose lane
   (Prettier and `check:docs`) and skip the suites, `preview` and `deploy-dev`
   (SUS-72).
 

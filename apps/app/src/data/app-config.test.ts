@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * `/_sitemap` lists every route, including the dev gallery and the founder's
- * screens. It belongs on a laptop and nowhere that is deployed.
+ * screens. It is left out of production and previews; `deploy-dev` builds as
+ * `development`, so a deployed dev still has it.
  */
 
 async function expoRouterOptions(appEnv: string): Promise<Record<string, unknown>> {

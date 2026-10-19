@@ -117,8 +117,8 @@ interface PendingClaim {
 
 function usable(claim: PendingClaim | undefined): claim is PendingClaim {
   // A record missing any part is not resumable, and that includes one written
-  // by an older build with a different shape — among them one with no time,
-  // which has no way to expire and so is not kept.
+  // by an older build with a different shape — a missing
+  // time is stamped on read, see `allClaims`.
   return (
     typeof claim?.anonymous_session === 'string' &&
     typeof claim.idempotency_key === 'string' &&
@@ -134,6 +134,13 @@ async function allClaims(): Promise<Record<string, PendingClaim>> {
     if (raw === null || raw === undefined) return {};
     const parsed = JSON.parse(raw) as Record<string, PendingClaim>;
     if (typeof parsed !== 'object' || parsed === null) return {};
+    // A record from before claims carried a time is stamped now rather than
+    // dropped: it may be a membership still waiting, and it expires a week on.
+    for (const claim of Object.values(parsed)) {
+      if (claim && typeof claim === 'object' && claim.created_at === undefined) {
+        claim.created_at = Date.now();
+      }
+    }
     const entries = Object.entries(parsed);
     const kept = entries.filter(([, claim]) => usable(claim));
     // Expired and malformed records are removed from storage, not just hidden.

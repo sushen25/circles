@@ -506,7 +506,8 @@ describe('how long a claim is kept', () => {
     expect(stored()).toBeNull();
   });
 
-  it('drops a record written before claims carried a time, rather than keeping it for ever', async () => {
+  it('stamps a record written before claims carried a time, so it is kept a week and then goes', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
     globalThis.localStorage.setItem(
       'circles.pending_claims',
       JSON.stringify({
@@ -519,11 +520,16 @@ describe('how long a claim is kept', () => {
       }),
     );
     state.session = SAVED;
+    await resumePendingClaim();
+    expect(state.invocations).toHaveLength(1);
 
+    state.invocations = [];
+    state.answers = [{ error: new Error('network') }];
+    await resumePendingClaim().catch(() => undefined);
+    vi.setSystemTime(Date.now() + CLAIM_TTL_MS + 60_000);
+    state.invocations = [];
     await expect(resumePendingClaim()).resolves.toBeUndefined();
-
     expect(state.invocations).toEqual([]);
-    expect(stored()).toBeNull();
   });
 });
 

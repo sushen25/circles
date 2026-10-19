@@ -284,7 +284,7 @@ which suits a secret nothing else has to agree with:
 | `INVITE_LINK_KEY` | **nobody — you invent it**: `openssl rand -base64 32`. Invite secrets are derived with it so the owner can see their link again ([ADR 0028](../decisions/0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md)). **Optional, and quiet when missing**: links are still made, but only a reset gets the owner a link back. Changing it later makes every existing link unshowable (they keep working): to change it *because it leaked*, follow "The invite key has leaked" below instead of just setting a new value. Local stacks set it in `config.toml` | own value | own value |
 | `CALENDAR_LINK_KEY` | **nobody — you invent it**: `openssl rand -base64 32`. `generate-ics` signs the short-lived token a calendar link carries with it, so one tap on an iPhone opens the system Add to Calendar ([ADR 0063](../decisions/0063-the-calendar-file-is-served-at-a-link-with-a-short-lived-signed-token.md)). **Optional, and quiet when missing**: with no key no token is made and the app fetches the file with the bearer instead (four taps on an iPhone, not one). Changing it only ends links already minted, and they last 15 minutes. Local stacks set it in `config.toml` | own value | own value |
 | `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile, pairs with the site key. **The name matters:** `_shared/turnstile.ts` reads exactly this, and skips the check when it is unset rather than failing — so a secret stored under any other name leaves web joins unverified and looks configured | the **dummy** `1x0000000000000000000000000000000AA`, pairing with the dummy site key at repository scope | the real one |
-| `CIRCLES_ENV` | `hosted` or `local`, **you choose**. Says whether `_shared/turnstile.ts` should refuse a web join when `TURNSTILE_SECRET_KEY` is missing (hosted) or skip the check (local). **Optional, and safe when missing**: without it a function judges from `SUPABASE_URL` and treats anything that is not `localhost`, `127.0.0.1`, `kong` or `host.docker.internal` as hosted, so a custom domain fails closed. Set `hosted` anyway so the answer is a statement rather than an inference | `hosted` | `hosted` |
+| `CIRCLES_ENV` | `hosted` or `local`, **you choose**. Says whether `_shared/turnstile.ts` should refuse a web join when `TURNSTILE_SECRET_KEY` is missing (hosted) or skip the check (local), and whether `_shared/email/resend.ts` refuses `EMAIL_CAPTURE_URL` (hosted) or honours it (local); never set `local` on a hosted project. **Optional, and safe when missing**: without it a function judges from `SUPABASE_URL` and treats anything that is not `localhost`, `127.0.0.1`, `kong` or `host.docker.internal` as hosted, so a custom domain fails closed. Set `hosted` anyway so the answer is a statement rather than an inference | `hosted` | `hosted` |
 | `TURNSTILE_ALLOWED_HOSTNAMES` | Comma-separated hostnames a solved challenge may name, e.g. the production app host. Cloudflare reports where the widget was solved; with this set, a good token solved anywhere else is refused. **Optional**: unset, the hostname is not checked. Leave it unset on `dev`, whose dummy key reports a placeholder hostname | unset | the app's host |
 | `EMAIL_CAPTURE_URL` | **never on a hosted project.** Local only, from `config.toml`. Set on one, it wins over `RESEND_API_KEY` and every product email goes to a catcher that is not there | never | never |
 | `RESEND_API_KEY` | Resend → API Keys | **never** — `dev` does not send | yes |
@@ -471,15 +471,16 @@ them inline; that is the one concession. A page that needs a new origin (an
 analytics host, an embed) must add it there, and the live suite fails on any
 console message from the policy, so the omission is found before a deploy does.
 `deploy-prod` runs `check:env` after it deploys, so a **rollback to a release
-older than SUS-119 ends red** on these three checks; the rollback itself is not
+older than SUS-119 ends red** on these three checks, and one older than the website's own headers (ADR 0052) on the `/` checks too; the rollback itself is not
 undone by it.
 
 **Dev routes.** Everything under `app/(dev)` (the gallery, the brand sheet, the
 fixture screens, `/settings/diagnostics`) answers not-found when
 `EXPO_PUBLIC_APP_ENV` is `production`. `/_sitemap` is left out of every export
 whose `EXPO_PUBLIC_APP_ENV` is not `development` (the plugin's `sitemap: false`),
-so a deployed `dev` or preview answers 404 too, and only the local dev server
-lists the routes (SUS-192). Other
+so production and previews answer 404. A deployed `dev` is built as
+`development` and still lists its routes; closing that needs a build flag
+`deploy-dev` does not set yet (SUS-192). Other
 deployed environments redirect the fixtures to `/start` (SUS-140), and the
 smoke export keeps them for the gallery.
 

@@ -26,6 +26,12 @@ if [ "${GENERATE:-}" = 1 ]; then
 elif [ -t 0 ]; then
   IFS= read -rs -p "Value for $key on ${ENV_NAME:-?} (hidden): " value
   echo >&2
+  # A multi-line paste would leave its other lines in the terminal to be run as
+  # commands, with the value in shell history. Refuse it.
+  if IFS= read -rs -t 0.3 _extra; then
+    echo "set-secret: the paste has more than one line; redirect a file instead: make secret ... < file" >&2
+    exit 2
+  fi
 else
   value="$(cat)"
 fi

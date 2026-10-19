@@ -157,9 +157,9 @@ const config: ExpoConfig = {
           }),
         },
         // `/_sitemap` lists every route, dev routes and the founder's screens
-        // included, and ships in every export. It is a development aid: on for
-        // the local dev server only, so a deployed `dev` or preview does not
-        // publish the route list either (SUS-119, SUS-192).
+        // included, and ships in every export. It is a development aid: off in
+        // production (SUS-119) and in previews (SUS-192). A deployed `dev` is
+        // built as `development` (deploy-dev.yml) and still ships it.
         sitemap: appEnv === 'development',
       },
     ],
