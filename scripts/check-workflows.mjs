@@ -562,6 +562,39 @@ const ciRules = (path, file, doc) => {
     }
   }
 
+  if (file === 'preview.yml') {
+    // Every PR's preview takes an alias and EAS Hosting allows 200 per account;
+    // the one that cleans up is a job nobody notices missing until the limit
+    // is hit and every preview fails (SUS-232).
+    const guard = 'head.repo.full_name == github.repository';
+    const closes = (job) => /action\s*==\s*'closed'/.test(job?.if ?? '');
+    const types = doc?.on?.pull_request?.types ?? [];
+    if (!types.includes('closed')) {
+      fail('`pull_request.types` has no `closed`, so a closed PR keeps its preview alias');
+    }
+    const cleanups = Object.entries(jobs).filter(([, job]) =>
+      /deploy:alias:delete\s+"pr-\$/.test(runText(job)),
+    );
+    if (cleanups.length === 0) {
+      fail('no job runs `eas deploy:alias:delete "pr-…"`, so aliases pile up to the 200 limit');
+    }
+    for (const [name, job] of cleanups) {
+      if (!closes(job)) fail(`\`${name}\` deletes an alias but does not run only on \`closed\``);
+      if (!String(job.if ?? '').includes(guard)) fail(`\`${name}\` has no fork guard`);
+      if (!secretsIn(job).has('EXPO_TOKEN')) fail(`\`${name}\` does not read EXPO_TOKEN`);
+      const writes = Object.entries(job.permissions ?? {}).filter(([, v]) => v !== 'read');
+      if (job.permissions === undefined || writes.length > 0) {
+        fail(`\`${name}\` must set its own permissions, all \`read\``);
+      }
+    }
+    for (const [name, job] of Object.entries(jobs)) {
+      if (cleanups.some(([c]) => c === name)) continue;
+      if (/deploy\b/.test(runText(job)) && !/action\s*!=\s*'closed'/.test(job.if ?? '')) {
+        fail(`\`${name}\` deploys but is not kept off the \`closed\` event`);
+      }
+    }
+  }
+
   if (file === 'deploy-dev.yml') {
     const waiters = Object.entries(jobs).filter(
       ([, job]) =>

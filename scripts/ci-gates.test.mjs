@@ -780,6 +780,46 @@ test('mutation: another workflow may not have a job called check', () => {
   assert.match(r.output, /only check\.yml may have one/);
 });
 
+test('mutation: the preview clean-up cannot be dropped, widened or unguarded', () => {
+  const preview = '.github/workflows/preview.yml';
+  for (const [edit, message] of [
+    [
+      (t) => t.replace('types: [opened, synchronize, reopened, closed]', 'types: [opened]'),
+      /no `closed`/,
+    ],
+    [(t) => t.replaceAll('deploy:alias:delete', 'deploy:alias:list'), /no job runs/],
+    [
+      (t) => t.replace("github.event.action == 'closed' &&", "github.event.action != 'x' &&"),
+      /does not run only on `closed`/,
+    ],
+    [
+      (t) =>
+        t.replace(
+          /(if: >-\n\s+github\.event\.action == 'closed' &&\n\s+)github\.event\.pull_request\.head\.repo\.full_name == github\.repository/,
+          '$1true',
+        ),
+      /no fork guard/,
+    ],
+    [(t) => t.replace('    permissions:\n      contents: read\n', ''), /its own permissions/],
+    [
+      (t) =>
+        t.replace(
+          '    permissions:\n      contents: read\n',
+          '    permissions:\n      contents: write\n',
+        ),
+      /its own permissions/,
+    ],
+    [
+      (t) => t.replace("github.event.action != 'closed' &&\n      ", ''),
+      /not kept off the `closed` event/,
+    ],
+  ]) {
+    const r = checkWorkflowsOn(null, preview, edit);
+    assert.equal(r.status, 1, r.output);
+    assert.match(r.output, message);
+  }
+});
+
 test('mutation: the live shards cover the whole suite', () => {
   let r = checkWorkflowsOn((t) => t.replace("shard: ['1/2', '2/2']", "shard: ['1/2']"));
   assert.equal(r.status, 1);
