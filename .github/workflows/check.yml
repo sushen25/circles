@@ -83,7 +83,7 @@ jobs:
           echo "### Gate: $kind" >> "$GITHUB_STEP_SUMMARY"
           if [ "$kind" = "prose" ]; then
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "Only Markdown and \`.claude/\` changed. Secret scanning and \`format:check\` still ran; the suites cannot be affected by these files, so they did not." >> "$GITHUB_STEP_SUMMARY"
+            echo "Only Markdown changed. Secret scanning and \`format:check\` still ran; the suites cannot be affected by these files, so they did not." >> "$GITHUB_STEP_SUMMARY"
           fi
 
   # `pnpm check:static`: formatting, lint, the small checks, typecheck and the

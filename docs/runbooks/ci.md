@@ -525,9 +525,12 @@ development client is only wanted when someone asks for one.
 ## What runs, and when it does not
 
 A prose change cannot break the suites, so it does not pay for them. "Prose"
-means **Markdown anywhere and `.claude/`, and nothing else** — `docs/design/`
-is excluded on purpose, because `gen.py` is the source the design tokens are
-generated from and `check:tokens` reads it.
+means **Markdown anywhere, and nothing else** — `docs/design/` is excluded on
+purpose, because `gen.py` is the source the design tokens are generated from
+and `check:tokens` reads it, and a script under `.claude/` is code: the skills'
+shell scripts run on the founder's machine with `gh` and Supabase credentials.
+(`preview` and `deploy-dev` still ignore `.claude/**`: it cannot alter a bundle
+or a database.)
 
 | Workflow | On a prose-only change |
 |---|---|
