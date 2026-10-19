@@ -20,13 +20,22 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
+
+import { checkFunctionConfig, checkLock, checkPins } from './import-map-pins.mjs';
+
+// `yaml` is a transitive dependency rather than a direct one; resolve it the way
+// Node would from the workspace root (as `check-workflows.mjs` does).
+const require = createRequire(import.meta.url);
 
 const MAP_PATH = 'supabase/functions/import_map.json';
 // The packages an Edge Function can reach, directly or through another.
 const REACHABLE = ['packages/domain/dist', 'packages/contracts/dist', 'packages/config/dist'];
 // And the functions themselves, which are TypeScript that Deno runs as it finds it.
 const FUNCTIONS = 'supabase/functions';
+
+const LOCK_PATH = 'supabase/functions/deno.lock';
 
 const missingBuilds = REACHABLE.filter((dir) => !existsSync(dir));
 if (missingBuilds.length > 0) {
@@ -37,6 +46,36 @@ if (missingBuilds.length > 0) {
 }
 
 const imports = JSON.parse(readFileSync(MAP_PATH, 'utf8')).imports ?? {};
+
+// Pins, before presence: what the map names must be exact, must be what
+// `pnpm-lock.yaml` resolves, and must be locked in `deno.lock`, which every
+// function's `deno.json` points at and freezes (ADR 0007's amendment).
+{
+  const { parse } = require('yaml');
+  const pnpmLock = parse(readFileSync('pnpm-lock.yaml', 'utf8'));
+  const denoLock = existsSync(LOCK_PATH) ? JSON.parse(readFileSync(LOCK_PATH, 'utf8')) : null;
+  const pinProblems = [...checkPins(imports, pnpmLock), ...checkLock(imports, denoLock, pnpmLock)];
+  for (const entry of readdirSync(FUNCTIONS)) {
+    const dir = join(FUNCTIONS, entry);
+    if (entry.startsWith('_') || entry === 'node_modules' || !existsSync(join(dir, 'index.ts'))) {
+      continue;
+    }
+    const config = existsSync(join(dir, 'deno.json'))
+      ? JSON.parse(readFileSync(join(dir, 'deno.json'), 'utf8'))
+      : undefined;
+    pinProblems.push(...checkFunctionConfig(entry, config));
+  }
+  if (pinProblems.length > 0) {
+    console.error(
+      `check:imports: ${pinProblems.length} problem(s) with the pinned dependencies:\n`,
+    );
+    for (const problem of pinProblems) console.error(`  ${problem}`);
+    console.error(
+      `\nPin each \`npm:\` entry in ${MAP_PATH} to the version pnpm-lock.yaml resolves, then regenerate ${LOCK_PATH}: see supabase/functions/README.md, "The lock file".`,
+    );
+    process.exit(1);
+  }
+}
 
 function* files(dir, extension = '.js') {
   for (const entry of readdirSync(dir)) {

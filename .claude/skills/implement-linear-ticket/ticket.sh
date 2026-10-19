@@ -69,7 +69,7 @@ edge_fresh() {
   local port; port=$(awk '/^\[api\]/{a=1;next} /^\[/{a=0} a&&/^port *=/{print $3; exit}' supabase/config.toml)
   local code=000 i
   for i in $(seq 1 60); do
-    code=$(curl -s -o /dev/null -m 5 -w '%{http_code}' "http://127.0.0.1:${port:-54321}/functions/v1/hello" 2>/dev/null || true)
+    code=$(curl -s -o /dev/null -m 5 -w '%{http_code}' "http://127.0.0.1:${port:-54321}/functions/v1/track-events" 2>/dev/null || true)
     case $code in 000|502|503) sleep 0.5 ;; *) break ;; esac
   done
   echo "== edge runtime: restarted $c (${mem:+was $mem, }answering again after $((SECONDS - t0))s)"

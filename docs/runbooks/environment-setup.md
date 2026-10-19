@@ -595,11 +595,12 @@ the Vault secret `circles_cron_secret` needs the same string
       ships the change; re-run the check then.
 - [x] Push to `main`; the `deploy-dev` run summary shows Supabase and Expo both
       `true` rather than "waiting on S0-11".
-- [x] `https://sushen25s-team-circles--dev.expo.app/` serves the app, and
-      `https://pcfekupwqrdfryeaqggx.supabase.co/functions/v1/hello` returns
-      `{"domain":"@circles/domain","contracts":"@circles/contracts","validated":true}`
-      — which is ADR 0007's open question answered: the domain package really
-      does load and run inside Deno.
+- [x] `https://sushen25s-team-circles--dev.expo.app/` serves the app, and an empty
+      POST to `.../functions/v1/track-events` on the dev project answers `400`
+      with `{"error":"invalid_request",…}` — ADR 0007's open question answered:
+      the domain package really does load and run inside Deno. (This was a
+      `/hello` call until SUS-118 removed that function; the check is the one
+      in [environments](./environments.md).)
 - [x] Open a throwaway PR and confirm the preview URL is posted on it.
 - [x] gitleaks green on that PR — nothing from this checklist reached the repo.
 
