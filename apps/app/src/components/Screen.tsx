@@ -42,7 +42,14 @@ function ScreenSurface({ children }: { children: ReactNode }) {
     <View
       style={[
         styles.screen,
-        { backgroundColor: palette.ground, paddingTop: insets.top, paddingBottom: insets.bottom },
+        {
+          backgroundColor: palette.ground,
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+          // Non-zero only in landscape on a notched phone (SUS-235).
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
       ]}
     >
       {children}

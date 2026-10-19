@@ -79,6 +79,7 @@ export const siteCss = (fonts: SiteFonts) => `${fontFaces(fonts)}
   --invert:${c.invert};--invert-line:${c.invertLine};--invert-accent:${c.invertAccent};--invert-ink:${c.invertInk};--invert-ink2:${c.invertInk2};--invert-ink3:${c.invertInk3};
   --serif:'Newsreader',Georgia,'Times New Roman',serif;
   --sans:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --sat:env(safe-area-inset-top,0px);--sar:env(safe-area-inset-right,0px);--sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px);
 }
 html{scroll-behavior:smooth;background:var(--ground)}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
@@ -94,7 +95,8 @@ h1,h2,h3{margin:0;text-wrap:balance;font-weight:400}
 .num{font-variant-numeric:tabular-nums}
 .skip{position:absolute;left:-9999px;top:8px;background:var(--surface);padding:12px 16px;border-radius:10px;z-index:10}
 .skip:focus{left:16px}
-.wrap{width:100%;max-width:1200px;margin:0 auto;padding:0 32px}
+.wrap{width:100%;max-width:1200px;margin:0 auto;padding:0 max(32px,var(--sar)) 0 max(32px,var(--sal))}
+header.wrap{padding-top:var(--sat)}
 
 .nav{display:flex;align-items:center;justify-content:space-between;gap:24px;height:76px}
 .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);min-height:44px}
@@ -238,7 +240,7 @@ h1,h2,h3{margin:0;text-wrap:balance;font-weight:400}
 .free .body+.body{margin-top:16px}
 .free .fine{font-size:14px;color:var(--ink3)}
 
-.close{padding:140px 0 120px;text-align:center}
+.close{padding:140px 0 calc(120px + var(--sab));text-align:center}
 .close .logo{display:flex;justify-content:center;margin-bottom:36px}
 .close .lockday{font-family:var(--serif);font-size:clamp(64px,10vw,150px);line-height:.92;letter-spacing:-0.03em;color:var(--invert-ink)}
 .close .see{font-family:var(--serif);font-style:italic;font-size:clamp(26px,3vw,40px);color:var(--invert-accent);margin-top:18px}
@@ -268,7 +270,7 @@ h1,h2,h3{margin:0;text-wrap:balance;font-weight:400}
   .promises{margin-top:40px}
 }
 @media (max-width:560px){
-  .wrap{padding:0 20px}
+  .wrap{padding-right:max(20px,var(--sar));padding-left:max(20px,var(--sal))}
   .btn{width:100%}
   .nav .btn{width:auto}
   .ctas{flex-direction:column;gap:12px}

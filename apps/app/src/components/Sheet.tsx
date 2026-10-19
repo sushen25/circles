@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { layout, radius, space } from '@circles/tokens';
 
@@ -9,6 +10,11 @@ import { usePalette } from './theme';
  * A bottom sheet: ground, a hairline along the top and a 22 radius on the top
  * corners only. Tapping the scrim dismisses, and so does the hardware back
  * button on Android (`onRequestClose`).
+ *
+ * A `Modal` sits outside `Screen`, so it pads for the safe area itself: the
+ * bottom inset is added to the sheet's own padding, which keeps the last
+ * control clear of the home indicator and the browser's toolbar (SUS-235).
+ * `Screen` pads the screen behind, so nothing is padded twice.
  */
 type Props = {
   visible: boolean;
@@ -21,6 +27,7 @@ type Props = {
 
 export function Sheet({ visible, onDismiss, label, dismissLabel, children }: Props) {
   const palette = usePalette();
+  const insets = useSafeAreaInsets();
 
   return (
     <Modal
@@ -43,7 +50,16 @@ export function Sheet({ visible, onDismiss, label, dismissLabel, children }: Pro
         />
         <View
           accessibilityViewIsModal
-          style={[styles.sheet, { backgroundColor: palette.ground, borderTopColor: palette.line }]}
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: palette.ground,
+              borderTopColor: palette.line,
+              paddingBottom: SHEET_BOTTOM + insets.bottom,
+              paddingLeft: Math.max(space.gutter, insets.left),
+              paddingRight: Math.max(space.gutter, insets.right),
+            },
+          ]}
         >
           <View style={[styles.handle, { backgroundColor: palette.line }]} />
           {/* Bounded and scrolling: on a short viewport (a phone on its side) the
@@ -54,6 +70,9 @@ export function Sheet({ visible, onDismiss, label, dismissLabel, children }: Pro
     </Modal>
   );
 }
+
+/** The sheet's own padding below its last control, before the safe-area inset. */
+const SHEET_BOTTOM = 28;
 
 const styles = StyleSheet.create({
   window: {
@@ -78,7 +97,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     paddingTop: 8,
     paddingHorizontal: space.gutter,
-    paddingBottom: 28,
+    paddingBottom: SHEET_BOTTOM,
     gap: 14,
     maxHeight: '92%',
   },
