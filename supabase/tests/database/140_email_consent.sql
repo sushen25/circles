@@ -103,7 +103,7 @@ select ok(
   not has_function_privilege('authenticated', 'public.request_email_updates(uuid, uuid, text, text, text)', 'execute')
   and not has_function_privilege('authenticated', 'public.verify_email_contact(bytea)', 'execute')
   and not has_function_privilege('authenticated', 'public.email_preferences(bytea, text, uuid)', 'execute')
-  and not has_function_privilege('authenticated', 'public.issue_reentry_token(uuid, uuid, bytea)', 'execute')
+  and not has_function_privilege('authenticated', 'public.issue_reentry_token(uuid, uuid, bytea, text)', 'execute')
   and not has_function_privilege('authenticated', 'public.issue_verification_token(uuid, bytea)', 'execute'),
   'no client role touches an address, a token or a consent record: the Edge Function is the door'
 );

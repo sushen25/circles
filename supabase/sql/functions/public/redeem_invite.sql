@@ -7,13 +7,20 @@
 -- count, and two checks that are only true if nobody else joins between them.
 --
 -- **The secret never arrives here.** The Edge Function hashes the link
--- fragment with SHA-256 and passes the digest, so the capability itself is
--- never a statement parameter and cannot reach a query log (§14: tokens are
--- "never logged"). The digest finds the invite; the row it finds is the
--- authority.
+-- fragment and passes the digest, so the capability itself is never a statement
+-- parameter and cannot reach a query log (§14: tokens are "never logged"). The
+-- digest finds the invite; the row it finds is the authority.
 --
--- **The service role's, and nobody else's (SUS-114).** The table keeps only the
--- SHA-256 of the secret, so if that digest were enough to call this, a copy of
+-- **The digest is an HMAC under a key only the Edge Function holds** (SUS-214,
+-- ADR 0081), so a copy of `circle_invites` is not enough to compute one.
+-- `p_legacy_hash` is the plain SHA-256 of the same secret, offered so that a
+-- link made before that change still opens its circle: it finds only a row
+-- stored as `sha256` (`circle_invites.digest_kind`), and every invite made since
+-- is stored as `hmac`. The legacy path is removed once ADR 0081's condition is
+-- met.
+--
+-- **The service role's, and nobody else's (SUS-114).** The table keeps only a
+-- digest of the secret, so if that digest were enough to call this, a copy of
 -- `public.circle_invites` would be a set of working links into every circle,
 -- which is what ADR 0028 chose to hash the secrets to avoid. So only the
 -- `redeem-invite` Edge Function may call it, the way `join_from_plan` is
@@ -35,7 +42,8 @@
 create or replace function public.redeem_invite(
   p_user_id uuid,
   p_secret_hash bytea,
-  p_display_name text
+  p_display_name text,
+  p_legacy_hash bytea default null
 )
 returns public.circles
 language plpgsql
@@ -69,7 +77,12 @@ begin
   -- know which. The LinkInvalid screen says the same thing to all three.
   select * into invite
   from public.circle_invites i
-  where i.secret_hash = p_secret_hash and i.revoked_at is null;
+  where i.revoked_at is null
+    and (
+      (i.secret_hash = p_secret_hash and i.digest_kind = 'hmac')
+      or (p_legacy_hash is not null and i.secret_hash = p_legacy_hash
+          and i.digest_kind = 'sha256')
+    );
 
   if not found then
     raise exception 'invite_inactive' using errcode = 'no_data_found';
@@ -98,9 +111,9 @@ begin
 end;
 $$;
 
-comment on function public.redeem_invite(uuid, bytea, text) is
-  'Joins p_user_id to the circle behind an invite digest. Idempotent on an existing active membership; raises invite_inactive, duplicate_name or circle_full. Service role only: the digest is stored, so it must not be a way in by itself, and the redeem-invite Edge Function that hashes the secret passes the caller it verified (SUS-114).';
+comment on function public.redeem_invite(uuid, bytea, text, bytea) is
+  'Joins p_user_id to the circle behind an invite digest. Idempotent on an existing active membership; raises invite_inactive, duplicate_name or circle_full. Service role only: the digest is stored, so it must not be a way in by itself, and the redeem-invite Edge Function that hashes the secret passes the caller it verified (SUS-114). The digest is an HMAC under a key the database does not hold; p_legacy_hash finds only an invite stored as a plain SHA-256 before that (ADR 0081).';
 
-revoke all on function public.redeem_invite(uuid, bytea, text) from public;
-revoke all on function public.redeem_invite(uuid, bytea, text) from anon, authenticated;
-grant execute on function public.redeem_invite(uuid, bytea, text) to service_role;
+revoke all on function public.redeem_invite(uuid, bytea, text, bytea) from public;
+revoke all on function public.redeem_invite(uuid, bytea, text, bytea) from anon, authenticated;
+grant execute on function public.redeem_invite(uuid, bytea, text, bytea) to service_role;

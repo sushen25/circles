@@ -11,6 +11,7 @@ import {
 import type { Db } from '../_shared/db.ts';
 import { EmailSendError, sendEmail } from '../_shared/email/resend.ts';
 import { log } from '../_shared/logging.ts';
+import { Unavailable } from '../_shared/problem.ts';
 import { type CircleContext, nudgeAtSend } from './cadence.ts';
 import { closingHeld } from './closing.ts';
 import { inputFor } from './compose.ts';
@@ -402,7 +403,11 @@ export async function send(
       alreadyGone.add(copyKey(job));
       result.sent += 1;
     } catch (thrown) {
-      const retryable = thrown instanceof EmailSendError && thrown.retryable;
+      // A function that cannot make a digest (no `INVITE_DIGEST_KEY`: `Unavailable`)
+      // has sent nothing and lost nothing, so it is tried again like a provider
+      // having a bad minute, rather than failing the letter for good.
+      const retryable =
+        (thrown instanceof EmailSendError && thrown.retryable) || thrown instanceof Unavailable;
       const code = thrown instanceof EmailSendError ? thrown.code : classify(thrown);
       const next = retryable ? backoff(job.attempt_count) : null;
       if (next === null) await finish('failed', code);

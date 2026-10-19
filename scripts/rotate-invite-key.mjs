@@ -10,7 +10,14 @@
 //
 //   (set INVITE_LINK_KEY on the project to the new key first, then:)
 //   SUPABASE_URL=...  SUPABASE_SERVICE_ROLE_KEY=...  INVITE_LINK_KEY_NEW=...  \
-//     node scripts/rotate-invite-key.mjs [--apply] [--hosted]
+//     INVITE_DIGEST_KEY=...  node scripts/rotate-invite-key.mjs [--apply] [--hosted]
+//
+// `INVITE_DIGEST_KEY` is the project's digest key (ADR 0081): every new digest
+// is an HMAC under it, so this has to compute the same one. It is the key the
+// project already has, not a new one. A live invite stored as a plain SHA-256
+// (made before ADR 0081) is never "under the new key", so running this with
+// `INVITE_LINK_KEY_NEW` set to the key the project already uses reissues every
+// such invite as an HMAC: that is how ADR 0081's "rotate every live link" is done.
 //
 // - Dry run unless `--apply`: it reads, counts and reports, and changes nothing.
 // - The service role key and the new key come from the environment, never from
@@ -20,7 +27,7 @@
 // - Idempotent: a live invite already derived under the new key is left alone,
 //   so a run that stopped half way is finished by running it again.
 // - Prints counts only. No secret, digest, id or circle is ever printed.
-import { createHash, createHmac, randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
 /** Mirrors `INVITE_CONTEXT` in supabase/functions/_shared/secret.ts. */
@@ -31,9 +38,12 @@ export function deriveInviteSecret(key, inviteId) {
   return createHmac('sha256', key).update(`${INVITE_CONTEXT}${inviteId}`).digest('base64url');
 }
 
-/** `\x…`, which is how PostgREST accepts a `bytea` (`sha256Hex` in _shared/hash.ts). */
-export function digestHex(secret) {
-  return `\\x${createHash('sha256').update(secret).digest('hex')}`;
+/**
+ * `\x…` of the HMAC-SHA-256 of the secret under the digest key, which is how
+ * PostgREST accepts a `bytea` (`inviteDigests` in _shared/digest.ts, in Node).
+ */
+export function digestHex(secret, digestKey) {
+  return `\\x${createHmac('sha256', digestKey).update(`circles.digest.v1:invite:${secret}`).digest('hex')}`;
 }
 
 const LOCAL = new Set(['localhost', '127.0.0.1', '[::1]']);
@@ -53,13 +63,13 @@ export function isLocal(url) {
  * otherwise the replacement. Pure, so the case that matters is tested without
  * a database.
  */
-export function planFor(live, newKey, newId = randomUUID()) {
-  if (digestHex(deriveInviteSecret(newKey, live.id)) === live.secret_hash) return null;
+export function planFor(live, newKey, digestKey, newId = randomUUID()) {
+  if (digestHex(deriveInviteSecret(newKey, live.id), digestKey) === live.secret_hash) return null;
   return {
     p_circle_id: live.circle_id,
     p_invite_id: newId,
     p_replaces: live.id,
-    p_secret_hash: digestHex(deriveInviteSecret(newKey, newId)),
+    p_secret_hash: digestHex(deriveInviteSecret(newKey, newId), digestKey),
   };
 }
 
@@ -95,7 +105,7 @@ async function liveInvites(base, serviceKey) {
       await rest(
         base,
         serviceKey,
-        `circle_invites?select=id,circle_id,secret_hash&revoked_at=is.null&id=gt.${after}&order=id.asc&limit=${PAGE}`,
+        `circle_invites?select=id,circle_id,secret_hash,digest_kind&revoked_at=is.null&id=gt.${after}&order=id.asc&limit=${PAGE}`,
       )
     ).json();
     found.push(...page);
@@ -112,11 +122,12 @@ export async function run({
   const base = (env.SUPABASE_URL ?? '').replace(/\/+$/, '');
   const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY ?? '';
   const newKey = env.INVITE_LINK_KEY_NEW ?? '';
+  const digestKey = env.INVITE_DIGEST_KEY ?? '';
   const apply = argv.includes('--apply');
 
-  if (base === '' || serviceKey === '' || newKey === '') {
+  if (base === '' || serviceKey === '' || newKey === '' || digestKey === '') {
     throw new Error(
-      'set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and INVITE_LINK_KEY_NEW in the environment',
+      'set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, INVITE_LINK_KEY_NEW and INVITE_DIGEST_KEY in the environment',
     );
   }
   if (!isLocal(base) && !argv.includes('--hosted')) {
@@ -130,9 +141,12 @@ export async function run({
   let reissued = 0;
   for (let pass = 1; pass <= MAX_PASSES; pass += 1) {
     const live = await liveInvites(base, serviceKey);
-    const todo = live.map((invite) => planFor(invite, newKey)).filter((step) => step !== null);
+    const todo = live
+      .map((invite) => planFor(invite, newKey, digestKey))
+      .filter((step) => step !== null);
     out(
-      `Pass ${pass}: ${live.length} live invite(s); ${live.length - todo.length} under the new key; ` +
+      `Pass ${pass}: ${live.length} live invite(s) (${live.filter((i) => i.digest_kind === 'sha256').length} on the old SHA-256); ` +
+        `${live.length - todo.length} under the new key; ` +
         `${todo.length} to reissue.`,
     );
     if (!apply) {

@@ -23,7 +23,7 @@ begin
   -- The service role's own JWT, as in production: no `sub`, so `auth.uid()` is null.
   perform set_config('role', 'service_role', true);
   perform set_config('request.jwt.claims', '', true);
-  select * into r from public.reattach_with_token(me, h);
+  select * into r from public.reattach_with_token(me, h, h);
   perform set_config('role', prev, true);
   perform set_config('request.jwt.claims', coalesce(claims, ''), true);
   return r;

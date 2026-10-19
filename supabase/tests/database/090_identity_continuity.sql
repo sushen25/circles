@@ -25,7 +25,7 @@ begin
   -- The service role's own JWT, as in production: no `sub`, so `auth.uid()` is null.
   perform set_config('role', 'service_role', true);
   perform set_config('request.jwt.claims', '', true);
-  select * into r from public.redeem_invite(me, h, n);
+  select * into r from public.redeem_invite(me, h, n, h);
   perform set_config('role', prev, true);
   perform set_config('request.jwt.claims', coalesce(claims, ''), true);
   return r;
@@ -482,8 +482,8 @@ select ok(
 );
 
 select ok(
-  not has_function_privilege('authenticated', 'public.redeem_invite(uuid, bytea, text)', 'execute')
-  and has_function_privilege('service_role', 'public.redeem_invite(uuid, bytea, text)', 'execute'),
+  not has_function_privilege('authenticated', 'public.redeem_invite(uuid, bytea, text, bytea)', 'execute')
+  and has_function_privilege('service_role', 'public.redeem_invite(uuid, bytea, text, bytea)', 'execute'),
   'redeeming is the service role''s: no signed-in caller, anonymous or not, can say it with a stored digest (SUS-114)'
 );
 

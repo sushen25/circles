@@ -460,6 +460,15 @@ CRON_SECRET = "local"
 # never shown again. A local stack's links are nobody's.
 INVITE_LINK_KEY = "local"
 
+# Local only, and the same kind of value: the key an invite secret's and a
+# re-entry token's digest is an HMAC under (SUS-214, ADR 0081). Unlike
+# `INVITE_LINK_KEY` it is **required**: a function without it answers 503 and
+# stores or looks up nothing, and never falls back to a plain SHA-256. `dev` and
+# `prod` each set their own, at least 32 characters (a shorter value is refused
+# there), with `make secret ENV=<env> K=INVITE_DIGEST_KEY`, before the code that
+# reads it is deployed. A local stack's links are nobody's.
+INVITE_DIGEST_KEY = "local"
+
 # Local only, and the same kind of value: the key `generate-ics` signs the
 # calendar link's token with (ADR 0063). `dev` and `prod` each set their own with
 # `supabase secrets set CALENDAR_LINK_KEY=$(openssl rand -base64 32)`; without it
@@ -525,6 +534,12 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.manage-email-preferences]
+verify_jwt = false
+
+# The Join page's preview (SUS-214, ADR 0081). Shown before any prompt, so the
+# visitor has no session and the gateway has no JWT to check; the invite secret in
+# the body is the authorisation, and a per-address limit is the brake.
+[functions.invite-preview]
 verify_jwt = false
 
 # The stop link under an account-holder letter (ADR 0067, ADR 0069): opened with

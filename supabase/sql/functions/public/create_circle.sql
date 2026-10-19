@@ -35,7 +35,10 @@ create or replace function public.create_circle(
   invite_id uuid default null,
   -- "Where, roughly" on CreateCircle (S1-23): a loose area, optional. Blank is
   -- no answer, not an empty place.
-  default_area text default null
+  default_area text default null,
+  -- What `invite_secret_hash` is: `hmac` from the Edge Function that holds the
+  -- digest key, `sha256` from one that does not (ADR 0081). Passed to `issue_invite`.
+  digest_kind text default 'sha256'
 )
 returns public.circles
 language plpgsql
@@ -129,7 +132,8 @@ begin
   -- do — they are two statements away from having made it.
   if create_circle.invite_secret_hash is not null then
     perform public.issue_invite(
-      created.id, create_circle.invite_secret_hash, create_circle.invite_id
+      created.id, create_circle.invite_secret_hash, create_circle.invite_id,
+      create_circle.digest_kind
     );
   end if;
 
@@ -154,9 +158,9 @@ exception
 end;
 $$;
 
-comment on function public.create_circle(text, text, text, text, text, bytea, uuid, text) is
+comment on function public.create_circle(text, text, text, text, text, bytea, uuid, text, text) is
   'Creates a circle, its owner membership and — given a digest — its invite link, in one transaction. Requires a permanent identity (ADR 0004).';
 
-revoke all on function public.create_circle(text, text, text, text, text, bytea, uuid, text) from public;
-revoke all on function public.create_circle(text, text, text, text, text, bytea, uuid, text) from anon, authenticated;
-grant execute on function public.create_circle(text, text, text, text, text, bytea, uuid, text) to authenticated;
+revoke all on function public.create_circle(text, text, text, text, text, bytea, uuid, text, text) from public;
+revoke all on function public.create_circle(text, text, text, text, text, bytea, uuid, text, text) from anon, authenticated;
+grant execute on function public.create_circle(text, text, text, text, text, bytea, uuid, text, text) to authenticated;

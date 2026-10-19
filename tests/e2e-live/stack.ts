@@ -108,6 +108,16 @@ export function mint(value: string, kind: Minted['kind']): string {
   return value;
 }
 
+/**
+ * The digest the Edge Functions store an invite secret or a re-entry token under
+ * (ADR 0081): HMAC-SHA-256 under `INVITE_DIGEST_KEY`, which a local stack sets to
+ * `local` in `supabase/config.toml`. As SQL, for the fixtures that insert one
+ * directly; the same bytes `_shared/digest.ts` computes.
+ */
+export function digestSql(purpose: 'invite' | 'reentry', value: string): string {
+  return `extensions.hmac('circles.digest.v1:${purpose}:${value}', 'local', 'sha256')`;
+}
+
 export type Scenario = {
   circleId: string;
   planCode: string;
@@ -163,8 +173,8 @@ export function sundayCrew({ withPlan = true }: { withPlan?: boolean } = {}): Sc
       '${circleCode}', 'e2e-${circleId}');
     insert into public.circle_members (circle_id, user_id, display_name_snapshot, role)
     values ('${circleId}', '${ownerId}', 'Maya', 'owner');
-    insert into public.circle_invites (circle_id, secret_hash, created_by)
-    values ('${circleId}', extensions.digest('${secret}', 'sha256'), '${ownerId}');
+    insert into public.circle_invites (circle_id, secret_hash, digest_kind, created_by)
+    values ('${circleId}', ${digestSql('invite', secret)}, 'hmac', '${ownerId}');
     ${withPlan ? planSql : ''}
     commit;
   `);
@@ -282,7 +292,7 @@ export function reentryTokenFor(scenario: Scenario, userId: string): string {
     values ('${userId}', '${userId}@example.test', 'verified', now());
     select public.issue_reentry_token('${scenario.circleId}',
       (select id from private.email_contacts where user_id = '${userId}'),
-      extensions.digest('${token}', 'sha256'));
+      ${digestSql('reentry', token)}, 'hmac');
     commit;
   `);
   return token;

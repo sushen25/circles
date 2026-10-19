@@ -24,7 +24,7 @@ security definer
 set search_path = ''
 as $$
 begin
-  return private.reattach_member_core((select auth.uid()), p_circle_id, p_target_user_id, null);
+  return private.reattach_member_core((select auth.uid()), p_circle_id, p_target_user_id, null, null);
 end;
 $$;
 

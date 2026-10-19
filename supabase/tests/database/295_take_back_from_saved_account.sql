@@ -45,7 +45,7 @@ begin
   -- The service role's own JWT, as in production: no `sub`, so `auth.uid()` is null.
   perform set_config('role', 'service_role', true);
   perform set_config('request.jwt.claims', '', true);
-  select * into r from public.reattach_with_token(me, h);
+  select * into r from public.reattach_with_token(me, h, h);
   perform set_config('role', prev, true);
   perform set_config('request.jwt.claims', coalesce(claims, ''), true);
   return r;
@@ -450,9 +450,9 @@ select is(pg_temp.holder(7), pg_temp.uid(7, 3), '7: nothing moved');
 select pg_temp.base(8);
 insert into private.email_contacts (user_id, email_normalized, status, verified_at)
 values (pg_temp.uid(8, 4), 'maya-guest-address-8@example.com', 'verified', now());
-insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at, used_at, retired_at,
+insert into private.email_action_tokens (contact_id, purpose, token_hash, digest_kind, expires_at, used_at, retired_at,
                                           membership_circle_id, membership_user_id)
-select c.id, 'reentry', pg_temp.digest_of('owner-link-8'), now() + interval '1 day', now(), now(),
+select c.id, 'reentry', pg_temp.digest_of('owner-link-8'), 'hmac', now() + interval '1 day', now(), now(),
        pg_temp.circle(8), pg_temp.uid(8, 4)
 from private.email_contacts c where c.email_normalized = 'maya-guest-address-8@example.com';
 select pg_temp.act_as(pg_temp.uid(8, 3), true);

@@ -870,7 +870,7 @@ select is(
 
 select pg_temp.act_as_postgres();
 select ok(
-  not has_function_privilege('anon', 'public.create_circle(text,text,text,text,text,bytea,uuid,text)', 'execute'),
+  not has_function_privilege('anon', 'public.create_circle(text,text,text,text,text,bytea,uuid,text,text)', 'execute'),
   'anon cannot even call create_circle'
 );
 select ok(
@@ -944,13 +944,6 @@ select is(
        -- `founder_set_circle_cohort` (SUS-178) is the same allowlist again,
        -- and returns nothing.
        'preview_for_code', 'founder_summary', 'founder_analytics', 'founder_set_circle_cohort',
-       -- S1-24. The Join page before joining: a circle's name, its inviter's
-       -- name and one initial per member, to whoever holds the invite secret —
-       -- by its digest, so the secret is never a statement parameter.
-       -- (`join_from_plan`, the second way in, is deliberately absent: it is the
-       -- service role's, so that nothing reaches it without the Turnstile check
-       -- and the rate limits in `join-plan`. `170_join_from_plan.sql`.)
-       'invite_preview',
        -- S1-23. Running a circle: `remove_member` the owner's alone, the one
        -- way somebody is taken out, refusing anybody else by name.
        'remove_member',
@@ -1015,11 +1008,9 @@ select is(
        -- (architecture §9.4): a circle's name for a plan short code and null for
        -- everything else, including a code that does not exist — so the
        -- short-code space cannot be walked for circles that do.
-       'preview_for_code',
-       -- `invite_preview` is the Join page, shown before any prompt (§5.1). It
-       -- is keyed by a 256-bit secret's digest, which is not a space anybody
-       -- walks, and returns names and initials rather than a roster.
-       'invite_preview'
+       'preview_for_code'
+       -- (`invite_preview`, the Join page, is the service role's since SUS-214: its
+       -- digest is an HMAC under a key the browser cannot hold. `160_invite_preview.sql`.)
      )),
   '',
   'and anon can call only the read-only helpers'

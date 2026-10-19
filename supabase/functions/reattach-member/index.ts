@@ -1,7 +1,7 @@
 import { ReattachMemberRequest, type ReattachMemberResponse } from '@circles/contracts';
 
 import { circleDto } from '../_shared/circle.ts';
-import { sha256Hex } from '../_shared/hash.ts';
+import { reentryDigests } from '../_shared/digest.ts';
 import { jsonHandler } from '../_shared/http.ts';
 import { callerAddress, enforce } from '../_shared/rate.ts';
 
@@ -41,7 +41,7 @@ Deno.serve(
           ? [
               {
                 scope: 'reattach_token',
-                key: await sha256Hex(body.reentry_token),
+                key: (await reentryDigests(body.reentry_token)).current,
                 max: 3,
                 window: '1 hour',
               },
@@ -55,8 +55,10 @@ Deno.serve(
       // verified caller named (SUS-114): the digest the database stores must not be
       // a way in by itself, so no client can call that form. `actor.userId` is the
       // JWT's, never the body's.
+      const digests =
+        body.reentry_token === undefined ? undefined : await reentryDigests(body.reentry_token);
       const { data, error } =
-        body.reentry_token === undefined
+        digests === undefined
           ? await caller.rpc('reattach_member', {
               p_circle_id: body.circle_id ?? null,
               p_target_user_id: body.target_member_user_id ?? null,
@@ -64,8 +66,11 @@ Deno.serve(
           : await service.rpc('reattach_with_token', {
               p_user_id: actor.userId,
               // Hashed here, as the database stores it: a token is never a
-              // parameter in its readable form (§14).
-              p_reentry_token_hash: await sha256Hex(body.reentry_token),
+              // parameter in its readable form (§14). The HMAC under
+              // `INVITE_DIGEST_KEY`, and beside it the plain SHA-256 for a link
+              // emailed before that existed (SUS-214, ADR 0081).
+              p_reentry_token_hash: digests.current,
+              p_legacy_token_hash: digests.legacy,
             });
       if (error !== null) throw error;
 

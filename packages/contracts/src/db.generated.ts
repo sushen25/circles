@@ -153,6 +153,7 @@ export type Database = {
           circle_id: string
           created_at: string
           created_by: string
+          digest_kind: string
           id: string
           revoked_at: string | null
           secret_hash: string
@@ -163,6 +164,7 @@ export type Database = {
           circle_id: string
           created_at?: string
           created_by: string
+          digest_kind?: string
           id?: string
           revoked_at?: string | null
           secret_hash: string
@@ -173,6 +175,7 @@ export type Database = {
           circle_id?: string
           created_at?: string
           created_by?: string
+          digest_kind?: string
           id?: string
           revoked_at?: string | null
           secret_hash?: string
@@ -1133,6 +1136,7 @@ export type Database = {
           cadence?: string
           color: string
           default_area?: string
+          digest_kind?: string
           idempotency_key: string
           invite_id?: string
           invite_secret_hash?: string
@@ -1486,7 +1490,7 @@ export type Database = {
         }
       }
       invite_preview: {
-        Args: { p_secret_hash: string }
+        Args: { p_legacy_hash?: string; p_secret_hash: string }
         Returns: {
           circle_name: string
           inviter_name: string
@@ -1496,6 +1500,7 @@ export type Database = {
       issue_invite: {
         Args: {
           p_circle_id: string
+          p_digest_kind?: string
           p_invite_id?: string
           p_secret_hash: string
         }
@@ -1503,6 +1508,7 @@ export type Database = {
           circle_id: string
           created_at: string
           created_by: string
+          digest_kind: string
           id: string
           revoked_at: string | null
           secret_hash: string
@@ -1524,6 +1530,7 @@ export type Database = {
         Args: {
           p_circle_id: string
           p_contact_id: string
+          p_digest_kind?: string
           p_token_hash: string
         }
         Returns: string
@@ -1547,6 +1554,7 @@ export type Database = {
       live_invite: {
         Args: { p_circle_id: string; p_user_id: string }
         Returns: {
+          digest_kind: string
           invite_id: string
           secret_hash: string
         }[]
@@ -1623,7 +1631,11 @@ export type Database = {
         }
       }
       reattach_with_token: {
-        Args: { p_reentry_token_hash: string; p_user_id: string }
+        Args: {
+          p_legacy_token_hash?: string
+          p_reentry_token_hash: string
+          p_user_id: string
+        }
         Returns: {
           cadence: string
           cadence_snoozed_until: string | null
@@ -1673,6 +1685,7 @@ export type Database = {
       redeem_invite: {
         Args: {
           p_display_name: string
+          p_legacy_hash?: string
           p_secret_hash: string
           p_user_id: string
         }

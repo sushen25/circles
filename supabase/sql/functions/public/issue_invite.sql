@@ -16,6 +16,13 @@
 -- two live invites would be two capabilities, and rotating would stop
 -- invalidating anything.
 --
+-- **The digest is an HMAC under a key only the Edge Functions hold** (SUS-214,
+-- ADR 0081). The database cannot tell an HMAC from any other 32 bytes, so the
+-- kind is the caller's to say: `p_digest_kind` is `hmac` from the Edge Functions
+-- that hold the key. It defaults to `sha256`, the label an older function that
+-- sends a plain SHA-256 is telling the truth with, so a deploy that migrates the
+-- database before it replaces the functions leaves nothing mislabelled.
+--
 -- **The invite's id may come from the caller** (ADR 0028). The Edge Functions
 -- derive the secret from the id with a key only they hold, so that the owner
 -- can be shown the link again (`get-invite-link`) while the database still
@@ -27,7 +34,8 @@
 create or replace function public.issue_invite(
   p_circle_id uuid,
   p_secret_hash bytea,
-  p_invite_id uuid default null
+  p_invite_id uuid default null,
+  p_digest_kind text default 'sha256'
 )
 returns public.circle_invites
 language plpgsql
@@ -69,8 +77,10 @@ begin
   where i.circle_id = p_circle_id and i.revoked_at is null;
   get diagnostics revoked = row_count;
 
-  insert into public.circle_invites (id, circle_id, secret_hash, created_by)
-  values (coalesce(p_invite_id, gen_random_uuid()), p_circle_id, p_secret_hash, caller)
+  insert into public.circle_invites (id, circle_id, secret_hash, digest_kind, created_by)
+  values (
+    coalesce(p_invite_id, gen_random_uuid()), p_circle_id, p_secret_hash, p_digest_kind, caller
+  )
   returning * into issued;
 
   -- Rotation is a fact the owner may need to explain later ("the old link
@@ -93,9 +103,9 @@ begin
 end;
 $$;
 
-comment on function public.issue_invite(uuid, bytea, uuid) is
+comment on function public.issue_invite(uuid, bytea, uuid, text) is
   'Issues the circle''s invite from a digest of a secret the server never sees, revoking any earlier one. The owner''s alone; resetting the link is the same call (spec §5.2).';
 
-revoke all on function public.issue_invite(uuid, bytea, uuid) from public;
-revoke all on function public.issue_invite(uuid, bytea, uuid) from anon, authenticated;
-grant execute on function public.issue_invite(uuid, bytea, uuid) to authenticated;
+revoke all on function public.issue_invite(uuid, bytea, uuid, text) from public;
+revoke all on function public.issue_invite(uuid, bytea, uuid, text) from anon, authenticated;
+grant execute on function public.issue_invite(uuid, bytea, uuid, text) to authenticated;

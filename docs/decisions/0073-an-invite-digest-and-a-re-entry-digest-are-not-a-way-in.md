@@ -5,6 +5,7 @@ status: accepted
 date: 2026-10-15
 amends: [71]
 builds_on: [28, 49]
+amended_by: [81]
 ---
 # ADR 0073: A stored invite or re-entry digest is not a way in: the functions that take one are the service role's
 
@@ -91,8 +92,8 @@ was only ever the weakest of the three, wrong for the hour after
 - Anything that called these over RPC with a user session must go through the
   Edge Function. The app already does; pgTAP calls them through a helper that
   becomes the service role for the call.
-- `invite_preview` stays `anon`, keyed by the digest, and returns the least the
+- `invite_preview` stays `anon` (changed by [ADR 0081](0081-invite-and-re-entry-digests-are-an-hmac-under-a-key-only-the-functions-hold.md): the digest is an HMAC a browser cannot compute, so it is the service role's behind `invite-preview`), keyed by the digest, and returns the least the
   Join page draws; a digest names a preview and nothing else.
-- Still open: an HMAC under a server key for both digests (above), and the
+- Done since: an HMAC under a server key for both digests, [ADR 0081](0081-invite-and-re-entry-digests-are-an-hmac-under-a-key-only-the-functions-hold.md). Still open: the
   readable invite secret in `rotate-invite`'s idempotency record for seven days,
   which ADR 0028 accepted.

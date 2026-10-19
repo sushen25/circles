@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   captureInviteFragment,
+  fetchInvitePreview,
   heldInvite,
   inviteSecretFromHash,
   redeemInvite,
   releaseInvite,
-  secretDigest,
   takeInviteOpen,
 } from './invite';
 
@@ -50,14 +50,24 @@ describe('inviteSecretFromHash', () => {
   });
 });
 
-describe('secretDigest', () => {
-  it('is SHA-256, hex, in the form PostgREST takes a bytea in', async () => {
-    // The published test vector. `extensions.digest('abc', 'sha256')` in
-    // Postgres gives the same bytes, which is the whole point: the preview only
-    // finds the invite if the browser and `redeem_invite` hash alike.
-    expect(await secretDigest('abc')).toBe(
-      '\\xba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
-    );
+describe('fetchInvitePreview', () => {
+  const PREVIEW = { circle_name: 'Sunday Crew', inviter_name: 'Maya', member_initials: ['M'] };
+
+  it('posts the fragment to the server, which hashes it, and does no hashing of its own', async () => {
+    invoke.mockResolvedValue({ data: { preview: PREVIEW }, error: null });
+    const subtle = vi.spyOn(globalThis.crypto.subtle, 'digest');
+
+    expect(await fetchInvitePreview(SECRET)).toEqual(PREVIEW);
+
+    expect(invoke).toHaveBeenCalledWith('invite-preview', { body: { secret: SECRET } });
+    // The key is the server's, so there is nothing for the browser to digest.
+    expect(subtle).not.toHaveBeenCalled();
+    subtle.mockRestore();
+  });
+
+  it('is null for a link that is not live', async () => {
+    invoke.mockResolvedValue({ data: { preview: null }, error: null });
+    expect(await fetchInvitePreview(SECRET)).toBeNull();
   });
 });
 

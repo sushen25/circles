@@ -78,6 +78,7 @@ const PLAN = '00000000-0000-4000-8000-0000000000b1';
 const KEY = '00000000-0000-4000-8000-000000000001';
 // Built at run time: a secret-shaped literal is what a scanner looks for.
 const LINK_KEY = `test-${globalThis.crypto.randomUUID()}`;
+const DIGEST_KEY = `digest-${globalThis.crypto.randomUUID()}`;
 
 function post(body: unknown): Request {
   return new Request('https://example.test/fn', {
@@ -94,8 +95,14 @@ function expectedSecret(inviteId: string): string {
   return createHmac('sha256', LINK_KEY).update(`circles.invite.v1:${inviteId}`).digest('base64url');
 }
 
+/** The plain SHA-256 an older link is stored under. */
 function digestOf(secret: string): string {
   return `\\x${createHash('sha256').update(secret).digest('hex')}`;
+}
+
+/** The HMAC under `INVITE_DIGEST_KEY` every link made since SUS-214 is stored under (ADR 0081). */
+function hmacOf(secret: string): string {
+  return `\\x${createHmac('sha256', DIGEST_KEY).update(`circles.digest.v1:invite:${secret}`).digest('hex')}`;
 }
 
 function bookkeeping(fn: string): { data: unknown; error: unknown } | undefined {
@@ -112,6 +119,7 @@ beforeEach(() => {
   process.env.SUPABASE_ANON_KEY = 'anon';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service';
   process.env.INVITE_LINK_KEY = LINK_KEY;
+  process.env.INVITE_DIGEST_KEY = DIGEST_KEY;
   state.rpcs = [];
   state.users = [{ id: OWNER, is_anonymous: false }];
   state.answer = (fn) => bookkeeping(fn) ?? { data: null, error: null };
@@ -122,7 +130,10 @@ describe('get-invite-link', () => {
     const secret = expectedSecret(INVITE);
     state.answer = (fn) =>
       fn === 'live_invite'
-        ? { data: [{ invite_id: INVITE, secret_hash: digestOf(secret) }], error: null }
+        ? {
+            data: [{ invite_id: INVITE, secret_hash: hmacOf(secret), digest_kind: 'hmac' }],
+            error: null,
+          }
         : { data: null, error: null };
 
     const response = await handlers['get-invite-link'](post({ circle_id: CIRCLE }));
@@ -132,10 +143,73 @@ describe('get-invite-link', () => {
     expect(called('live_invite')[0]?.args).toEqual({ p_circle_id: CIRCLE, p_user_id: OWNER });
   });
 
+  it('still shows a link made before the HMAC, whose stored digest is the plain SHA-256', async () => {
+    const secret = expectedSecret(INVITE);
+    state.answer = (fn) =>
+      fn === 'live_invite'
+        ? {
+            data: [{ invite_id: INVITE, secret_hash: digestOf(secret), digest_kind: 'sha256' }],
+            error: null,
+          }
+        : { data: null, error: null };
+
+    const response = await handlers['get-invite-link'](post({ circle_id: CIRCLE }));
+
+    expect(await response.json()).toEqual({ invite_secret: secret });
+  });
+
+  it('compares each kind only with its own digest: a SHA-256 under an hmac row shows nothing', async () => {
+    const secret = expectedSecret(INVITE);
+    for (const [stored, kind] of [
+      [digestOf(secret), 'hmac'],
+      [hmacOf(secret), 'sha256'],
+    ] as const) {
+      state.users = [{ id: OWNER, is_anonymous: false }];
+      state.answer = (fn) =>
+        fn === 'live_invite'
+          ? {
+              data: [{ invite_id: INVITE, secret_hash: stored, digest_kind: kind }],
+              error: null,
+            }
+          : { data: null, error: null };
+
+      const response = await handlers['get-invite-link'](post({ circle_id: CIRCLE }));
+
+      expect(await response.json()).toEqual({ invite_secret: null });
+    }
+  });
+
+  it('answers 503 and shows nothing without the digest key', async () => {
+    delete process.env.INVITE_DIGEST_KEY;
+    state.answer = (fn) =>
+      fn === 'live_invite'
+        ? {
+            data: [
+              {
+                invite_id: INVITE,
+                secret_hash: digestOf(expectedSecret(INVITE)),
+                digest_kind: 'sha256',
+              },
+            ],
+            error: null,
+          }
+        : { data: null, error: null };
+
+    const response = await handlers['get-invite-link'](post({ circle_id: CIRCLE }));
+
+    expect(response.status).toBe(503);
+    expect(JSON.stringify(await response.json())).not.toContain(expectedSecret(INVITE));
+  });
+
   it('answers null for a link that was not derived — it can only be reset', async () => {
     state.answer = (fn) =>
       fn === 'live_invite'
-        ? { data: [{ invite_id: INVITE, secret_hash: digestOf('made-at-random') }], error: null }
+        ? {
+            data: [
+              { invite_id: INVITE, secret_hash: hmacOf('made-at-random'), digest_kind: 'hmac' },
+            ],
+            error: null,
+          }
         : { data: null, error: null };
 
     const response = await handlers['get-invite-link'](post({ circle_id: CIRCLE }));
@@ -148,7 +222,13 @@ describe('get-invite-link', () => {
     state.answer = (fn) =>
       fn === 'live_invite'
         ? {
-            data: [{ invite_id: INVITE, secret_hash: digestOf(expectedSecret(INVITE)) }],
+            data: [
+              {
+                invite_id: INVITE,
+                secret_hash: hmacOf(expectedSecret(INVITE)),
+                digest_kind: 'hmac',
+              },
+            ],
             error: null,
           }
         : { data: null, error: null };
@@ -184,7 +264,13 @@ describe('get-invite-link', () => {
     state.answer = (fn) =>
       fn === 'live_invite'
         ? {
-            data: [{ invite_id: INVITE, secret_hash: digestOf(expectedSecret(INVITE)) }],
+            data: [
+              {
+                invite_id: INVITE,
+                secret_hash: hmacOf(expectedSecret(INVITE)),
+                digest_kind: 'hmac',
+              },
+            ],
             error: null,
           }
         : { data: null, error: null };
@@ -208,8 +294,23 @@ describe('rotate-invite', () => {
     const inviteId = issued?.args['p_invite_id'] as string;
     expect(inviteId).toMatch(/^[0-9a-f-]{36}$/);
     expect(secret).toBe(expectedSecret(inviteId));
-    expect(issued?.args['p_secret_hash']).toBe(digestOf(secret));
+    // The HMAC under the server key, never the plain SHA-256 a database copy could recompute.
+    expect(issued?.args['p_secret_hash']).toBe(hmacOf(secret));
+    expect(issued?.args['p_digest_kind']).toBe('hmac');
+    expect(issued?.args['p_secret_hash']).not.toBe(digestOf(secret));
     expect(JSON.stringify(called('issue_invite'))).not.toContain(secret);
+  });
+
+  it('answers 503 and issues nothing without the digest key, rather than a weaker digest', async () => {
+    delete process.env.INVITE_DIGEST_KEY;
+
+    const response = await handlers['rotate-invite'](
+      post({ idempotency_key: KEY, circle_id: CIRCLE }),
+    );
+
+    expect(response.status).toBe(503);
+    expect(called('issue_invite')).toHaveLength(0);
+    expect(called('take_rate_token')).toHaveLength(0);
   });
 
   it('gives a new secret every time, because every reset is a new invite', async () => {
@@ -291,7 +392,7 @@ describe('create-circle', () => {
 
     const args = called('create_circle')[0]?.args ?? {};
     expect(secret).toBe(expectedSecret(args['invite_id'] as string));
-    expect(args['invite_secret_hash']).toBe(digestOf(secret));
+    expect(args['invite_secret_hash']).toBe(hmacOf(secret));
   });
 });
 

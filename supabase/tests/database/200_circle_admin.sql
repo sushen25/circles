@@ -10,7 +10,7 @@ select plan(44);
 
 -- SUS-114: `live_invite` is the service role's, called by `get-invite-link` with
 -- the owner it verified. This is that call for whoever the test is acting as.
-create or replace function pg_temp.live(c uuid) returns table (invite_id uuid, secret_hash bytea)
+create or replace function pg_temp.live(c uuid) returns table (invite_id uuid, secret_hash bytea, digest_kind text)
 language plpgsql as $$
 declare
   me uuid := auth.uid();
@@ -40,7 +40,7 @@ begin
   -- The service role's own JWT, as in production: no `sub`, so `auth.uid()` is null.
   perform set_config('role', 'service_role', true);
   perform set_config('request.jwt.claims', '', true);
-  select * into r from public.redeem_invite(me, h, n);
+  select * into r from public.redeem_invite(me, h, n, h);
   perform set_config('role', prev, true);
   perform set_config('request.jwt.claims', coalesce(claims, ''), true);
   return r;
