@@ -202,6 +202,7 @@ def date(t, size=24): return f'<div class="date" style="font-size:{size}px;">{t}
 def title(t): return f'<div class="title">{t}</div>'
 def p(t): return f'<p class="p">{t}</p>'
 def sm(t): return f'<p class="sm">{t}</p>'
+def signoff(day): return stack(title(f"{day} it is."), p("See you then."), gap=2)
 def pri(t): return f'<div class="btn pri">{t}</div>'
 def sec(t): return f'<div class="btn sec">{t}</div>'
 def ter(t, plain=False):
@@ -588,6 +589,7 @@ S["ConfirmedGuest"] = shell(
              divider(),
              between(stack(title("You're going"), sm("Tap below if that changes"), gap=2), ic("check", 22, T["invert_accent"]))),
         p("Maya says: “Table's booked under my name. Come hungry.”"),
+        signoff("Thursday"),
     ) +
     foot(pri("Add to calendar"), ter("I can't make it after all", plain=True))
 , invert=True)
@@ -715,9 +717,10 @@ S["ConfirmedOrg"] = shell(
         stack(f'<div class="date" style="font-size:40px;line-height:1.05;">Thursday<br>17 September</div>', f'<div class="num" style="font-family:Newsreader,Georgia,serif;font-size:26px;color:{T["invert_accent"]};">6:30–8:30 pm · Hope St Radio</div>',
               '<div style="display:flex;flex-wrap:wrap;gap:12px;">' + ter("Edit this plan") + ter("Ask for new times") + '</div>', gap=8),
         card(lbl("Ready to paste into the group chat"),
-             p("Locked in: Sunday Crew, Thu 17 Sep, 6:30–8:30 pm at Hope St Radio. Details and add-to-calendar: circles.app/p/8k2v"),
+             p("Locked in: Sunday Crew, Thu 17 Sep, 6:30–8:30 pm at Hope St Radio. Thursday it is. See you then. Details and add-to-calendar: circles.app/p/8k2v"),
              ),
         between(stack(title("5 going · 1 to confirm"), sm("Alex hasn't said yet"), gap=2), marks(["Maya","Nina","Tom","Jess","Sam","Alex"], waiting=("Alex",))),
+        signoff("Thursday"),
         stack(title("You're going"), ter("I can't make it after all"), ter("Cancel this plan", plain=True), gap=8),
     ) +
     foot(pri("Share to group chat"), sec("Add to my calendar"))
@@ -1392,6 +1395,7 @@ S["ConfirmedGuestMoved"] = shell(
              divider(),
              stack(title("The time moved. Are you coming?"), sm("Let everyone know below"), gap=2)),
         p("Maya says: “Come if you can.”"),
+        signoff("Saturday"),
     ) +
     foot(pri("Add to calendar"), ter("I can make it"), ter("I can't make it", plain=True))
 , invert=True, minh=900)
@@ -1701,7 +1705,7 @@ shares = f'''
     {card(lbl("Invite to circle"), p("Made a Sunday Crew circle so we stop losing catch-ups in the chat. Join here, no app needed: circles.app/join#7f3k"))}
     {card(lbl("New plan"), p("When can Sunday Crew actually catch up? Mark the times you'd be up for in the next two weeks. Takes a minute: circles.app/j/7f3k"))}
     {card(lbl("Waiting"), p("We're waiting on 4 replies before picking a time: circles.app/j/7f3k"))}
-    {card(lbl("Locked in"), p("Locked in: Sunday Crew, Thu 17 Sep, 6:30–8:30 pm at Hope St Radio. Details and add-to-calendar: circles.app/p/8k2v"))}
+    {card(lbl("Locked in"), p("Locked in: Sunday Crew, Thu 17 Sep, 6:30–8:30 pm at Hope St Radio. Thursday it is. See you then. Details and add-to-calendar: circles.app/p/8k2v"))}
     {card(lbl("Changed"), p("Change of plan: Thursday is off. New times for the week after, please: circles.app/j/7f3k"))}
     {card(lbl("Cancelled"), p("Update: Thursday's Sunday Crew catch-up is off. Sorry all, will try again in October. circles.app/p/8k2v"))}
   </div>

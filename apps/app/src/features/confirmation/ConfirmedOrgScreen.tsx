@@ -126,6 +126,10 @@ export function ConfirmedOrgScreen({
           <Marks members={view.members} max={MARKS_MAX} label={view.names} />
           <Small>{view.unsaid}</Small>
         </Stack>
+        <Stack gap={2}>
+          <Title>{t('confirmedOrg', 'it_is', { weekday: view.weekday })}</Title>
+          <BodyText>{t('confirmedOrg', 'see_you_then')}</BodyText>
+        </Stack>
         {mine === undefined ? null : (
           <Stack gap={8}>
             <Title accessibilityLiveRegion="polite">{mine.title}</Title>

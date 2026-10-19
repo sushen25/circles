@@ -55,8 +55,8 @@ Two of the brand doc's "Applied" lines change words the spec wrote down:
 - **Sign off in the share message and the confirmed screens too, now.** The
   brand doc means every confirmation. The share messages are the ShareMessages
   artboard's wording and the confirmed screens are canvas artboards, so each is
-  a canvas change first; they are left to a ticket of their own (SUS-100)
-  rather than drifting from the canvas here.
+  a canvas change first; they were left to a ticket of their own (SUS-100,
+  done) rather than drifting from the canvas here.
 - **Rename the scheme and bundle prefix with the name.** Existing installs and
   universal links would break for a cosmetic gain nobody sees.
 
@@ -69,5 +69,7 @@ Two of the brand doc's "Applied" lines change words the spec wrote down:
 - Every raster of the mark is rendered from the SVG masters in
   `apps/app/assets/brand/` by `pnpm gen:brand`, which fails if an exported pixel
   is not the brand's hex.
-- Until SUS-100 lands, the locked-in email signs off and the share message and
-  confirmed screens do not.
+- The locked-in email, the locked-in share message and both confirmed screens
+  (guest and organiser) all sign off with "[Weekday] it is. See you then."
+  (SUS-100). The share message carries it before the link, so the link stays
+  last in the paste; the screens carry it as the closing lines of the body.
