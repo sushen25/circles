@@ -653,9 +653,12 @@ does not prove an action that only they use.
 - a `uses:` is anything but `owner/repo[/path]@<40 hex>` (a local `./` action is
   exempt; a `docker://` image needs `@sha256:<digest>`);
 - a `run:` contains a `${{ }}` expression that is not on the safe list: GitHub's
-  own run and repository identity (`github.sha`, `run_id`, `event_name`,
-  `repository`, `runner.os`, `job.status`), the pull request number,
-  `matrix.NAME` and `secrets.NAME`. Everything else (`inputs.*`,
+  own run and repository identity (`github.sha`, `run_id`, `run_number`,
+  `run_attempt`, `event_name`, `repository`, `repository_owner`, `job`,
+  `workspace`, `server_url`, `token`, `runner.os`, `arch` and `temp`,
+  `job.status`, `strategy.job-index`), the pull request number, `matrix.NAME`
+  (only when the matrix is written in the file, not built with `fromJSON`) and
+  `secrets.NAME`. Everything else (`inputs.*`,
   `github.event.*`, `head_ref`, `ref_name`, `actor`, `steps.*.outputs`,
   `needs.*.outputs`) goes through `env:`. Secrets are on the list because an
   admin sets them and not the event; prefer `env:` for them anyway;
@@ -663,7 +666,14 @@ does not prove an action that only they use.
   `scripts/workflow-hygiene.mjs` (only `preview-cleanup.yml`). A workflow on the
   list may not check out the pull request (a `ref` or `repository` naming
   `head_ref`, `github.event.pull_request` or `refs/pull/`) or fetch it in a
-  script: the trigger is safe only because the job runs the default branch.
+  script, and may not carry `head_ref`, `pull_request.head`/`merge`, `event.after`,
+  `fromJSON` or index syntax in any `env:` or `with:`, call a reusable workflow
+  or use a checkout action other than `actions/checkout` (a checkout there may
+  name only the default branch): the trigger is safe only because the job runs
+  the default branch;
+- a pinned `uses:` has no `# vX.Y.Z` comment after it. (Only `run:` is scanned for
+  expressions: if an action that evaluates text, such as `actions/github-script`,
+  is ever added, its `script:` input needs the same care.)
 
 The repository setting "Require actions to be pinned to a full-length commit
 SHA" (Settings, Actions, General) makes GitHub refuse an unpinned action too. It

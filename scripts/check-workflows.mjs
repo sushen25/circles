@@ -54,6 +54,7 @@ import {
   pullRequestTargetProblems,
   unpinnedUses,
   unsafeRunExpressions,
+  unversionedPins,
 } from './workflow-hygiene.mjs';
 
 // `yaml` is a transitive dependency rather than a direct one, so resolve it the
@@ -680,8 +681,10 @@ for (const dir of DIRS) {
   for (const file of files) {
     const path = join(dir, file);
     let doc;
+    let text = '';
     try {
-      doc = parse(readFileSync(path, 'utf8'));
+      text = readFileSync(path, 'utf8');
+      doc = parse(text);
     } catch (error) {
       problems.push(`${path}: not valid YAML — ${error?.message ?? error}`);
       continue;
@@ -690,12 +693,19 @@ for (const dir of DIRS) {
     ciRules(path, file, doc);
 
     // What a workflow lets in from outside (SUS-120).
-    for (const use of unpinnedUses(doc)) {
+    // `.eas/workflows` has steps of its own (`uses: eas/checkout`); only GitHub's are judged.
+    const github = dir.startsWith('.github');
+    for (const line of github ? unversionedPins(text) : []) {
+      problems.push(
+        `${path}: \`${line}\` is pinned but names no version in a trailing \`# vX.Y.Z\` comment`,
+      );
+    }
+    for (const use of github ? unpinnedUses(doc) : []) {
       problems.push(
         `${path} · ${use} is not pinned to a full commit SHA (name the version in a trailing comment)`,
       );
     }
-    for (const expr of unsafeRunExpressions(doc)) {
+    for (const expr of github ? unsafeRunExpressions(doc) : []) {
       problems.push(
         `${path}: a \`run:\` interpolates \`${expr}\`; pass it through \`env:\` and read the variable (docs/runbooks/ci.md)`,
       );

@@ -7,6 +7,7 @@ import {
   expressionsInRun,
   pullRequestTargetProblems,
   unpinnedUses,
+  unversionedPins,
   unsafeRunExpressions,
 } from './workflow-hygiene.mjs';
 
@@ -129,25 +130,100 @@ test('an allowed pull_request_target workflow may not check out or run the PR', 
     'refs/pull/${{ github.event.number }}/merge',
     '${{ github.event.pull_request.merge_commit_sha }}',
   ]) {
-    assert.equal(
-      pullRequestTargetProblems(f, wf({ uses: `actions/checkout@${SHA}`, with: { ref } })).length,
-      1,
+    assert.ok(
+      pullRequestTargetProblems(f, wf({ uses: `actions/checkout@${SHA}`, with: { ref } })).length >=
+        1,
       ref,
     );
   }
-  assert.equal(
+  assert.ok(
     pullRequestTargetProblems(
       f,
       wf({
         uses: `actions/checkout@${SHA}`,
         with: { repository: '${{ github.event.pull_request.head.repo.full_name }}' },
       }),
-    ).length,
-    1,
+    ).length >= 1,
   );
   assert.equal(pullRequestTargetProblems(f, wf({ run: 'gh pr checkout 5' })).length, 1);
+  assert.ok(
+    pullRequestTargetProblems(f, wf({ run: 'git fetch origin refs/pull/5/head' })).length >= 1,
+  );
+});
+
+test('a matrix value is safe only when the matrix is written in the file', () => {
+  const wf = (matrix) => ({
+    jobs: { j: { strategy: { matrix }, steps: [{ run: 'echo ${{ matrix.x }}' }] } },
+  });
+  assert.deepEqual(unsafeRunExpressions(wf({ x: ['a', 'b'] })), []);
+  assert.equal(unsafeRunExpressions(wf('${{ fromJSON(inputs.list) }}')).length, 1);
+  assert.equal(unsafeRunExpressions(wf({ x: '${{ fromJSON(needs.a.outputs.l) }}' })).length, 1);
+});
+
+test('harmless GitHub paths are allowed in run', () => {
+  for (const expr of ['github.workspace', 'runner.temp', 'github.server_url', 'github.token']) {
+    assert.deepEqual(unsafeRunExpressions(job({ run: `echo "\${{ ${expr} }}"` })), [], expr);
+  }
+});
+
+test('an allowed pull_request_target workflow cannot reach the PR through env, with or a third party', () => {
+  const f = 'preview-cleanup.yml';
+  const on = { pull_request_target: {} };
+  const one = (step, extra = {}) => ({ on, ...extra, jobs: { j: { steps: [step] } } });
+  const co = `actions/checkout@${SHA}`;
+  for (const ref of [
+    '${{ github.event.after }}',
+    '${{ env.PR }}',
+    '${{ GITHUB.HEAD_REF }}',
+    "${{ github.event['pull_request'].head.sha }}",
+    '${{ fromJSON(toJSON(github.event)).pull_request.head.sha }}',
+    'pr-branch',
+  ]) {
+    assert.ok(pullRequestTargetProblems(f, one({ uses: co, with: { ref } })).length >= 1, ref);
+  }
+  assert.ok(
+    pullRequestTargetProblems(
+      f,
+      one({
+        uses: `someone/checkout@${SHA}`,
+        with: { ref: '${{ github.event.pull_request.head.sha }}' },
+      }),
+    ).length >= 1,
+  );
+  // The PR's head through env, then used in a script.
+  assert.ok(
+    pullRequestTargetProblems(
+      f,
+      one({ env: { S: '${{ github.event.pull_request.head.sha }}' }, run: 'git fetch origin $S' }),
+    ).length >= 1,
+  );
+  assert.ok(pullRequestTargetProblems(f, one({ run: 'git fetch origin pull/5/head' })).length >= 1);
+  assert.ok(
+    pullRequestTargetProblems(f, one({ run: 'echo hi' }, { env: { S: '${{ github.head_ref }}' } }))
+      .length >= 1,
+  );
+  // A reusable workflow job runs code this check cannot see.
   assert.equal(
-    pullRequestTargetProblems(f, wf({ run: 'git fetch origin refs/pull/5/head' })).length,
+    pullRequestTargetProblems(f, { on, jobs: { j: { uses: './.github/workflows/x.yml' } } }).length,
     1,
   );
+  // The PR number, which the real clean-up reads, is fine.
+  assert.deepEqual(
+    pullRequestTargetProblems(
+      f,
+      one({
+        env: { PR_NUMBER: '${{ github.event.pull_request.number }}' },
+        run: 'eas alias:delete',
+      }),
+    ),
+    [],
+  );
+});
+
+test('a pinned action names its version in a comment', () => {
+  const line = (rest) => `      - uses: actions/checkout@${SHA}${rest}\n`;
+  assert.deepEqual(unversionedPins(line(' # v4.4.0')), []);
+  assert.equal(unversionedPins(line('')).length, 1);
+  assert.equal(unversionedPins(line(' # pinned')).length, 1);
+  assert.deepEqual(unversionedPins('      - uses: ./local\n'), []);
 });
