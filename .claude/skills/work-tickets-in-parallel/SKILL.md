@@ -185,9 +185,10 @@ worktree.
   from `docs/_templates/adr.md` as `docs/decisions/00XX-<slug>.md`, refer to
   it as "ADR 00XX" in the PR, and take the real number in the final rebase
   before merge, when main says what is next. The number lives in three places
-  — the filename, the heading and the frontmatter `adr:` — and the row in
-  `docs/decisions/README.md`, plus any other record's `amends` /
-  `amended_by` / `builds_on` list that names it, move in that same commit.
+  — the filename, the heading and the frontmatter `adr:` — and any other
+  record's `amends` / `amended_by` / `builds_on` list that names it, and
+  `pnpm gen:adrs` rewrites the generated row in `docs/decisions/index.md`;
+  all of it moves in that same commit.
   `pnpm check:docs`, inside the gate, fails until they agree.
 - **`docs/Home.md` and `docs/runbooks/README.md`.** One row per new document,
   at the position the table's order dictates. Two tickets each adding a

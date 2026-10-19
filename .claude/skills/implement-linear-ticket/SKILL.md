@@ -61,7 +61,7 @@ Steps, in order:
 3. **Read first.** `AGENTS.md`, then `docs/Home.md` — the map of `docs/` and
    the rules for writing there — then everything in the ticket's "Read first"
    list, then `docs/tickets.md` "Working a ticket". The ADRs are indexed in
-   `docs/decisions/README.md`, and each one carries frontmatter (`status`,
+   `docs/decisions/index.md` (generated), and each one carries frontmatter (`status`,
    `amends`, `amended_by`, `builds_on` as ADR numbers), so a grep on
    `amends:` or `builds_on:` finds the records that touch the one you are
    about to change.
@@ -83,15 +83,15 @@ Steps, in order:
    changes gets an ADR (`AGENTS.md`, "Changing a rule"): copy
    `docs/_templates/adr.md`, fill the frontmatter (`adr`, `title`, `status`,
    `date`, and `amends` / `amended_by` / `builds_on` as ADR numbers), keep the
-   status line saying the same thing, add the row to
-   `docs/decisions/README.md`, and change the spec or the architecture in the
+   status line saying the same thing, run `pnpm gen:adrs` (the index is
+   generated, never edited by hand), and change the spec or the architecture in the
    same PR. A record you amend gets `amended_by` and a note on its status
    line. A new runbook gets a row in `docs/runbooks/README.md`; any other new
    document gets a row in `docs/Home.md`. Links are relative Markdown with the
    `.md` extension, no heading links, no Obsidian-only syntax, no renames —
    `docs/Home.md` says why. `pnpm check:docs`, inside the gate, fails on a
-   link to nothing or on an ADR whose frontmatter, status line and README row
-   disagree, so a doc left behind fails the check rather than the reader.
+   link to nothing or on an ADR whose frontmatter, status line
+   disagree, or the generated index is stale, so a doc left behind fails the check rather than the reader.
 7. **Check.**
 
 ```bash

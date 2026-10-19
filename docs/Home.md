@@ -10,7 +10,7 @@ on Obsidian being open, and nothing in the repository reads `.obsidian/`.
 | Product | [mvp-product-spec.md](mvp-product-spec.md) · the first draft in [initial-mvp-product-spec.md](initial-mvp-product-spec.md), reviewed in [mvp-spec-review.md](mvp-spec-review.md) |
 | Architecture | [technical-architecture.md](technical-architecture.md) |
 | Design | [design-manifesto.md](design-manifesto.md) · artboards and `gen.py` in `design/` (hidden from search and the graph) |
-| Decisions | [decisions/README.md](decisions/README.md) · live table in [decisions/decisions.base](decisions/decisions.base) |
+| Decisions | [decisions/README.md](decisions/README.md) · table in [decisions/index.md](decisions/index.md) (generated) · live table in [decisions/decisions.base](decisions/decisions.base) |
 | Guest → app | [guest-to-app-flow.md](guest-to-app-flow.md) |
 | How we work | [working-process.md](working-process.md) · tickets in [tickets.md](tickets.md) |
 | Runbooks | [runbooks/README.md](runbooks/README.md) |
@@ -38,11 +38,13 @@ up and outside the vault, where agents and tooling find it by path.
 - ADRs carry frontmatter (`adr`, `title`, `status`, `date`, and `amends`,
   `amended_by`, `builds_on` as lists of ADR numbers). The status line under
   the heading stays, because GitHub readers see that and not the table.
-  A new ADR starts from the template in `_templates/adr.md`.
+  A new ADR starts from the template in `_templates/adr.md`. The table of
+  ADRs, `decisions/index.md`, is generated from that frontmatter by
+  `pnpm gen:adrs`; never edit it by hand.
 - A new runbook gets a row in `runbooks/README.md`; any other new document
   gets a row in the table above. The skills in `.claude/skills/` point here
   and expect both.
 - `pnpm check:docs`, inside `pnpm check` and in CI's prose lane, fails on a
   link to nothing, a heading link, a wikilink or callout, or an ADR whose
-  frontmatter, status line and README row disagree. It skips `audits/` (not in
+  frontmatter and status line disagree, or the generated ADR index is stale. It skips `audits/` (not in
   git), `_templates/` and `design/`.

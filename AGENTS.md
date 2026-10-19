@@ -33,11 +33,12 @@ pnpm dev:android       # native development build
 pnpm check             # the gate: everything CI runs
 pnpm db:test           # reset the database and run pgTAP
 pnpm gen:types         # regenerate database types from the local schema
-pnpm gen               # every generator in order: events, transitions, functions, types
+pnpm gen               # every generator in order: adrs, events, transitions, functions, types
+pnpm gen:adrs          # regenerate docs/decisions/index.md from the ADRs' frontmatter (never edit it by hand)
 pnpm gen:migration <name>  # the branch's one new, numbered migration; the generators write into it
 pnpm gen:functions     # re-render supabase/sql/functions/ into that migration (ADR 0015)
 pnpm check:migrations  # fails if a migration already on origin/main was edited (inside pnpm check)
-pnpm check:docs        # links in docs/ resolve; each ADR's frontmatter, status line and README row agree (inside pnpm check)
+pnpm check:docs        # links in docs/ resolve; each ADR's frontmatter and status line agree, the generated ADR index is current (inside pnpm check)
 pnpm gen:tokens        # regenerate design tokens from docs/design/gen.py
 pnpm test:e2e          # Playwright: fixtures with no backend (smoke), then the journeys against the local stack (live): every spec in Chromium and WebKit, the ones tagged `// @e2e:` also in the in-app-browser and en-AU projects
 pnpm check:env <domain>  # a deployed environment from outside: HTTPS, HSTS, SPF/DKIM/DMARC
@@ -188,7 +189,9 @@ canvas mapping are updated · an ADR is written if a rule changed.
 Write an ADR in [`docs/decisions/`](docs/decisions/README.md), numbered
 sequentially, following the shape of the existing ones: Context, Decision,
 Alternatives considered, Consequences. A superseded record stays in place with a
-status line. Then change the spec or the architecture in the same PR.
+status line. Then run `pnpm gen:adrs`, which regenerates the index
+(`docs/decisions/index.md`) from the frontmatter; the index is never edited by
+hand. Then change the spec or the architecture in the same PR.
 
 ## The docs are an Obsidian vault
 
@@ -201,8 +204,8 @@ links, no renames. ADRs carry frontmatter (`adr`, `title`, `status`, `date`,
 and `amends`, `amended_by`, `builds_on` as lists of ADR numbers) and keep their
 status line; a new one starts from `docs/_templates/adr.md`. `docs/.obsidian/`
 is committed except the per-machine workspace files. `pnpm check:docs`, inside
-the gate, fails on a link to nothing or an ADR whose three copies of its status
-disagree.
+the gate, fails on a link to nothing or an ADR whose frontmatter and status line
+disagree or whose generated index is stale.
 
 ## The scenario
 

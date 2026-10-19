@@ -36,6 +36,7 @@
     "gen": "node scripts/gen.mjs",
     "gen:migration": "node scripts/gen-migration.mjs",
     "gen:transitions": "node scripts/gen-transitions.mjs",
+    "gen:adrs": "node scripts/gen-adr-index.mjs",
     "gen:events": "node scripts/gen-events.mjs",
     "gen:functions": "node scripts/gen-sql-functions.mjs",
     "check:brand": "node scripts/check-brand.mjs",

@@ -1,6 +1,6 @@
 // `pnpm gen`: every generator, in the one order that works (SUS-141).
 //
-//   events -> transitions -> functions -> types
+//   adrs, events -> transitions -> functions -> types
 //
 // The workspace is built first, because the generators read `packages/*/dist`
 // and not the TypeScript beside it; without it an edit to the event catalogue
@@ -33,7 +33,7 @@ const digest = () =>
     .digest('hex');
 const before = digest();
 
-const steps = ['build', 'gen:events', 'gen:transitions', 'gen:functions', 'gen:types'];
+const steps = ['build', 'gen:adrs', 'gen:events', 'gen:transitions', 'gen:functions', 'gen:types'];
 const pnpm = process.env.npm_execpath;
 for (const step of steps) {
   if (step === 'gen:types' && digest() !== before) {
