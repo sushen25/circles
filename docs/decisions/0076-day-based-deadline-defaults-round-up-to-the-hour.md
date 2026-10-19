@@ -1,13 +1,13 @@
 ---
 adr: 76
 title: "Day-based deadline defaults round up to the next whole hour"
-status: proposed
+status: accepted
 date: 2026-10-15
 builds_on: [10]
 ---
 # ADR 0076: Day-based deadline defaults round up to the next whole hour
 
-_Status: proposed · 15 October 2026 · builds on [ADR 0010](0010-tonight-deadline-gives-up-its-margin.md)_
+_Status: accepted · 15 October 2026 · builds on [ADR 0010](0010-tonight-deadline-gives-up-its-margin.md)_
 
 ## Context
 

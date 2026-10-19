@@ -1,13 +1,13 @@
 ---
 adr: 45
 title: "The availability editor shows what others have said, as counts"
-status: proposed
+status: accepted
 date: 2026-10-01
 amended_by: [66]
 ---
 # ADR 0045: The availability editor shows what others have said, as counts
 
-_Status: proposed · 1 October 2026 · amended by [ADR 0066](0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md) on 15 October 2026: at one other answer the day counts show, and the hours wait for two_
+_Status: accepted · 1 October 2026 · amended by [ADR 0066](0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md) on 15 October 2026: at one other answer the day counts show, and the hours wait for two_
 
 ## Context
 

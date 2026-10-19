@@ -1,13 +1,13 @@
 ---
 adr: 62
 title: "A Continue-as pick does not hand the taker the previous holder's quiet-ask answer"
-status: proposed
+status: accepted
 date: 2026-10-11
 amends: [49]
 ---
 # ADR 0062: A Continue-as pick does not hand the taker the previous holder's quiet-ask answer
 
-_Status: proposed · 11 October 2026 · amends [ADR 0049](0049-continue-as-resolves-a-code-only-while-it-is-live.md) (what a list move carries), and spec §5.4_
+_Status: accepted · 11 October 2026 · amends [ADR 0049](0049-continue-as-resolves-a-code-only-while-it-is-live.md) (what a list move carries), and spec §5.4_
 
 ## Context
 

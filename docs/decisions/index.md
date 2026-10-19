@@ -39,10 +39,10 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0031](./0031-a-meetup-may-last-up-to-five-hours.md) | A meetup may last up to five hours | accepted |
 | [0032](./0032-the-circles-zone-is-shown-when-the-readers-device-differs.md) | The circle's zone is shown when the reader's device differs, not when a member's does | accepted (amended by 0065) |
 | [0033](./0033-one-open-plan-per-circle.md) | A circle has one open plan at a time | accepted |
-| [0034](./0034-ink-3-is-dark-enough-to-read.md) | `ink-3` is dark enough to read | proposed |
+| [0034](./0034-ink-3-is-dark-enough-to-read.md) | `ink-3` is dark enough to read | accepted |
 | [0035](./0035-the-quiet-ask-at-twenty-members.md) | The quiet ask at twenty members — its threshold, its stop time, and what it does beside an open plan | accepted |
-| [0036](./0036-the-cadence-nudge-is-decided-once-per-cycle.md) | The cadence nudge is decided once per cycle, when circle home says it is about time | proposed |
-| [0037](./0037-usual-times-are-read-not-written.md) | A member's usual times are worked out when they are read, not written when they answer | proposed (amended by 0068, 0077) |
+| [0036](./0036-the-cadence-nudge-is-decided-once-per-cycle.md) | The cadence nudge is decided once per cycle, when circle home says it is about time | accepted |
+| [0037](./0037-usual-times-are-read-not-written.md) | A member's usual times are worked out when they are read, not written when they answer | accepted (amended by 0068, 0077) |
 | [0038](./0038-the-quiet-asks-initiator-is-written-to-at-their-own-address.md) | The quiet ask's initiator is written to at their own address | accepted (amended by 0069) |
 | [0039](./0039-replies-closed-is-told-per-deadline-and-once-a-day-later.md) | Replies closed is told once per deadline and once a day later; one more day is a day from now, once per revision | proposed |
 | [0040](./0040-the-served-html-is-a-shell.md) | The served HTML is a neutral shell; every screen renders on the device | proposed |
@@ -85,3 +85,42 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0078](./0078-a-guest-may-continue-as-themselves-as-often-as-they-need.md) | A guest may continue as themselves as often as they need: no cap on how often a membership moves | proposed (amends 0006, 0049) |
 | [0079](./0079-the-time-of-day-is-on-the-first-screen-and-a-time-for-each-day-opens-in-place.md) | The time of day is on the first screen as pills, and a time for each day opens in place | proposed (amends 0068) |
 | [0080](./0080-the-reattach-and-verified-gates-count-product-rows-not-events.md) | The reattach and verified gates count product rows, not events | proposed |
+| [0039](./0039-replies-closed-is-told-per-deadline-and-once-a-day-later.md) | Replies closed is told once per deadline and once a day later; one more day is a day from now, once per revision | accepted |
+| [0040](./0040-the-served-html-is-a-shell.md) | The served HTML is a neutral shell; every screen renders on the device | accepted |
+| [0041](./0041-keen-members-may-take-the-role-as-soon-as-it-opens.md) | Keen members may take the organiser role as soon as a quiet ask opens, and the quiet ask's analytics name nobody | accepted |
+| [0043](./0043-the-product-is-wenna-and-confirmations-sign-off-with-the-day.md) | The product is Wenna, the link preview says what the brand doc says, and a confirmation signs off with the day | accepted |
+| [0044](./0044-production-is-wenna-app-and-the-host-is-permanent-once-a-link-leaves.md) | Production is `wenna.app`, and the host is permanent once a link leaves the founder | accepted |
+| [0045](./0045-the-editor-shows-what-others-have-said-as-counts.md) | The availability editor shows what others have said, as counts | accepted (amended by 0066) |
+| [0046](./0046-an-edit-that-clears-answers-asks-those-people-again.md) | An edit that clears answers asks those people again | accepted |
+| [0047](./0047-a-plan-may-ask-about-days-with-gaps.md) | A plan may ask about days with gaps between them | accepted (amends 0030) |
+| [0048](./0048-the-consent-sentence-is-the-one-string-that-lives-in-config.md) | The consent sentence is the one user-facing string that lives in `packages/config` | accepted |
+| [0049](./0049-continue-as-resolves-a-code-only-while-it-is-live.md) | Continue-as resolves a code only while it is live, and its limits are enforced in SQL | accepted (amended by 0059, 0062, 0078; amends 0006, 0022) |
+| [0050](./0050-verifying-an-address-promotes-only-the-same-persons-contacts.md) | Verifying an address promotes only the contacts that belong to the same person | accepted (amends 0027) |
+| [0051](./0051-the-organiser-sets-the-final-plan.md) | The organiser sets the final plan: any day and time, edited afterwards without asking everyone again | accepted |
+| [0052](./0052-the-bare-host-is-the-website.md) | The bare host is the website, and the app's front door on the web is `/start` | accepted |
+| [0053](./0053-the-organiser-gate-moves-to-before-the-share.md) | The first run drafts the circle and plan with no account; the saved-place gate moves to before the share | accepted (amends 0004) |
+| [0054](./0054-the-link-preview-may-say-a-plan-is-locked-in.md) | The link preview may say a plan is locked in, as one of two words next to the name | accepted (amends 0043) |
+| [0055](./0055-after-sending-one-step-keeps-your-place-and-turns-on-the-updates.md) | After sending, one step keeps the guest's place and turns on the plan's updates | accepted (amended by 0067; amends 0019) |
+| [0056](./0056-members-can-see-who-has-saved-a-place.md) | A circle's members can see which of them has saved a place | accepted (amended by 0060) |
+| [0057](./0057-who-started-a-plan-is-kept-as-long-as-the-plan.md) | Who started a plan is kept as long as the plan, not for twelve months | accepted |
+| [0058](./0058-every-circle-carries-a-cohort-only-the-founder-can-see.md) | Every circle carries a cohort that only the founder can see | accepted |
+| [0059](./0059-continue-as-resolves-plan-codes-only.md) | Continue-as resolves plan codes only, never a circle's own code | accepted (amends 0049) |
+| [0060](./0060-a-quiet-asks-initiator-is-not-inferable-from-member-data.md) | A quiet ask's initiator is not inferable from member data: who has saved a place and who has muted are each member's own | accepted (amends 0056) |
+| [0061](./0061-the-chasing-survey-never-holds-lock-it-in.md) | The chasing survey never holds Lock it in: an unanswered question is stored as not answered and counted on its own | accepted |
+| [0062](./0062-a-continue-as-pick-does-not-carry-the-quiet-ask-answer.md) | A Continue-as pick does not hand the taker the previous holder's quiet-ask answer | accepted (amends 0049) |
+| [0063](./0063-the-calendar-file-is-served-at-a-link-with-a-short-lived-signed-token.md) | The calendar file is served at a link with a short-lived signed token | accepted |
+| [0064](./0064-join-limits-charge-the-person-asking-and-a-members-call-is-free.md) | Join limits charge the person asking, and a member's call is free | accepted (amends 0022) |
+| [0065](./0065-co-members-see-the-circles-name-for-a-member-and-nothing-else.md) | Co-members see the circle's name for a member and nothing else of their name: no view of account names, and a rename leaves every circle alone | accepted (amended by 0070; amends 0032) |
+| [0066](./0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md) | The group sees who can make each option, and nobody sees anyone's whole availability | accepted (amends 0045) |
+| [0067](./0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md) | Every cadence nudge carries a stop link that needs no sign-in, and the Sent card says an account is made | accepted (amended by 0069; amends 0027, 0055) |
+| [0068](./0068-a-tapped-day-has-a-time-and-the-answer-is-one-line.md) | A tapped day already has a time, and the answer is one line: the first screen asks only which days | accepted (amended by 0077, 0079; amends 0024, 0037) |
+| [0069](./0069-every-account-holder-letter-carries-a-stop-link-that-needs-no-sign-in.md) | Every letter to an account holder carries a stop link that needs no sign-in | accepted (amends 0025, 0029, 0038, 0067) |
+| [0070](./0070-a-member-changes-the-name-a-circle-calls-them-from-circle-settings.md) | A member changes the name a circle calls them from circle settings, and the new name shows everywhere, plans already locked in included | accepted (amends 0065) |
+| [0071](./0071-the-functions-a-client-can-call-carry-their-own-rate-limits.md) | The functions a client can call carry their own rate limits, and an address is sent one verification letter an hour | accepted (amended by 0073) |
+| [0072](./0072-the-analytics-ingest-records-only-what-a-caller-can-know.md) | The analytics ingest records only what a caller can know | accepted |
+| [0073](./0073-an-invite-digest-and-a-re-entry-digest-are-not-a-way-in.md) | A stored invite or re-entry digest is not a way in: the functions that take one are the service role's | accepted (amends 0071) |
+| [0074](./0074-a-suppressed-contact-keeps-a-hash-and-the-sign-in-log-and-events-are-bounded.md) | A suppressed contact keeps a hash and not the address; the sign-in log is pruned; an event follows its user | accepted |
+| [0076](./0076-day-based-deadline-defaults-round-up-to-the-hour.md) | Day-based deadline defaults round up to the next whole hour | accepted |
+| [0077](./0077-an-answer-never-given-opens-empty-previous-times-wait-for-a-tap.md) | An answer never given opens empty: previous times are not applied on open, they wait for a tap | accepted (amends 0037, 0068) |
+| [0078](./0078-a-guest-may-continue-as-themselves-as-often-as-they-need.md) | A guest may continue as themselves as often as they need: no cap on how often a membership moves | accepted (amends 0006, 0049) |
+| [0079](./0079-the-time-of-day-is-on-the-first-screen-and-a-time-for-each-day-opens-in-place.md) | The time of day is on the first screen as pills, and a time for each day opens in place | accepted (amends 0068) |

@@ -11,6 +11,9 @@ index `merge=union`; GitHub's own merge button does not read it, so rebase
 before you merge); if the rows land out of order, `pnpm gen:adrs` puts them right.
 `pnpm check:docs` fails when the index is stale.
 
+There is no 0042 on `main`: the number is held by the open pull request for
+SUS-92 (#95), which carries the record. It is a gap, not a deletion.
+
 ## Template
 
 The frontmatter feeds [decisions.base](./decisions.base), the live table of

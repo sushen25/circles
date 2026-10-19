@@ -1,14 +1,14 @@
 ---
 adr: 60
 title: "A quiet ask's initiator is not inferable from member data: who has saved a place and who has muted are each member's own"
-status: proposed
+status: accepted
 date: 2026-10-09
 amends: [56]
 builds_on: [32]
 ---
 # ADR 0060: A quiet ask's initiator is not inferable from member data: who has saved a place and who has muted are each member's own
 
-_Status: proposed · 9 October 2026 · amends [ADR 0056](0056-members-can-see-who-has-saved-a-place.md) (a member no longer reads another's saved-place state), and spec §5.4, §8.2 and architecture §8.4_
+_Status: accepted · 9 October 2026 · amends [ADR 0056](0056-members-can-see-who-has-saved-a-place.md) (a member no longer reads another's saved-place state), and spec §5.4, §8.2 and architecture §8.4_
 
 ## Context
 

@@ -1,13 +1,13 @@
 ---
 adr: 47
 title: "A plan may ask about days with gaps between them"
-status: proposed
+status: accepted
 date: 2026-10-01
 amends: [30]
 ---
 # ADR 0047: A plan may ask about days with gaps between them
 
-_Status: proposed · 1 October 2026 · amends [ADR 0030](0030-a-plan-may-ask-about-up-to-thirty-days.md) and spec §5.3_
+_Status: accepted · 1 October 2026 · amends [ADR 0030](0030-a-plan-may-ask-about-up-to-thirty-days.md) and spec §5.3_
 
 ## Context
 

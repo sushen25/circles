@@ -4,9 +4,8 @@ How a ticket actually gets worked, and the rules that came out of getting it
 wrong. Kept next to the specs rather than in a wiki so it changes in the same
 PR as the thing it describes.
 
-S0-10 creates `AGENTS.md` as the authoritative rules file for coding agents.
-When it lands, this document should be linked from it or folded into it — not
-duplicated.
+`AGENTS.md` is the authoritative rules file for coding agents. This document
+is the process around it: it is linked from there, not duplicated in it.
 
 ---
 
@@ -15,8 +14,9 @@ duplicated.
 The steps are encoded in `.claude/skills/implement-linear-ticket/`; this is the
 shape of them, and the reasoning the script cannot carry.
 
-1. **Fetch the ticket.** `get_issue` with `includeRelations`. `docs/tickets.md`
-   maps S-numbers to Linear ids.
+1. **Fetch the ticket.** `get_issue` with `includeRelations`. Linear is the
+   index. `docs/tickets.md` maps the early S-numbers (up to SUS-77) to Linear
+   ids and is not extended; a later ticket is found by its `SUS-N`.
 2. **Check the blockers.** Every id in `relations.blockedBy` must be Done or
    Canceled. Stop and say which ones are not.
 3. **Read first.** `AGENTS.md`, then the ticket's "Read first" list, then
@@ -284,6 +284,16 @@ name the dependency where someone reordering the steps will read it.
   is not linted, not typechecked and not tested. Push it and move on. Wait on
   the run when the change can plausibly break it: anything under `apps/`,
   `packages/`, `supabase/`, `scripts/`, a workflow file, or a lockfile.
+- **An ADR is accepted when its PR merges.** It is written `proposed` on the
+  branch, because nothing is decided until the code is reviewed, and the merge
+  is the decision. Set `status: accepted` (frontmatter and status line) in the PR
+  that lands the code, so the record is never left saying "proposed" about a rule
+  the repository already follows. An ADR whose code is not merged stays proposed.
+- **A ticket that makes a runbook statement false updates the runbook in the
+  same PR.** Runbooks describe the system as it is, and the next reader acts on
+  them; a ticket that moves a setting, a limit, a count or a process step finds
+  the runbook lines that say the old thing (`grep` for the name) and corrects them
+  in the diff, not in a later cleanup ticket.
 - **Documentation changes ride along with the work.** A rule learned while
   working a ticket goes into the PR for that ticket, not a separate
   documentation PR. One thing to review, and the lesson stays next to the change

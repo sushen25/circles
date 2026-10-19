@@ -1,14 +1,14 @@
 ---
 adr: 70
 title: "A member changes the name a circle calls them from circle settings, and the new name shows everywhere, plans already locked in included"
-status: proposed
+status: accepted
 date: 2026-10-15
 amends: [65]
 builds_on: [60]
 ---
 # ADR 0070: A member changes the name a circle calls them from circle settings, and the new name shows everywhere, plans already locked in included
 
-_Status: proposed · 15 October 2026 · amends [ADR 0065](0065-co-members-see-the-circles-name-for-a-member-and-nothing-else.md) (a membership's name was set at joining and by nothing after), builds on [ADR 0060](0060-a-quiet-asks-initiator-is-not-inferable-from-member-data.md)_
+_Status: accepted · 15 October 2026 · amends [ADR 0065](0065-co-members-see-the-circles-name-for-a-member-and-nothing-else.md) (a membership's name was set at joining and by nothing after), builds on [ADR 0060](0060-a-quiet-asks-initiator-is-not-inferable-from-member-data.md)_
 
 ## Context
 

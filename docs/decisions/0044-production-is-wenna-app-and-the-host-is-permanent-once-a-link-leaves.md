@@ -1,12 +1,12 @@
 ---
 adr: 44
 title: "Production is `wenna.app`, and the host is permanent once a link leaves the founder"
-status: proposed
+status: accepted
 date: 2026-10-01
 ---
 # ADR 0044: Production is `wenna.app`, and the host is permanent once a link leaves the founder
 
-_Status: proposed · 1 October 2026_
+_Status: accepted · 1 October 2026_
 
 ## Context
 

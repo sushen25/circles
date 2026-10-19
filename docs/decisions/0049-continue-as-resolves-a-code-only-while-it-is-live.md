@@ -1,14 +1,14 @@
 ---
 adr: 49
 title: "Continue-as resolves a code only while it is live, and its limits are enforced in SQL"
-status: proposed
+status: accepted
 date: 2026-10-02
 amends: [6, 22]
 amended_by: [59, 62, 78]
 ---
 # ADR 0049: Continue-as resolves a code only while it is live, and its limits are enforced in SQL
 
-_Status: proposed (its circle-code branch is withdrawn by [ADR 0059](0059-continue-as-resolves-plan-codes-only.md); a list move no longer carries the quiet-ask answer, [ADR 0062](0062-a-continue-as-pick-does-not-carry-the-quiet-ask-answer.md); the per-membership cap of decision 4 is removed, [ADR 0078](0078-a-guest-may-continue-as-themselves-as-often-as-they-need.md)) · 2 October 2026, decision 6 added 3 October 2026 · amends [ADR 0006](0006-continue-as-reattachment-without-owner-approval.md) and [ADR 0022](0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md), and spec §5.1_
+_Status: accepted (its circle-code branch is withdrawn by [ADR 0059](0059-continue-as-resolves-plan-codes-only.md); a list move no longer carries the quiet-ask answer, [ADR 0062](0062-a-continue-as-pick-does-not-carry-the-quiet-ask-answer.md); the per-membership cap of decision 4 is removed, [ADR 0078](0078-a-guest-may-continue-as-themselves-as-often-as-they-need.md)) · 2 October 2026, decision 6 added 3 October 2026 · amends [ADR 0006](0006-continue-as-reattachment-without-owner-approval.md) and [ADR 0022](0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md), and spec §5.1_
 
 ## Context
 

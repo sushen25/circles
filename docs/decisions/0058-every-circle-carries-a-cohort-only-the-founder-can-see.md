@@ -1,13 +1,13 @@
 ---
 adr: 58
 title: "Every circle carries a cohort that only the founder can see"
-status: proposed
+status: accepted
 date: 2026-10-09
 builds_on: [57]
 ---
 # ADR 0058: Every circle carries a cohort that only the founder can see
 
-_Status: proposed · 9 October 2026 · builds on [ADR 0057](0057-who-started-a-plan-is-kept-as-long-as-the-plan.md), which changed the same founder views, and adds a fact about circles that no user can read_
+_Status: accepted · 9 October 2026 · builds on [ADR 0057](0057-who-started-a-plan-is-kept-as-long-as-the-plan.md), which changed the same founder views, and adds a fact about circles that no user can read_
 
 ## Context
 

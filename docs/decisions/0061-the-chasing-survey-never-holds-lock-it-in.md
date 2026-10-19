@@ -1,13 +1,13 @@
 ---
 adr: 61
 title: "The chasing survey never holds Lock it in: an unanswered question is stored as not answered and counted on its own"
-status: proposed
+status: accepted
 date: 2026-10-09
 builds_on: [58]
 ---
 # ADR 0061: The chasing survey never holds Lock it in: an unanswered question is stored as not answered and counted on its own
 
-_Status: proposed · 9 October 2026 · changes spec §5.10 (the organiser micro-survey) and §11.4 (the "answered without being chased" gate)_
+_Status: accepted · 9 October 2026 · changes spec §5.10 (the organiser micro-survey) and §11.4 (the "answered without being chased" gate)_
 
 ## Context
 

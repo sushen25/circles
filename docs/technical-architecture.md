@@ -70,7 +70,7 @@ There is no queue vendor, cache, search engine, analytics SaaS, CMS, map provide
 | Styling | React Native `StyleSheet` + a tokens package generated from the design manifesto; no Tailwind/NativeWind | — | Keeps the token vocabulary identical to `docs/design/gen.py`; fewer moving parts on web **ADR-002** |
 | Fonts | `expo-font` bundling Newsreader and Figtree; metric-compatible fallbacks | — | Manifesto §5.2 |
 | Data fetching | TanStack Query v5 over `supabase-js` | — | Cache, optimistic updates, offline draft retry |
-| Local storage | `expo-secure-store` (session on native), `localStorage` (web), MMKV for availability drafts | — | Offline availability editing (manifesto §7.6) |
+| Local storage | `expo-secure-store` (session on native), `localStorage` (web), and the same storage for availability drafts (`data/availability/drafts.ts` over `data/auth/storage.ts`; no MMKV) | — | Offline availability editing (manifesto §7.6) |
 | Validation | Zod for every function request/response, DTO, deep-link payload and analytics event | — | Runtime contracts at every boundary |
 | Backend | Supabase hosted project: Postgres 15+, Auth, Edge Functions (Deno), pg_cron, pg_net | — | Relational domain, RLS isolation, generated types, migrations |
 | Push | `expo-notifications` + Expo Push Service | — | Free, one API over APNs/FCM |
@@ -217,9 +217,9 @@ The client imports the same `packages/domain` the server uses, so the app can sh
 │       │   ├── join.tsx            # /join#secret → redeem
 │       │   ├── j/[code].tsx        # plan short link → respond
 │       │   ├── p/[code].tsx        # plan page (candidates / confirmed / cancelled …)
-│       │   ├── a/[token].tsx       # email re-entry
-│       │   ├── e/[token].tsx       # email preferences (no sign-in)
-│       │   ├── v/[token].tsx       # email verification landing
+│       │   ├── a.tsx               # email re-entry (token in the fragment, ADR 0023)
+│       │   ├── e.tsx               # email preferences (no sign-in)
+│       │   ├── v.tsx               # email verification landing
 │       │   ├── circles/            # list, [id], [id]/settings, [id]/plan/new, …
 │       │   ├── og/[kind]+api.ts    # server route: OG tags for link previews (web only)
 │       │   └── +not-found.tsx
@@ -232,7 +232,11 @@ The client imports the same `packages/domain` the server uses, so the app can sh
 │           │   ├── scheduling/     # candidates (organiser / member), no-quorum, deadline-passed
 │           │   ├── confirmation/   # review, confirmed (organiser / guest), change-time, outcome, attendance
 │           │   ├── communication/  # email offer, check-email, verified, preferences, push-ask
-│           │   └── growth/         # nudge cards and sheet, app landing
+│           │   ├── growth/         # nudge cards and sheet, app landing
+│           │   ├── sharing/        # the share sheet for an invite or a plan link
+│           │   ├── system/         # offline, crash, not-found, load-failed, the pre-hydration shell
+│           │   ├── founder/        # the founder's analytics screen (allowlisted)
+│           │   └── site/           # the website served at the bare host (ADR 0052)
 │           ├── components/         # design-system components (Button, Card, Chip, Marks, Notice, Track…)
 │           ├── platform/           # adapters: calendar, push, share, storage, links, turnstile
 │           ├── data/               # supabase client, query keys, repositories (typed reads), function callers
@@ -254,38 +258,12 @@ The client imports the same `packages/domain` the server uses, so the app can sh
 │   │                               # renders them into a migration, `pnpm check` gates drift
 │   ├── seed.sql                    # three circles incl. incomplete responses and a quiet ask
 │   ├── functions/
-│   │   ├── _shared/                # auth, zod, outbox, resend, push, logging, errors
-│   │   ├── redeem-invite/
-│   │   ├── join-plan/              # ADR 0022 (S1-24c)
-│   │   ├── reattach-member/
-│   │   ├── claim-identity/
-│   │   ├── create-plan/
-│   │   ├── answer-interest/
-│   │   ├── accept-organiser/
-│   │   ├── submit-availability/
-│   │   ├── recalculate-candidates/
-│   │   ├── confirm-meetup/
-│   │   ├── revise-plan/
-│   │   ├── cancel-plan/
-│   │   ├── hand-off-organiser/
-│   │   ├── extend-deadline/
-│   │   ├── report-outcome/
-│   │   ├── request-email-updates/
-│   │   ├── verify-email-contact/
-│   │   ├── manage-email-preferences/
-│   │   ├── stop-letters/
-│   │   ├── email-provider-webhook/
-│   │   ├── register-push-device/
-│   │   ├── generate-ics/
-│   │   ├── record-nudge/
-│   │   ├── track-events/
-│   │   ├── process-scheduled-jobs/
-│   │   └── delete-account/
+│   │   ├── _shared/                # auth, zod, outbox, resend, logging, errors, rate limits
+│   │   └── <one folder per use case>/   # the list is the directory: §9.1 names each
 │   └── tests/database/             # pgTAP: constraints, RLS, transitions, retention
 ├── tests/
-│   ├── e2e-web/                    # Playwright, incl. WhatsApp/Messenger in-app-browser user agents
-│   ├── e2e-native/                 # Maestro flows
-│   └── fixtures/                   # builders (circle(), plan(), response()) — no copied JSON
+│   ├── e2e-web/                    # Playwright smoke, incl. WhatsApp/Messenger in-app-browser user agents
+│   └── e2e-live/                   # Playwright journeys against the local stack
 ├── docs/
 │   ├── decisions/                  # ADRs
 │   ├── design/                     # canvas source (already present)
@@ -330,7 +308,7 @@ Each function is one use case with the same skeleton:
 
 1. Parse the request with its Zod schema from `contracts`.
 2. Authenticate (`Authorization: Bearer <JWT>`), load the actor's membership.
-3. Load the aggregate via a repository (`_shared/repos`), call the domain function, get a `Result`.
+3. Load what the use case needs with the caller's client (`_shared/db.ts`), call the domain function, get a `Result`.
 4. Persist inside one transaction through a Postgres function (`select planning.transition_plan(...)`) that re-checks the guard with row locks and appends outbox events.
 5. Return a DTO; never the raw row.
 
@@ -497,6 +475,7 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 
 | Function | Auth | Does |
 |---|---|---|
+| `create-circle` | permanent | `create_circle` and the first invite in one call, idempotent on its key; answers with the circle and the invite link (the secret is derived under `INVITE_LINK_KEY`, ADR 0028) |
 | `redeem-invite` | anonymous or permanent | Verify Turnstile (web), hash the fragment secret, check not revoked, create membership, return circle DTO |
 | `join-plan` | anonymous or permanent | Verify Turnstile (web); takes a plan short code. **The plan admits** only while it is taking answers (`collecting` or `ready`, deadline ahead) in an active circle; an unknown code and a plan that is not admitting both get the one `invite_inactive`, so a refusal does not distinguish them. (A join that succeeds does say the plan is taking answers; that is not hidden.) **A caller who is already an active member** sends no name and only gains the participant row for the current revision, if missing. **A caller who is not** becomes a member under the same cap, name and rejoin rules as `redeem-invite`, with their own reasons (`circle_full`, `duplicate_name`, `display_name_unusable`), and a participant, in one transaction: a guest must send a display name; an account may omit it and joins under its profile name, and sends one after a `duplicate_name`. Moves the plan's quorum only when nobody chose it (`quorum_source = 'defaulted'`), through `quorum_follows` — the audience's own rule, never downward, no new revision and no event (ADR 0026); a chosen quorum is untouched. Adding somebody to the plan bumps its `input_version` and recalculates in the same request, as an answer does (ADR 0018), and a call that adds nobody changes neither. Rate-limited by who is asking, never by who holds the code: an active member's call costs nothing, and anyone else is counted per code and caller, per caller and per address (§14; [ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md), restated by [ADR 0064](decisions/0064-join-limits-charge-the-person-asking-and-a-members-call-is-free.md)) |
 | `reattach-member` | anonymous | Given circle + target anonymous membership without a permanent identity (chosen from the Continue-as list, or authorised by an emailed re-entry token), move the membership to the caller's new anonymous identity; write `member_reattached`; rate-limited per circle |
@@ -523,14 +502,14 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 | `manage-email-preferences` | token | Show/disable subscriptions without sign-in |
 | `stop-letters` | token | The link under an account-holder letter: turns off one family of them (the cadence nudge, the organiser's letters, or the quiet ask's) by writing the flag settings writes, without sign-in; one token purpose per family, repeatable, reveals nothing ([ADR 0067](decisions/0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md), [ADR 0069](decisions/0069-every-account-holder-letter-carries-a-stop-link-that-needs-no-sign-in.md)) |
 | `email-provider-webhook` | Resend signature | Dedupe by provider message id, record delivery, suppress on hard bounce/complaint |
-| `register-push-device` | permanent | Upsert Expo push token |
+| `register-push-device` | permanent | *Not built yet (Slice 3).* Upsert Expo push token |
 | `generate-ics` | member, or a short-lived signed token | Standards-compliant `.ics` for a confirmation; no tokens in the file. The bearer gets the file, or with `format=link` a 15-minute HMAC token for that one confirmation, which is what a plain link to the file carries so a tap can open the system calendar sheet; the function authenticates itself (`verify_jwt = false`) and refuses a request with neither ([ADR 0063](decisions/0063-the-calendar-file-is-served-at-a-link-with-a-short-lived-signed-token.md)) |
 | `record-nudge` | member | May this prompt be shown (`nudgeEligibility` over the caller's rows; a yes is recorded as shown in the same request, a no writes nothing), or what was done with it |
 | `track-events` | any | Validate against the catalogue, strip anything not in the schema, insert |
 | `process-scheduled-jobs` | cron (service role) | Drain outbox → create notification jobs; send due jobs; expire quiet asks and plans; deadline reminders; cadence prompts; outcome prompts; retries with capped backoff. Not retention — that is `jobs.run_retention()` in the database ([ADR 0014](decisions/0014-retention-runs-in-the-database.md)) |
-| `delete-account` | permanent | Revoke sessions, anonymise, enqueue purge |
+| `delete-account` | permanent | *Not built yet.* Revoke sessions, anonymise, enqueue purge |
 
-Every function: Zod-validated input, `X-Request-Id` echoed as the user-visible reference on errors ("Ref 7F3K-2Q"), structured JSON logs without PII, idempotent on a client-supplied `idempotency_key` **in the request body** for mutations ([ADR 0016](decisions/0016-idempotency-key-travels-in-the-request-body.md)) — inside the request's own schema, so a client that omits it fails at the boundary rather than at the retry.
+Every function: Zod-validated input, a reference minted on the server (`_shared/respond.ts`; the caller's `X-Request-Id` is ignored, so a header can never put a token in a log) as the user-visible reference on errors ("Ref 7F3K-2Q"), structured JSON logs without PII, idempotent on a client-supplied `idempotency_key` **in the request body** for mutations ([ADR 0016](decisions/0016-idempotency-key-travels-in-the-request-body.md)) — inside the request's own schema, so a client that omits it fails at the boundary rather than at the retry.
 
 ### 9.2 Reads
 
@@ -558,7 +537,7 @@ Clients read through `supabase-js` with RLS: circles I belong to, active members
 
 - **Routing**: Expo Router groups per audience; guest routes are reachable unauthenticated and self-heal (no session → join or continue-as).
 - **State**: TanStack Query for server state; feature-local `useReducer` for editors (availability painter, plan setup); no global store.
-- **Availability painter**: 30-minute cells; drag paints; output is normalised windows via `domain/availability`; drafts persisted to MMKV/`localStorage` under `(plan, revision)` and resubmitted on reconnect (offline state in the manifesto).
+- **Availability painter**: 30-minute cells; drag paints; output is normalised windows via `domain/availability`; drafts persisted by `data/availability/drafts.ts` (the session storage in `data/auth/storage.ts`: `localStorage` on web, secure storage on native) under `(plan, revision)` and resubmitted on reconnect (offline state in the manifesto).
 - **Calendar boundary (native)**: `platform/calendar` exposes exactly `getBusyIntervals(range, calendarIds): Interval[]`. The `expo-calendar` event objects never leave the adapter; a unit test asserts the adapter's return type contains no title/location/attendee fields and an ESLint rule forbids importing `expo-calendar` outside `platform/calendar`.
 - **Push**: registration only after the contextual ask; token sent to `register-push-device`; notification taps deep-link to the route in the payload.
 - **Share**: `platform/share` wraps `Share.share` / Web Share API; message text comes from `domain/communication/shareMessages`.
@@ -606,13 +585,13 @@ domain event (outbox) → dispatcher → eligibility(recipient, kind, state) →
 | Concern | Control |
 |---|---|
 | Circle isolation | RLS on every public table via `auth_is_member`; pgTAP tests for member/non-member/removed/anonymous/permanent |
-| Quiet-ask confidentiality | Initiator and interest rows in `private`; counts exposed only after threshold; organiser null until accepted; no initiator in events, logs, push, email, analytics; test that no public view joins `private.plan_interest` |
+| Quiet-ask confidentiality | Initiator and interest rows in `private`; counts exposed only after threshold; organiser null until accepted; no initiator in events, logs, push, email, analytics; the only public view over `private.plan_interest` is `plan_interest_counts`, which returns counts and never a row, and a test fails if another appears |
 | Calendar data | Adapter boundary (§11) + type test + lint rule; no calendar columns anywhere in the schema |
 | Email addresses | `private` schema; never in DTOs, analytics, logs; hashed for dedupe; consent version recorded |
 | Invite links | ≥256-bit secret in the URL fragment; SHA-256 stored; `Referrer-Policy: no-referrer`; rotation invalidates immediately; redemption rate-limited by who is asking (an active member's call costs nothing; others are counted per link and caller, per caller and per address; the same rule as `join-plan`, see Join limits below and [ADR 0064](decisions/0064-join-limits-charge-the-person-asking-and-a-members-call-is-free.md)). The secret is HMAC-derived from the invite's id under `INVITE_LINK_KEY`, an Edge Function secret, so `get-invite-link` can show the owner their link again without the database holding it ([ADR 0028](decisions/0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md)). A stored digest is not a way in: `redeem_invite`, `reattach_with_token` and `live_invite` are the service role's, called by their Edge Functions with the person they verified ([ADR 0073](decisions/0073-an-invite-digest-and-a-re-entry-digest-are-not-a-way-in.md)) |
 | Join limits | `join-plan` and `redeem-invite` charge the person making the attempts and nobody else (SUS-113). An active member of the circle the link opens costs nothing. Anyone else counts toward three hourly limits: 10 per link and caller, 30 per caller across links (the brake on guessing codes), and 120 per address (sized for a household or carrier, twice the 60 an hour a person may sign in). No counter is shared by everyone who holds a link; admission is bounded by the member cap of 20 ([ADR 0012](decisions/0012-circle-member-cap-of-twenty.md)). The numbers live in `JOIN_LIMITS` in `supabase/functions/_shared/rate.ts`. |
 | SQL limits | The functions a client can call over RPC take a `take_rate_token` of their own, keyed on the caller (and the caller's plan), far above the Edge limits: `replace_response`, `create_circle`, `create_plan`, `issue_invite`, `revise_plan`, `confirm_meetup`, `cancel_plan`; and `redeem_invite`, the service role's, keyed on the person its Edge Function names (ADR 0073). They count calls that complete. `request_email_updates` sends an address one verification letter an hour and answers the same either way; `plans.cancel_note` is capped at 280 ([ADR 0071](decisions/0071-the-functions-a-client-can-call-carry-their-own-rate-limits.md)) |
-| Anonymous abuse | Turnstile on web joins; Supabase anonymous IP rate limit raised to 60/hour for shared-network households; abandoned-identity cleanup |
+| Anonymous abuse | Turnstile on web joins; Supabase anonymous IP rate limit raised for shared-network households: `supabase/config.toml` has 30 an hour locally; the hosted projects are set by hand in the dashboard (60 on `circles-dev` and 59 on `circles-prod` when read on 19 October 2026); abandoned-identity cleanup |
 | Calendar link | `generate-ics` accepts `<exp>.<HMAC-SHA-256>` over the confirmation id and the expiry under `CALENDAR_LINK_KEY`: 15 minutes, one confirmation, read only, checked in constant time before anything is read, never written to a log by the function, never in the file or analytics (the platform's request log does hold the URL, an accepted cost: ADR 0063) ([ADR 0063](decisions/0063-the-calendar-file-is-served-at-a-link-with-a-short-lived-signed-token.md)) |
 | Tokens | Verification/preference/re-entry tokens ≥256-bit, hashed, expiring; never logged. Minted by whoever sends the thing that carries them, because a job row holds ids and no payload ([ADR 0020](decisions/0020-the-verification-token-is-minted-by-the-sender.md)). Verification and re-entry are single-use because they grant something; a preferences link is reusable, because an unsubscribe that expires on use is not one ([ADR 0019](decisions/0019-consent-is-recorded-when-it-is-given.md)) |
 | Service role | Only in Edge Function secrets; never in the client or repository; CI secret scanning |
@@ -638,13 +617,13 @@ domain event (outbox) → dispatcher → eligibility(recipient, kind, state) →
 |---|---|---|
 | Domain | Vitest + fast-check | Engine properties, state machine table, deadline/quorum defaults, window normalisation, nudge eligibility, share messages |
 | Contracts | Vitest | Every Zod schema round-trips its fixture; analytics catalogue rejects PII keys |
-| Database | pgTAP via `supabase test db` | Constraints, partial unique indexes, exclusion constraints, every RLS policy (allow + deny), transition function guards, retention jobs, `private` unreachable from `anon`/`authenticated`. `pnpm db:test` also measures which of the database's functions the suites actually call, with `track_functions = all` and pg_cron paused so that only the tests count, and fails on one that stops being reached — all 47 are reached today (`supabase/tests/function-coverage.txt`) |
-| Functions | Vitest against the local stack | Invite → anonymous join → availability → candidates → confirm; concurrent threshold hits transition once; idempotent retries send nothing twice; webhook replay stores once |
+| Database | pgTAP via `supabase test db` | Constraints, partial unique indexes, exclusion constraints, every RLS policy (allow + deny), transition function guards, retention jobs, `private` unreachable from `anon`/`authenticated`. `pnpm db:test` also measures which of the database's functions the suites actually call, with `track_functions = all` and pg_cron paused so that only the tests count, and fails on one that stops being reached — every one is reached today (`supabase/tests/function-coverage.txt`) |
+| Functions | Vitest, with the database client mocked (`handlers.test.ts`); the real stack is exercised by the integration and live suites | Invite → anonymous join → availability → candidates → confirm; concurrent threshold hits transition once; idempotent retries send nothing twice; webhook replay stores once |
 | Web e2e | Playwright | No-install journey in mobile Safari/Chrome UAs **and** WhatsApp/Messenger in-app-browser UAs; continue-as after cleared storage; email preference links; 200% type |
 | Native e2e | Maestro (Slice 3) | Calendar grant/deny/override; push tap deep link; add to calendar |
 | Accessibility | axe in Playwright; manual VoiceOver/TalkBack pass per slice | Manifesto §6 |
 
-`pnpm check` runs format, lint (incl. boundaries and copy rules), typecheck, domain/contracts tests, database reset + pgTAP, function tests, and the Playwright smoke. GitHub Actions runs it on every PR with the Supabase CLI in Docker; EAS Workflows build development clients on `main` and publish EAS Updates per channel. Migrations deploy to `dev` on merge and to `prod` by a manual, reviewed workflow.
+`pnpm check` runs format, lint (incl. boundaries and copy rules), typecheck, domain/contracts tests, database reset + pgTAP, function tests, the integration suite, and the Playwright smoke and live suites. GitHub Actions runs it on every PR with the Supabase CLI in Docker; EAS Workflows (`.eas/workflows/`, started by hand with `workflow_dispatch`) build development clients and publish EAS Updates per channel. Migrations deploy to `dev` on merge and to `prod` by a manual, reviewed workflow.
 
 Definition of done per feature: acceptance criteria pass; all eight screen states exist; analytics event emitted and schema-tested; RLS/database test exists; copy in `copy/`; no PII in logs; seed scenario updated; ADR written if a rule changed.
 

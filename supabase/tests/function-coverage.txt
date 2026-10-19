@@ -7,7 +7,7 @@
 # the 47 functions are never *named* in supabase/tests — true, and it is the
 # wrong measure: most are triggers, and Postgres counts a call whether it came
 # from a test's SQL, from another function's body, or from a trigger firing.
-# Measured with track_functions = all, the suites reach all 47.
+# Measured with track_functions = all, the suites reach every function (all 47 then; 148 files now).
 #
 # So there is nothing to excuse. If a name appears below, it wants a reason
 # beside it and a ticket to remove it again.

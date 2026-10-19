@@ -1,14 +1,14 @@
 ---
 adr: 69
 title: "Every letter to an account holder carries a stop link that needs no sign-in"
-status: proposed
+status: accepted
 date: 2026-10-15
 amends: [25, 29, 38, 67]
 builds_on: [20, 23, 27, 36]
 ---
 # ADR 0069: Every letter to an account holder carries a stop link that needs no sign-in
 
-_Status: proposed · 15 October 2026 · supersedes the part of [ADR 0029](0029-an-organiser-turns-organiser-email-off-in-the-app.md) that kept replies closed outside the organiser-email switch and gave the organiser kinds no stop link; generalises the token and page of [ADR 0067](0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md); amends [ADR 0025](0025-the-preferences-link-is-minted-with-each-email.md) and [ADR 0038](0038-the-quiet-asks-initiator-is-written-to-at-their-own-address.md); builds on [ADR 0020](0020-the-verification-token-is-minted-by-the-sender.md), [ADR 0023](0023-emailed-tokens-travel-in-the-fragment.md), [ADR 0027](0027-the-organisers-auth-address-is-an-email-contact.md) and [ADR 0036](0036-the-cadence-nudge-is-decided-once-per-cycle.md)_
+_Status: accepted · 15 October 2026 · supersedes the part of [ADR 0029](0029-an-organiser-turns-organiser-email-off-in-the-app.md) that kept replies closed outside the organiser-email switch and gave the organiser kinds no stop link; generalises the token and page of [ADR 0067](0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md); amends [ADR 0025](0025-the-preferences-link-is-minted-with-each-email.md) and [ADR 0038](0038-the-quiet-asks-initiator-is-written-to-at-their-own-address.md); builds on [ADR 0020](0020-the-verification-token-is-minted-by-the-sender.md), [ADR 0023](0023-emailed-tokens-travel-in-the-fragment.md), [ADR 0027](0027-the-organisers-auth-address-is-an-email-contact.md) and [ADR 0036](0036-the-cadence-nudge-is-decided-once-per-cycle.md)_
 
 ## Context
 

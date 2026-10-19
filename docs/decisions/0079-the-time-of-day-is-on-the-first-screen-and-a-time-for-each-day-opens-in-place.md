@@ -1,14 +1,14 @@
 ---
 adr: 79
 title: "The time of day is on the first screen as pills, and a time for each day opens in place"
-status: proposed
+status: accepted
 date: 2026-10-19
 amends: [68]
 builds_on: [9, 13, 45, 66]
 ---
 # ADR 0079: The time of day is on the first screen as pills, and a time for each day opens in place
 
-_Status: proposed · 19 October 2026 · amends [ADR 0068](0068-a-tapped-day-has-a-time-and-the-answer-is-one-line.md) (the first screen's answer block, and where the per-day step lives); builds on [ADR 0009](0009-half-hour-availability-cells-with-a-scrolling-row.md), [ADR 0013](0013-availability-written-only-through-replace-response.md), [ADR 0045](0045-the-editor-shows-what-others-have-said-as-counts.md) and [ADR 0066](0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md)_
+_Status: accepted · 19 October 2026 · amends [ADR 0068](0068-a-tapped-day-has-a-time-and-the-answer-is-one-line.md) (the first screen's answer block, and where the per-day step lives); builds on [ADR 0009](0009-half-hour-availability-cells-with-a-scrolling-row.md), [ADR 0013](0013-availability-written-only-through-replace-response.md), [ADR 0045](0045-the-editor-shows-what-others-have-said-as-counts.md) and [ADR 0066](0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md)_
 
 ## Context
 
