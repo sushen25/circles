@@ -50,6 +50,12 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
+import {
+  pullRequestTargetProblems,
+  unpinnedUses,
+  unsafeRunExpressions,
+  unversionedPins,
+} from './workflow-hygiene.mjs';
 
 // `yaml` is a transitive dependency rather than a direct one, so resolve it the
 // way Node would from the workspace root rather than assuming a path.
@@ -675,14 +681,37 @@ for (const dir of DIRS) {
   for (const file of files) {
     const path = join(dir, file);
     let doc;
+    let text = '';
     try {
-      doc = parse(readFileSync(path, 'utf8'));
+      text = readFileSync(path, 'utf8');
+      doc = parse(text);
     } catch (error) {
       problems.push(`${path}: not valid YAML — ${error?.message ?? error}`);
       continue;
     }
 
     ciRules(path, file, doc);
+
+    // What a workflow lets in from outside (SUS-120).
+    // `.eas/workflows` has steps of its own (`uses: eas/checkout`); only GitHub's are judged.
+    const github = dir.startsWith('.github');
+    for (const line of github ? unversionedPins(text) : []) {
+      problems.push(
+        `${path}: \`${line}\` is pinned but names no version in a trailing \`# vX.Y.Z\` comment`,
+      );
+    }
+    for (const use of github ? unpinnedUses(doc) : []) {
+      problems.push(
+        `${path} · ${use} is not pinned to a full commit SHA (name the version in a trailing comment)`,
+      );
+    }
+    for (const expr of github ? unsafeRunExpressions(doc) : []) {
+      problems.push(
+        `${path}: a \`run:\` interpolates \`${expr}\`; pass it through \`env:\` and read the variable (docs/runbooks/ci.md)`,
+      );
+    }
+    for (const problem of pullRequestTargetProblems(file, doc))
+      problems.push(`${path}: ${problem}`);
 
     // Branch protection matches a check by name and any Actions job will do:
     // a quick job called `check` elsewhere would turn the required check green
@@ -770,5 +799,5 @@ if (problems.length > 0) {
 }
 
 console.log(
-  'check:workflows: every job installs before it uses pnpm, only production jobs read production credentials, production waits for a green plan, dev waits for check',
+  'check:workflows: every job installs before it uses pnpm, only production jobs read production credentials, production waits for a green plan, dev waits for check, every action is pinned by commit, no `run:` interpolates an expression outside the safe list, `pull_request_target` is confined to the clean-up',
 );
