@@ -369,14 +369,32 @@ describe('round 3', () => {
     });
     noteSavedWith(PLAN.code, 'nina@example.com');
     wrap(<EmailVerifyFlow />);
+    await tapTurnOn();
 
     await screen.findByText(/Your place is saved/);
     expect(takeSavedWith(PLAN.code)).toBeUndefined();
   });
 });
 
+async function tapTurnOn() {
+  await act(async () => {
+    fireEvent.click(await screen.findByRole('button', { name: 'Turn on updates' }));
+  });
+}
+
 describe('the verification link', () => {
-  it('posts the token once and names what was turned on', async () => {
+  it('asks for one tap and spends nothing before it: opening the link verifies nothing', async () => {
+    holdTokenForTests('verify', TOKEN);
+    wrap(<EmailVerifyFlow />);
+
+    expect(await screen.findByRole('button', { name: 'Turn on updates' })).toBeVisible();
+    // A mail gateway that loads the page, runs its script and waits, changes nothing.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(verifyEmail).not.toHaveBeenCalled();
+    expect(track).not.toHaveBeenCalled();
+  });
+
+  it('posts the token once, on the tap, and names what was turned on', async () => {
     holdTokenForTests('verify', TOKEN);
     verifyEmail.mockResolvedValue({
       active_plans: [
@@ -390,6 +408,7 @@ describe('the verification link', () => {
       already_confirmed: false,
     });
     wrap(<EmailVerifyFlow />);
+    await tapTurnOn();
 
     await screen.findByText("You'll hear about this meetup by email.");
     expect(screen.getByText('Sunday Crew · Catch up')).toBeInTheDocument();
@@ -401,6 +420,7 @@ describe('the verification link', () => {
     holdTokenForTests('verify', TOKEN);
     verifyEmail.mockRejectedValue(refusal('link_expired'));
     wrap(<EmailVerifyFlow />);
+    await tapTurnOn();
 
     await screen.findByText('This link has expired.');
   });

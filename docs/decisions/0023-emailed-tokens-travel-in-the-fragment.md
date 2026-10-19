@@ -71,5 +71,13 @@ so no link in the wild could break. The founder chose to close it inside S1-30
   corporate gateways wrap the whole URL and restore it on click, fragment
   included, but this is untested against a real gateway. S1-31 (SUS-47)
   should test at least one before the first cohort.
+- **A single-use link asks for a tap before it spends anything (SUS-186).**
+  "A GET is a prefetch" covers a scanner that does not run the page's script;
+  one that does (a link-detonation sandbox) would verify an address on `/v` or
+  move a guest's place on `/a` just by opening the link. So `/a` shows "Get
+  back in" and `/v` shows "Turn on updates", and the token is posted only when
+  the person taps. Neither page names the circle first, because nothing can
+  look a token up without spending it. `/e` is unchanged: on load its page
+  only reads, and a change waits for a tap.
 - Native universal links (S3-01) carry the fragment to the app unchanged;
   the native entry point will need the same capture.

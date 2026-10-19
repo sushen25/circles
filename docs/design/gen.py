@@ -934,6 +934,26 @@ S["EmailVerified"] = shell(
     foot(pri("Back to Sunday Crew"), ter("Save access on every device"))
 )
 
+# The page behind the verification email's link (SUS-186): one sentence and one button, and nothing is verified
+# until the tap, so a mail gateway that opens the link and runs its script verifies nothing.
+S["EmailVerifyConfirm"] = shell(
+    top("", back=False, right=wordmark()) +
+    body(
+        stack(dl("Turn on updates"), p("Tap to confirm this address and get the confirmed time, changes and a reminder for the meetup you asked about. If this wasn't you, close this page and nothing happens."), gap=8),
+    ) +
+    foot(pri("Turn on updates"))
+)
+
+# The page behind "Get back in" in a plan-update email (SUS-186): the same, so a gateway cannot spend the
+# single-use token and move the member's place onto its own identity. It does not name the circle.
+S["ReentryConfirm"] = shell(
+    top("", back=False, right=wordmark()) +
+    body(
+        stack(dl("Get back in"), p("Tap to carry on where you left off in your circle. If this wasn't you, close this page and nothing happens."), gap=8),
+    ) +
+    foot(pri("Get back in"))
+)
+
 S["EmailPrefs"] = shell(
     top("", back=False, right=wordmark()) +
     body(
@@ -2044,7 +2064,7 @@ pages = [{"id":"first","name":"0 · First time, organiser"},
          {"id":"system","name":"6 · States, copy and components"},
          {"id":"loading","name":"7 · Loading and busy"}]
 
-titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning member","Name":"Name","NamePlanLink":"Name · plan link","Availability":"Availability · the first-time guest lands","AvailabilityPicking":"Availability · three days tapped","AvailabilityTime":"Availability · change the time","AvailabilityAdjusting":"Availability · a time for each day","AvailabilityMixed":"Availability · days with different times","AvailabilityPicker":"Availability · the picker for one edge","AvailabilityOneChoiceHours":"Availability · a plan with one window, its hours","AvailabilityReturning":"Availability · returning member, opens empty","AvailabilityOthersFirst":"Availability · first to answer","NoneWork":"None of these dates","Sent":"Sent · one step, switch on","SentOrganiser":"Sent · the organiser, who picks","SentSwitchOff":"Sent · switch off","SentCode":"Sent · the code","SentDone":"Sent · done","SentPartial":"Sent · place saved, emails failed","SentMember":"Sent · signed in, one button","SentMemberDone":"Sent · signed in, done","SentSuppressed":"Sent · address suppressed","SentSuppressedSaved":"Sent · suppressed, after the code","CheckEmail":"Check your email · app nudge","EmailVerified":"Email verified","EmailPrefs":"Email preferences · no sign-in","NudgeStop":"Stop reminders · no sign-in","NudgeStopDone":"Stop reminders · done","OrganiserStop":"Stop organiser emails · no sign-in","OrganiserStopDone":"Stop organiser emails · done","QuietStop":"Stop quiet-ask emails · no sign-in","QuietStopDone":"Stop quiet-ask emails · done","SaveAccess":"Save access · the account's other doors","CandidatesMember":"Candidates · member view","ConfirmedGuest":"Confirmed · guest","AddToCalendar":"Add to calendar sheet","RescheduledGuest":"Rescheduled · guest","CancelledGuest":"Cancelled · guest","WasThere":"Attendance · morning after","LinkInvalid":"Invite link inactive",
+titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning member","Name":"Name","NamePlanLink":"Name · plan link","Availability":"Availability · the first-time guest lands","AvailabilityPicking":"Availability · three days tapped","AvailabilityTime":"Availability · change the time","AvailabilityAdjusting":"Availability · a time for each day","AvailabilityMixed":"Availability · days with different times","AvailabilityPicker":"Availability · the picker for one edge","AvailabilityOneChoiceHours":"Availability · a plan with one window, its hours","AvailabilityReturning":"Availability · returning member, opens empty","AvailabilityOthersFirst":"Availability · first to answer","NoneWork":"None of these dates","Sent":"Sent · one step, switch on","SentOrganiser":"Sent · the organiser, who picks","SentSwitchOff":"Sent · switch off","SentCode":"Sent · the code","SentDone":"Sent · done","SentPartial":"Sent · place saved, emails failed","SentMember":"Sent · signed in, one button","SentMemberDone":"Sent · signed in, done","SentSuppressed":"Sent · address suppressed","SentSuppressedSaved":"Sent · suppressed, after the code","CheckEmail":"Check your email · app nudge","EmailVerified":"Email verified","EmailPrefs":"Email preferences · no sign-in","EmailVerifyConfirm":"Email verify · one tap first","ReentryConfirm":"Get back in · one tap first","NudgeStop":"Stop reminders · no sign-in","NudgeStopDone":"Stop reminders · done","OrganiserStop":"Stop organiser emails · no sign-in","OrganiserStopDone":"Stop organiser emails · done","QuietStop":"Stop quiet-ask emails · no sign-in","QuietStopDone":"Stop quiet-ask emails · done","SaveAccess":"Save access · the account's other doors","CandidatesMember":"Candidates · member view","ConfirmedGuest":"Confirmed · guest","AddToCalendar":"Add to calendar sheet","RescheduledGuest":"Rescheduled · guest","CancelledGuest":"Cancelled · guest","WasThere":"Attendance · morning after","LinkInvalid":"Invite link inactive",
           "SignIn":"Sign in · returning organiser","SavePlace":"Save your place · the gate, before the share","EnterCode":"Enter code","YourName":"Your name · after sign-in","FirstCircle":"First circle · no account","InviteCircle":"Invite the circle","CircleHomeJoining":"Circle home · people joining","FirstPlan":"First plan · no account","EmptyCirclesList":"Circles · first run","CirclesList":"Circles list","CircleHome":"Circle home · finding a time","CircleHomeConfirmed":"Circle home · locked in","CircleHomeDue":"Circle home · about time","CreateCircle":"Create circle","ChooseMode":"Choose how to start","PlanSetup":"Plan setup","CustomWindow":"Custom window","PlanShared":"Plan shared · paste to chat","Waiting":"Waiting · no options yet","Candidates":"Candidates · partial replies","DeadlinePassed":"Replies closed · no decision","EditPlan":"Edit plan · reconfirm warning","ConfirmReview":"Confirm review","ConfirmedOrg":"Confirmed · organiser","ChangeTime":"Ask for new times","SetTime":"Set the time yourself","ConfirmReviewOwn":"Confirm review · a time of your own","EditLocked":"Edit this plan · locked in","ConfirmedGuestMoved":"Confirmed · guest, moved","CancelPlan":"Cancel plan","CancelledOrg":"Cancelled · organiser","NoQuorum":"No quorum","Outcome":"Did it happen?","PlanAnother":"Plan another · prefilled","Settings":"Circle settings","NotificationSettings":"Notification settings","Account":"Account","Privacy":"Privacy","Diagnostics":"Founder diagnostics","FounderAnalytics":"Founder analytics",
           "SparkSetup":"Quiet ask · setup","SparkWaiting":"Quiet ask · initiator waiting","InterestPrompt":"Interest prompt · member","ThresholdRole":"Threshold reached · initiator","Volunteer":"Started quietly · keen member","SparkOpenedMember":"Started quietly · other member","SparkExpired":"Expired · initiator",
           "PushAsk":"Push permission · contextual","CalendarExplain":"Calendar · before permission","CalendarPick":"Calendar · pick calendars","AvailabilityOverlay":"Availability · calendar overlay","CalendarDenied":"Calendar · denied",
@@ -2072,6 +2092,8 @@ grid(["Main","ContinueAs","Name","Availability","NoneWork","Sent",
 grid(["AddToCalendarPreparing","AddToCalendarSlow","AddToCalendarReady","AddToCalendarFailed","AddToCalendarAfterTap","AddToCalendarAfterTapAndroid","AddToCalendarInApp"], "guest", y0=7*RY)
 # The stop pages for the organiser's and the quiet ask's letters (SUS-110, ADR 0069): below the add-to-calendar rows.
 grid(["OrganiserStop","OrganiserStopDone","QuietStop","QuietStopDone"], "guest", y0=9*RY)
+# The tap-first pages for the two single-use email links (SUS-186): below the stop pages.
+grid(["EmailVerifyConfirm","ReentryConfirm"], "guest", y0=10*RY)
 # First run is plan-first (ADR 0026) and drafts before sign-in (ADR 0053): the
 # invite link and "people joining" are still screens, reached from circle home
 # and settings, but they are not steps.

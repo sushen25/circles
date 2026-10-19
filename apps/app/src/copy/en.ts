@@ -925,6 +925,14 @@ export const en = {
     reference: 'Ref {reference}',
     i_have_an_account: 'I have an account',
   },
+  /** The page behind "Get back in" in a plan-update email (ADR 0023): one tap, then the token is spent. */
+  reentry: {
+    get_back_in_title: 'Get back in',
+    get_back_in_body:
+      "Tap to carry on where you left off in your circle. If this wasn't you, close this page and nothing happens.",
+    get_back_in: 'Get back in',
+    getting_back_in: 'Getting you back in',
+  },
   conversionMap: {
     guest_saved_place_app_when_we_may: 'Guest → saved place → app · when we may ask, and what for',
     two_conversions_each_with_its_own_moments:
@@ -1467,6 +1475,11 @@ export const en = {
     reference: 'Ref {reference}',
   },
   emailVerified: {
+    turn_on_updates_title: 'Turn on updates',
+    turn_on_updates_body:
+      "Tap to confirm this address and get the confirmed time, changes and a reminder for the meetup you asked about. If this wasn't you, close this page and nothing happens.",
+    turn_on_updates: 'Turn on updates',
+    turning_on: 'Turning on',
     youll_hear_about_this_meetup_by_email: "You'll hear about this meetup by email.",
     youll_hear_about_these_meetups_by_email: "You'll hear about these meetups by email.",
     only_this_one_well_send_the_confirmed:
