@@ -476,8 +476,10 @@ undone by it.
 
 **Dev routes.** Everything under `app/(dev)` (the gallery, the brand sheet, the
 fixture screens, `/settings/diagnostics`) answers not-found when
-`EXPO_PUBLIC_APP_ENV` is `production`, and `/_sitemap` is left out of the
-production export (the plugin's `sitemap: false`), so it answers 404. Other
+`EXPO_PUBLIC_APP_ENV` is `production`. `/_sitemap` is left out of every export
+whose `EXPO_PUBLIC_APP_ENV` is not `development` (the plugin's `sitemap: false`),
+so a deployed `dev` or preview answers 404 too, and only the local dev server
+lists the routes (SUS-192). Other
 deployed environments redirect the fixtures to `/start` (SUS-140), and the
 smoke export keeps them for the gallery.
 
