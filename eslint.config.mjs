@@ -42,7 +42,8 @@ const elements = [
   { type: 'app-copy', pattern: 'apps/app/src/copy', partialMatch: false },
   { type: 'app-analytics', pattern: 'apps/app/src/analytics', partialMatch: false },
   // Test support under `apps/app/src/test/`: stubs, and the tests that need
-  // the route layer (`+middleware`), which a feature's own test must not import.
+  // the route layer (`+middleware`), which a feature's own test must not import;
+  // a feature's test may import the helpers (see the policies below).
   { type: 'app-test', pattern: 'apps/app/src/test', partialMatch: false },
   { type: 'functions', pattern: 'supabase/functions', partialMatch: false },
 ];
@@ -228,6 +229,15 @@ export default tseslint.config(
               sharedPackages,
               sharedPackages,
               ['@circles/*', 'date-fns-tz', 'zod', 'vitest', 'fast-check', 'ical.js'],
+              TEST,
+            ),
+            // A feature's test may use the shared test support under
+            // `apps/app/src/test/` (`hours-router.ts`, SUS-209). Only a test:
+            // the feature itself never ships a test helper.
+            allowImports(
+              'app-features',
+              [...appLayers, ...sharedPackages, 'app-test'],
+              appExternals,
               TEST,
             ),
             {
