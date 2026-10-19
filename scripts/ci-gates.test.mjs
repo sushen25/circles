@@ -857,7 +857,7 @@ test('mutation: an action pinned by tag, or an expression in run, or a new pull_
           'ref: ${{ github.event.repository.default_branch }}',
           'ref: ${{ github.event.pull_request.head.sha }}',
         ),
-      /checks out the pull request/,
+      /checkout sets `ref:/,
     ],
   ]) {
     const r = checkWorkflowsOn(null, file, edit);
