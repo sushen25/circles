@@ -76,6 +76,7 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0069](./0069-every-account-holder-letter-carries-a-stop-link-that-needs-no-sign-in.md) | Every letter to an account holder carries a stop link that needs no sign-in | proposed (amends 0025, 0029, 0038, 0067) |
 | [0070](./0070-a-member-changes-the-name-a-circle-calls-them-from-circle-settings.md) | A member changes the name a circle calls them from circle settings, and the new name shows everywhere, plans already locked in included | proposed (amends 0065) |
 | [0071](./0071-the-functions-a-client-can-call-carry-their-own-rate-limits.md) | The functions a client can call carry their own rate limits, and an address is sent one verification letter an hour | proposed (amended by 0073) |
+| [0072](./0072-the-analytics-ingest-records-only-what-a-caller-can-know.md) | The analytics ingest records only what a caller can know | proposed |
 | [0073](./0073-an-invite-digest-and-a-re-entry-digest-are-not-a-way-in.md) | A stored invite or re-entry digest is not a way in: the functions that take one are the service role's | proposed (amends 0071) |
 | [0074](./0074-a-suppressed-contact-keeps-a-hash-and-the-sign-in-log-and-events-are-bounded.md) | A suppressed contact keeps a hash and not the address; the sign-in log is pruned; an event follows its user | proposed |
 | [0077](./0077-an-answer-never-given-opens-empty-previous-times-wait-for-a-tap.md) | An answer never given opens empty: previous times are not applied on open, they wait for a tap | proposed (amends 0037, 0068) |

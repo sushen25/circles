@@ -18,6 +18,11 @@
 -- session for the database to ask about, and the Edge Function above has
 -- already verified the bearer it came from.
 --
+-- `received_at` is optional in a row and is `now()` when absent. The ingest
+-- sends it only for the events recorded against nobody (`UNATTRIBUTED_EVENTS`),
+-- rounded down to the hour: to the millisecond it is a join to whatever else
+-- the same connection did at that moment (SUS-185).
+--
 -- What it does *not* check is content, and that is not an omission: the table's
 -- own `events_properties_carry_no_content` refuses a key or a value that could
 -- carry somebody's words, which is §15's rule kept where a bug in this function
@@ -35,7 +40,7 @@ declare
 begin
   insert into analytics.events (
     event_id, event_name, schema_version, user_id, anonymous_id,
-    circle_id, plan_id, properties, occurred_at
+    circle_id, plan_id, properties, occurred_at, received_at
   )
   select
     e.event_id, e.event_name, e.schema_version,
@@ -45,7 +50,8 @@ begin
     -- rather than failing the whole batch with it.
     case when exists (select 1 from auth.users u where u.id = e.user_id) then e.user_id end,
     e.anonymous_id,
-    e.circle_id, e.plan_id, coalesce(e.properties, '{}'::jsonb), e.occurred_at
+    e.circle_id, e.plan_id, coalesce(e.properties, '{}'::jsonb), e.occurred_at,
+    coalesce(e.received_at, now())
   from jsonb_to_recordset(p_rows) as e (
     event_id uuid,
     event_name text,
@@ -55,7 +61,8 @@ begin
     circle_id uuid,
     plan_id uuid,
     properties jsonb,
-    occurred_at timestamptz
+    occurred_at timestamptz,
+    received_at timestamptz
   )
   on conflict (event_id) do nothing;
 

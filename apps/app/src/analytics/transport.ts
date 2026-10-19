@@ -92,9 +92,9 @@ export function trackEventsTransport(options: TransportOptions = {}) {
  * to whatever else this device recorded, under its user, at the same moment.
  * An hour is fine enough for every count the catalogue asks of these events.
  *
- * **This is the client's half only.** The ingest still stamps `received_at`
- * to the millisecond, which is the same join, until `track-events` truncates
- * it for `UNATTRIBUTED_EVENTS` too (written on SUS-50).
+ * The ingest does the same on its side (SUS-185): for `UNATTRIBUTED_EVENTS` it
+ * forces no user and no browser id and rounds `occurred_at` and `received_at`
+ * to the hour, whatever it was sent.
  */
 function toTheHour(event: TrackedEvent): TrackedEvent {
   const at = new Date(event.occurred_at);

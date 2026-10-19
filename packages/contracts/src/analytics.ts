@@ -37,7 +37,21 @@ const identifiers = {
 type Shape = Record<string, z.ZodType>;
 
 function event<S extends Shape>(version: number, shape: S = {} as S) {
-  return { version, payload: z.strictObject({ ...identifiers, ...shape }) };
+  return {
+    version,
+    source: 'client' as const,
+    payload: z.strictObject({ ...identifiers, ...shape }),
+  };
+}
+
+/**
+ * An event that is a **server-side fact**, and so not the client's to send
+ * (SUS-185): the function that owns the fact records it with the service role,
+ * and `track-events` refuses the name from any caller. Everything else in the
+ * catalogue is `event()`, which is `source: 'client'`.
+ */
+function serverEvent<S extends Shape>(version: number, shape: S = {} as S) {
+  return { ...event(version, shape), source: 'server' as const };
 }
 
 /**
@@ -47,7 +61,7 @@ function event<S extends Shape>(version: number, shape: S = {} as S) {
  * `private.plan_interest` — any more than to a person (SUS-51 review round 3).
  */
 function bare(version: number) {
-  return { version, payload: z.strictObject({}) };
+  return { version, source: 'client' as const, payload: z.strictObject({}) };
 }
 
 /** A count that is never a person's identity — "5 of 6 can make it". */
@@ -143,7 +157,7 @@ export const catalogue = {
   }),
   plan_shared: event(1),
   plan_edited: event(1, { invalidated_responses: z.boolean() }),
-  plan_expired: event(1),
+  plan_expired: serverEvent(1),
   plan_cancelled: event(1),
   plan_rescheduled: event(1),
   plan_another_started: event(1),
@@ -164,7 +178,7 @@ export const catalogue = {
   // the ask opened (SUS-51 left it to the server, SUS-50).
   quiet_ask_created: bare(2),
   quiet_interest_answered: bare(2),
-  quiet_threshold_reached: event(1, { threshold: count }),
+  quiet_threshold_reached: serverEvent(1, { threshold: count }),
   organiser_accepted: event(2),
 
   // --- availability -------------------------------------------------------
@@ -209,7 +223,7 @@ export const catalogue = {
   }),
 
   // --- scheduling and confirmation ---------------------------------------
-  candidate_set_generated: event(1, { candidate_count: count, quorum_met: z.boolean() }),
+  candidate_set_generated: serverEvent(1, { candidate_count: count, quorum_met: z.boolean() }),
   candidate_viewed: event(1, { role: z.enum(['organiser', 'member']) }),
   candidate_selected: event(1, { rank: count }),
   /**
@@ -282,7 +296,7 @@ export const catalogue = {
    * which named a role and two policies in one list; nothing had been recorded
    * under it, so the version stays.
    */
-  cadence_prompt_sent: event(1, {
+  cadence_prompt_sent: serverEvent(1, {
     recipient_role: z.enum(['owner', 'last_organiser', 'take_turns', 'owner_fallback']),
   }),
 
@@ -310,7 +324,7 @@ export const catalogue = {
   // "Emails about plans you organise" (ADR 0029): a person's own switch, not a
   // plan subscription, so it is not `email_subscription_changed`.
   organiser_email_changed: event(1, { enabled: z.boolean() }),
-  email_delivery_result: event(1, {
+  email_delivery_result: serverEvent(1, {
     code: z.enum(['delivered', 'bounced', 'complained', 'deferred', 'failed']),
   }),
 
@@ -348,6 +362,7 @@ export const catalogue = {
   // boundary and not this event.
   client_error: {
     version: 1,
+    source: 'client' as const,
     payload: z.strictObject({
       route: z
         .string()
@@ -364,6 +379,22 @@ export const catalogue = {
 } as const;
 
 export type EventName = keyof typeof catalogue;
+
+/** Who may record an event: the app (`client`), or only the function that owns the fact (`server`). */
+export type EventSource = 'client' | 'server';
+
+/**
+ * Whether an event is one only the server may record (SUS-185). The ingest
+ * refuses these names from every caller: they are facts the product tables and
+ * the functions already hold, and a script that could post them could skew the
+ * counts the founder decides on.
+ *
+ * `client_error` is the app's, reported by its error boundary (SUS-112), so it
+ * is a client event, and the ingest bounds it instead.
+ */
+export function isServerEvent(name: EventName): boolean {
+  return (catalogue[name].source as EventSource) === 'server';
+}
 
 /**
  * Events recorded against **nobody**: no `user_id`, no `anonymous_id`.
