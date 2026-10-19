@@ -566,9 +566,11 @@ const ciRules = (path, file, doc) => {
     // Every PR's preview takes an alias and EAS Hosting allows 200 per account;
     // the workflow that deletes it is one nobody notices missing until the
     // limit is hit and every preview fails (SUS-232).
-    const on = doc?.on?.pull_request;
+    const on = doc?.on?.pull_request_target;
     if (JSON.stringify(on?.types) !== '["closed"]') {
-      fail('must run on `pull_request` `types: [closed]` only');
+      fail(
+        'must run on `pull_request_target` `types: [closed]` only (a conflicted PR gets no `pull_request` run)',
+      );
     }
     if (on?.paths !== undefined || on?.['paths-ignore'] !== undefined) {
       fail('has a path filter, which would skip the close of a PR that later became Markdown-only');

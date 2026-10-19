@@ -11,7 +11,12 @@
 name: preview-cleanup
 
 on:
-  pull_request:
+  # `pull_request_target`, not `pull_request`: GitHub does not start
+  # `pull_request` runs for a PR with merge conflicts, so a conflicted PR closed
+  # unmerged would keep its alias. This is safe because the job runs the default
+  # branch's code, never the PR's: it checks out `default_branch`, and the fork
+  # guard keeps fork PRs out of the secret. Keep it that way.
+  pull_request_target:
     types: [closed]
 
 # One run per PR, shared with `preview`: a close cancels a deploy still in

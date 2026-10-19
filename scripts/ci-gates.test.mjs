@@ -790,6 +790,7 @@ test('mutation: the preview clean-up cannot be dropped, widened or unguarded', (
       (t) => t.replace('    types: [closed]', "    types: [closed]\n    paths-ignore: ['**.md']"),
       /path filter/,
     ],
+    [cleanup, (t) => t.replace('pull_request_target:', 'pull_request:'), /pull_request_target/],
     [cleanup, (t) => t.replaceAll('deploy:alias:delete', 'deploy:alias:list'), /no job runs/],
     [cleanup, (t) => t.replace(`if: ${guard}`, 'if: true'), /no fork guard/],
     [
