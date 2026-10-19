@@ -187,6 +187,19 @@ describe('the tap, Undo and a tap by hand', () => {
     expect(offer()).toBeNull();
   });
 
+  it('keeps the note when each day is only looked at: Adjust hours, then Same for every day', async () => {
+    open();
+    await screen.findByRole('button', { name: OFFER });
+    tapOffer();
+    fireEvent.click(screen.getByRole('button', { name: 'Adjust hours' }));
+    expect(screen.getByRole('heading', { name: 'Your hours each evening' })).toBeVisible();
+    expect(screen.getByText('Filled in from your usual days.')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Same for every day' }));
+    expect(screen.getByText(EVENINGS)).toBeVisible();
+    expect(tapped()).toHaveLength(10);
+    expect(screen.getByText('Filled in from your usual days.')).toBeVisible();
+  });
+
   it('hides the offer for good once any day is tapped by hand', async () => {
     open();
     await screen.findByRole('button', { name: OFFER });

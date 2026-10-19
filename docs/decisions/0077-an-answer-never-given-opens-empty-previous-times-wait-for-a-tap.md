@@ -52,8 +52,8 @@ draft) is not waited for.
 
 ### The tap (SUS-227, 16 October 2026)
 
-**Before the tap, nothing is tapped.** Under the instructions sits a quiet pill,
-**Use my usual days**, with a small undo-style icon, and under it one line that
+**Before the tap, nothing is tapped.** Under the deadline footnote, where the
+answer block will appear ([ADR 0079](0079-the-time-of-day-is-on-the-first-screen-and-a-time-for-each-day-opens-in-place.md)), sits a quiet pill, **Use my usual days**, with a small undo-style icon, and under it one line that
 says what the usual is in words, from the parts the read returned, so the tap is
 never a surprise: "Weekday evenings and weekend afternoons, from your last plans
 in this circle." A group with all three parts of the day reads "any time on
@@ -68,11 +68,15 @@ make no request for it. A failed read offers nothing. It disappears once any
 day is tapped by hand, and stays gone for the rest of that opening.
 
 **After the tap** the usual days are tapped with their usual times (the `usual`
-action), the answer line shows as for any other answer, and under it reads
-"Filled in from your usual days. **Undo**". Send is enabled. Undo returns to
+action), the answer block shows as for any other answer, and under its hours line
+reads "Filled in from your usual days. **Undo**". Days whose usual times share a
+time of day light that pill; days whose usual times differ open the block as "A
+time for each day", each with its own. Send is enabled. Undo returns to
 nothing tapped, brings the offer back, and takes `usual_used` back to false.
-From the tap on everything is an ordinary answer: days tapped off or on, Change
-time, Send. The note goes as soon as the person changes a day or a time;
+From the tap on everything is an ordinary answer: days tapped off or on, the
+time-of-day pills, a time for each day, Send. The note goes as soon as the person
+changes a day or a time (looking at each day's hours and going back changes
+nothing, so it stays);
 `usual_used` stays true, because the answer began from the tap (SUS-159), unless the answer sent is "I'm easy", which carries none of the days. A reload restores the days from the draft but not the note or the flag, so an answer begun from the tap and sent after a reload says `usual_used: false`: a known undercount, not worth carrying in the draft.
 
 ## Alternatives considered
@@ -89,7 +93,7 @@ time, Send. The note goes as soon as the person changes a day or a time;
 ## Consequences
 
 - The first screen opens the same for a first-time and a returning guest, bar
-  the one offer a returning guest has under the instructions.
+  the one offer a returning guest has under the deadline footnote.
 - `usePreviousTimes` has one caller, the editor, which asks for the read only
   when the offer could be made. `useStartedEvent` stays in the same file.
 - Spec §5.5's "Previous times" paragraph is rewritten in the same change, and
