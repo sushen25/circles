@@ -141,6 +141,38 @@ describe("the day counts include the organiser's own answer", () => {
   });
 });
 
+describe("the organiser's own answer, read again as the picker reopens", () => {
+  it('shows an answer changed since the last opening, not the one cached', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const node = (
+      <QueryClientProvider client={client}>
+        <SetTimeFlow
+          id="sunday-crew"
+          planId="thu-17"
+          mode="lock"
+          start={THU.startsAt}
+          end={THU.endsAt}
+        />
+      </QueryClientProvider>
+    );
+    const first = render(node);
+    await screen.findByText('5 of 6 can make it');
+    await waitFor(() => expect(ownResponse).toHaveBeenCalledTimes(1));
+    expect(screen.queryAllByRole('button', { name: /could make some of it/ })).toHaveLength(0);
+    first.unmount();
+    ownResponse.mockResolvedValue({
+      status: 'windows',
+      windows: [{ start: '2026-09-15T07:30:00.000Z', end: '2026-09-15T12:30:00.000Z' }],
+      submittedAt: '2026-09-08T00:00:00.000Z',
+    });
+    render(node);
+    expect(
+      await screen.findByRole('button', { name: /1 person could make some of it, you included/ }),
+    ).toBeTruthy();
+    expect(ownResponse).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('the names as the time changes', () => {
   it('asks again when the time is stepped, and says the caution when it falls below the number', async () => {
     show(

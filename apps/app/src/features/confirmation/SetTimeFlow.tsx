@@ -112,7 +112,8 @@ function LiveSetTime({
     queryKey: ['own-answer', planId, data?.revision],
     queryFn: () => ownResponse(planId, data?.revision ?? 0),
     enabled: data?.isOrganiser === true,
-    staleTime: 30_000,
+    // Read again each time the picker opens: they may have just changed it.
+    staleTime: 0,
   });
 
   const back = () =>
