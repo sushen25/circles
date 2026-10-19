@@ -126,12 +126,13 @@ test('the app and the landing page both ask for viewport-fit=cover', async ({ pa
 
 test('the landing page pads its header and close band by the insets', async ({ page }) => {
   await page.goto('/');
-  const css = await page.evaluate(() =>
+  const css = await page.evaluate(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    [...(globalThis as any).document.querySelectorAll('style')]
-      .map((s: any) => s.textContent)
-      .join(''),
-  );
+    const doc = (globalThis as any).document;
+    return [...doc.querySelectorAll('style')]
+      .map((s) => (s as { textContent: string }).textContent)
+      .join('');
+  });
   for (const side of ['top', 'right', 'bottom', 'left']) {
     expect(css).toContain(`env(safe-area-inset-${side}`);
   }
