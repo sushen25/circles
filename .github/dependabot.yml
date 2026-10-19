@@ -1,0 +1,14 @@
+# Keeps the commit-pinned actions current (SUS-120). Every `uses:` is a full SHA
+# with its version in a trailing comment; Dependabot bumps both together, one
+# pull request a week at most. `pnpm check` (check:workflows) refuses a tag, so
+# a bump that unpins cannot land. Review the action's release notes, not just CI:
+# a workflow that never ran on the pull request (deploy-*) is not proven by it.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']

@@ -760,8 +760,8 @@ test('mutation: a red suite cannot be hidden by the way it is run', () => {
       ),
     (t) =>
       t.replace(
-        'uses: gitleaks/gitleaks-action@v2',
-        'continue-on-error: true\n        uses: gitleaks/gitleaks-action@v2',
+        'uses: gitleaks/gitleaks-action@',
+        'continue-on-error: true\n        uses: gitleaks/gitleaks-action@',
       ),
   ]) {
     const r = checkWorkflowsOn(edit);
@@ -825,6 +825,39 @@ test('mutation: the preview clean-up cannot be dropped, widened or unguarded', (
       '.github/workflows/preview.yml',
       (t) => t.replace('  pull_request:\n', '  pull_request:\n    types: [opened, closed]\n'),
       /clean-up is preview-cleanup/,
+    ],
+  ]) {
+    const r = checkWorkflowsOn(null, file, edit);
+    assert.equal(r.status, 1, r.output);
+    assert.match(r.output, message);
+  }
+});
+
+test('mutation: an action pinned by tag, or an expression in run, or a new pull_request_target, fails', () => {
+  for (const [file, edit, message] of [
+    [
+      '.github/workflows/check.yml',
+      (t) => t.replace(/uses: actions\/checkout@[0-9a-f]{40}.*/, 'uses: actions/checkout@v4'),
+      /not pinned to a full commit SHA/,
+    ],
+    [
+      '.github/workflows/deploy-prod.yml',
+      (t) => t.replace('[ "$CONFIRM" = "deploy" ]', '[ "${{ inputs.confirm }}" = "deploy" ]'),
+      /interpolates `inputs\.confirm`/,
+    ],
+    [
+      '.github/workflows/preview.yml',
+      (t) => t.replace('  pull_request:\n', '  pull_request_target:\n'),
+      /only preview-cleanup\.yml may/,
+    ],
+    [
+      '.github/workflows/preview-cleanup.yml',
+      (t) =>
+        t.replace(
+          'ref: ${{ github.event.repository.default_branch }}',
+          'ref: ${{ github.event.pull_request.head.sha }}',
+        ),
+      /checks out the pull request/,
     ],
   ]) {
     const r = checkWorkflowsOn(null, file, edit);
