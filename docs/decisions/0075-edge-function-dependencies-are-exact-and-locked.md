@@ -1,13 +1,13 @@
 ---
 adr: 75
 title: "Edge Function dependencies are exact and locked"
-status: proposed
+status: accepted
 date: 2026-10-15
 amends: [7]
 ---
 # ADR 0075: Edge Function dependencies are exact and locked
 
-_Status: proposed · Date: 15 October 2026 · amends [ADR 0007](./0007-pnpm-monorepo-with-shared-domain-package.md)_
+_Status: accepted · Date: 15 October 2026 · amends [ADR 0007](./0007-pnpm-monorepo-with-shared-domain-package.md)_
 
 ## Context
 
