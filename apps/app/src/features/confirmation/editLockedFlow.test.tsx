@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -138,7 +139,7 @@ describe('changing only the place or the note', () => {
 
   it('offers to keep it as it is, which leaves without saving', async () => {
     show(edit());
-    fireEvent.click(await screen.findByRole('button', { name: 'Keep Friday as it is' }));
+    await tap(screen.findByRole('button', { name: 'Keep Friday as it is' }));
     expect(editConfirmation).not.toHaveBeenCalled();
   });
 });
@@ -250,7 +251,7 @@ describe('moving the time', () => {
 
   it('opens the same picker from Change, keeping the time it has', async () => {
     show(edit(SAT.start, SAT.end));
-    fireEvent.click(await screen.findByRole('button', { name: 'Change' }));
+    await tap(screen.findByRole('button', { name: 'Change' }));
     expect(push).toHaveBeenCalledWith({
       pathname: '/circles/[id]/plan/[planId]/set-time',
       params: { id: 'sunday-crew', planId: 'thu-17', mode: 'edit', start: SAT.start, end: SAT.end },

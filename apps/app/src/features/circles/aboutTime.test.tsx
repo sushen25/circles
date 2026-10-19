@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -134,7 +135,7 @@ describe('the about-time card', () => {
     circleHome.mockResolvedValue(due());
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Snooze a month' }));
+    await tap(screen.findByRole('button', { name: 'Snooze a month' }));
 
     await waitFor(() => expect(updateCircle).toHaveBeenCalledTimes(1));
     const [id, patch] = updateCircle.mock.calls[0] as [string, Record<string, string>];
@@ -152,7 +153,7 @@ describe('the about-time card', () => {
     circleHome.mockResolvedValue(due({ isOwner: false, me: 'nina' }));
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Turn off nudges' }));
+    await tap(screen.findByRole('button', { name: 'Turn off nudges' }));
 
     expect(screen.queryByRole('button', { name: 'Snooze a month' })).toBeNull();
     await waitFor(() => expect(saveMySwitches).toHaveBeenCalledWith(CIRCLE, { mutedNudges: true }));
@@ -176,7 +177,7 @@ describe('the about-time card', () => {
     circleHome.mockResolvedValue(due());
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Snooze a month' }));
+    await tap(screen.findByRole('button', { name: 'Snooze a month' }));
 
     expect(await screen.findByText("That didn't save. Try again.")).toBeVisible();
   });
@@ -185,7 +186,7 @@ describe('the about-time card', () => {
     circleHome.mockResolvedValue(due());
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Plan another' }));
+    await tap(screen.findByRole('button', { name: 'Plan another' }));
 
     expect(push).toHaveBeenCalledWith({
       pathname: '/circles/[id]/plan/another',

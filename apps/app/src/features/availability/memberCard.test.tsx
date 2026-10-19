@@ -1,6 +1,7 @@
 import { CONSENT } from '@circles/config';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -78,9 +79,9 @@ function signInAs(confirmedEmail: string | undefined) {
   Object.assign(session, { status: 'saved', userId: 'nina', isAnonymous: false, confirmedEmail });
 }
 
-async function tap() {
+async function tapPrimary() {
   await act(async () => {
-    fireEvent.click(await screen.findByRole('button', PRIMARY));
+    await tap(screen.findByRole('button', PRIMARY));
   });
 }
 
@@ -136,7 +137,7 @@ describe('a signed-in member with a confirmed address', () => {
 
   it('turns the emails on with one tap, asks for no link or code, and says so in a live region', async () => {
     wrap(<SentFlow code={PLAN.code} />);
-    await tap();
+    await tapPrimary();
 
     expect(
       await screen.findByText(`Done. We'll email ${ADDRESS} about this meetup.`),
@@ -156,7 +157,7 @@ describe('a signed-in member with a confirmed address', () => {
   it('is never promised email when the address is suppressed', async () => {
     requestEmailUpdates.mockResolvedValue({ status: 'check_email', delivery: 'suppressed' });
     wrap(<SentFlow code={PLAN.code} />);
-    await tap();
+    await tapPrimary();
 
     const line = `We can't send email to ${ADDRESS} right now, so check the plan here.`;
     expect(await screen.findByText(line)).toBeVisible();
@@ -168,7 +169,7 @@ describe('a signed-in member with a confirmed address', () => {
   it('reads the neutral answer, with no delivery, as done', async () => {
     requestEmailUpdates.mockResolvedValue({ status: 'check_email' });
     wrap(<SentFlow code={PLAN.code} />);
-    await tap();
+    await tapPrimary();
 
     expect(
       await screen.findByText(`Done. We'll email ${ADDRESS} about this meetup.`),
@@ -179,7 +180,7 @@ describe('a signed-in member with a confirmed address', () => {
     requestEmailUpdates.mockReturnValue(new Promise(() => undefined));
     wrap(<SentFlow code={PLAN.code} />);
     const button = await screen.findByRole('button', PRIMARY);
-    fireEvent.click(button);
+    await tap(button);
     fireEvent.click(button);
 
     await waitFor(() => expect(requestEmailUpdates).toHaveBeenCalled());
@@ -189,7 +190,7 @@ describe('a signed-in member with a confirmed address', () => {
   it('keeps the card and says so when it could not be sent', async () => {
     requestEmailUpdates.mockRejectedValue(new Error('down'));
     wrap(<SentFlow code={PLAN.code} />);
-    await tap();
+    await tapPrimary();
 
     expect(
       await screen.findByText("Something went wrong, so the link didn't go. Please try again."),
@@ -200,7 +201,7 @@ describe('a signed-in member with a confirmed address', () => {
 
   it('records nothing for Not now', async () => {
     wrap(<SentFlow code={PLAN.code} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Not now' }));
+    await tap(screen.findByRole('button', { name: 'Not now' }));
 
     expect(screen.queryByText("Hear when it's locked in")).toBeNull();
     expect(requestEmailUpdates).not.toHaveBeenCalled();
@@ -220,7 +221,7 @@ describe('the other two sessions are unchanged', () => {
     signInAs(undefined);
     wrap(<SentFlow code={PLAN.code} />);
     fireEvent.change(await screen.findByLabelText('Your email'), { target: { value: ADDRESS } });
-    await tap();
+    await tapPrimary();
 
     expect(screen.queryByRole('switch')).toBeNull();
     expect(requestEmailUpdates).toHaveBeenCalledTimes(1);
@@ -237,7 +238,7 @@ describe('the switch-on path, for an address that turns out to be suppressed', (
   async function reachTheCodeAndEnterIt() {
     wrap(<SentFlow code={PLAN.code} />);
     fireEvent.change(await screen.findByLabelText('Your email'), { target: { value: ADDRESS } });
-    await tap();
+    await tapPrimary();
     await screen.findByText('Enter the code we emailed');
     fireEvent.change(screen.getByLabelText('Code'), { target: { value: '123456' } });
     await act(async () => {
@@ -274,7 +275,7 @@ describe('the switch-on path, for an address that turns out to be suppressed', (
     expect(screen.queryByLabelText('Your email')).toBeNull();
     expect(screen.getByText(`We'll email you at ${ADDRESS}.`)).toBeVisible();
 
-    await tap();
+    await tapPrimary();
 
     expect(await screen.findByText(/^Done\. We'll email nina@example\.com/)).toBeVisible();
     expect(requestEmailUpdates).toHaveBeenCalledTimes(2);

@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -142,7 +143,7 @@ describe('the circles list', () => {
     const row = await screen.findByRole('button', {
       name: 'Sunday Crew. Finding a time · 5 of 6 replied',
     });
-    fireEvent.click(row);
+    await tap(row);
     expect(push).toHaveBeenCalledWith({ pathname: '/circles/[id]', params: { id: CIRCLE } });
 
     fireEvent.click(screen.getByRole('button', { name: 'New circle' }));
@@ -194,7 +195,7 @@ describe('CreateCircle', () => {
   it('asks for a name rather than sending none', async () => {
     wrap(<CreateCircleFlow />);
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Create circle' }));
+      await tap(screen.findByRole('button', { name: 'Create circle' }));
     });
     expect(screen.getByText(/A name needs a letter or two/)).toBeVisible();
     expect(createCircle).not.toHaveBeenCalled();
@@ -251,7 +252,7 @@ describe('circle home, in the state the data puts it in', () => {
     circleHome.mockResolvedValue(home({ members: home().members.slice(0, 1), lastMetAt: null }));
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Share invite link' }));
+    await tap(screen.findByRole('button', { name: 'Share invite link' }));
     expect(push).toHaveBeenCalledWith({ pathname: '/circles/[id]/invite', params: { id: CIRCLE } });
   });
 
@@ -287,7 +288,7 @@ describe('circle home, in the state the data puts it in', () => {
     circleHome.mockResolvedValue(home({ isOwner: false, me: 'nina' }));
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Circle settings' }));
+    await tap(screen.findByRole('button', { name: 'Circle settings' }));
     expect(push).toHaveBeenCalledWith({
       pathname: '/circles/[id]/settings',
       params: { id: CIRCLE },
@@ -458,7 +459,7 @@ describe('circle home, for somebody whose times an edit cleared (SUS-130)', () =
     );
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Add my times' }));
+    await tap(screen.findByRole('button', { name: 'Add my times' }));
     expect(push).toHaveBeenCalledWith({ pathname: '/j/[code]', params: { code: 'pnsundaycr' } });
     expect(screen.queryByRole('button', { name: "See how it's looking" })).toBeNull();
   });
@@ -475,7 +476,7 @@ describe('circle home, for somebody whose times an edit cleared (SUS-130)', () =
     );
     wrap(<CircleHomeFlow id={CIRCLE} />, client);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Add my times' }));
+    await tap(screen.findByRole('button', { name: 'Add my times' }));
     expect(client.getQueryState(before)?.isInvalidated).toBe(true);
     expect(push).toHaveBeenCalledWith({ pathname: '/j/[code]', params: { code: 'pnsundaycr' } });
   });
@@ -511,7 +512,7 @@ describe('circle home, sharing the plan link again (SUS-132)', () => {
     circleHome.mockResolvedValue(home({ activePlan: OPEN() }));
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', SHARE));
+    await tap(screen.findByRole('button', SHARE));
     await waitFor(() => expect(shareMessage).toHaveBeenCalledTimes(1));
     const message = shareMessage.mock.calls[0]?.[0] as string;
     expect(message).toMatch(/waiting on 4 replies .*\/j\/pnsundaycr$/);
@@ -527,7 +528,7 @@ describe('circle home, sharing the plan link again (SUS-132)', () => {
     circleHome.mockResolvedValue(home({ activePlan: OPEN() }));
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', SHARE));
+    await tap(screen.findByRole('button', SHARE));
     expect(await screen.findByText('Copied. Paste it in the group chat.')).toBeVisible();
   });
 
@@ -536,7 +537,7 @@ describe('circle home, sharing the plan link again (SUS-132)', () => {
     circleHome.mockResolvedValue(home({ activePlan: OPEN() }));
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', SHARE));
+    await tap(screen.findByRole('button', SHARE));
     expect(await screen.findByText("Couldn't copy the message. Try again.")).toBeVisible();
     expect(track).not.toHaveBeenCalledWith('share_opened', expect.anything());
   });
@@ -571,7 +572,7 @@ describe('circle home, sharing the plan link again (SUS-132)', () => {
     circleHome.mockResolvedValue(home({ activePlan: { ...OPEN(), quiet: true } }));
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', SHARE));
+    await tap(screen.findByRole('button', SHARE));
     await waitFor(() => expect(shareMessage).toHaveBeenCalledTimes(1));
   });
 
@@ -601,7 +602,7 @@ describe('circle home, sharing the plan link again (SUS-132)', () => {
     circleHome.mockResolvedValue(home({ me: 'nina', isOwner: false, activePlan: OPEN() }));
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', SHARE));
+    await tap(screen.findByRole('button', SHARE));
     await waitFor(() => expect(shareMessage).toHaveBeenCalledTimes(1));
     const message = shareMessage.mock.calls[0]?.[0] as string;
     expect(message).toMatch(/waiting on 4 replies .*\/j\/pnsundaycr$/);

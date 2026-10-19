@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -129,7 +130,7 @@ describe('the organiser, with options', () => {
 
   it('nudges with a count and never with names', async () => {
     show(organiser());
-    fireEvent.click(await screen.findByRole('button', { name: 'Nudge Alex' }));
+    await tap(screen.findByRole('button', { name: 'Nudge Alex' }));
     await waitFor(() => expect(shareMessage).toHaveBeenCalled());
     const message = shareMessage.mock.calls[0]?.[0] as string;
     expect(message).toContain('1 reply');
@@ -146,7 +147,7 @@ describe('the organiser, with options', () => {
     });
     show(organiser());
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Nudge Alex' }));
+    await tap(screen.findByRole('button', { name: 'Nudge Alex' }));
     await waitFor(() => expect(shareMessage).toHaveBeenCalled());
     // One person is named, so the message has to say one reply.
     expect(shareMessage.mock.calls[0]?.[0] as string).toContain('1 reply');
@@ -205,7 +206,7 @@ describe('the organiser, with nothing yet', () => {
     planCandidates.mockResolvedValue(fixture.waiting);
     show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="waiting" />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Share the link again' }));
+    await tap(screen.findByRole('button', { name: 'Share the link again' }));
     await waitFor(() => expect(shareMessage).toHaveBeenCalled());
     const message = shareMessage.mock.calls[0]?.[0] as string;
     expect(message).toContain('waiting on 4 replies');
@@ -250,7 +251,7 @@ describe('the organiser, with no overlap', () => {
 
     const lower = await screen.findByRole('button', { name: /^Lower to 3 people\./ });
     expect(screen.getByText(/keeps 3 as its number/)).toBeTruthy();
-    fireEvent.click(lower);
+    await tap(lower);
     // Conditional on the version, because the decision is permanent.
     await waitFor(() => expect(lowerQuorum).toHaveBeenCalledWith(PLAN, 3, 'v-7'));
   });
@@ -283,7 +284,7 @@ describe('the organiser, with no overlap', () => {
 
     const wider = await screen.findByRole('button', { name: /^Try a wider window\./ });
     expect(screen.getByText('Ask about 30 days instead of 7')).toBeTruthy();
-    fireEvent.click(wider);
+    await tap(wider);
 
     // §5.3: exactly who is asked again, before saving — and the reader is "you".
     expect(await screen.findByText(/asked again: you, Nina and Tom\./)).toBeTruthy();
@@ -329,8 +330,8 @@ describe('the organiser, with no overlap', () => {
     );
     show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="no-quorum" />);
 
-    fireEvent.click(await screen.findByRole('button', { name: /^Try a wider window\./ }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Ask again' }));
+    await tap(screen.findByRole('button', { name: /^Try a wider window\./ }));
+    await tap(screen.findByRole('button', { name: 'Ask again' }));
 
     // The notice lives behind the sheet, so the refusal closes it. (In jsdom
     // the sheet stays in the DOM: `Modal` unmounts on an animation-end event
@@ -372,7 +373,7 @@ describe('the organiser, with no overlap', () => {
     closeAttempt.mockResolvedValue(undefined);
     show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="no-quorum" />);
 
-    fireEvent.click(await screen.findByRole('button', { name: /^Close this attempt\./ }));
+    await tap(screen.findByRole('button', { name: /^Close this attempt\./ }));
     expect(await screen.findByText('Close this attempt?')).toBeTruthy();
     expect(screen.getByText(/No reason is given and nobody is named/)).toBeTruthy();
     expect(closeAttempt).not.toHaveBeenCalled();
@@ -387,7 +388,7 @@ describe('S1-26: editing and cancelling from the options', () => {
   it('offers the organiser the edit while the plan is still asking', async () => {
     planCandidates.mockResolvedValue(fixture.ready);
     show(organiser());
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit the plan' }));
+    await tap(screen.findByRole('button', { name: 'Edit the plan' }));
     expect(push).toHaveBeenCalledWith({
       pathname: '/circles/[id]/plan/[planId]/edit',
       params: { id: CIRCLE, planId: PLAN },
@@ -397,7 +398,7 @@ describe('S1-26: editing and cancelling from the options', () => {
   it("offers the circle's owner a cancel on somebody else's plan, and a member nothing", async () => {
     planCandidates.mockResolvedValue({ ...fixture.readyAsMember, isOwner: true });
     show(<MemberCandidatesFlow code="pnsundaycr" />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Cancel this plan' }));
+    await tap(screen.findByRole('button', { name: 'Cancel this plan' }));
     expect(push).toHaveBeenCalledWith({
       pathname: '/circles/[id]/plan/[planId]/cancel',
       params: { id: 'sunday-crew', planId: 'thu-17' },
@@ -620,8 +621,8 @@ describe('the organiser sets the time themselves (ADR 0051)', () => {
   it('offers "Pick a different time" under the options, and opens the picker on the selected one', async () => {
     planCandidates.mockResolvedValue(fixture.ready);
     show(organiser());
-    fireEvent.click(
-      await screen.findByRole('button', {
+    await tap(
+      screen.findByRole('button', {
         name: "Pick a different time. Any day and time, even one that isn't an option. You'll see who it works for.",
       }),
     );
@@ -648,7 +649,7 @@ describe('the organiser sets the time themselves (ADR 0051)', () => {
     // The others stay, in their order, with this before closing.
     expect(screen.getByRole('button', { name: /^Lower to 3 people\./ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /^Close this attempt\./ })).toBeTruthy();
-    fireEvent.click(row);
+    await tap(row);
     // Nothing selected here: the picker opens on the closest near-miss itself.
     expect(push).toHaveBeenCalledWith(toPicker({}));
   });
@@ -656,8 +657,8 @@ describe('the organiser sets the time themselves (ADR 0051)', () => {
   it('offers it on the waiting screen too, before any option exists', async () => {
     planCandidates.mockResolvedValue(fixture.waiting);
     show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="waiting" />);
-    fireEvent.click(
-      await screen.findByRole('button', {
+    await tap(
+      screen.findByRole('button', {
         name: "Set the time yourself. Pick any day and time. You'll see who it works for before you lock it in.",
       }),
     );
@@ -670,8 +671,8 @@ describe('the organiser sets the time themselves (ADR 0051)', () => {
   it('offers it on the replies-closed screen as well', async () => {
     planCandidates.mockResolvedValue(fixture.deadlinePassed);
     show(organiser());
-    fireEvent.click(
-      await screen.findByRole('button', {
+    await tap(
+      screen.findByRole('button', {
         name: "Set the time yourself. Pick any day and time. You'll see who it works for before you lock it in.",
       }),
     );

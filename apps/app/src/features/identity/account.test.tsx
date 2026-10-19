@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -73,7 +74,7 @@ describe('account', () => {
     wrap(<AccountFlow />);
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }));
+      await tap(screen.findByRole('button', { name: 'Sign out' }));
     });
     expect(await screen.findByText("You're still signed in. Try again.")).toBeVisible();
     expect(replace).not.toHaveBeenCalled();
@@ -84,7 +85,7 @@ describe('account', () => {
     wrap(<AccountFlow />);
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }));
+      await tap(screen.findByRole('button', { name: 'Sign out' }));
     });
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/'));
   });
