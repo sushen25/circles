@@ -1,11 +1,11 @@
 ---
-adr: 79
+adr: 80
 title: "The reattach and verified gates count product rows, not events"
 status: proposed
 date: 2026-10-19
 builds_on: [58, 72]
 ---
-# ADR 0079: The reattach and verified gates count product rows, not events
+# ADR 0080: The reattach and verified gates count product rows, not events
 
 _Status: proposed · 19 October 2026 · builds on [ADR 0072](0072-the-analytics-ingest-records-only-what-a-caller-can-know.md), which left this as a follow-up, and on [ADR 0058](0058-every-circle-carries-a-cohort-only-the-founder-can-see.md), whose cohorts the gates are counted in_
 
