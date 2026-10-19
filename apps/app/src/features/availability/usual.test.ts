@@ -152,7 +152,7 @@ describe('tonight', () => {
 
   it('From now paints from the next half hour; Later tonight from 9 pm', () => {
     const { rows, run, start } = setUp(TONIGHT);
-    // Tapping the one day gives it From now; Change time moves it to Later tonight.
+    // Tapping the one day gives it From now; the pills move it to Later tonight.
     const tapped = run(start, { type: 'toggle_day', day: 0 });
     expect(start.window).toBe('from_now');
     expect(windowsOf(tapped, rows, TONIGHT)).toEqual([

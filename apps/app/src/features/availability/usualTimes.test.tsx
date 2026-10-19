@@ -1,7 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetHoursRouter } from '../../test/hours-router';
 
 import type * as AvailabilityData from '../../data/availability';
 
@@ -14,8 +13,8 @@ import type * as AvailabilityData from '../../data/availability';
  * From now and Later tonight.
  */
 vi.mock('expo-router', async () => {
-  const { hoursRouter } = await import('../../test/hours-router');
-  return hoursRouter({ replace: () => undefined, push: () => undefined });
+  const { answerRouter } = await import('../../test/answer-router');
+  return answerRouter({ replace: () => undefined, push: () => undefined });
 });
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
@@ -53,7 +52,6 @@ function open(client = new QueryClient({ defaultOptions: { queries: { retry: fal
 const tapped = () => screen.queryAllByRole('button', { pressed: true });
 
 beforeEach(() => {
-  resetHoursRouter();
   session.userId = 'nina';
   for (const mock of [planToAnswer, submitAnswer, usualTimes, track]) mock.mockReset();
   globalThis.localStorage.clear();
@@ -65,7 +63,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const EVENINGS = 'Evenings, from 5:30 pm';
+const EVENINGS = 'From 5:30 pm';
 
 describe('an answer never given opens empty, whatever the person offered before', () => {
   it('taps no day, writes no line, sends nothing and keeps no draft, then lets the person tap', async () => {
@@ -100,7 +98,7 @@ describe('an answer never given opens empty, whatever the person offered before'
   it('leaves an answer already given as it is', async () => {
     planToAnswer.mockResolvedValue(answerable);
     open();
-    await screen.findByText(/, but /);
+    await screen.findByRole('heading', { name: 'Your hours each evening' });
     await act(async () => undefined);
     // The stored answer's three days, not the ten weekdays.
     expect(tapped()).toHaveLength(3);
@@ -165,13 +163,12 @@ describe('a plan about tonight', () => {
     // Nothing is tapped for them: the one day is theirs to say yes to.
     await screen.findByText('Which days could work?');
     fireEvent.click(await screen.findByRole('button', { name: /^Monday/ }));
-    expect(screen.getByText(/^From now, from /)).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: /^Change the time for/ }));
-    expect(await screen.findByRole('radio', { name: /^From now/ })).toHaveAttribute(
+    expect(screen.getByText(/^From \d/)).toBeVisible();
+    expect(await screen.findByRole('radio', { name: 'From now' })).toHaveAttribute(
       'aria-checked',
       'true',
     );
-    expect(screen.getByRole('radio', { name: /^Later tonight/ })).toBeVisible();
+    expect(screen.getByRole('radio', { name: 'Later tonight' })).toBeVisible();
     expect(screen.queryByRole('radio', { name: /^Evening/ })).toBeNull();
   });
 });

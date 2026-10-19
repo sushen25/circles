@@ -4,7 +4,6 @@ import {
   Body,
   BodyText,
   Button,
-  DateText,
   DayGrid,
   DisplayL,
   Foot,
@@ -20,12 +19,12 @@ import {
   Loading,
   useLoadingHold,
 } from '../../components';
-import { Between, Row, Stack } from '../../components/layout';
+import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
-import type { AnswerLine } from './answerLine';
+import { AnswerBlock } from './AnswerBlock';
 import type { BlockKind } from './blocks';
-import { ChangeTimeSheet } from './ChangeTimeSheet';
-import type { SheetView } from './view';
+import { DayHoursSheet } from './DayHoursSheet';
+import type { AnswerBlockView, DayRowView } from './view';
 import { LoadFailed } from '../system/LoadFailed';
 
 /**
@@ -34,10 +33,10 @@ import { LoadFailed } from '../system/LoadFailed';
  * Presentational: every string arrives worked out (`view.ts`) and every change
  * leaves as a callback, so the gallery can show each state and the container
  * (`Answering`) owns the plan, the draft and the network. Days first (ADR
- * 0068): tapping a day gives it the usual time of day, one line says the whole
- * answer, and "Change time" gives every tapped day another. The half hours
- * live on their own screen (`ExactHoursScreen`). Nothing here is said by colour
- * alone.
+ * 0068): tapping a day gives it the usual time of day, and the block under the
+ * grid (`AnswerBlock`, ADR 0079) is that time of day as pills, which a tap
+ * gives every tapped day, or a row for each day. A day's half hours are its
+ * clock's sheet (`DayHoursSheet`). Nothing here is said by colour alone.
  */
 
 export type AvailabilityState = 'default' | 'loading' | 'error' | 'offline' | 'expired';
@@ -69,11 +68,18 @@ export type AvailabilityProps = {
   zoneNote?: string | undefined;
   grid?: readonly GridDay[] | undefined;
   weekdays?: readonly string[] | undefined;
-  /** The answer in a line, once any day is tapped. */
-  answerLine?: AnswerLine | undefined;
-  /** "Change time" is open. */
-  sheetOpen?: boolean | undefined;
-  sheet?: SheetView | undefined;
+  /** "When, on those days?", once any day is tapped. */
+  block?: AnswerBlockView | undefined;
+  /** "A time for each day" is on show in its place. */
+  expanded?: boolean | undefined;
+  /** A row for each tapped day. */
+  rows?: readonly DayRowView[] | undefined;
+  /** "Your hours each evening", on a plan with one window. */
+  singleHeading?: string | undefined;
+  /** The day whose clock was tapped: its hours are on a sheet. */
+  sheetRow?: DayRowView | undefined;
+  /** "Evening": the choice that day had before its clock was tapped. */
+  backTo?: string | undefined;
   flexible?: boolean | undefined;
   /** The plan changed under a draft (the rescheduled state). */
   changed?: boolean | undefined;
@@ -81,10 +87,14 @@ export type AvailabilityProps = {
   reference?: string | undefined;
   busy?: boolean | undefined;
   onTick?: ((day: number) => void) | undefined;
-  onChangeTime?: (() => void) | undefined;
   onChooseWindow?: ((kind: BlockKind) => void) | undefined;
-  onExactHours?: (() => void) | undefined;
+  onExpand?: (() => void) | undefined;
+  onCollapse?: (() => void) | undefined;
+  onChooseDay?: ((day: number, kind: BlockKind) => void) | undefined;
+  onOpenDay?: ((day: number) => void) | undefined;
+  onPaintDay?: ((day: number, cells: boolean[]) => void) | undefined;
   onSheetDone?: (() => void) | undefined;
+  onBackToChoice?: (() => void) | undefined;
   onFlexible?: ((on: boolean) => void) | undefined;
   onSend?: (() => void) | undefined;
   onNoneOfTheseDates?: (() => void) | undefined;
@@ -105,19 +115,26 @@ export function AvailabilityScreen({
   zoneNote,
   grid = [],
   weekdays = [],
-  answerLine,
-  sheetOpen = false,
-  sheet,
+  block,
+  expanded = false,
+  rows = [],
+  singleHeading = '',
+  sheetRow,
+  backTo,
   flexible = false,
   changed = false,
   problem,
   reference,
   busy = false,
   onTick,
-  onChangeTime,
   onChooseWindow,
-  onExactHours,
+  onExpand,
+  onCollapse,
+  onChooseDay,
+  onOpenDay,
+  onPaintDay,
   onSheetDone,
+  onBackToChoice,
   onFlexible,
   onSend,
   onNoneOfTheseDates,
@@ -166,7 +183,7 @@ export function AvailabilityScreen({
     );
   }
 
-  const canSend = flexible || answerLine !== undefined;
+  const canSend = flexible || block !== undefined;
   // While an answer is on its way nothing that would change it is live: the
   // request carries the answer as it was when Send was pressed.
   const locked = busy;
@@ -209,22 +226,21 @@ export function AvailabilityScreen({
           {closes === undefined ? null : <Small>{closes}</Small>}
           {zoneNote === undefined ? null : <Small>{zoneNote}</Small>}
         </Stack>
-        {answerLine === undefined ? null : (
+        {block === undefined ? null : (
           <View style={dimmed && styles.dimmed}>
-            <Between>
-              <View style={styles.line} aria-live="polite">
-                <DateText style={styles.days}>{answerLine.days}</DateText>
-                <BodyText>{answerLine.time}</BodyText>
-              </View>
-              <Tertiary
-                label={t('availability', single ? 'adjust_hours' : 'change_time')}
-                aria-label={t('availability', single ? 'adjust_hours_for' : 'change_time_for', {
-                  days: answerLine.days,
-                })}
-                disabled={flexible}
-                onPress={locked || flexible ? undefined : onChangeTime}
-              />
-            </Between>
+            <AnswerBlock
+              block={block}
+              single={single}
+              singleHeading={singleHeading}
+              expanded={expanded}
+              rows={rows}
+              locked={locked || flexible}
+              onChoose={onChooseWindow}
+              onExpand={onExpand}
+              onCollapse={onCollapse}
+              onChooseDay={onChooseDay}
+              onOpenDay={onOpenDay}
+            />
           </View>
         )}
         <Row>
@@ -259,20 +275,19 @@ export function AvailabilityScreen({
           onPress={locked ? undefined : onNoneOfTheseDates}
         />
       </Foot>
-      <ChangeTimeSheet
-        visible={sheetOpen}
-        sheet={sheet}
-        onChoose={onChooseWindow}
-        onExactHours={onExactHours}
+      <DayHoursSheet
+        row={sheetRow}
+        busy={locked}
+        backTo={backTo}
+        onPaint={onPaintDay}
         onDone={onSheetDone}
+        onBack={onBackToChoice}
       />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  line: { flexShrink: 1, gap: 4 },
-  days: { fontSize: 24, lineHeight: 28 },
   dimmed: { opacity: 0.45 },
   room: { opacity: 0 },
   over: { position: 'absolute', top: 0, left: 0, right: 0 },

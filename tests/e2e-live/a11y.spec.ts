@@ -59,34 +59,31 @@ test('the guest name screen opens with the cursor in the field, and no serious v
 
 test('the availability editor has no serious accessibility violations', async ({ page }) => {
   const crew = sundayCrew();
-  // A whole-day plan, so the sheet and the cards have choices to offer.
+  // A whole-day plan, so the pills and the rows have choices to offer.
   sql(`update public.plans set daily_start_local = 540 where id = '${crew.planId}'`);
   await page.goto(`/j/${crew.planCode}`);
   await page.getByLabel('Your name').fill('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page.getByText('Which days could work?')).toBeVisible();
-  // With a day tapped, so the answer line and the sheet are in the tree...
+  // With a day tapped, so the answer block and its pills are in the tree...
   await page.getByRole('group', { name: 'Days in this plan' }).getByRole('button').first().click();
-  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
+  await expect(page.getByText('From 5:30 pm')).toBeVisible();
+  await expect(page.getByRole('radiogroup', { name: 'When, on those days?' })).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
 
-  await page.getByRole('button', { name: /^Change the time for/ }).click();
-  await expect(page.getByRole('radio', { name: /^Evening/ })).toBeVisible();
-  // The sheet is a dialog with a name, once the modal has taken focus (until
-  // then react-native-web has marked it modal without a role).
-  await expect(page.getByRole('dialog', { name: 'When, on those days?' })).toBeVisible();
+  // ...with a time for each day, so its rows and clocks are...
+  await page.getByRole('button', { name: 'Not the same every day?' }).click();
+  await expect(page.getByRole('heading', { name: 'A time for each day' })).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
 
-  // ...and with a day open, so its From – to pairs and the picker are too.
-  await page.getByRole('button', { name: 'A different time for each day' }).click();
+  // ...and with a day's clock open, so its sheet, From – to pairs and the picker are too.
   await page
-    .getByRole('button', { name: /Set exact hours$/ })
+    .getByRole('button', { name: /^Exact hours, / })
     .first()
     .click();
-  await expect(page.getByRole('button', { name: /Set exact hours$/ }).first()).toHaveAttribute(
-    'aria-expanded',
-    'true',
-  );
+  // The sheet is a dialog with a name, once the modal has taken focus (until
+  // then react-native-web has marked it modal without a role).
+  await expect(page.getByRole('dialog', { name: /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/ })).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
   await page
     .getByRole('button', { name: /^Free from, / })

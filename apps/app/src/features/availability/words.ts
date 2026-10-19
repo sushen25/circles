@@ -37,6 +37,14 @@ const THING: Record<BandName, () => string> = {
 };
 export const thingOf = (band: BandName): string => THING[band]();
 
+/** The same, plural, for the line under the question: "days", "evenings". */
+const THINGS: Record<BandName, () => string> = {
+  mornings: () => t('availability', 'things_morning'),
+  afternoons: () => t('availability', 'things_afternoon'),
+  evenings: () => t('availability', 'things_evening'),
+  days: () => t('availability', 'things_day'),
+};
+
 /** The question the first screen asks: "Which evenings could work?", else "Which days…". */
 export function questionOf(band: BandName, onlyChoice: boolean): string {
   if (!onlyChoice) return t('availability', 'which_days_could_work');
@@ -82,10 +90,10 @@ export function closesOf(plan: AnswerablePlan, format: TimeFormat): string {
  * number to explain.
  */
 export function guideOf(counted: boolean, band: BandName, onlyChoice: boolean): string {
-  const thing = thingOf(onlyChoice ? band : 'days');
+  const things = THINGS[onlyChoice ? band : 'days']();
   return counted
-    ? t('availability', 'guide_counted', { thing })
-    : t('availability', 'guide_plain', { thing });
+    ? t('availability', 'guide_counted', { things })
+    : t('availability', 'guide_plain', { things });
 }
 
 /**

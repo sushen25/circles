@@ -8,7 +8,7 @@ import { spaceToPress } from '../../components/keys';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 import { addRange, cellsOf, removeRange, setEdge } from './hours';
-import type { DayCardView } from './view';
+import type { DayRowView } from './view';
 
 /**
  * A day's hours as From – to pairs (SUS-206, ADR 0068, replacing the painted
@@ -24,7 +24,7 @@ import type { DayCardView } from './view';
  * minute and no bounds), and every row a button a keyboard can reach.
  */
 type Props = {
-  card: DayCardView;
+  card: DayRowView;
   dimmed: boolean;
   onPaint?: ((day: number, cells: boolean[]) => void) | undefined;
 };
@@ -44,7 +44,7 @@ export function HoursEditor({ card, dimmed, onPaint }: Props) {
 
   return (
     <Stack gap={12}>
-      <Small>{t('availability', 'hours_guidance')}</Small>
+      <Small>{t('availability', 'day_hours_guidance')}</Small>
       <Label>{t('availability', 'free_from')}</Label>
       {hours.ranges.map((range, index) => (
         <View key={range.from} style={styles.pair}>

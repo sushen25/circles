@@ -1,7 +1,6 @@
 import { fromISO, isTonightWindow, type OthersSaid } from '@circles/domain';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { BackHandler, Platform } from 'react-native';
 
 import {
   clearDraft,
@@ -14,11 +13,8 @@ import type { GridPaint } from '../../components';
 import { t } from '../../copy';
 import { OfflineScreen } from '../system/OfflineScreen';
 import { AvailabilityScreen } from './AvailabilityScreen';
-import type { BlockTiming } from './blocks';
-import { ExactHoursScreen } from './ExactHoursScreen';
+import type { BlockKind, BlockTiming } from './blocks';
 import { dayRows, deviceTimeFormat } from './days';
-import { handoffKey } from './hoursStep';
-import { useHoursHandoff, useHoursStep } from './useHoursStep';
 import {
   editorFrom,
   editorReducer,
@@ -29,10 +25,12 @@ import {
 } from './editor';
 import { NoneWorkScreen, type NoneWorkStatus } from './NoneWorkScreen';
 import { useOthersSaid } from './useOthersSaid';
+import { sharedTime } from './sharedTime';
 import { useStartedEvent } from './usePreviousTimes';
 import { useSendAnswer, type ReturnTo } from './useSendAnswer';
 import { editorView } from './view';
 import {
+  BLOCK_LABEL,
   closesOf,
   guideOf,
   noneOf,
@@ -71,6 +69,8 @@ export type AnsweringProps = {
   returnTo?: ReturnTo | undefined;
   /** With no backend, what the others said in the gallery's scenario (SUS-129). */
   fixtureOthers?: OthersSaid | undefined;
+  /** The gallery's way in to "A time for each day", and to a day's sheet (SUS-236). */
+  opening?: 'each' | 'sheet' | undefined;
 };
 
 /**
@@ -102,6 +102,7 @@ export function Answering({
   onNarrowed,
   returnTo,
   fixtureOthers,
+  opening,
 }: AnsweringProps) {
   const router = useRouter();
 
@@ -122,16 +123,8 @@ export function Answering({
   // Where the answer starts: the device's draft when it is the newer of the
   // two, the stored answer otherwise, and nothing when there is neither.
   const [opened] = useState(() => (draftIsNewer(draft, answer) ? draft : undefined));
-  // "A time for each day" is the plan link's `?step=hours`, an entry of its own
-  // in the history (SUS-209). This page load pushed it, so this is the step's
-  // editor, started from the first screen's answer. The first screen's own
-  // address never gains the step, so which of the two this is does not change.
-  const handoff = handoffKey(code, plan, userId);
-  const hours = useHoursStep(code, handoff);
-  const { exact, focused } = hours;
   const [state, dispatch] = useReducer(reducer, undefined, (): EditorState => {
     const start = (): EditorState => {
-      if (hours.handed !== undefined) return hours.handed.state;
       if (opened !== undefined) return editorFrom(rows, timing, opened.windows, opened.flexible);
       if (answer !== null) {
         const windows = answer.status === 'windows' ? answer.windows : [];
@@ -139,40 +132,24 @@ export function Answering({
       }
       return emptyEditor(rows, timing);
     };
-    return start();
+    const started = start();
+    // The gallery's sheet-open state: Wednesday's hours.
+    return opening === 'sheet' ? { ...started, open: 2 } : started;
   });
 
-  // "Change time" and the half hours are views of the same answer: which one is
-  // on show is the person's place in the screen, never stored or sent.
-  const [sheetOpen, setSheetOpen] = useState(false);
-  // Whether the person has changed anything. Nothing acts on it since ADR 0077
-  // stopped previous times starting an answer on open; it travels with the
-  // hours step's handoff (SUS-209) for the explicit tap that is to come.
-  const [touched, setTouched] = useState(() => hours.handed?.touched ?? false);
-  const openHours = () => hours.open(state, touched);
-  const closeHours = hours.close;
-  // Leaving the step waits for the answer to be handed back: the change and the
-  // pop in one tap would unmount the step before its last change was shared.
-  const [leaving, setLeaving] = useState(false);
-
-  // The device's back button leaves the half hours for the answer, as the
-  // screen's own does, rather than the page (Android; the web has no such button
-  // and its browser's Back leaves the route, as it does from the sheet).
-  useEffect(() => {
-    // react-native-web logs an error if asked: there is no such button there.
-    if (!exact || Platform.OS === 'web') return;
-    const hardware = BackHandler.addEventListener('hardwareBackPress', () => {
-      dispatch({ type: 'close' });
-      setLeaving(true);
-      return true;
-    });
-    return () => hardware.remove();
-  }, [exact]);
+  // "A time for each day" and a day's sheet are views of the same answer: which
+  // is on show is the person's place in the screen, never stored or sent. The
+  // block opens as the list when the days already differ (ADR 0079).
+  const [each, setEach] = useState(
+    () => opening !== undefined || sharedTime(state, rows, timing, format)?.same === false,
+  );
+  // The choice a day had before its clock was tapped, for "Back to Evening instead".
+  const [before, setBefore] = useState<BlockKind | undefined>(undefined);
 
   const { said, pending: othersPending } = useOthersSaid({
     plan,
     userId,
-    step: exact ? 'none' : step,
+    step,
     fixtureOthers,
   });
 
@@ -205,33 +182,11 @@ export function Answering({
   // none are on offer and `usual_offered` is false, which is true.
   const view = editorView(state, rows, timing, format, undefined, undefined, said);
   useStartedEvent({
-    active: step === 'times' && answerable && !exact,
+    active: step === 'times' && answerable,
     planId: plan.id,
     settled: true,
     offered: false,
   });
-
-  // Painting a day's last half hour off untaps it: with no day left there is
-  // nothing to give a time to, so the step is left for the first screen.
-  const noDays = exact && view.cards.length === 0;
-  useHoursHandoff({
-    exact,
-    handoff,
-    state,
-    touched,
-    restore: (answer) => {
-      dispatch({ type: 'load', state: answer.state });
-      setTouched(answer.touched);
-    },
-  });
-  useEffect(() => {
-    if (leaving) closeHours();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leaving]);
-  useEffect(() => {
-    if (noDays) closeHours();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [noDays]);
 
   // While an answer is on its way it cannot change: the request has the
   // answer it was sent with, and a success clears the draft an edit would
@@ -241,10 +196,7 @@ export function Answering({
     if (sending !== undefined) return;
     // Opening a day changes what is on screen, not the answer: it is not an
     // edit, and it writes no draft.
-    if (!VIEW_ONLY.has(action.type)) {
-      edited();
-      setTouched(true);
-    }
+    if (!VIEW_ONLY.has(action.type)) edited();
     dispatch(action);
   };
 
@@ -270,14 +222,16 @@ export function Answering({
     },
   };
 
-  // "A time for each day": every tapped day is a card with the plan's quick
-  // choices, and the half hours are one tap away on each.
-  const openEach = openHours;
+  const expanded = view.block !== undefined && (each || view.block.differ);
+  const sheetRow =
+    state.open === undefined ? undefined : view.rows.find((r) => r.day === state.open);
+  const noBlock = view.block === undefined;
+  useEffect(() => {
+    if (noBlock) setEach(false);
+  }, [noBlock]);
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const title = titleOf(plan);
-
-  if (!focused) return null;
 
   if (!answerable || phase.kind === 'closed') {
     return <AvailabilityScreen state="expired" title={title} onBack={back} />;
@@ -317,39 +271,6 @@ export function Answering({
     );
   }
 
-  if (exact && !noDays) {
-    return (
-      <ExactHoursScreen
-        title={title}
-        single={
-          view.single
-            ? {
-                heading: t('availability', 'hours_title', { thing: thingOf(view.band) }),
-                body: t('availability', 'hours_body', {
-                  thing: thingOf(view.band),
-                  time: view.singleTime ?? '',
-                }),
-              }
-            : undefined
-        }
-        cards={view.cards}
-        busy={sending !== undefined}
-        onChoose={(day, kind) => edit({ type: 'set_day_window', day, kind })}
-        onOpen={(day) => edit({ type: 'open', day })}
-        onPaint={(day, cells) => edit({ type: 'paint', day, cells })}
-        onOneTime={() => {
-          edit({ type: 'use_one_time' });
-          edit({ type: 'close' });
-          setLeaving(true);
-        }}
-        onDone={() => {
-          edit({ type: 'close' });
-          setLeaving(true);
-        }}
-      />
-    );
-  }
-
   return (
     <AvailabilityScreen
       title={title}
@@ -363,26 +284,36 @@ export function Answering({
       zoneNote={zoneNoteOf(plan)}
       grid={view.grid}
       weekdays={view.weekdays}
-      answerLine={view.answerLine}
-      sheet={view.sheet}
-      sheetOpen={sheetOpen}
+      block={view.block}
+      expanded={expanded}
+      rows={view.rows}
+      singleHeading={t('availability', 'hours_title', { thing: thingOf(view.band) })}
+      sheetRow={sheetRow}
+      backTo={before === undefined ? undefined : BLOCK_LABEL[before]()}
       flexible={state.flexible}
       changed={changed}
       problem={problem}
       busy={sending !== undefined}
       onTick={(day) => edit({ type: 'toggle_day', day })}
-      onChangeTime={() => {
-        // The plan leaves one window, or the days differ: the screen that says
-        // each day's. The days share a time: the sheet.
-        if (view.single || view.answerLine?.shared === false) openEach();
-        else setSheetOpen(true);
-      }}
       onChooseWindow={(kind) => edit({ type: 'set_window', kind })}
-      onExactHours={() => {
-        setSheetOpen(false);
-        openEach();
+      onExpand={() => setEach(true)}
+      onCollapse={() => {
+        edit({ type: 'use_one_time' });
+        setEach(false);
       }}
-      onSheetDone={() => setSheetOpen(false)}
+      onChooseDay={(day, kind) => edit({ type: 'set_day_window', day, kind })}
+      onOpenDay={(day) => {
+        setBefore(view.rows.find((row) => row.day === day)?.choices.find((c) => c.on)?.kind);
+        edit({ type: 'open', day });
+      }}
+      onPaintDay={(day, cells) => edit({ type: 'paint', day, cells })}
+      onSheetDone={() => edit({ type: 'close' })}
+      onBackToChoice={() => {
+        if (state.open !== undefined && before !== undefined) {
+          edit({ type: 'set_day_window', day: state.open, kind: before });
+        }
+        edit({ type: 'close' });
+      }}
       onFlexible={(on) => edit({ type: 'flexible', on })}
       onSend={() => void send(state.flexible ? 'flexible' : 'windows')}
       onNoneOfTheseDates={() =>

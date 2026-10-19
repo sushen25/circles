@@ -36,9 +36,7 @@ test('a third guest sees the first two answers as counts, and no name', async ({
   // Ren is first: there is no number to explain, so the line says only what to
   // do, and no tile carries a figure instead of a row of noughts.
   await arrives(page, crew, 'Ren');
-  await expect(
-    page.getByText("Tap every evening you'd be up for, or drag across them.", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText('Tap or drag across the evenings.', { exact: true })).toBeVisible();
   await expect(days(page).nth(1)).not.toHaveAccessibleName(/could make it/);
   await sendEvenings(page, crew.planCode, 1, 3);
 
@@ -52,9 +50,9 @@ test('a third guest sees the first two answers as counts, and no name', async ({
   await expect(days(kits).nth(3)).toHaveAccessibleName(/, 1 other could make it$/);
   await expect(days(kits).nth(2)).not.toHaveAccessibleName(/could make it/);
   await days(kits).nth(3).click();
-  await kits.getByRole('button', { name: /^Adjust hours for/ }).click();
+  await kits.getByRole('button', { name: 'Adjust hours', exact: true }).click();
   await kits
-    .getByRole('button', { name: /Set exact hours/ })
+    .getByRole('button', { name: /^Exact hours, / })
     .nth(0)
     .click();
   await expect(kits.getByText(/^Most others are free/)).toHaveCount(0);
@@ -65,9 +63,7 @@ test('a third guest sees the first two answers as counts, and no name', async ({
   const lous = await (await browser.newContext()).newPage();
   await arrives(lous, crew, 'Lou');
   await expect(
-    lous.getByText(
-      "Tap every evening you'd be up for, or drag across them. The number is how many people can make it, you included once you tap.",
-    ),
+    lous.getByText('Tap or drag across the evenings. The number is how many can make it.'),
   ).toBeVisible();
   // In words on each day, and as a figure on the tile; a muted zero where neither picked.
   await expect(days(lous).nth(0)).not.toHaveAccessibleName(/could make it/);
@@ -87,11 +83,12 @@ test('a third guest sees the first two answers as counts, and no name', async ({
 
   // The hours, from each day's row: the first day has nothing to say about the
   // others, the fourth says when both of them are free.
-  await lous.getByRole('button', { name: /^Adjust hours for/ }).click();
-  const lines = lous.getByRole('button', { name: /Set exact hours/ });
-  await lines.nth(0).click();
+  await lous.getByRole('button', { name: 'Adjust hours', exact: true }).click();
+  const clocks = lous.getByRole('button', { name: /^Exact hours, / });
+  await clocks.nth(0).click();
   await expect(lous.getByText(/^Most others are free/)).toHaveCount(0);
-  await lines.nth(1).click();
+  await lous.getByRole('button', { name: 'Done', exact: true }).click();
+  await clocks.nth(1).click();
   await expect(lous.getByText(/^Most others are free 5:30.10:30\spm\.$/)).toBeVisible();
   await lous.getByRole('button', { name: 'Done', exact: true }).click();
 

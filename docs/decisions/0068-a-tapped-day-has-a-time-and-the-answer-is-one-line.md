@@ -5,11 +5,11 @@ status: proposed
 date: 2026-10-14
 amends: [24, 37]
 builds_on: [9, 13, 45, 66]
-amended_by: [77]
+amended_by: [77, 79]
 ---
 # ADR 0068: A tapped day already has a time, and the answer is one line: the first screen asks only which days
 
-_Status: proposed (previous times are no longer applied on open: [ADR 0077](0077-an-answer-never-given-opens-empty-previous-times-wait-for-a-tap.md)) · 14 October 2026 · amends [ADR 0024](0024-availability-days-first-then-a-time-once.md) (what a tap does, and what the screen holds) and [ADR 0037](0037-usual-times-are-read-not-written.md) (previous times land as taps rather than behind a button); builds on [ADR 0009](0009-half-hour-availability-cells-with-a-scrolling-row.md), [ADR 0013](0013-availability-written-only-through-replace-response.md), [ADR 0045](0045-the-editor-shows-what-others-have-said-as-counts.md) and [ADR 0066](0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md)_
+_Status: proposed (previous times are no longer applied on open: [ADR 0077](0077-an-answer-never-given-opens-empty-previous-times-wait-for-a-tap.md); the time of day moved onto the first screen and the per-day step into it: [ADR 0079](0079-the-time-of-day-is-on-the-first-screen-and-a-time-for-each-day-opens-in-place.md)) · 14 October 2026 · amends [ADR 0024](0024-availability-days-first-then-a-time-once.md) (what a tap does, and what the screen holds) and [ADR 0037](0037-usual-times-are-read-not-written.md) (previous times land as taps rather than behind a button); builds on [ADR 0009](0009-half-hour-availability-cells-with-a-scrolling-row.md), [ADR 0013](0013-availability-written-only-through-replace-response.md), [ADR 0045](0045-the-editor-shows-what-others-have-said-as-counts.md) and [ADR 0066](0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md)_
 
 ## Context
 

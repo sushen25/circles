@@ -16,7 +16,7 @@ import { editorView } from './view';
 /**
  * What the editor says, worked out before anything renders (ADR 0024, ADR
  * 0068): the tiles and their spoken labels, where each day sits in the
- * calendar, the sheet's choices and the exact hours in words.
+ * calendar, the answer block's choices and hours, and the exact hours in words.
  */
 
 const TWELVE = { hour12: true };
@@ -79,15 +79,15 @@ describe('the day grid', () => {
   });
 });
 
-describe('the answer line and the sheet', () => {
-  it('has neither until a day is tapped', () => {
+describe('the answer block (SUS-236)', () => {
+  it('is not there until a day is tapped', () => {
     const { run, view } = setUp(EVENINGS);
 
-    expect(view(run()).answerLine).toBeUndefined();
-    expect(view(run()).sheet).toBeUndefined();
+    expect(view(run()).block).toBeUndefined();
+    expect(view(run()).rows).toEqual([]);
   });
 
-  it('says the tapped days and their time in one line', () => {
+  it('counts the tapped days and says the hours of the time they share', () => {
     const { run, view } = setUp(WHOLE_DAYS);
     const three = run(
       { type: 'toggle_day', day: 1 },
@@ -95,61 +95,81 @@ describe('the answer line and the sheet', () => {
       { type: 'toggle_day', day: 5 },
     );
 
-    expect(view(three).answerLine).toEqual({
-      days: 'Tue 15, Thu 17, Sat 19',
-      time: 'Evenings, from 5:30 pm',
-      shared: true,
+    expect(view(three).block).toMatchObject({
+      count: '3 days',
+      hours: 'From 5:30 pm',
+      differ: false,
     });
-    expect(view(three).sheet!.covers).toBe('One answer covers Tue 15, Thu 17 and Sat 19.');
+    expect(view(run({ type: 'toggle_day', day: 1 })).block!.count).toBe('1 day');
   });
 
-  it('offers the choices with their hours, the picked one on', () => {
+  it('offers the choices, the picked one on, whatever day they are asked of', () => {
     const { run, view } = setUp(WHOLE_DAYS);
     const tapped = run({ type: 'toggle_day', day: 5 });
 
-    expect(view(tapped).sheet!.choices).toEqual([
-      { kind: 'evening', label: 'Evening', detail: 'from 5:30 pm', on: true },
-      { kind: 'daytime', label: 'Daytime', detail: '9 am–5 pm', on: false },
-      { kind: 'any_time', label: 'Any time', detail: undefined, on: false },
+    expect(view(tapped).block!.choices).toEqual([
+      { kind: 'evening', label: 'Evening', on: true },
+      { kind: 'daytime', label: 'Daytime', on: false },
+      { kind: 'any_time', label: 'Any time', on: false },
     ]);
     const daytime = run({ type: 'toggle_day', day: 5 }, { type: 'set_window', kind: 'daytime' });
-    expect(view(daytime).sheet!.choices.map((c) => c.on)).toEqual([false, true, false]);
+    expect(view(daytime).block!.choices.map((c) => c.on)).toEqual([false, true, false]);
   });
 
-  it('gives the same hours for the same time of day on several days, and says when they vary', () => {
+  it('says the hours of each choice: from, between, or any time', () => {
+    const { run, view } = setUp(WHOLE_DAYS);
+    const hours = (kind: 'evening' | 'daytime' | 'any_time') =>
+      view(run({ type: 'toggle_day', day: 1 }, { type: 'set_window', kind })).block!.hours;
+
+    expect([hours('evening'), hours('daytime'), hours('any_time')]).toEqual([
+      'From 5:30 pm',
+      '9 am–5 pm',
+      'Any time',
+    ]);
+  });
+
+  it('gives the same hours for the same time of day on several dates, not "times vary"', () => {
     const { run, view } = setUp(WHOLE_DAYS);
     const several = run(
       { type: 'toggle_day', day: 1 },
       { type: 'toggle_day', day: 3 },
       { type: 'toggle_day', day: 5 },
+      { type: 'set_window', kind: 'daytime' },
     );
 
-    // Three different dates, one clock time: not "Times vary by day".
-    expect(view(several).sheet!.choices.map((c) => c.detail)).toEqual([
-      'from 5:30 pm',
-      '9 am–5 pm',
-      undefined,
-    ]);
+    expect(view(several).block!.hours).toBe('9 am–5 pm');
   });
 
-  it('has no sheet and no choices on an evenings plan: Any time is the same hours', () => {
+  it('has no pills on an evenings plan: Any time is the same hours, so there is no choice', () => {
     const { run, view } = setUp(EVENINGS);
     const shown = view(run({ type: 'toggle_day', day: 1 }));
 
-    expect(shown.sheet).toBeUndefined();
+    expect(shown.block).toMatchObject({ choices: [], hours: 'From 5:30 pm', differ: false });
     expect(shown.single).toBe(true);
     expect(shown.band).toBe('evenings');
-    expect(shown.singleTime).toBe('from 5:30 pm');
-    expect(shown.cards[0]!.choices).toEqual([]);
-    expect(shown.answerLine).toMatchObject({ time: 'Evenings, from 5:30 pm', shared: true });
+    expect(shown.rows[0]!.choices).toEqual([]);
   });
 
-  it('turns none of the choices on once a day is adjusted by the half hour', () => {
+  it('turns none of the choices on once a day is adjusted by the half hour, and says its hours', () => {
     const { run, view } = setUp(WHOLE_DAYS);
     const cells = new Array(27).fill(false).map((_, i) => i > 20 && i < 24);
     const adjusted = run({ type: 'toggle_day', day: 5 }, { type: 'paint', day: 5, cells });
 
-    expect(view(adjusted).sheet!.choices.every((choice) => !choice.on)).toBe(true);
+    expect(view(adjusted).block!.choices.every((choice) => !choice.on)).toBe(true);
+    expect(view(adjusted).block).toMatchObject({ hours: '7:30–9 pm', differ: false });
+  });
+
+  it('opens as the list when the days differ, and not while they share a time', () => {
+    const { run, view } = setUp(WHOLE_DAYS);
+    const same = run({ type: 'toggle_day', day: 1 }, { type: 'toggle_day', day: 3 });
+    const differ = run(
+      { type: 'toggle_day', day: 1 },
+      { type: 'toggle_day', day: 3 },
+      { type: 'set_day_window', day: 1, kind: 'daytime' },
+    );
+
+    expect(view(same).block!.differ).toBe(false);
+    expect(view(differ).block).toMatchObject({ differ: true, hours: undefined });
   });
 });
 
@@ -161,47 +181,48 @@ describe('what the plan leaves to choose (SUS-206)', () => {
     const { run, view } = bandOf(startMin, endMin);
     return view(run({ type: 'toggle_day', day: 1 }));
   };
+  const kinds = (v: ReturnType<typeof shown>) => v.block!.choices.map((c) => c.kind);
 
   it('keeps all three choices on the daytime preset, 9 am to 10:30 pm', () => {
     const v = shown(9 * 60, 22 * 60 + 30);
     expect(v.single).toBe(false);
     expect(v.band).toBe('days');
-    expect(v.sheet!.choices.map((c) => c.kind)).toEqual(['evening', 'daytime', 'any_time']);
+    expect(kinds(v)).toEqual(['evening', 'daytime', 'any_time']);
   });
 
   it('has one window on the evenings preset, 5:30 to 10:30 pm, and calls it evenings', () => {
     const v = shown(17 * 60 + 30, 22 * 60 + 30);
-    expect([v.single, v.band, v.sheet]).toEqual([true, 'evenings', undefined]);
-    expect(v.answerLine!.time).toBe('Evenings, from 5:30 pm');
+    expect([v.single, v.band, kinds(v)]).toEqual([true, 'evenings', []]);
+    expect(v.block!.hours).toBe('From 5:30 pm');
   });
 
   it('has one window on 9 am to noon, mornings', () => {
     const v = shown(9 * 60, 12 * 60);
-    expect([v.single, v.band, v.sheet]).toEqual([true, 'mornings', undefined]);
-    expect(v.singleTime).toBe('9 am–12 pm');
-    expect(v.answerLine).toMatchObject({ time: 'Mornings, 9 am–12 pm', shared: true });
+    expect([v.single, v.band, kinds(v)]).toEqual([true, 'mornings', []]);
+    expect(v.block!.hours).toBe('9 am–12 pm');
   });
 
   it('has one window on noon to 5 pm, afternoons', () => {
     const v = shown(12 * 60, 17 * 60);
-    expect([v.single, v.band, v.sheet]).toEqual([true, 'afternoons', undefined]);
-    expect(v.answerLine).toMatchObject({ time: 'Afternoons, 12–5 pm', shared: true });
+    expect([v.single, v.band, kinds(v)]).toEqual([true, 'afternoons', []]);
+    expect(v.block!.hours).toBe('12–5 pm');
   });
 
   it('keeps the choices that still differ on 3 to 9 pm: Evening, Daytime (3 to 5 pm), Any time', () => {
     const v = shown(15 * 60, 21 * 60);
     expect([v.single, v.band]).toEqual([false, 'days']);
-    expect(v.sheet!.choices.map((c) => [c.kind, c.detail])).toEqual([
-      ['evening', 'from 5:30 pm'],
-      ['daytime', '3–5 pm'],
-      ['any_time', undefined],
-    ]);
+    expect(kinds(v)).toEqual(['evening', 'daytime', 'any_time']);
+    const { run, view } = bandOf(15 * 60, 21 * 60);
+    const daytime = view(
+      run({ type: 'toggle_day', day: 1 }, { type: 'set_window', kind: 'daytime' }),
+    );
+    expect(daytime.block!.hours).toBe('3–5 pm');
   });
 
   it('calls a band that is none of those days: 9 am to 5 pm has one window, daytime', () => {
     const v = shown(9 * 60, 17 * 60);
     expect([v.single, v.band]).toEqual([true, 'days']);
-    expect(v.answerLine!.time).toBe('Daytime, 9 am–5 pm');
+    expect(v.block!.hours).toBe('9 am–5 pm');
   });
 });
 
@@ -209,13 +230,13 @@ describe("an open day's hours: From – to pairs (SUS-206)", () => {
   const open = (timing: PlanTiming, ...actions: EditorAction[]) => {
     const { rows, run } = setUp(timing);
     const state = run(...actions, { type: 'open', day: 3 });
-    return editorView(state, rows, timing, TWELVE, 'en-AU').cards.find((c) => c.day === 3)!.hours!;
+    return editorView(state, rows, timing, TWELVE, 'en-AU').rows.find((c) => c.day === 3)!.hours!;
   };
 
   it('is only there while the day is open', () => {
     const { run, view } = setUp(WHOLE_DAYS);
 
-    expect(view(run({ type: 'toggle_day', day: 3 })).cards[0]!.hours).toBeUndefined();
+    expect(view(run({ type: 'toggle_day', day: 3 })).rows[0]!.hours).toBeUndefined();
   });
 
   it('says each pair with full minutes, and offers the times that edge may take', () => {
@@ -279,7 +300,7 @@ describe("an open day's hours: From – to pairs (SUS-206)", () => {
     };
     const { rows, run } = setUp(band);
     const state = run({ type: 'toggle_day', day: 0 }, { type: 'open', day: 0 });
-    const hours = editorView(state, rows, band, TWELVE, 'en-AU').cards[0]!.hours!;
+    const hours = editorView(state, rows, band, TWELVE, 'en-AU').rows[0]!.hours!;
     const labels = hours.ranges[0]!.toOptions.map((o) => o.label);
 
     expect(new Set(labels).size).toBe(labels.length);
@@ -287,52 +308,91 @@ describe("an open day's hours: From – to pairs (SUS-206)", () => {
   });
 });
 
-describe('a time for each day', () => {
-  it("is a card for each tapped day with the day, its time and the plan's choices", () => {
+describe('a time for each day (SUS-236)', () => {
+  it("is a row for each tapped day, in date order, with the plan's choices", () => {
     const { run, view } = setUp(WHOLE_DAYS);
-    const cards = view(
+    const rows = view(
       run(
         { type: 'toggle_day', day: 3 },
         { type: 'toggle_day', day: 1 },
         { type: 'set_day_window', day: 1, kind: 'daytime' },
       ),
-    ).cards;
+    ).rows;
 
-    expect(cards.map((c) => [c.day, c.name, c.time, c.own])).toEqual([
+    expect(rows.map((r) => [r.day, r.name, r.range, r.own])).toEqual([
       [1, 'Tue 15', '9 am–5 pm', false],
-      [3, 'Thu 17', 'from 5:30 pm', false],
+      [3, 'Thu 17', '5:30–10:30 pm', false],
     ]);
-    expect(cards[0]!.choices).toEqual([
+    expect(rows[0]!.choices).toEqual([
       { kind: 'evening', label: 'Evening', on: false },
       { kind: 'daytime', label: 'Daytime', on: true },
       { kind: 'any_time', label: 'Any time', on: false },
     ]);
-    expect(cards[1]!.choices.map((c) => c.on)).toEqual([true, false, false]);
-    expect(cards.every((c) => !c.open)).toBe(true);
+    expect(rows[1]!.choices.map((c) => c.on)).toEqual([true, false, false]);
+    expect(rows.every((r) => r.hours === undefined)).toBe(true);
   });
 
-  it("selects none, and says the hours are the guest's own, when they match no choice", () => {
+  it('changes one day by its choice and leaves the others', () => {
+    const { run, view } = setUp(WHOLE_DAYS);
+    const rows = view(
+      run(
+        { type: 'toggle_day', day: 1 },
+        { type: 'toggle_day', day: 3 },
+        { type: 'set_day_window', day: 3, kind: 'any_time' },
+      ),
+    ).rows;
+
+    expect(rows.map((r) => r.choices.find((c) => c.on)!.kind)).toEqual(['evening', 'any_time']);
+  });
+
+  it('puts every day on the shared choice again: the last one picked for all', () => {
+    const { run, view } = setUp(WHOLE_DAYS);
+    const state = run(
+      { type: 'toggle_day', day: 1 },
+      { type: 'toggle_day', day: 3 },
+      { type: 'set_window', kind: 'daytime' },
+      { type: 'set_day_window', day: 3, kind: 'any_time' },
+      { type: 'use_one_time' },
+    );
+
+    expect(view(state).block).toMatchObject({ differ: false, hours: '9 am–5 pm' });
+  });
+
+  it('puts a day back to the choice it had, and clears its own hours', () => {
     const { run, view } = setUp(WHOLE_DAYS);
     const cells = new Array(27).fill(false).map((_, i) => i >= 18 && i < 25);
-    const [card] = view(
-      run({ type: 'toggle_day', day: 3 }, { type: 'paint', day: 3, cells }),
-    ).cards;
+    const own = run({ type: 'toggle_day', day: 3 }, { type: 'paint', day: 3, cells });
+    expect(view(own).rows[0]).toMatchObject({ own: true, range: '6–9:30 pm' });
 
-    expect(card).toMatchObject({ time: '6–9:30 pm, your own hours', own: true });
-    expect(card!.choices.every((choice) => !choice.on)).toBe(true);
+    const back = run(
+      { type: 'toggle_day', day: 3 },
+      { type: 'paint', day: 3, cells },
+      { type: 'set_day_window', day: 3, kind: 'evening' },
+    );
+    expect(view(back).rows[0]).toMatchObject({ own: false, range: '5:30–10:30 pm' });
+    expect(back.days[3]).toEqual(run({ type: 'toggle_day', day: 3 }).days[3]);
   });
 
-  it("opens one day's half hours, and lists every tapped day whether open or not", () => {
+  it('selects none and lights the clock, with its hours, when they match no choice', () => {
+    const { run, view } = setUp(WHOLE_DAYS);
+    const cells = new Array(27).fill(false).map((_, i) => i >= 18 && i < 25);
+    const [row] = view(run({ type: 'toggle_day', day: 3 }, { type: 'paint', day: 3, cells })).rows;
+
+    expect(row).toMatchObject({ range: '6–9:30 pm', own: true });
+    expect(row!.choices.every((choice) => !choice.on)).toBe(true);
+  });
+
+  it("opens one day's half hours for its sheet, and lists every tapped day whether open or not", () => {
     const { run, view } = setUp(EVENINGS);
     const shown = view(
       run({ type: 'toggle_day', day: 1 }, { type: 'toggle_day', day: 3 }, { type: 'open', day: 3 }),
     );
 
-    expect(shown.cards.map((c) => [c.day, c.open])).toEqual([
+    expect(shown.rows.map((r) => [r.day, r.hours !== undefined])).toEqual([
       [1, false],
       [3, true],
     ]);
-    expect(shown.cards[1]!.range).toBe('5:30–10:30 pm');
+    expect(shown.rows[1]!.range).toBe('5:30–10:30 pm');
   });
 });
 
@@ -380,7 +440,7 @@ describe('what the others have said (SUS-129, SUS-206)', () => {
     const shown = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 }));
     expect(shown.counted).toBe(false);
     expect(shown.grid.every((day) => day.others === undefined)).toBe(true);
-    expect(shown.cards[0]!.hours!.others).toBeUndefined();
+    expect(shown.rows[0]!.hours!.others).toBeUndefined();
   });
 
   it('puts the others on an untapped day, a muted zero where nobody could make it', () => {
@@ -417,7 +477,7 @@ describe('what the others have said (SUS-129, SUS-206)', () => {
 
   it('says when most others are free on an open day, in one line with no names or counts', () => {
     const { run, view } = withOthers(EVENINGS, FIVE);
-    const [thursday] = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 })).cards;
+    const [thursday] = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 })).rows;
 
     // Thursday: all five from 6:30 to 8:30 pm, and the most is 5.
     expect(thursday!.hours!.others).toBe('Most others are free 6:30–8:30 pm.');
@@ -432,14 +492,14 @@ describe('what the others have said (SUS-129, SUS-206)', () => {
         [evening(17, '18:00', '20:00')],
       ]),
     );
-    const [thursday] = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 })).cards;
+    const [thursday] = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 })).rows;
 
     expect(thursday!.hours!.others).toMatch(/^Most others are free .*9–11 am and 6–8 pm\.$/);
   });
 
   it('says nothing about the others on a day nobody else picked', () => {
     const { run, view } = withOthers(EVENINGS, FIVE);
-    const [monday] = view(run({ type: 'toggle_day', day: 0 }, { type: 'open', day: 0 })).cards;
+    const [monday] = view(run({ type: 'toggle_day', day: 0 }, { type: 'open', day: 0 })).rows;
 
     expect(monday!.hours!.others).toBeUndefined();
   });
@@ -450,7 +510,7 @@ describe('what the others have said (SUS-129, SUS-206)', () => {
       const shown = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 }));
       expect(shown.counted).toBe(false);
       expect(shown.grid.every((day) => day.others === undefined)).toBe(true);
-      expect(shown.cards[0]!.hours!.others).toBeUndefined();
+      expect(shown.rows[0]!.hours!.others).toBeUndefined();
     }
   });
 
@@ -473,7 +533,7 @@ describe('what the others have said (SUS-129, SUS-206)', () => {
 
     it('says nothing about hours on an open day: the line waits for two', () => {
       const { run, view } = withOthers(EVENINGS, ONE);
-      const [thursday] = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 })).cards;
+      const [thursday] = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 })).rows;
       expect(thursday!.hours!.others).toBeUndefined();
     });
 
@@ -482,7 +542,7 @@ describe('what the others have said (SUS-129, SUS-206)', () => {
         ...ONE,
         days: [[evening(17, '18:30', '20:30')]],
       });
-      const [thursday] = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 })).cards;
+      const [thursday] = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 })).rows;
       expect(thursday!.hours!.others).toBeUndefined();
     });
 
@@ -491,7 +551,7 @@ describe('what the others have said (SUS-129, SUS-206)', () => {
       const shown = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 }));
       // One other with times, one "I'm easy", and the reader who just tapped.
       expect(shown.grid[3]!.others).toBe('3');
-      expect(shown.cards[0]!.hours!.others).toBeUndefined();
+      expect(shown.rows[0]!.hours!.others).toBeUndefined();
     });
 
     it('says the line again at two others with times', () => {
@@ -500,7 +560,7 @@ describe('what the others have said (SUS-129, SUS-206)', () => {
         [[evening(17, '18:30', '20:30')], [evening(17, '18:30', '20:30')]],
       );
       const { run, view } = withOthers(EVENINGS, TWO);
-      const [thursday] = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 })).cards;
+      const [thursday] = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 })).rows;
       expect(thursday!.hours!.others).toBe('Most others are free 6:30–8:30 pm.');
     });
   });

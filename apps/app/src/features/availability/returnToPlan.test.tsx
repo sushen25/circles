@@ -1,7 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetHoursRouter } from '../../test/hours-router';
 
 import type * as AvailabilityData from '../../data/availability';
 
@@ -14,8 +13,8 @@ const replace = vi.fn();
 const push = vi.fn();
 const dismissTo = vi.fn();
 vi.mock('expo-router', async () => {
-  const { hoursRouter } = await import('../../test/hours-router');
-  return hoursRouter({
+  const { answerRouter } = await import('../../test/answer-router');
+  return answerRouter({
     replace: (h) => replace(h),
     push: (h) => push(h),
     dismissTo: (h) => dismissTo(h),
@@ -59,7 +58,6 @@ async function sendStored() {
 }
 
 beforeEach(() => {
-  resetHoursRouter();
   vi.clearAllMocks();
   planToAnswer.mockResolvedValue({ plan: PLAN, answer: answerable.answer });
   submitAnswer.mockResolvedValue({ response_id: 'r', revision: 1 });

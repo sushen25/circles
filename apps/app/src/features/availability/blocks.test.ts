@@ -58,10 +58,10 @@ describe('a time of day on only some of the tapped days', () => {
     expect(windowOn('daytime', daytime, rows, TIMING)).toBe(false);
   });
 
-  it('says on the sheet that the choice covers the days it can', () => {
+  it('offers the same three choices as pills, whatever days they cover', () => {
     const view = editorView(tapped, rows, TIMING, { hour12: true }, 'en-AU');
 
-    expect(view.sheet!.choices.map((choice) => choice.label)).toEqual([
+    expect(view.block!.choices.map((choice) => choice.label)).toEqual([
       'Evening',
       'Daytime',
       'Any time',

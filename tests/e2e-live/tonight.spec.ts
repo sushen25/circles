@@ -59,21 +59,19 @@ test('an organiser asks about tonight, and the editor asks about tonight', async
     from public.plans where id = '${plan!.id}'`);
   expect(row).toEqual(['t', 't', 't']);
 
-  // The organiser's own answer: one day to tap, and tonight's two times behind
-  // Change time, From now first.
+  // The organiser's own answer: one day to tap, and tonight's two times as
+  // pills, From now first.
   await page.goto(`/j/${plan!.code}`);
   await expect(page.getByText('Which days could work?')).toBeVisible();
   const today = page.getByRole('group', { name: 'Days in this plan' }).getByRole('button');
   await today.click();
-  await expect(page.getByText(/^From now, from /)).toBeVisible();
-  await page.getByRole('button', { name: /^Change the time for/ }).click();
-  await expect(page.getByRole('radio', { name: /^From now/ })).toHaveAttribute(
+  await expect(page.getByText(/^From \d/)).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'From now', exact: true })).toHaveAttribute(
     'aria-checked',
     'true',
   );
-  await expect(page.getByRole('radio', { name: /^Later tonight/ })).toBeVisible();
-  await expect(page.getByRole('radio', { name: /^Evening/ })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page.getByRole('radio', { name: 'Later tonight', exact: true })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Evening', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page).toHaveURL(new RegExp(`/j/${plan!.code}/sent$`));
   expect(answerOf(plan!.id, mayaId)?.status).toBe('windows');

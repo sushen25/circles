@@ -42,16 +42,25 @@ function wholeDay(crew: Scenario) {
   sql(`update public.plans set daily_start_local = 540 where id = '${crew.planId}'`);
 }
 
+/** The plan's nth day, as the date an answer's rows are keyed by. */
+function nthDay(planId: string, n: number) {
+  const date = new Date(`${firstDayOf(planId)}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + n);
+  return date.toISOString().slice(0, 10);
+}
+
 /** The plan's days, in the grid, in date order. */
 const days = (page: Page) =>
   page.getByRole('group', { name: 'Days in this plan' }).getByRole('button');
-/** "Change time" under the grid, which opens the sheet ("Adjust hours" on a plan with one window). */
-const changeTime = (page: Page) => page.getByRole('button', { name: /^Change the time for/ });
-const adjustHours = (page: Page) => page.getByRole('button', { name: /^Adjust hours for/ });
-const exactLink = (page: Page) =>
-  page.getByRole('button', { name: 'A different time for each day' });
-/** The first day's "Set exact hours", which opens that day's From – to pairs. */
-const firstLine = (page: Page) => page.getByRole('button', { name: /Set exact hours$/ }).first();
+/** "Adjust hours" under the hours line, on a plan with one window: it opens the list of days. */
+const adjustHours = (page: Page) => page.getByRole('button', { name: 'Adjust hours', exact: true });
+/** "Not the same every day?": swaps the block for "A time for each day", in place. */
+const notTheSame = (page: Page) => page.getByRole('button', { name: 'Not the same every day?' });
+const sameForEvery = (page: Page) => page.getByRole('button', { name: 'Same for every day' });
+/** A time-of-day pill: the block's, or (by `nth`) a day's. */
+const pill = (page: Page, name: string) => page.getByRole('radio', { name, exact: true });
+/** The first day's clock, which opens that day's From – to pairs on a sheet. */
+const firstClock = (page: Page) => page.getByRole('button', { name: /^Exact hours, / }).first();
 /** A From or To button of the open day, by what it says now ("Free from, Monday 14 September, 5:30 pm"). */
 const timeButton = (page: Page, which: 'from' | 'to', time: string) =>
   page.getByRole('button', {
@@ -71,13 +80,13 @@ async function evenings(page: Page, ...indices: number[]) {
   }
 }
 
-/** From the first screen to the half hours of the first tapped day. */
+/** From the first screen to the half hours of the first tapped day, on its sheet. */
 async function exactHours(page: Page) {
-  // This plan asks about an evening only: nothing to pick, so no sheet.
+  // This plan asks about an evening only: no pills, and the list opens in place.
   await adjustHours(page).click();
   await expect(page.getByRole('heading', { name: 'Your hours each evening' })).toBeVisible();
-  await firstLine(page).click();
-  await expect(firstLine(page)).toHaveAttribute('aria-expanded', 'true');
+  await firstClock(page).click();
+  await expect(timeButton(page, 'from', '\\d.*')).toBeVisible();
 }
 
 test('three days tapped is the answer, in four taps, and it comes back as it was given', async ({
@@ -87,11 +96,11 @@ test('three days tapped is the answer, in four taps, and it comes back as it was
   const ren = await arriveAs(page, crew, 'Ren');
   const started = Date.now();
 
-  // Three days, Send: one answer line says the rest (ADR 0068's acceptance).
+  // Three days, Send: the block says the rest (ADR 0068's acceptance).
   await days(page).nth(1).click();
   await days(page).nth(3).click();
   await days(page).nth(5).click();
-  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
+  await expect(page.getByText('From 5:30 pm')).toBeVisible();
   await page.getByRole('button', { name: 'Send my times' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}/sent$`));
@@ -117,7 +126,7 @@ test('three days tapped is the answer, in four taps, and it comes back as it was
     await expect(days(page).nth(index)).toHaveAttribute('aria-pressed', 'true');
   }
   await expect(days(page).nth(0)).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
+  await expect(page.getByText('From 5:30 pm')).toBeVisible();
 });
 
 test('what is set with From and to is what is stored, in two windows, and it comes back that way', async ({
@@ -133,7 +142,7 @@ test('what is set with From and to is what is stored, in two windows, and it com
   await page.getByRole('button', { name: 'Add another time' }).click();
   await pick(page, 'from', '7:00 pm', '7:30 pm');
   await page.getByRole('button', { name: 'Done', exact: true }).click();
-  await expect(page.getByText(/set by the half hour/)).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Free from, / })).toHaveCount(0);
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}/sent$`));
 
@@ -145,7 +154,6 @@ test('what is set with From and to is what is stored, in two windows, and it com
 
   await page.goto(`/j/${crew.planCode}`);
   await expect(days(page).nth(0)).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByText(/set by the half hour/)).toBeVisible();
   await exactHours(page);
   await expect(timeButton(page, 'from', '5:30 pm')).toBeVisible();
   await expect(timeButton(page, 'to', '6:30 pm')).toBeVisible();
@@ -153,7 +161,7 @@ test('what is set with From and to is what is stored, in two windows, and it com
   await expect(timeButton(page, 'to', '8:00 pm')).toBeVisible();
 });
 
-test('an answer can be given from the keyboard alone, by days and a sheet, and adjusted by the cell', async ({
+test('an answer can be given from the keyboard alone, by days, pills and a sheet, and adjusted by the cell', async ({
   page,
 }) => {
   const crew = sundayCrew();
@@ -163,17 +171,22 @@ test('an answer can be given from the keyboard alone, by days and a sheet, and a
   await days(page).nth(0).focus();
   await page.keyboard.press('Space');
   await expect(days(page).nth(0)).toHaveAttribute('aria-pressed', 'true');
-  await changeTime(page).focus();
+  // The pills are radios a keyboard reaches: Daytime, then back to Evening.
+  await expect(pill(page, 'Evening')).toHaveAttribute('aria-checked', 'true');
+  await pill(page, 'Daytime').focus();
+  await page.keyboard.press('Space');
+  await expect(pill(page, 'Daytime')).toHaveAttribute('aria-checked', 'true');
+  await pill(page, 'Evening').focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('radio', { name: /^Evening/ })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
-  await exactLink(page).focus();
+  await expect(pill(page, 'Evening')).toHaveAttribute('aria-checked', 'true');
+  await notTheSame(page).focus();
   await page.keyboard.press('Enter');
-  await firstLine(page).focus();
+  await expect(page.getByRole('heading', { name: 'A time for each day' })).toBeVisible();
+  // A day's own pills, and its clock.
+  await pill(page, 'Any').focus();
+  await expect(pill(page, 'Any')).toBeFocused();
+  await firstClock(page).focus();
   await page.keyboard.press('Enter');
-  await expect(firstLine(page)).toHaveAttribute('aria-expanded', 'true');
   // The picker is a list of radios a keyboard can reach: open it with Enter,
   // choose 6 pm with Space.
   await timeButton(page, 'from', '5:30 pm').focus();
@@ -192,7 +205,7 @@ test('an answer can be given from the keyboard alone, by days and a sheet, and a
   // (the whole-day plan's evening is the same 5:30 to 10:30 pm)
 });
 
-test('a plan with one window has nothing to pick: the title names it, and Adjust hours goes to the list of days', async ({
+test('a plan with one window has nothing to pick: the title names it, and Adjust hours opens the list of days', async ({
   page,
 }) => {
   const crew = sundayCrew();
@@ -203,18 +216,18 @@ test('a plan with one window has nothing to pick: the title names it, and Adjust
     page.getByRole('button', { name: 'None of these evenings work for me' }),
   ).toBeVisible();
   await evenings(page, 1, 3);
-  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
-  await expect(changeTime(page)).toHaveCount(0);
+  await expect(page.getByText('From 5:30 pm')).toBeVisible();
+  await expect(page.getByText('2 days', { exact: true })).toBeVisible();
+  await expect(notTheSame(page)).toHaveCount(0);
   await adjustHours(page).click();
   await expect(page.getByRole('radio')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Your hours each evening' })).toBeVisible();
-  await expect(page.getByText('Every evening is from 5:30 pm.', { exact: false })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Set exact hours$/ })).toHaveCount(2);
-  await page.getByRole('button', { name: 'Done', exact: true }).click();
-  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Exact hours, / })).toHaveCount(2);
+  await sameForEvery(page).click();
+  await expect(page.getByText('From 5:30 pm')).toBeVisible();
 });
 
-test('on a whole-day plan Change time offers Evening, Daytime and Any time, and Done leaves the answer as it was', async ({
+test('on a whole-day plan the block offers Evening, Daytime and Any time, and a pick applies to every tapped day', async ({
   page,
 }) => {
   const crew = sundayCrew();
@@ -222,62 +235,76 @@ test('on a whole-day plan Change time offers Evening, Daytime and Any time, and 
   await arriveAs(page, crew, 'Ren');
 
   await expect(page.getByRole('heading', { name: 'Which days could work?' })).toBeVisible();
-  await evenings(page, 1, 3);
-  await changeTime(page).click();
-  await expect(page.getByText(/^One answer covers /)).toBeVisible();
-  await expect(page.getByRole('radio')).toHaveCount(3);
-  await expect(page.getByRole('radio', { name: /^Evening/ })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
-  await expect(page.getByRole('radio', { name: /^Daytime, 9 am.5 pm$/ })).toBeVisible();
-  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  // Nothing tapped, no block.
   await expect(page.getByRole('radio')).toHaveCount(0);
-  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
+  await evenings(page, 1, 3);
+  await expect(page.getByRole('heading', { name: 'When, on those days?' })).toBeVisible();
+  await expect(page.getByText('2 days', { exact: true })).toBeVisible();
+  await expect(page.getByRole('radio')).toHaveCount(3);
+  await expect(pill(page, 'Evening')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByText('From 5:30 pm')).toBeVisible();
+  await pill(page, 'Daytime').click();
+  await expect(page.getByText('9 am–5 pm')).toBeVisible();
+  await expect(days(page).nth(1)).toHaveAccessibleName(/, 9 am.5 pm$/);
+  await expect(days(page).nth(3)).toHaveAccessibleName(/, 9 am.5 pm$/);
+  // No day list, no Change time, no sheet.
+  await expect(page.getByRole('button', { name: /Change time/ })).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
-test('a day can have its own time of day, and the line then lists each day', async ({ page }) => {
+test('a day can have its own time of day, its clock sets exact hours, and Same for every day brings them back', async ({
+  page,
+}) => {
   const crew = sundayCrew();
   wholeDay(crew);
   await arriveAs(page, crew, 'Ren');
 
   await evenings(page, 1, 3);
-  await changeTime(page).click();
-  await exactLink(page).click();
-  // Each card offers Evening, Daytime and Any time, the evening selected; the
-  // half hours are a link away on each.
-  await expect(page.getByRole('button', { name: /^Evening, / })).toHaveCount(2);
-  await expect(page.getByRole('button', { name: /^Daytime, / })).toHaveCount(2);
-  await expect(page.getByRole('button', { name: /^Evening, / }).first()).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await page
-    .getByRole('button', { name: /^Daytime, / })
-    .nth(1)
-    .click();
+  await notTheSame(page).click();
+  await expect(page.getByRole('heading', { name: 'When, on those days?' })).toHaveCount(0);
+  // Each row offers Evening, Daytime and Any, the evening selected, and a clock.
+  await expect(pill(page, 'Evening')).toHaveCount(2);
+  await expect(pill(page, 'Daytime')).toHaveCount(2);
+  await expect(pill(page, 'Any')).toHaveCount(2);
+  await expect(pill(page, 'Evening').first()).toHaveAttribute('aria-checked', 'true');
+  await pill(page, 'Daytime').nth(1).click();
+  await expect(pill(page, 'Daytime').nth(1)).toHaveAttribute('aria-checked', 'true');
+  await expect(pill(page, 'Daytime').first()).toHaveAttribute('aria-checked', 'false');
 
-  // One day's own hours: a quick choice is no longer selected on it.
-  await page
-    .getByRole('button', { name: /Set exact hours$/ })
-    .first()
-    .click();
+  // One day's own hours: the clock opens its sheet, and no choice is selected after.
+  await firstClock(page).click();
   await pick(page, 'from', '5:30 pm', '6:00 pm');
-  await expect(page.getByText(/your own hours$/)).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Evening, / }).first()).toHaveAttribute(
-    'aria-pressed',
-    'false',
-  );
   await page.getByRole('button', { name: 'Done', exact: true }).click();
-  // The days differ, so the line lists each, and Change time goes straight back.
-  await expect(page.getByText(/, but daytime on /)).toBeVisible();
-  await changeTime(page).click();
-  await expect(page.getByRole('heading', { name: 'A time for each day' })).toBeVisible();
-  await page.getByRole('button', { name: 'Use one time for all days' }).click();
-  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
+  await expect(pill(page, 'Evening').first()).toHaveAttribute('aria-checked', 'false');
+  await expect(page.getByText('6–10:30 pm')).toBeVisible();
+
+  // Same for every day: the last shared choice, on every day.
+  await sameForEvery(page).click();
+  await expect(page.getByRole('heading', { name: 'When, on those days?' })).toBeVisible();
+  await expect(pill(page, 'Evening')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByText('From 5:30 pm')).toBeVisible();
 });
 
-test('on a wide window the Change time sheet and A time for each day sit in the centred column', async ({
+test("a clock's sheet goes Back to the choice the day had, and clears its exact hours", async ({
+  page,
+}) => {
+  const crew = sundayCrew();
+  wholeDay(crew);
+  const ren = await arriveAs(page, crew, 'Ren');
+
+  await evenings(page, 1);
+  await notTheSame(page).click();
+  await firstClock(page).click();
+  await pick(page, 'to', '10:30 pm', '9:00 pm');
+  await page.getByRole('button', { name: 'Back to Evening instead' }).click();
+  await expect(page.getByRole('button', { name: /^Free from, / })).toHaveCount(0);
+  await expect(pill(page, 'Evening')).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('button', { name: 'Send my times' }).click();
+  await expect(page).toHaveURL(new RegExp(`/sent$`));
+  expect(answerOf(crew.planId, ren)?.windows).toEqual([`${nthDay(crew.planId, 1)} 17:30–22:30`]);
+});
+
+test('on a wide window the hours sheet and A time for each day sit in the centred column', async ({
   page,
 }) => {
   const crew = sundayCrew();
@@ -285,10 +312,17 @@ test('on a wide window the Change time sheet and A time for each day sit in the 
   await page.setViewportSize({ width: 1280, height: 800 });
   await arriveAs(page, crew, 'Ren');
   await evenings(page, 1, 3);
+  await notTheSame(page).click();
+
+  // A time for each day: the heading is on the column's left edge.
+  const heading = page.getByRole('heading', { name: 'A time for each day' });
+  await expect(heading).toBeVisible();
+  const h = (await heading.boundingBox())!;
+  expect(h.x).toBeCloseTo(422, 0);
 
   // The sheet: at most 480 wide, centred, on the bottom of the window, with the
   // scrim across the whole of it (manifesto 5.3).
-  await changeTime(page).click();
+  await firstClock(page).click();
   const sheetDone = page.getByRole('button', { name: 'Done', exact: true });
   // The sheet slides in; measure once it has stopped.
   let lastAt = '';
@@ -301,27 +335,14 @@ test('on a wide window the Change time sheet and A time for each day sit in the 
       return still;
     })
     .toBe(true);
-  let box = (await sheetDone.boundingBox())!;
+  const box = (await sheetDone.boundingBox())!;
   expect(box.width).toBeCloseTo(480 - 2 * 22, 0);
   expect(box.x + box.width / 2).toBeCloseTo(640, 0);
   expect(box.y + box.height).toBeLessThanOrEqual(800);
-  expect(box.y + box.height).toBeGreaterThan(740);
 
-  // Beside the sheet is still the scrim: a tap there dismisses it.
+  // Beside the sheet is still the scrim: a tap there dismisses it, as Done does.
   await page.mouse.click(10, 790);
-  await expect(page.getByRole('radio')).toHaveCount(0);
-  await changeTime(page).click();
-  await expect(page.getByRole('radio')).toHaveCount(3);
-
-  // A time for each day: the heading and Done share the column.
-  await exactLink(page).click();
-  const heading = page.getByRole('heading', { name: 'A time for each day' });
-  await expect(heading).toBeVisible();
-  const h = (await heading.boundingBox())!;
-  box = (await sheetDone.boundingBox())!;
-  expect(h.x).toBeCloseTo(422, 0);
-  expect(box.x).toBeCloseTo(422, 0);
-  expect(box.width).toBeCloseTo(480 - 2 * 22, 0);
+  await expect(page.getByRole('button', { name: /^Free from, / })).toHaveCount(0);
   const sideways = await page.evaluate(
     'document.documentElement.scrollWidth - document.documentElement.clientWidth',
   );
@@ -413,93 +434,27 @@ test('a plan past its deadline, still marked collecting, says replies have close
   await expect(page.getByText('Replies have closed for this one.')).toBeVisible();
 });
 
-test('browser Back from A time for each day returns to the first screen with the answer, and Forward reopens it', async ({
+test('A time for each day is part of the first screen: the address does not change, and a draft whose days differ reopens on it', async ({
   page,
 }) => {
   const crew = sundayCrew();
   wholeDay(crew);
   await arriveAs(page, crew, 'Ren');
   await evenings(page, 1, 3);
-  await changeTime(page).click();
-  await exactLink(page).click();
+  await notTheSame(page).click();
   await expect(page.getByRole('heading', { name: 'A time for each day' })).toBeVisible();
-  await expect(page).toHaveURL(/step=hours/);
-  await page
-    .getByRole('button', { name: /^Daytime, / })
-    .nth(1)
-    .click();
-
-  await page.goBack();
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
-  await expect(page.getByRole('heading', { name: 'Which days could work?' })).toBeVisible();
-  await expect(days(page).nth(1)).toHaveAttribute('aria-pressed', 'true');
-  await expect(days(page).nth(3)).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByText(/, but daytime on /)).toBeVisible();
 
-  await page.goForward();
-  await expect(page.getByRole('heading', { name: 'A time for each day' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Daytime, / }).nth(1)).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-
-  // Done is the same step back: one Back from the first screen leaves nothing
-  // behind it but where the person came from.
-  await page.getByRole('button', { name: 'Done', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Which days could work?' })).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
-});
-
-test('browser Back from Your hours each evening returns to the first screen with the answer', async ({
-  page,
-}) => {
-  const crew = sundayCrew();
-  await arriveAs(page, crew, 'Ren');
-  await evenings(page, 1, 3);
-  await adjustHours(page).click();
-  await expect(page.getByRole('heading', { name: 'Your hours each evening' })).toBeVisible();
-
-  await page.goBack();
-  await expect(page.getByRole('heading', { name: 'Which evenings could work?' })).toBeVisible();
-  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
-  await expect(days(page).nth(1)).toHaveAttribute('aria-pressed', 'true');
-
-  await page.goForward();
-  await expect(page.getByRole('heading', { name: 'Your hours each evening' })).toBeVisible();
-});
-
-test('a reload on the hours step lands on the first screen', async ({ page }) => {
-  const crew = sundayCrew();
-  await arriveAs(page, crew, 'Ren');
-  await evenings(page, 1);
-  await adjustHours(page).click();
-  await expect(page.getByRole('heading', { name: 'Your hours each evening' })).toBeVisible();
+  // Wait for the device to keep the change before leaving the page.
+  const before = await page.evaluate('JSON.stringify(localStorage)');
+  await pill(page, 'Daytime').nth(1).click();
+  await expect.poll(() => page.evaluate('JSON.stringify(localStorage)')).not.toBe(before);
 
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Which evenings could work?' })).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
-  // The step opens again from there, and Back returns to the first screen.
-  await adjustHours(page).click();
-  await expect(page.getByRole('heading', { name: 'Your hours each evening' })).toBeVisible();
-  await page.goBack();
-  await expect(page.getByRole('heading', { name: 'Which evenings could work?' })).toBeVisible();
-});
-
-test('days tapped after Back are in the step Forward reopens, and in what is sent', async ({
-  page,
-}) => {
-  const crew = sundayCrew();
-  await arriveAs(page, crew, 'Ren');
-  await evenings(page, 1);
-  await adjustHours(page).click();
-  await expect(page.getByRole('heading', { name: 'Your hours each evening' })).toBeVisible();
-  await page.goBack();
-  await evenings(page, 3);
-
-  await page.goForward();
-  await expect(page.getByRole('heading', { name: 'Your hours each evening' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Set exact hours$/ })).toHaveCount(2);
-  await page.goBack();
-  await expect(days(page).nth(3)).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('heading', { name: 'Which days could work?' })).toBeVisible();
   await expect(days(page).nth(1)).toHaveAttribute('aria-pressed', 'true');
+  await expect(days(page).nth(3)).toHaveAttribute('aria-pressed', 'true');
+  // The days differ, so the block opens as the list.
+  await expect(page.getByRole('heading', { name: 'A time for each day' })).toBeVisible();
+  await expect(pill(page, 'Daytime').nth(1)).toHaveAttribute('aria-checked', 'true');
 });
