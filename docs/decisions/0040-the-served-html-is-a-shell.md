@@ -139,3 +139,12 @@ What this settles for each of the three:
   not in an ADR of its own. The served HTML is never empty, and
   `served-html.spec.ts` and the messenger user-agent projects still pass
   against it.
+
+- **The document paints the ground (SUS-234, 19 October 2026).** The shell's
+  root view paints the ground only inside the safe area, so what `html` and
+  `body` painted was what iPhone Safari showed behind the status bar and around
+  the bottom toolbar: white. `app/+html.tsx` now sets both to `color.ground`
+  from the tokens, and `color-scheme: light` (the app has no dark mode). It
+  carries no script, so the Content-Security-Policy's one script hash stays the
+  hydrate script's. This changes none of the decision above. `viewport-fit=cover`
+  is not taken: `Sheet` does not pad for the bottom inset yet.
