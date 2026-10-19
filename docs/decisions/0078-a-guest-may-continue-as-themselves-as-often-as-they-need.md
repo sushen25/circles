@@ -38,8 +38,8 @@ many times as they want.
    Edge Function's problem table and the app's copy.
 2. **Everything else stays.** Only guest memberships can be moved, and never by
    a saved-place caller; the code resolves only while a plan is live (ADR 0049,
-   0059); the per-circle limit (twenty list moves an hour, in SQL and in the
-   Edge Function) and the per-address limit (ten an hour) still apply; every move
+   0059); the per-circle limit (twenty list moves an hour, SQL's, in
+   `reattach_member_core`) and the per-address limit (ten an hour) still apply; every move
    writes its audit row with `source`, and the owner sees "X rejoined from a new
    device" on circle home and can remove a membership.
 
