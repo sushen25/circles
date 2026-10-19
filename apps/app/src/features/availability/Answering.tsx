@@ -225,10 +225,8 @@ export function Answering({
   const expanded = view.block !== undefined && (each || view.block.differ);
   const sheetRow =
     state.open === undefined ? undefined : view.rows.find((r) => r.day === state.open);
-  const noBlock = view.block === undefined;
-  useEffect(() => {
-    if (noBlock) setEach(false);
-  }, [noBlock]);
+  // With no day left the list has nothing to list: the next tap starts on the pills.
+  if (view.block === undefined && each) setEach(false);
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const title = titleOf(plan);
