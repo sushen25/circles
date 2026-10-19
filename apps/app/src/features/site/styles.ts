@@ -80,7 +80,7 @@ export const siteCss = (fonts: SiteFonts) => `${fontFaces(fonts)}
   --serif:'Newsreader',Georgia,'Times New Roman',serif;
   --sans:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
 }
-html{scroll-behavior:smooth}
+html{scroll-behavior:smooth;background:var(--ground)}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
 body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;-webkit-text-size-adjust:100%}
 *{box-sizing:border-box}

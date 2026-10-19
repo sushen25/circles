@@ -54,6 +54,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@circles/config": "workspace:*",
+    "@circles/tokens": "workspace:*",
     "@eslint/js": "^9.17.0",
     "@playwright/test": "^1.49.1",
     "@types/node": "^22.10.2",
