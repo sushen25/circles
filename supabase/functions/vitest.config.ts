@@ -31,7 +31,12 @@ export default defineConfig({
     // because of how this one was scheduled. These files are milliseconds once
     // loaded, so sharing a process costs nothing worth having.
     pool: 'forks',
-    poolOptions: { forks: { singleFork: true } },
+    // Vitest 4 dropped `poolOptions.forks.singleFork`; one worker is the same
+    // thing (each file still gets a fresh module graph; `isolate: false` breaks the
+    // handler tests, which load a function module that serves once). A project with its own `maxWorkers` needs its
+    // own `groupOrder` or the run refuses to start; it runs as a group of its own.
+    maxWorkers: 1,
+    sequence: { groupOrder: 1 },
   },
   resolve: {
     alias: {
