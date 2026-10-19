@@ -4,16 +4,21 @@ import { timeOfDay } from '../features/availability/words';
 import { rangeLabel } from '../components/availability';
 import { deviceTimeFormat, deviceTimeFormatter } from '../platform/timeFormat';
 
-/** The device clock, faked: what `Intl` would resolve on a 12- or 24-hour phone. */
+/**
+ * The device clock, faked: what `Intl` would resolve on a 12- or 24-hour phone.
+ * The implementation must be a `function`, not an arrow: vitest 4 calls a
+ * spied constructor with `new`, which an arrow throws on (and
+ * `deviceTimeFormat` swallows that into its 12-hour fallback).
+ */
 function clock(hour12: boolean | undefined, hourCycle?: string) {
   const real = Intl.DateTimeFormat;
-  vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(((...args: unknown[]) => {
+  vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function (...args: unknown[]) {
     const format = new real(...(args as ConstructorParameters<typeof real>));
     const resolved = format.resolvedOptions.bind(format);
     format.resolvedOptions = () =>
       ({ ...resolved(), hour12, hourCycle }) as Intl.ResolvedDateTimeFormatOptions;
     return format;
-  }) as unknown as typeof Intl.DateTimeFormat);
+  } as unknown as typeof Intl.DateTimeFormat);
 }
 
 afterEach(() => vi.restoreAllMocks());
