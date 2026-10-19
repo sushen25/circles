@@ -9,6 +9,7 @@ create or replace function planning.allowed_keys(action text)
 returns text[]
 language sql
 immutable
+set search_path = ''
 as $$
   select case
     -- `adjust` takes these two and *only* these two, which is what makes the
