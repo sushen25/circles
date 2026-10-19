@@ -11,19 +11,18 @@ import {
   withoutLink,
 } from '@circles/domain';
 
-import middleware from '../../../app/+middleware';
 import { t } from '../../copy';
 import { escapeHtml } from '../../data/preview';
-import { SITE_HEADERS, sitePage } from './page';
+import { sitePage } from './page';
 import { START_HREF } from './sections';
-import { STUB_FONT_URLS } from '../../test/font-assets-stub';
 import { siteFontsFrom } from './styles';
 import { useSiteArrival } from './useSiteArrival';
 
 /**
  * The marketing site (SUS-149): what the page says is what the product says,
- * every "Start a plan" goes to the app, nothing leaves the host, and the
- * middleware serves it at `/` without disturbing the link previews.
+ * every "Start a plan" goes to the app and nothing leaves the host. The
+ * middleware that serves it at `/` is tested in `src/test/middleware.test.ts`:
+ * a feature does not import the routes (architecture §7.2).
  */
 
 const ORIGIN = `https://${brand.domain}`;
@@ -121,64 +120,6 @@ describe('the page', () => {
 
   it('names no one’s calendar as a thing it reads, and offers no email capture', () => {
     expect(html).not.toMatch(/<form|<input|type="email"/i);
-  });
-});
-
-describe('the site’s fonts are the app’s (SUS-174)', () => {
-  const urls = Object.values(STUB_FONT_URLS);
-
-  it('are the WOFF2 files at the app’s own URLs, preloaded, not a second copy', async () => {
-    const page = await (await middleware(new Request(`${ORIGIN}/`)))!.text();
-    for (const url of [
-      STUB_FONT_URLS['Newsreader-Regular'],
-      STUB_FONT_URLS['Figtree-Regular'],
-      STUB_FONT_URLS['Figtree-SemiBold'],
-    ]) {
-      expect(page).toContain(
-        `<link rel="preload" href="${url}" as="font" type="font/woff2" crossorigin>`,
-      );
-    }
-    for (const url of urls) expect(page).toContain(`url(${url}) format('woff2')`);
-    expect(page).not.toMatch(/\.ttf|["(]\/fonts\//);
-  });
-});
-
-describe('the middleware', () => {
-  const get = (path: string, userAgent = 'Mozilla/5.0 (iPhone)', method = 'GET') =>
-    middleware(new Request(`${ORIGIN}${path}`, { method, headers: { 'user-agent': userAgent } }));
-
-  it('serves the site at the bare host to a person, with the site’s headers', async () => {
-    const response = await get('/');
-    expect(response?.status).toBe(200);
-    expect(Object.fromEntries(response!.headers)).toMatchObject(
-      Object.fromEntries(Object.entries(SITE_HEADERS).map(([k, v]) => [k, v])),
-    );
-    expect(await response!.text()).toContain('<h1');
-  });
-
-  it('cannot be framed and allows no script (SUS-119)', () => {
-    expect(SITE_HEADERS['content-security-policy']).toContain("default-src 'none'");
-    expect(SITE_HEADERS['content-security-policy']).toContain("frame-ancestors 'none'");
-    expect(SITE_HEADERS['permissions-policy']).toContain('geolocation=()');
-  });
-
-  it('serves the same site to a link-preview fetcher, and an empty body to HEAD', async () => {
-    expect(await (await get('/', 'WhatsApp/2.23'))?.text()).toContain('og:title');
-    expect(await (await get('/', 'Mozilla/5.0', 'HEAD'))?.text()).toBe('');
-  });
-
-  it('leaves every app route to the app for a person', async () => {
-    for (const path of ['/start', '/j/abc', '/p/abc', '/join', '/circles', '/privacy']) {
-      expect(await get(path), path).toBeUndefined();
-    }
-  });
-
-  it('still answers a preview fetcher on the three link shapes', async () => {
-    for (const path of ['/j/abc', '/p/abc', '/join']) {
-      const response = await get(path, 'WhatsApp/2.23');
-      expect(response?.status, path).toBe(200);
-      expect(await response!.text(), path).toContain('og:title');
-    }
   });
 });
 
