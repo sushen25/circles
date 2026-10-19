@@ -26,7 +26,8 @@ export type IconName =
   | 'gear'
   | 'eye-off'
   | 'people'
-  | 'wifi-off';
+  | 'wifi-off'
+  | 'undo';
 
 type Props = {
   name: IconName;
@@ -101,4 +102,5 @@ const paths: Record<IconName, Shape[]> = {
     'M3 3l18 18M8.5 8.8A11 11 0 0 0 2.5 11M21.5 11a11 11 0 0 0-8-3.1M5.5 14.5a7 7 0 0 1 4.3-2.1M18.5 14.5a7 7 0 0 0-3.2-1.9M8.5 17.5a3.5 3.5 0 0 1 4.7-.5',
     { kind: 'circle', cx: 12, cy: 20, r: 1 },
   ],
+  undo: ['M4.5 12a7.5 7.5 0 1 0 2.3-5.4', 'M4 4v4.5h4.5'],
 };

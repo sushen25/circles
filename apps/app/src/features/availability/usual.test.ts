@@ -16,8 +16,8 @@ import { editorView } from './view';
  * Previous times (ADR 0005, SUS-159, ADR 0068) and tonight's editor (S2-06), as the
  * reducer and the view see them: what applying them paints, that it paints
  * nothing else and sends nothing, and which choices a tonight plan offers.
- * Nothing applies them on open since ADR 0077 (SUS-226); the action is kept for
- * the explicit tap a follow-up ticket brings.
+ * Nothing applies them on open since ADR 0077 (SUS-226); the action is the
+ * explicit "Use my usual days" tap (SUS-227).
  */
 const MELBOURNE = zone('Australia/Melbourne');
 
@@ -48,7 +48,7 @@ const view = (
   return editorView(state, rows, timing, { hour12: true }, 'en-AU', usual);
 };
 
-describe('use my previous times', () => {
+describe('use my usual days', () => {
   it('paints weekday evenings on the weekdays and nothing on the weekend', () => {
     const { rows, run, start } = setUp(WEEK);
     const filled = run(start, { type: 'usual', parts: ['weekday_evening'] });
