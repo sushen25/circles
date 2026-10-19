@@ -40,7 +40,7 @@ export function Sheet({ visible, onDismiss, label, dismissLabel, children }: Pro
       // inside it, which is not a dialog (axe: aria-dialog-name).
       {...({ 'aria-label': label } as object)}
     >
-      <View style={styles.window}>
+      <View style={[styles.window, { paddingLeft: insets.left, paddingRight: insets.right }]}>
         {/* Behind the sheet and across the whole window, so the sides of a narrowed sheet are dimmed and dismiss too. */}
         <Pressable
           style={styles.scrim}
@@ -56,8 +56,6 @@ export function Sheet({ visible, onDismiss, label, dismissLabel, children }: Pro
               backgroundColor: palette.ground,
               borderTopColor: palette.line,
               paddingBottom: SHEET_BOTTOM + insets.bottom,
-              paddingLeft: Math.max(space.gutter, insets.left),
-              paddingRight: Math.max(space.gutter, insets.right),
             },
           ]}
         >

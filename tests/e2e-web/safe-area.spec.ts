@@ -49,15 +49,14 @@ async function lowestControl(page: Page): Promise<number> {
     const doc = (globalThis as any).document;
     const dialog = doc.querySelector('[role="dialog"], [aria-modal="true"]');
     const tall = doc.documentElement.clientHeight / 2;
-    return Math.max(
-      ...[...dialog.querySelectorAll('button, [role="button"], [role="radio"], a')]
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((el: any) => el.getBoundingClientRect())
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .filter((box: any) => box.height > 0 && box.height < tall)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((box: any) => box.bottom),
-    );
+    const bottoms = [...dialog.querySelectorAll('button, [role="button"], [role="radio"], a')]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((el: any) => el.getBoundingClientRect())
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((box: any) => box.height > 0 && box.height < tall)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((box: any) => box.bottom);
+    return bottoms.length > 0 ? Math.max(...bottoms) : -1;
   });
 }
 
@@ -83,14 +82,18 @@ for (const width of [390, 375]) {
       await expect(done).toBeVisible();
       // The sheet slides in; measure once it has stopped.
       await page.waitForTimeout(600);
-      expect(await lowestControl(page)).toBeLessThanOrEqual(812 - INSETS.bottom);
+      const lowest = await lowestControl(page);
+      expect(lowest).toBeGreaterThan(400); // something was measured
+      expect(lowest).toBeLessThanOrEqual(812 - INSETS.bottom);
 
       const until = page.getByRole('button', { name: /^Free until, Tuesday/ });
       await until.click();
       const last = page.getByRole('radio').last();
       await last.scrollIntoViewIfNeeded();
       await page.waitForTimeout(600);
-      expect(await lowestControl(page)).toBeLessThanOrEqual(812 - INSETS.bottom);
+      const pickerLowest = await lowestControl(page);
+      expect(pickerLowest).toBeGreaterThan(400); // something was measured
+      expect(pickerLowest).toBeLessThanOrEqual(812 - INSETS.bottom);
     });
 
     test('a screen footer is lifted by the inset exactly once', async ({ page, browser }) => {
@@ -133,8 +136,14 @@ test('the landing page pads its header and close band by the insets', async ({ p
       .map((s) => (s as { textContent: string }).textContent)
       .join('');
   });
-  for (const side of ['top', 'right', 'bottom', 'left']) {
-    expect(css).toContain(`env(safe-area-inset-${side}`);
+  // Each property reads its own side.
+  for (const [prop, side] of [
+    ['sat', 'top'],
+    ['sar', 'right'],
+    ['sab', 'bottom'],
+    ['sal', 'left'],
+  ]) {
+    expect(css).toContain(`--${prop}:env(safe-area-inset-${side}`);
   }
   const before = await page.evaluate(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
