@@ -215,7 +215,7 @@ has no wait to pass.
 
 Each PR deploys to the EAS Hosting alias `pr-<number>`, and the account allows
 200 aliases. Past that, `preview` fails at "Assigning alias" with "This account
-has reached the limit of 200 aliases". The `cleanup` job in `preview.yml` runs
+has reached the limit of 200 aliases". The `preview-cleanup.yml` workflow runs
 when a PR closes, merged or not, and runs `eas deploy:alias:delete "pr-<number>"`;
 an alias that is already gone is not a failure, and forks are skipped like in
 `preview`. To clear stale ones by hand, list what is there (the Aliases tab of
@@ -224,7 +224,7 @@ deploy:alias:delete` with no name, which opens a picker you can cancel), check
 which of those PRs are closed (`gh pr list --state closed`), then for each run
 `pnpm --filter app exec eas deploy:alias:delete pr-N --non-interactive`. Always
 give a name: with none, the command deletes the production alias. A PR closed
-before `cleanup` existed keeps its alias until you do this.
+before `preview-cleanup` existed keeps its alias until you do this.
 
 ### How the check conclusion is looked up
 

@@ -781,27 +781,29 @@ test('mutation: another workflow may not have a job called check', () => {
 });
 
 test('mutation: the preview clean-up cannot be dropped, widened or unguarded', () => {
-  const preview = '.github/workflows/preview.yml';
-  for (const [edit, message] of [
+  const cleanup = '.github/workflows/preview-cleanup.yml';
+  const guard = 'github.event.pull_request.head.repo.full_name == github.repository';
+  for (const [file, edit, message] of [
+    [cleanup, (t) => t.replace('types: [closed]', 'types: [closed, opened]'), /\[closed\]` only/],
     [
-      (t) => t.replace('types: [opened, synchronize, reopened, closed]', 'types: [opened]'),
-      /no `closed`/,
+      cleanup,
+      (t) => t.replace('    types: [closed]', "    types: [closed]\n    paths-ignore: ['**.md']"),
+      /path filter/,
     ],
-    [(t) => t.replaceAll('deploy:alias:delete', 'deploy:alias:list'), /no job runs/],
+    [cleanup, (t) => t.replaceAll('deploy:alias:delete', 'deploy:alias:list'), /no job runs/],
+    [cleanup, (t) => t.replace(`if: ${guard}`, 'if: true'), /no fork guard/],
     [
-      (t) => t.replace("github.event.action == 'closed' &&", "github.event.action != 'x' &&"),
-      /does not run only on `closed`/,
+      cleanup,
+      (t) => t.replaceAll('EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}', 'EXPO_TOKEN: x'),
+      /EXPO_TOKEN/,
     ],
     [
-      (t) =>
-        t.replace(
-          /(if: >-\n\s+github\.event\.action == 'closed' &&\n\s+)github\.event\.pull_request\.head\.repo\.full_name == github\.repository/,
-          '$1true',
-        ),
-      /no fork guard/,
+      cleanup,
+      (t) => t.replace('    permissions:\n      contents: read\n', ''),
+      /its own permissions/,
     ],
-    [(t) => t.replace('    permissions:\n      contents: read\n', ''), /its own permissions/],
     [
+      cleanup,
       (t) =>
         t.replace(
           '    permissions:\n      contents: read\n',
@@ -810,11 +812,21 @@ test('mutation: the preview clean-up cannot be dropped, widened or unguarded', (
       /its own permissions/,
     ],
     [
-      (t) => t.replace("github.event.action != 'closed' &&\n      ", ''),
-      /not kept off the `closed` event/,
+      cleanup,
+      (t) =>
+        t.replace(
+          '          ref: ${{ github.event.repository.default_branch }}\n',
+          '          ref: x\n',
+        ),
+      /default branch/,
+    ],
+    [
+      '.github/workflows/preview.yml',
+      (t) => t.replace('  pull_request:\n', '  pull_request:\n    types: [opened, closed]\n'),
+      /clean-up is preview-cleanup/,
     ],
   ]) {
-    const r = checkWorkflowsOn(null, preview, edit);
+    const r = checkWorkflowsOn(null, file, edit);
     assert.equal(r.status, 1, r.output);
     assert.match(r.output, message);
   }

@@ -4,9 +4,6 @@ name: preview
 
 on:
   pull_request:
-    # `closed` is the clean-up below. The first three are the defaults, written
-    # out so that adding `closed` does not also send a closed PR to `preview`.
-    types: [opened, synchronize, reopened, closed]
     paths-ignore:
       # A Markdown change cannot alter the bundle or the database. Unlike
       # `check`, these produce artefacts rather than a verdict, and neither
@@ -29,10 +26,8 @@ jobs:
     name: preview
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Forks do not get the token, and should not. A closed PR is `cleanup`'s.
-    if: >-
-      github.event.action != 'closed' &&
-      github.event.pull_request.head.repo.full_name == github.repository
+    # Forks do not get the token, and should not.
+    if: github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
       - name: Is Expo configured
@@ -101,73 +96,3 @@ jobs:
           message: |
             Preview for `${{ github.event.pull_request.head.sha }}`:
             ${{ steps.deploy.outputs.url }}
-
-  # EAS Hosting allows 200 aliases per account and `preview` makes one per PR,
-  # so a closed PR's alias is deleted (SUS-232). Merged or not.
-  cleanup:
-    name: cleanup
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    # Same guard as `preview`: forks never had an alias or the token.
-    if: >-
-      github.event.action == 'closed' &&
-      github.event.pull_request.head.repo.full_name == github.repository
-    # Checkout is all this job reads; it writes nothing to the repository or PR.
-    permissions:
-      contents: read
-
-    steps:
-      - name: Is Expo configured
-        id: config
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          if [ -n "$EXPO_TOKEN" ]; then echo "ready=true" >> "$GITHUB_OUTPUT";
-          else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "No EXPO_TOKEN — nothing to clean up; see docs/runbooks/environments.md." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      - uses: actions/checkout@v4
-        if: steps.config.outputs.ready == 'true'
-      - uses: pnpm/action-setup@v4
-        if: steps.config.outputs.ready == 'true'
-      - uses: actions/setup-node@v4
-        if: steps.config.outputs.ready == 'true'
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-        if: steps.config.outputs.ready == 'true'
-
-      # eas reads app.config.ts for the project id, and that imports
-      # @circles/config, which resolves to dist/ (see `preview`).
-      - name: Build the workspace packages
-        if: steps.config.outputs.ready == 'true'
-        run: pnpm run build
-
-      - name: Delete the PR's alias
-        if: steps.config.outputs.ready == 'true'
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          # With no alias name this command deletes the PRODUCTION alias, so an
-          # empty or odd number must stop here, not reach it.
-          case "$PR_NUMBER" in
-            ''|*[!0-9]*) echo "Not a PR number: '$PR_NUMBER'" >&2; exit 1 ;;
-          esac
-          # An alias that is already gone (the PR never deployed, or it was
-          # cleared by hand) is the state we want, not a failure. Any other
-          # error still fails the job.
-          if pnpm --filter app exec eas deploy:alias:delete "pr-$PR_NUMBER" --non-interactive > eas-alias-delete.log 2>&1; then
-            cat eas-alias-delete.log
-          else
-            status=$?
-            cat eas-alias-delete.log
-            if grep -qiE 'not found|does not exist|no such|no alias' eas-alias-delete.log; then
-              echo "Alias pr-$PR_NUMBER is already gone." >> "$GITHUB_STEP_SUMMARY"
-            else
-              exit "$status"
-            fi
-          fi

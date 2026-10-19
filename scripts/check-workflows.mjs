@@ -562,15 +562,16 @@ const ciRules = (path, file, doc) => {
     }
   }
 
-  if (file === 'preview.yml') {
+  if (file === 'preview-cleanup.yml') {
     // Every PR's preview takes an alias and EAS Hosting allows 200 per account;
-    // the one that cleans up is a job nobody notices missing until the limit
-    // is hit and every preview fails (SUS-232).
-    const guard = 'head.repo.full_name == github.repository';
-    const closes = (job) => /action\s*==\s*'closed'/.test(job?.if ?? '');
-    const types = doc?.on?.pull_request?.types ?? [];
-    if (!types.includes('closed')) {
-      fail('`pull_request.types` has no `closed`, so a closed PR keeps its preview alias');
+    // the workflow that deletes it is one nobody notices missing until the
+    // limit is hit and every preview fails (SUS-232).
+    const on = doc?.on?.pull_request;
+    if (JSON.stringify(on?.types) !== '["closed"]') {
+      fail('must run on `pull_request` `types: [closed]` only');
+    }
+    if (on?.paths !== undefined || on?.['paths-ignore'] !== undefined) {
+      fail('has a path filter, which would skip the close of a PR that later became Markdown-only');
     }
     const cleanups = Object.entries(jobs).filter(([, job]) =>
       /deploy:alias:delete\s+"pr-\$/.test(runText(job)),
@@ -579,20 +580,27 @@ const ciRules = (path, file, doc) => {
       fail('no job runs `eas deploy:alias:delete "pr-…"`, so aliases pile up to the 200 limit');
     }
     for (const [name, job] of cleanups) {
-      if (!closes(job)) fail(`\`${name}\` deletes an alias but does not run only on \`closed\``);
-      if (!String(job.if ?? '').includes(guard)) fail(`\`${name}\` has no fork guard`);
+      if (!String(job.if ?? '').includes('head.repo.full_name == github.repository')) {
+        fail(`\`${name}\` has no fork guard`);
+      }
       if (!secretsIn(job).has('EXPO_TOKEN')) fail(`\`${name}\` does not read EXPO_TOKEN`);
       const writes = Object.entries(job.permissions ?? {}).filter(([, v]) => v !== 'read');
       if (job.permissions === undefined || writes.length > 0) {
         fail(`\`${name}\` must set its own permissions, all \`read\``);
       }
-    }
-    for (const [name, job] of Object.entries(jobs)) {
-      if (cleanups.some(([c]) => c === name)) continue;
-      if (/deploy\b/.test(runText(job)) && !/action\s*!=\s*'closed'/.test(job.if ?? '')) {
-        fail(`\`${name}\` deploys but is not kept off the \`closed\` event`);
+      const checkout = (job.steps ?? []).find((s) =>
+        String(s?.uses).startsWith('actions/checkout'),
+      );
+      if (!/default_branch/.test(String(checkout?.with?.ref ?? ''))) {
+        fail(
+          `\`${name}\` does not check out the default branch, so a PR that no longer builds keeps its alias`,
+        );
       }
     }
+  }
+
+  if (file === 'preview.yml' && (doc?.on?.pull_request?.types ?? []).includes('closed')) {
+    fail('`preview` runs on `closed`; the clean-up is preview-cleanup.yml');
   }
 
   if (file === 'deploy-dev.yml') {
