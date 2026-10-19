@@ -323,18 +323,21 @@ In the repository settings, **Secrets and variables → Actions**:
       `hello@wenna.app` from another account.
 - [ ] Wait for Resend to show the domain **verified** (minutes to hours). Once
       the records are live, this is Resend's own check catching up.
-- [ ] Verify from the outside: **seven of seven**.
+- [ ] Verify from the outside: **eleven of eleven**.
 
 ```bash
 pnpm check:env wenna.app
 pnpm check:env sushen25s-team-circles--dev.expo.app --no-email
 ```
 
-There are **seven** checks, not six: HTTPS, HSTS and `Referrer-Policy` on the
-host, then SPF, DKIM, bounce MX and DMARC on the sending domain. The two
-HTTP-header checks only run if the first one connects, so a host that does not
-resolve reports one failure rather than three. **Five checks reported instead
-of seven means the host is gone, not that two checks passed.**
+There are **eleven** checks: HTTPS, HSTS, `Referrer-Policy`, the
+`Content-Security-Policy` (with `frame-ancestors 'none'`), `nosniff` and the
+`Permissions-Policy` on the host, then SPF, DKIM, bounce MX and DMARC on the
+sending domain. The header checks only run if the first one connects, so a host
+that does not resolve reports one failure rather than seven. **Five checks
+reported instead of eleven means the host is gone, not that six checks
+passed.** A `Content-Security-Policy-Report-Only` header does not pass: it
+blocks nothing.
 
 The second command names the `expo.app` host because `dev` has no custom domain
 (step 2).

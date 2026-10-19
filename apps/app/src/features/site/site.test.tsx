@@ -156,6 +156,12 @@ describe('the middleware', () => {
     expect(await response!.text()).toContain('<h1');
   });
 
+  it('cannot be framed and allows no script (SUS-119)', () => {
+    expect(SITE_HEADERS['content-security-policy']).toContain("default-src 'none'");
+    expect(SITE_HEADERS['content-security-policy']).toContain("frame-ancestors 'none'");
+    expect(SITE_HEADERS['permissions-policy']).toContain('geolocation=()');
+  });
+
   it('serves the same site to a link-preview fetcher, and an empty body to HEAD', async () => {
     expect(await (await get('/', 'WhatsApp/2.23'))?.text()).toContain('og:title');
     expect(await (await get('/', 'Mozilla/5.0', 'HEAD'))?.text()).toBe('');

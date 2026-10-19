@@ -1,4 +1,4 @@
-import { brand } from '@circles/config';
+import { PERMISSIONS_POLICY, STATIC_PAGE_POLICY, brand } from '@circles/config';
 import { previewCopy, type PlanPreviewState } from '@circles/domain';
 
 import {
@@ -117,6 +117,8 @@ export const CARD_HEADERS: Readonly<Record<string, string>> = {
   'cache-control': 'no-store',
   vary: 'User-Agent',
   'x-content-type-options': 'nosniff',
+  'content-security-policy': STATIC_PAGE_POLICY,
+  'permissions-policy': PERMISSIONS_POLICY,
 };
 
 /**
