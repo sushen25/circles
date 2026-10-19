@@ -483,13 +483,13 @@ wrong for a visitor the export never saw.
 
 ### founder, sharing, site
 
-These have no artboard, and each is reached by one route or none.
+These have no artboard of their own.
 
-| Folder    | Route                | What it is                                                                                                           |
-| --------- | -------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `founder` | `/founder/analytics` | The founder's analytics screen (`AnalyticsFlow`), behind the allowlist the database keeps. Not in the gallery.       |
-| `sharing` | none                 | `ShareScreen`, the share sheet that `InviteCircleScreen` and `PlanSharedScreen` render for an invite or a plan link. |
-| `site`    | `/` (the bare host)  | The website, one HTML document with no script, served by the middleware and not by a route (ADR 0052).               |
+| Folder    | Route                | What it is                                                                                                                                                       |
+| --------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `founder` | `/founder/analytics` | The founder's analytics screen (`AnalyticsFlow`), behind the allowlist the database keeps.                                                                       |
+| `sharing` | none                 | `ShareScreen`, the share sheet that `InviteCircleScreen` and `PlanSharedScreen` render for an invite or a plan link.                                             |
+| `site`    | `/` (the bare host)  | The website, one HTML document with no script, served by the middleware and not by a route (ADR 0052). `/start`, the button's target, uses its `useSiteArrival`. |
 
 ## Not screens
 
