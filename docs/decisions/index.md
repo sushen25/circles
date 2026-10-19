@@ -11,7 +11,7 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0003](./0003-domain-events-via-postgres-outbox.md) | Publish domain events through a Postgres outbox drained by cron, not database webhooks | accepted |
 | [0004](./0004-organiser-requires-permanent-identity.md) | Organising a plan requires a saved place (permanent identity); responding never does | accepted |
 | [0005](./0005-willing-windows-retained-12-months.md) | Retain willing windows for 12 months for members of active circles | accepted |
-| [0006](./0006-continue-as-reattachment-without-owner-approval.md) | "Continue as" reattaches a guest membership without owner approval | accepted |
+| [0006](./0006-continue-as-reattachment-without-owner-approval.md) | "Continue as" reattaches a guest membership without owner approval | accepted (amended by 0078) |
 | [0007](./0007-pnpm-monorepo-with-shared-domain-package.md) | One pnpm monorepo with a pure `packages/domain` shared by the client and Edge Functions | accepted |
 | [0008](./0008-react-email-templates-in-edge-functions.md) | Render email templates with React Email inside Edge Functions | accepted |
 | [0009](./0009-half-hour-availability-cells-with-a-scrolling-row.md) | Availability cells are half an hour each, and the day row scrolls | accepted |
@@ -53,7 +53,7 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0046](./0046-an-edit-that-clears-answers-asks-those-people-again.md) | An edit that clears answers asks those people again | proposed |
 | [0047](./0047-a-plan-may-ask-about-days-with-gaps.md) | A plan may ask about days with gaps between them | proposed (amends 0030) |
 | [0048](./0048-the-consent-sentence-is-the-one-string-that-lives-in-config.md) | The consent sentence is the one user-facing string that lives in `packages/config` | proposed |
-| [0049](./0049-continue-as-resolves-a-code-only-while-it-is-live.md) | Continue-as resolves a code only while it is live, and its limits are enforced in SQL | proposed (amended by 0059, 0062; amends 0006, 0022) |
+| [0049](./0049-continue-as-resolves-a-code-only-while-it-is-live.md) | Continue-as resolves a code only while it is live, and its limits are enforced in SQL | proposed (amended by 0059, 0062, 0078; amends 0006, 0022) |
 | [0050](./0050-verifying-an-address-promotes-only-the-same-persons-contacts.md) | Verifying an address promotes only the contacts that belong to the same person | proposed (amends 0027) |
 | [0051](./0051-the-organiser-sets-the-final-plan.md) | The organiser sets the final plan: any day and time, edited afterwards without asking everyone again | proposed |
 | [0052](./0052-the-bare-host-is-the-website.md) | The bare host is the website, and the app's front door on the web is `/start` | proposed |
@@ -79,3 +79,4 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0073](./0073-an-invite-digest-and-a-re-entry-digest-are-not-a-way-in.md) | A stored invite or re-entry digest is not a way in: the functions that take one are the service role's | proposed (amends 0071) |
 | [0074](./0074-a-suppressed-contact-keeps-a-hash-and-the-sign-in-log-and-events-are-bounded.md) | A suppressed contact keeps a hash and not the address; the sign-in log is pruned; an event follows its user | proposed |
 | [0077](./0077-an-answer-never-given-opens-empty-previous-times-wait-for-a-tap.md) | An answer never given opens empty: previous times are not applied on open, they wait for a tap | proposed (amends 0037, 0068) |
+| [0078](./0078-a-guest-may-continue-as-themselves-as-often-as-they-need.md) | A guest may continue as themselves as often as they need: no cap on how often a membership moves | proposed (amends 0006, 0049) |
