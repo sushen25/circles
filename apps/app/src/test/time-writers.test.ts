@@ -20,6 +20,7 @@ const ALLOWED = new Set([
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..', '..', '..', '..');
 const SOURCES = [
   'apps/app/src',
+  'apps/app/app',
   'packages/domain/src',
   'packages/contracts/src',
   'supabase/functions',
@@ -37,21 +38,16 @@ function sources(dir: string, found: string[] = []): string[] {
   return found;
 }
 
-/** The text of every `DateTimeFormat(` call, to its closing parenthesis. */
-function calls(text: string): string[] {
-  const out: string[] = [];
-  for (const match of text.matchAll(/DateTimeFormat\(/g)) {
-    let depth = 1;
-    let i = match.index + match[0].length;
-    const from = i;
-    while (i < text.length && depth > 0) {
-      if (text[i] === '(') depth += 1;
-      else if (text[i] === ')') depth -= 1;
-      i += 1;
-    }
-    out.push(text.slice(from, i));
-  }
-  return out;
+/**
+ * Crude on purpose: a file that mentions `DateTimeFormat` may not name an
+ * `hour`-ish option anywhere in it (so options passed through a variable or a
+ * wrapper are caught too), and no file may use the other ways to write a clock.
+ */
+const HOUR_OPTION = /['"]?\b(hour|hour12|hourCycle|timeStyle)\b['"]?\s*[:,}]/;
+const OTHER_CLOCKS = /\b(toLocaleTimeString|toTimeString)\b|\btimeStyle\b/;
+
+function writesATime(text: string): boolean {
+  return OTHER_CLOCKS.test(text) || (/DateTimeFormat/.test(text) && HOUR_OPTION.test(text));
 }
 
 describe('writing a time of day', () => {
@@ -63,13 +59,7 @@ describe('writing a time of day', () => {
         const name = relative(ROOT, file).split(sep).join('/');
         scanned += 1;
         if (ALLOWED.has(name)) continue;
-        if (
-          calls(readFileSync(file, 'utf8')).some((c) =>
-            /\b(hour|hour12|hourCycle|timeStyle)\s*:/.test(c),
-          )
-        ) {
-          offenders.push(name);
-        }
+        if (writesATime(readFileSync(file, 'utf8'))) offenders.push(name);
       }
     }
     expect(scanned).toBeGreaterThan(100);

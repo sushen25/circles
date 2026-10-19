@@ -1,11 +1,11 @@
-import type { TimeFormat } from '@circles/domain';
+import { formatMinutesOfDay, type TimeFormat } from '@circles/domain';
 
 /**
  * The device's own clock: 18:30 for most of the world, 6:30 pm for some
  * (manifesto §6). The one place the app asks the device which it is; every
  * time of day is then written by the domain's `formatMinutesOfDay` and
  * `formatRange`, never by `Intl.DateTimeFormat` with an `hour` (a test holds
- * that line: `timeWriters.test.ts`).
+ * that line: `test/time-writers.test.ts`).
  */
 export function deviceTimeFormat(): TimeFormat {
   try {
@@ -18,4 +18,10 @@ export function deviceTimeFormat(): TimeFormat {
     // A runtime without Intl's resolved options. The canvas's 12-hour clock.
   }
   return { hour12: true };
+}
+
+/** The device clock as a `(minutes) => string`, for a component that takes one. */
+export function deviceTimeFormatter(): (minutesOfDay: number) => string {
+  const format = deviceTimeFormat();
+  return (minutes) => formatMinutesOfDay(minutes, format);
 }

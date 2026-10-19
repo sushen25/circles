@@ -1,6 +1,4 @@
-import { formatMinutesOfDay } from '@circles/domain';
-
-import { deviceTimeFormat } from '../platform/timeFormat';
+import { formatMinutesOfDay, type TimeFormat } from '@circles/domain';
 
 /**
  * The availability track's logic, kept separate from its rendering so it can be
@@ -59,9 +57,12 @@ export function paintSpan(
 
 export type TimeFormatter = (minutesFromMidnight: number) => string;
 
-/** The device's 12/24-hour preference; never a hardcoded clock. */
-export function defaultTimeFormatter(): TimeFormatter {
-  const format = deviceTimeFormat();
+/**
+ * The domain's writer for a given clock. A component never asks the device
+ * which clock it keeps (`components` imports no `platform`): the screen passes
+ * `deviceTimeFormatter()`, and the default is the domain's 12-hour one.
+ */
+export function defaultTimeFormatter(format?: TimeFormat): TimeFormatter {
   return (minutes) => formatMinutesOfDay(minutes, format);
 }
 

@@ -7,10 +7,6 @@ import {
   type PlanTiming,
 } from '@circles/domain';
 
-import { deviceTimeFormat } from '../../platform/timeFormat';
-
-export { deviceTimeFormat };
-
 /**
  * The editor's rows, worked out once from the plan: which days, and which half
  * hours each has (spec §5.5). The half hours are the answer's data model (ADR
