@@ -233,9 +233,6 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
           // Moved or removed since the list was read. Read it again.
           void guests.refetch();
           return;
-        case 'reattach_limit':
-          setProblem({ kind: 'reattach_limit', name: member.display_name });
-          return;
         case 'target_is_permanent':
           setProblem({ kind: 'saved_place', name: member.display_name });
           return;

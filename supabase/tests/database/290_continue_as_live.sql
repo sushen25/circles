@@ -6,7 +6,7 @@
 -- fourteen-day edge is the edge on any day the suite runs.
 
 begin;
-select plan(76);
+select plan(75);
 
 -- SUS-114: the token form of reattachment is `reattach_with_token`, the service
 -- role's, called by its Edge Function with the person it verified. This is that
@@ -453,16 +453,15 @@ select lives_ok(
 );
 
 select pg_temp.act_as('29000000-0000-0000-0000-000000000104', true);
-select throws_ok(
+select lives_ok(
   $$ select public.reattach_member(pg_temp.circle_id(), pg_temp.nina()) $$,
-  'reattach_limit',
-  'and the fourth pick from the list is refused: the cap still stops people passing a name around'
+  'and a fourth pick from the list: no weekly cap (ADR 0078)'
 );
 
 select pg_temp.act_as('29000000-0000-0000-0000-000000000203', true);
 select lives_ok(
   $$ select pg_temp.reattach_token(pg_temp.digest_of('link-3')) $$,
-  'but Nina, five moves into the chain, gets back with her link: her moves are not counted and not refused'
+  'and Nina, six moves into the chain, gets back with her link'
 );
 select pg_temp.act_as_postgres();
 select is(pg_temp.nina(), '29000000-0000-0000-0000-000000000203'::uuid, 'and the place is hers');
@@ -478,18 +477,16 @@ select is(
   (select count(*)::integer from private.audit_log a
    where a.action = 'circles.member_reattached' and a.resource_id = pg_temp.circle_id()
      and a.metadata ->> 'source' = 'list'),
-  3,
+  4,
   'and which were picked from the list'
 );
 
 -- ---------------------------------------------------------------------------
--- What the cap does not do (ADR 0049, decision 4, as the founder decided it)
+-- A taker's own links (ADR 0049, decision 4)
 --
 -- Contacts travel with a membership, so whoever took a place can verify a mailbox
--- of their own and be sent links for it. A move made with any valid link is
--- neither counted nor refused by the cap; the taker's own links are no different.
--- That is the stated residual (each move tells the owner, links come one per
--- letter), and this test is the record of it rather than a promise.
+-- of their own and be sent links for it. Nothing refuses those moves; each one
+-- tells the owner. This test is the record of that, not a promise.
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as_postgres();
 create or replace function pg_temp.tom() returns uuid
@@ -528,8 +525,7 @@ select lives_ok(
   'Tom returns with the link for his own address'
 );
 
--- Two more list picks fill the cap (the first stranger's, and these), and a link
--- still gets Tom back, which is the property the cap exists to keep.
+-- More list picks, and a link still gets Tom back.
 select pg_temp.link_for('tom-live@example.com', 'tom-own-2');
 select pg_temp.act_as('29000000-0000-0000-0000-000000000108', true);
 select lives_ok(
@@ -542,10 +538,9 @@ select lives_ok(
   'and a fourth (list move 3)'
 );
 select pg_temp.act_as('29000000-0000-0000-0000-000000000110', true);
-select throws_ok(
+select lives_ok(
   $$ select public.reattach_member(pg_temp.circle_id(), pg_temp.tom()) $$,
-  'reattach_limit',
-  'and a fifth pick from the list is refused'
+  'and a fifth: nothing caps the list (ADR 0078)'
 );
 select pg_temp.act_as('29000000-0000-0000-0000-000000000207', true);
 select lives_ok(
@@ -586,21 +581,11 @@ select pg_temp.act_as_postgres();
 select private.circles_open_to_continue_as('kvpqmanx') as circle_id into temporary table seen;
 select is((select count(*)::integer from seen), 0, 'the rule itself, asked as the database, says nobody');
 
--- An old audit row, from before the move recorded its source, counts as the
--- list's: the stricter reading. (The plan is asking again: a list move needs a
--- live plan, ADR 0059.)
+-- (The plan is asking again for what follows.)
 select pg_temp.act_as_postgres();
 select pg_temp.set_state('collecting');
-update private.audit_log a set metadata = a.metadata - 'source'
-where a.action = 'circles.member_reattached' and a.metadata ->> 'source' = 'list';
-select pg_temp.act_as('29000000-0000-0000-0000-000000000105', true);
-select throws_ok(
-  $$ select public.reattach_member(pg_temp.circle_id(), pg_temp.nina()) $$,
-  'reattach_limit',
-  'rows with no recorded source still count as the list''s'
-);
 
--- A link does not outlive its seven days, whatever the cap says.
+-- A link does not outlive its seven days.
 select pg_temp.act_as_postgres();
 select pg_temp.emailed_link('stale-link');
 update private.email_action_tokens set expires_at = now() - interval '1 minute'
@@ -616,8 +601,8 @@ select throws_ok(
 -- The SQL-side limit, on a direct call (ADR 0049)
 --
 -- Ten guests, each moved twice: twenty completed moves in one circle in the
--- hour. The twenty-first — somebody's third, which the cap would allow — is
--- refused by the limit, and a person with an emailed link is not.
+-- hour. The twenty-first — somebody's third, which nothing per membership
+-- refuses — is refused by the limit, and a person with an emailed link is not.
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as_postgres();
 select pg_temp.fresh_limits();

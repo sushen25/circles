@@ -29,7 +29,7 @@ end;
 $$;
 
 comment on function public.reattach_member(uuid, uuid) is
-  'Moves a guest membership and everything scoped to it onto the calling anonymous identity, from the Continue-as list (ADR 0006). The emailed re-entry link is reattach_with_token, the service role''s. Only in an active circle and only while one of its plans is live (ADR 0059); a per-circle hourly limit; at most three moves per membership per seven days (ADR 0049); never onto a saved-place member.';
+  'Moves a guest membership and everything scoped to it onto the calling anonymous identity, from the Continue-as list (ADR 0006). The emailed re-entry link is reattach_with_token, the service role''s. Only in an active circle and only while one of its plans is live (ADR 0059); a per-circle hourly limit; no cap on how often one membership moves (ADR 0078); never onto a saved-place member.';
 
 revoke all on function public.reattach_member(uuid, uuid) from public;
 revoke all on function public.reattach_member(uuid, uuid) from anon, authenticated;

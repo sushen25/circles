@@ -35,10 +35,7 @@ import { LoadFailed } from '../system/LoadFailed';
 export type ContinueOption = { key: string; name: string };
 
 export type ContinueProblem =
-  | { kind: 'reattach_limit'; name: string }
-  | { kind: 'saved_place'; name: string }
-  | { kind: 'too_many_tries' }
-  | { kind: 'couldnt_rejoin' };
+  { kind: 'saved_place'; name: string } | { kind: 'too_many_tries' } | { kind: 'couldnt_rejoin' };
 
 export type ContinueAsProps = {
   fixture?: Fixture | undefined;
@@ -69,8 +66,6 @@ export type ContinueAsProps = {
 
 function problemCopy(problem: ContinueProblem): string {
   switch (problem.kind) {
-    case 'reattach_limit':
-      return t('continueAs', 'reattach_limit', { name: problem.name });
     case 'saved_place':
       return t('continueAs', 'saved_place', { name: problem.name });
     case 'too_many_tries':

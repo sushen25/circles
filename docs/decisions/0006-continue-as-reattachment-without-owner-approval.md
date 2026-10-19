@@ -3,10 +3,11 @@ adr: 6
 title: "\"Continue as\" reattaches a guest membership without owner approval"
 status: accepted
 date: 2026-09-06
+amended_by: [78]
 ---
 # ADR 0006: "Continue as" reattaches a guest membership without owner approval
 
-_Status: accepted · Date: 6 September 2026_
+_Status: accepted (the three-a-week cap is removed: [ADR 0078](0078-a-guest-may-continue-as-themselves-as-often-as-they-need.md)) · Date: 6 September 2026_
 
 ## Context
 Session loss for anonymous web guests is the normal path (Safari's seven-day storage cap; isolated in-app browsers). The founder chose the "continue as" model over accepting duplicate members. The question is whether reattachment should need the owner's approval.

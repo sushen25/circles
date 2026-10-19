@@ -212,7 +212,9 @@ select pg_temp.take_and_save(1, 'taker-account-1@example.com', 'inplace');
 select pg_temp.act_as_postgres();
 
 select is(pg_temp.holder(1), pg_temp.uid(1, 2), '1: the taker holds the place and has saved it');
-select is(private.list_moves_this_week(pg_temp.circle(1), pg_temp.uid(1, 2)), 1, '1: one list move so far');
+select is((select count(*)::integer from private.audit_log a
+   where a.action = 'circles.member_reattached' and a.resource_id = pg_temp.circle(1)
+     and coalesce(a.metadata ->> 'source', 'list') = 'list'), 1, '1: one list move so far');
 
 select pg_temp.act_as(pg_temp.uid(1, 3), true);
 select is(
@@ -287,8 +289,10 @@ select is(
   pg_temp.uid(1, 2)::text,
   '1: the member_reattached event names the account the place came from, so both parties are told the same way'
 );
-select is(private.list_moves_this_week(pg_temp.circle(1), pg_temp.uid(1, 3)), 1,
-  '1: the take-back did not count toward the weekly cap');
+select is((select count(*)::integer from private.audit_log a
+   where a.action = 'circles.member_reattached' and a.resource_id = pg_temp.circle(1)
+     and coalesce(a.metadata ->> 'source', 'list') = 'list'), 1,
+  '1: the take-back is recorded as an emailed move, not a list one');
 
 -- What the account holder sees afterwards, as that account.
 select pg_temp.act_as(pg_temp.uid(1, 2));

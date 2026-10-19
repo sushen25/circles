@@ -915,8 +915,6 @@ export const en = {
     im_new_here: "I'm new here",
     finding_the_circle: 'Finding the circle',
     rejoining: 'Rejoining',
-    reattach_limit:
-      "{name} has moved to a new device three times this week, which is the most we allow. Ask the circle's owner to help.",
     saved_place: '{name} saved their place with an account. Sign in with that email to carry on.',
     sign_in: 'Sign in',
     too_many_tries: 'Too many tries from here just now. Wait a few minutes, then try again.',
