@@ -270,10 +270,13 @@ served on. See `apps/app/src/data/preview-origin.ts`.
 
 **Secret — set with `make secret` (never `supabase secrets set` from inside the repository; see `EMAIL_CAPTURE_URL` below). Not the same set on both projects**,
 which is the part that gets got wrong in both directions. `make secret ENV=dev
-K=NAME V=value` and `make secrets ENV=prod` (names and digests, never values)
+K=NAME` and `make secrets ENV=prod` (names and digests, never values)
 supply the project ref for you, so the environment is named rather than
-copied; with no `V=` the value is invented with `openssl rand` and shown to
-nobody, which suits a secret nothing else has to agree with:
+copied. `make secret` reads the value from stdin (a hidden prompt at a
+terminal, or piped: `pbpaste | make secret ENV=dev K=NAME`) and refuses `V=`,
+which would put it in shell history and in an agent's transcript. With
+`GENERATE=1` the value is invented with `openssl rand` and shown to nobody,
+which suits a secret nothing else has to agree with:
 
 | Name | From | `dev` | `prod` |
 |---|---|---|---|
@@ -343,7 +346,7 @@ the function is executable by nobody but the owner.
 `INVITE_LINK_KEY` derives every invite secret (HMAC of the invite's id, [ADR 0028](../decisions/0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md)). The key alone is not enough to open a circle: the digest in the database and the invite ids are not readable by a client, so a leak is a risk to confirm, not an open door. But rotating the key by itself changes nothing that matters, because the old links keep working and merely stop being showable. Do this:
 
 1. Invent the new key: `openssl rand -base64 32`. Keep it in your shell only.
-2. **Set it on the project first**: `make secret ENV=<env> K=INVITE_LINK_KEY V=<the new key>`. From then on every link an owner creates or resets is derived under the new key, so nothing made while the sweep runs can slip past it. Until the sweep finishes, owners are offered a reset instead of their link, because the live link was derived under the old key.
+2. **Set it on the project first**: `make secret ENV=<env> K=INVITE_LINK_KEY` (paste the new key at the prompt). From then on every link an owner creates or resets is derived under the new key, so nothing made while the sweep runs can slip past it. Until the sweep finishes, owners are offered a reset instead of their link, because the live link was derived under the old key.
 3. Dry run against the project (reads, counts, changes nothing). The service role key is under Dashboard → Settings → API Keys:
 
    ```bash
