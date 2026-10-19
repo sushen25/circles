@@ -31,7 +31,7 @@ export function userId(value: string): UserId {
 
 /**
  * The loose rhythm a circle aims for. `none` is a real choice, not an absence:
- * "No goal set" is a state the circle home renders, and it suppresses nudges
+ * "Whenever suits" is a state the circle home renders, and it suppresses nudges
  * entirely (spec §5.9).
  */
 export type Cadence = 'weekly' | 'fortnightly' | 'monthly' | 'two_monthly' | 'none';

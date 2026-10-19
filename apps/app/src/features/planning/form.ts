@@ -161,6 +161,7 @@ export function deadlineFor(
   chosen: string | undefined,
   latestStart: string,
   now: Instant,
+  zone: string,
 ): { deadline: string; isDefault: boolean } | ResolveProblem {
   const latest = fromISO(latestStart);
   if (chosen !== undefined) {
@@ -168,7 +169,7 @@ export function deadlineFor(
       ? { deadline: chosen, isDefault: false }
       : 'deadline_out_of_range';
   }
-  const suggested = defaultDeadline(preset, now, latest);
+  const suggested = defaultDeadline(preset, now, latest, toZone(zone));
   return suggested === undefined
     ? 'window_has_passed'
     : { deadline: toISO(suggested), isDefault: true };
@@ -178,7 +179,7 @@ export function resolveDraft(draft: PlanDraft, now: Instant, zone: string): Reso
   const shape = windowOf(draft.preset, draft.custom, draft.band, draft.duration, now, zone);
   if (typeof shape === 'string') return { ok: false, problem: shape };
   const latestStart = latestStartOf(shape.window, shape.band, draft.duration, zone);
-  const deadline = deadlineFor(draft.preset, draft.deadline, latestStart, now);
+  const deadline = deadlineFor(draft.preset, draft.deadline, latestStart, now, zone);
   if (typeof deadline === 'string') return { ok: false, problem: deadline };
   return {
     ok: true,

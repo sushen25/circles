@@ -460,6 +460,23 @@ describe('signing in by email', () => {
     expect(await screen.findByText('That code has expired. Send a new one.')).toBeVisible();
   });
 
+  it('empties the boxes after a wrong code and puts the cursor back in the first (SUS-204)', async () => {
+    auth.submitSignInCode.mockRejectedValue({ code: 'otp_expired', status: 403 });
+    wrap(<SignInFlow />);
+    await sendCodeTo(ADDRESS);
+    await enter('123456');
+
+    expect(await screen.findByText(/That code didn't work/)).toBeVisible();
+    const field = screen.getByLabelText('Code');
+    await waitFor(() => expect(field).toHaveValue(''));
+    expect(field).toHaveFocus();
+
+    // And a second wrong code does it again.
+    await enter('654321');
+    await waitFor(() => expect(auth.submitSignInCode).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByLabelText('Code')).toHaveValue(''));
+  });
+
   it('sends a new account to Your name, counted as completed', async () => {
     wrap(<SignInFlow />);
     await sendCodeTo(ADDRESS);

@@ -101,7 +101,8 @@ describe.each(['Australia/Sydney', 'Pacific/Kiritimati'])('a device in %s', (dev
         <PlanSetupFlow id="sunday-crew" />
       </QueryClientProvider>,
     );
-    // Three days on from 08:30 in Los Angeles, whatever day it is on the device.
-    expect(await screen.findByText(/Mon Oct 5, 8:30 AM/)).toBeTruthy();
+    // Three days on from 08:30 in Los Angeles, rounded up to the hour, whatever
+    // day it is on the device.
+    expect(await screen.findByText(/Mon Oct 5, 9 am/)).toBeTruthy();
   });
 });

@@ -54,7 +54,7 @@ export async function openHeldAsks(
       durationMinutes: ask.duration_minutes as DurationMinutes,
       zone: zone(ask.time_zone),
     });
-    const deadline = defaultDeadline(ask.preset as never, now, latest);
+    const deadline = defaultDeadline(ask.preset as never, now, latest, zone(ask.time_zone));
     if (deadline === undefined) continue;
     try {
       const { data, error } = await service.rpc('dispatch_open_quiet_ask', {

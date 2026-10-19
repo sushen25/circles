@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { type Instant, fromISO, toISO } from '../shared/instant.js';
 import { localDate } from '../shared/local-date.js';
-import { toLocal } from '../shared/zone.js';
+import { toLocal, zone } from '../shared/zone.js';
 import { MELBOURNE } from '../shared/fixtures.js';
 import {
   clampDeadline,
@@ -60,7 +60,7 @@ describe('defaultDeadline', () => {
   it('gives this weekend and next 7 days a day', () => {
     const created = fromISO('2026-09-17T08:00:00Z');
     for (const preset of ['this_weekend', 'next_7_days'] as const) {
-      expect(toISO(must(defaultDeadline(preset, created, latest)))).toBe(
+      expect(toISO(must(defaultDeadline(preset, created, latest, MELBOURNE)))).toBe(
         '2026-09-18T08:00:00.000Z',
       );
     }
@@ -69,22 +69,72 @@ describe('defaultDeadline', () => {
   it('gives a fortnight three days', () => {
     const created = fromISO('2026-09-01T08:00:00Z');
     const far = fromISO('2026-09-14T10:30:00Z');
-    expect(toISO(must(defaultDeadline('next_14_days', created, far)))).toBe(
+    expect(toISO(must(defaultDeadline('next_14_days', created, far, MELBOURNE)))).toBe(
       '2026-09-04T08:00:00.000Z',
+    );
+  });
+
+  it('rounds the day-based defaults up to the next whole hour on the plan clock', () => {
+    // 18:22 Melbourne on Mon 14 September.
+    const created = fromISO('2026-09-14T08:22:30Z');
+    const far = fromISO('2026-09-30T10:30:00Z');
+    expect(toISO(must(defaultDeadline('next_7_days', created, far, MELBOURNE)))).toBe(
+      '2026-09-15T09:00:00.000Z',
+    );
+    expect(toISO(must(defaultDeadline('next_14_days', created, far, MELBOURNE)))).toBe(
+      '2026-09-17T09:00:00.000Z',
+    );
+  });
+
+  it('rounds on the plan clock, not UTC, in a half-hour zone', () => {
+    const kolkata = zone('Asia/Kolkata'); // +05:30
+    const created = fromISO('2026-09-14T08:22:00Z'); // 13:52 local
+    const far = fromISO('2026-09-30T10:30:00Z');
+    // A day on is 13:52 local, which rounds to 14:00 local = 08:30Z.
+    expect(toISO(must(defaultDeadline('next_7_days', created, far, kolkata)))).toBe(
+      '2026-09-15T08:30:00.000Z',
+    );
+  });
+
+  it('lands on :00 local across a half-hour daylight-saving change (Lord Howe)', () => {
+    const lordHowe = zone('Australia/Lord_Howe');
+    const far = fromISO('2026-05-30T10:30:00Z');
+    // Clocks go back 30 minutes at 02:00 local on Sun 5 April 2026 (the day
+    // after this plan was made), and forward 30 minutes on Sun 4 October.
+    const aprilCreated = fromISO('2026-04-03T14:45:00Z');
+    const october = fromISO('2026-10-02T14:45:00Z');
+    const lastOct = fromISO('2026-11-30T10:30:00Z');
+    for (const [created, latest] of [
+      [aprilCreated, far],
+      [october, lastOct],
+    ] as const) {
+      for (const preset of ['next_7_days', 'next_14_days'] as const) {
+        const deadline = must(defaultDeadline(preset, created, latest, lordHowe));
+        expect(toLocal(deadline, lordHowe).minutesOfDay % 60).toBe(0);
+        expect(deadline).toBeGreaterThanOrEqual(created);
+      }
+    }
+  });
+
+  it('leaves a moment already on the hour alone', () => {
+    const created = fromISO('2026-09-14T08:00:00Z');
+    const far = fromISO('2026-09-30T10:30:00Z');
+    expect(toISO(must(defaultDeadline('next_7_days', created, far, MELBOURNE)))).toBe(
+      '2026-09-15T08:00:00.000Z',
     );
   });
 
   it('never runs past the last possible start, however long the default is', () => {
     const created = fromISO('2026-09-20T09:00:00Z'); // 90 min before the last start
-    expect(defaultDeadline('next_14_days', created, latest)).toBe(latest);
-    expect(defaultDeadline('this_weekend', created, latest)).toBe(latest);
+    expect(defaultDeadline('next_14_days', created, latest, MELBOURNE)).toBe(latest);
+    expect(defaultDeadline('this_weekend', created, latest, MELBOURNE)).toBe(latest);
   });
 
   describe('tonight', () => {
     it('is an hour from now when there is plenty of evening left', () => {
       const created = fromISO('2026-09-17T08:00:00Z'); // 18:00 Melbourne
       const tonightLatest = fromISO('2026-09-17T13:30:00Z'); // 23:30 local
-      expect(toISO(must(defaultDeadline('tonight', created, tonightLatest)))).toBe(
+      expect(toISO(must(defaultDeadline('tonight', created, tonightLatest, MELBOURNE)))).toBe(
         '2026-09-17T09:00:00.000Z',
       );
     });
@@ -95,7 +145,7 @@ describe('defaultDeadline', () => {
       // deadline is still comfortably after creation.
       const created = fromISO('2026-09-17T11:00:00Z');
       const tonightLatest = fromISO('2026-09-17T12:00:00Z');
-      expect(toISO(must(defaultDeadline('tonight', created, tonightLatest)))).toBe(
+      expect(toISO(must(defaultDeadline('tonight', created, tonightLatest, MELBOURNE)))).toBe(
         '2026-09-17T11:30:00.000Z',
       );
     });
@@ -106,8 +156,8 @@ describe('defaultDeadline', () => {
       // first, which is what an earlier revision of this did.
       const created = fromISO('2026-09-17T12:50:00Z');
       const alreadyPast = fromISO('2026-09-17T12:00:00Z');
-      expect(defaultDeadline('tonight', created, alreadyPast)).toBeUndefined();
-      expect(defaultDeadline('next_7_days', created, alreadyPast)).toBeUndefined();
+      expect(defaultDeadline('tonight', created, alreadyPast, MELBOURNE)).toBeUndefined();
+      expect(defaultDeadline('next_7_days', created, alreadyPast, MELBOURNE)).toBeUndefined();
     });
 
     it('gives up the margin rather than the plan when the evening is tight', () => {
@@ -117,15 +167,17 @@ describe('defaultDeadline', () => {
       // `createdAt`, which would close replies the moment the plan was saved.
       const created = fromISO('2026-09-17T12:50:00Z');
       const tonightLatest = fromISO('2026-09-17T13:00:00Z');
-      expect(defaultDeadline('tonight', created, tonightLatest)).toBe(tonightLatest);
-      expect(defaultDeadline('tonight', created, tonightLatest)).toBeGreaterThan(created);
+      expect(defaultDeadline('tonight', created, tonightLatest, MELBOURNE)).toBe(tonightLatest);
+      expect(defaultDeadline('tonight', created, tonightLatest, MELBOURNE)).toBeGreaterThan(
+        created,
+      );
     });
 
     it('has no deadline when the last possible start is this very instant', () => {
       // The only value satisfying both bounds would be `createdAt` itself, and
       // a deadline that closes on save is not a deadline.
       const created = fromISO('2026-09-17T12:50:00Z');
-      expect(defaultDeadline('tonight', created, created)).toBeUndefined();
+      expect(defaultDeadline('tonight', created, created, MELBOURNE)).toBeUndefined();
     });
   });
 });
