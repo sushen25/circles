@@ -1,6 +1,6 @@
 import { formatMinutesOfDay, fromISO, toLocal, zone as toZone } from '@circles/domain';
 
-import { deviceTimeFormat } from '../availability/days';
+import { deviceTimeFormat } from '../../platform/timeFormat';
 
 /**
  * An instant as a person reads it, in the circle's zone: "Tue 15 Sep, 6 pm".

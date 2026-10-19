@@ -36,6 +36,7 @@ import {
   TopBar,
   Track,
 } from '../../src/components';
+import { deviceTimeFormatter } from '../../src/platform/timeFormat';
 import { InvertProvider } from '../../src/components/theme';
 
 /**
@@ -221,6 +222,7 @@ export default function ComponentsScreen() {
 
         <Section label="Availability track · fill is the affordance, text is the answer">
           <Track
+            formatTime={deviceTimeFormatter()}
             day="Thu 17 Sep"
             cells={cells}
             onChange={setCells}

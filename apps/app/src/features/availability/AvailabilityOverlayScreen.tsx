@@ -18,6 +18,7 @@ import {
 import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
+import { deviceTimeFormatter } from '../../platform/timeFormat';
 import type { ScreenState } from '../state';
 
 /**
@@ -35,6 +36,8 @@ export type AvailabilityOverlayProps = {
   onBack?: (() => void) | undefined;
   onNoneOfTheseDates?: (() => void) | undefined;
 };
+
+const deviceFormatter = deviceTimeFormatter();
 
 export function AvailabilityOverlayScreen({
   fixture,
@@ -72,6 +75,7 @@ export function AvailabilityOverlayScreen({
             <BodyText>{t('availabilityOverlay', '8_10_30_pm')}</BodyText>
           </Row>
           <Track
+            formatTime={deviceFormatter}
             day={fixture.plan.dayLabel}
             cells={cells0}
             onChange={setCells0}
@@ -89,6 +93,7 @@ export function AvailabilityOverlayScreen({
             <BodyText>{t('availabilityOverlay', 'not_this_day')}</BodyText>
           </Row>
           <Track
+            formatTime={deviceFormatter}
             day={fixture.plan.dayLabel}
             cells={cells1}
             onChange={setCells1}
@@ -106,6 +111,7 @@ export function AvailabilityOverlayScreen({
             <BodyText>{t('availabilityOverlay', '7_9_30_pm')}</BodyText>
           </Row>
           <Track
+            formatTime={deviceFormatter}
             day={fixture.plan.dayLabel}
             cells={cells2}
             onChange={setCells2}
@@ -123,6 +129,7 @@ export function AvailabilityOverlayScreen({
             <BodyText>{t('availabilityOverlay', '5_30_10_30_pm')}</BodyText>
           </Row>
           <Track
+            formatTime={deviceFormatter}
             day={fixture.plan.dayLabel}
             cells={cells3}
             onChange={setCells3}

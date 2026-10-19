@@ -52,6 +52,13 @@ describe('lockedInMessage', () => {
     expect(lockedInMessage(input())).not.toContain('8:30–10:30 am');
   });
 
+  it('follows the clock it is given: 12-hour "6:30 pm" or 24-hour "18:30" (SUS-217)', () => {
+    const at = (time: { hour12: boolean }) =>
+      lockedInMessage(input({ format: { ...EN_FORMAT, time } }));
+    expect(at({ hour12: true })).toContain('Thu 17 Sep, 6:30–8:30 pm at');
+    expect(at({ hour12: false })).toContain('Thu 17 Sep, 18:30–20:30 at');
+  });
+
   it('does not repeat the meridiem when both ends share it', () => {
     expect(lockedInMessage(input())).not.toContain('6:30 pm–8:30 pm');
   });

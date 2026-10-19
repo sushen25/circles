@@ -14,7 +14,8 @@ import { t } from '../../copy';
 import { OfflineScreen } from '../system/OfflineScreen';
 import { AvailabilityScreen } from './AvailabilityScreen';
 import type { BlockKind, BlockTiming } from './blocks';
-import { dayRows, deviceTimeFormat } from './days';
+import { deviceTimeFormat } from '../../platform/timeFormat';
+import { dayRows } from './days';
 import {
   editorFrom,
   editorReducer,
