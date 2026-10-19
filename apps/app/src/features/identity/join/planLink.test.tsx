@@ -59,6 +59,7 @@ const joinPlan = vi.fn();
 const askToPlan = vi.fn();
 const guestMembersFor = vi.fn();
 const planAccess = vi.fn();
+const reattachFromList = vi.fn();
 const circleNameForCode = vi.fn();
 vi.mock('../../../data/membership', () => ({
   planAccess: (...args: unknown[]) => planAccess(...args),
@@ -66,7 +67,7 @@ vi.mock('../../../data/membership', () => ({
   guestMembersFor: (...args: unknown[]) => guestMembersFor(...args),
   joinPlan: (...args: unknown[]) => joinPlan(...args),
   askToPlan: (...args: unknown[]) => askToPlan(...args),
-  reattachFromList: vi.fn(),
+  reattachFromList: (...args: unknown[]) => reattachFromList(...args),
   circleAccess: vi.fn(),
   arrivalFor: vi.fn(),
   heldInvite: () => undefined,
@@ -131,6 +132,7 @@ beforeEach(() => {
     askToPlan,
     guestMembersFor,
     planAccess,
+    reattachFromList,
   ]) {
     mock.mockReset();
   }
@@ -175,6 +177,39 @@ describe('a guest, in a circle that has guests', () => {
     await type('Ren');
 
     expect(await screen.findByText('You need the invite link to join.')).toBeTruthy();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  // SUS-219. `join-plan` and `reattach-member` each answer 429 `too_many_requests`
+  // when a limit is reached (`rateLimits.integration.test.ts` reaches both).
+  it('says so, and keeps the name, when join-plan refuses for volume', async () => {
+    joinPlan.mockRejectedValue(refusal('too_many_requests'));
+    arrive();
+
+    fireEvent.click(await screen.findByRole('button', { name: "I'm new here" }));
+    await type('Ren');
+
+    expect(
+      await screen.findByText(
+        'Too many tries from here just now. Wait a few minutes, then try again.',
+      ),
+    ).toBeTruthy();
+    expect(screen.getByLabelText('Your name')).toHaveValue('Ren');
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('says so, on the list, when reattach-member refuses for volume', async () => {
+    reattachFromList.mockRejectedValue(refusal('too_many_requests'));
+    arrive();
+
+    fireEvent.click(await screen.findByRole('button', { name: /Alex/ }));
+
+    expect(
+      await screen.findByText(
+        'Too many tries from here just now. Wait a few minutes, then try again.',
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Alex/ })).toBeTruthy();
     expect(replace).not.toHaveBeenCalled();
   });
 

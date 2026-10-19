@@ -882,6 +882,21 @@ describe('when the server says no', () => {
     );
   });
 
+  it('says so, and keeps the times, when submit-availability refuses for volume (SUS-219)', async () => {
+    submitAnswer.mockRejectedValueOnce(refusal('too_many_requests'));
+    open();
+    await screen.findByText('Which evenings could work?');
+
+    answerMonday();
+    await send();
+
+    await screen.findByText(
+      'Too many tries from here just now. Wait a few minutes, then try again.',
+    );
+    expect(screen.getByRole('button', { name: 'Send my times' })).toBeEnabled();
+    expect((await readDraft('nina', CODE))?.windows).toEqual([MONDAY_EVENING]);
+  });
+
   it('gives a reference to quote when something else went wrong, and keeps the times', async () => {
     submitAnswer.mockRejectedValueOnce(refusal(undefined));
     open();
