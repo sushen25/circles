@@ -78,5 +78,6 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0071](./0071-the-functions-a-client-can-call-carry-their-own-rate-limits.md) | The functions a client can call carry their own rate limits, and an address is sent one verification letter an hour | proposed (amended by 0073) |
 | [0073](./0073-an-invite-digest-and-a-re-entry-digest-are-not-a-way-in.md) | A stored invite or re-entry digest is not a way in: the functions that take one are the service role's | proposed (amends 0071) |
 | [0074](./0074-a-suppressed-contact-keeps-a-hash-and-the-sign-in-log-and-events-are-bounded.md) | A suppressed contact keeps a hash and not the address; the sign-in log is pruned; an event follows its user | proposed |
+| [0076](./0076-day-based-deadline-defaults-round-up-to-the-hour.md) | Day-based deadline defaults round up to the next whole hour | proposed |
 | [0077](./0077-an-answer-never-given-opens-empty-previous-times-wait-for-a-tap.md) | An answer never given opens empty: previous times are not applied on open, they wait for a tap | proposed (amends 0037, 0068) |
 | [0078](./0078-a-guest-may-continue-as-themselves-as-often-as-they-need.md) | A guest may continue as themselves as often as they need: no cap on how often a membership moves | proposed (amends 0006, 0049) |
