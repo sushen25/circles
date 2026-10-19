@@ -66,6 +66,36 @@ describe('sendEmail', () => {
     expect(calls).toHaveLength(0);
   });
 
+  it('refuses the capture override on a hosted project, and sends nothing anywhere', async () => {
+    process.env['EMAIL_CAPTURE_URL'] = 'http://catcher.invalid/';
+    process.env['RESEND_API_KEY'] = fakeKey();
+    process.env['SUPABASE_URL'] = 'https://abcdefghij.supabase.co';
+    const { http, calls } = provider(() => json(200, { id: 'x' }));
+    try {
+      const failure = await sendEmail(MESSAGE, CONTEXT, http).catch((error: unknown) => error);
+      expect(failure).toBeInstanceOf(EmailSendError);
+      expect((failure as EmailSendError).code).toBe('email_unconfigured');
+      expect((failure as EmailSendError).retryable).toBe(false);
+      expect(calls).toHaveLength(0);
+    } finally {
+      delete process.env['SUPABASE_URL'];
+    }
+  });
+
+  it('still accepts it when CIRCLES_ENV says local, whatever the URL', async () => {
+    process.env['EMAIL_CAPTURE_URL'] = 'http://inbucket:8025/';
+    process.env['CIRCLES_ENV'] = 'local';
+    process.env['SUPABASE_URL'] = 'https://abcdefghij.supabase.co';
+    const { http } = provider(() => json(200, { ID: 'captured-2' }));
+    try {
+      const sent = await sendEmail(MESSAGE, CONTEXT, http);
+      expect(sent.transport).toBe('capture');
+    } finally {
+      delete process.env['SUPABASE_URL'];
+      delete process.env['CIRCLES_ENV'];
+    }
+  });
+
   it('sends to the capture inbox, and never to Resend, when a local stack has both', async () => {
     process.env['EMAIL_CAPTURE_URL'] = 'http://inbucket:8025/';
     process.env['RESEND_API_KEY'] = fakeKey();

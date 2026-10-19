@@ -525,9 +525,12 @@ development client is only wanted when someone asks for one.
 ## What runs, and when it does not
 
 A prose change cannot break the suites, so it does not pay for them. "Prose"
-means **Markdown anywhere and `.claude/`, and nothing else** — `docs/design/`
-is excluded on purpose, because `gen.py` is the source the design tokens are
-generated from and `check:tokens` reads it.
+means **Markdown anywhere, and nothing else** — `docs/design/` is excluded on
+purpose, because `gen.py` is the source the design tokens are generated from
+and `check:tokens` reads it, and a script under `.claude/` is code: the skills'
+shell scripts run on the founder's machine with `gh` and Supabase credentials.
+(`preview` and `deploy-dev` still ignore `.claude/**`: it cannot alter a bundle
+or a database.)
 
 | Workflow | On a prose-only change |
 |---|---|
@@ -544,6 +547,12 @@ The two mechanisms differ on purpose:
   pastes a token, and `paths-ignore` would turn off secret scanning on the
   highest-risk file type. And a skipped job reports no conclusion, which leaves
   a required status check pending forever once branch protection is on.
+
+The gitleaks step uploads its report as a SARIF artifact (7 days, readable by
+anyone signed in). It is redacted: the action passes `--redact` to gitleaks, so
+a finding names the file, the rule and the commit and never the secret itself.
+Re-read the action's arguments when it is bumped; if `--redact` ever goes,
+set `GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false` on the step.
 
 `format:check` still runs on prose because root Markdown *is* formatted:
 `.prettierignore` excludes `docs/` and `.claude/`, but not `AGENTS.md`,

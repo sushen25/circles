@@ -270,10 +270,13 @@ served on. See `apps/app/src/data/preview-origin.ts`.
 
 **Secret — set with `make secret` (never `supabase secrets set` from inside the repository; see `EMAIL_CAPTURE_URL` below). Not the same set on both projects**,
 which is the part that gets got wrong in both directions. `make secret ENV=dev
-K=NAME V=value` and `make secrets ENV=prod` (names and digests, never values)
+K=NAME` and `make secrets ENV=prod` (names and digests, never values)
 supply the project ref for you, so the environment is named rather than
-copied; with no `V=` the value is invented with `openssl rand` and shown to
-nobody, which suits a secret nothing else has to agree with:
+copied. `make secret` reads the value from stdin (a hidden prompt at a
+terminal, or piped: `pbpaste | make secret ENV=dev K=NAME`) and refuses `V=`,
+which would put it in shell history and in an agent's transcript. With
+`GENERATE=1` the value is invented with `openssl rand` and shown to nobody,
+which suits a secret nothing else has to agree with:
 
 | Name | From | `dev` | `prod` |
 |---|---|---|---|
@@ -281,7 +284,7 @@ nobody, which suits a secret nothing else has to agree with:
 | `INVITE_LINK_KEY` | **nobody — you invent it**: `openssl rand -base64 32`. Invite secrets are derived with it so the owner can see their link again ([ADR 0028](../decisions/0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md)). **Optional, and quiet when missing**: links are still made, but only a reset gets the owner a link back. Changing it later makes every existing link unshowable (they keep working): to change it *because it leaked*, follow "The invite key has leaked" below instead of just setting a new value. Local stacks set it in `config.toml` | own value | own value |
 | `CALENDAR_LINK_KEY` | **nobody — you invent it**: `openssl rand -base64 32`. `generate-ics` signs the short-lived token a calendar link carries with it, so one tap on an iPhone opens the system Add to Calendar ([ADR 0063](../decisions/0063-the-calendar-file-is-served-at-a-link-with-a-short-lived-signed-token.md)). **Optional, and quiet when missing**: with no key no token is made and the app fetches the file with the bearer instead (four taps on an iPhone, not one). Changing it only ends links already minted, and they last 15 minutes. Local stacks set it in `config.toml` | own value | own value |
 | `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile, pairs with the site key. **The name matters:** `_shared/turnstile.ts` reads exactly this, and skips the check when it is unset rather than failing — so a secret stored under any other name leaves web joins unverified and looks configured | the **dummy** `1x0000000000000000000000000000000AA`, pairing with the dummy site key at repository scope | the real one |
-| `CIRCLES_ENV` | `hosted` or `local`, **you choose**. Says whether `_shared/turnstile.ts` should refuse a web join when `TURNSTILE_SECRET_KEY` is missing (hosted) or skip the check (local). **Optional, and safe when missing**: without it a function judges from `SUPABASE_URL` and treats anything that is not `localhost`, `127.0.0.1`, `kong` or `host.docker.internal` as hosted, so a custom domain fails closed. Set `hosted` anyway so the answer is a statement rather than an inference | `hosted` | `hosted` |
+| `CIRCLES_ENV` | `hosted` or `local`, **you choose**. Says whether `_shared/turnstile.ts` should refuse a web join when `TURNSTILE_SECRET_KEY` is missing (hosted) or skip the check (local), and whether `_shared/email/resend.ts` refuses `EMAIL_CAPTURE_URL` (hosted) or honours it (local); never set `local` on a hosted project. **Optional, and safe when missing**: without it a function judges from `SUPABASE_URL` and treats anything that is not `localhost`, `127.0.0.1`, `kong` or `host.docker.internal` as hosted, so a custom domain fails closed. Set `hosted` anyway so the answer is a statement rather than an inference | `hosted` | `hosted` |
 | `TURNSTILE_ALLOWED_HOSTNAMES` | Comma-separated hostnames a solved challenge may name, e.g. the production app host. Cloudflare reports where the widget was solved; with this set, a good token solved anywhere else is refused. **Optional**: unset, the hostname is not checked. Leave it unset on `dev`, whose dummy key reports a placeholder hostname | unset | the app's host |
 | `EMAIL_CAPTURE_URL` | **never on a hosted project.** Local only, from `config.toml`. Set on one, it wins over `RESEND_API_KEY` and every product email goes to a catcher that is not there | never | never |
 | `RESEND_API_KEY` | Resend → API Keys | **never** — `dev` does not send | yes |
@@ -343,7 +346,7 @@ the function is executable by nobody but the owner.
 `INVITE_LINK_KEY` derives every invite secret (HMAC of the invite's id, [ADR 0028](../decisions/0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md)). The key alone is not enough to open a circle: the digest in the database and the invite ids are not readable by a client, so a leak is a risk to confirm, not an open door. But rotating the key by itself changes nothing that matters, because the old links keep working and merely stop being showable. Do this:
 
 1. Invent the new key: `openssl rand -base64 32`. Keep it in your shell only.
-2. **Set it on the project first**: `make secret ENV=<env> K=INVITE_LINK_KEY V=<the new key>`. From then on every link an owner creates or resets is derived under the new key, so nothing made while the sweep runs can slip past it. Until the sweep finishes, owners are offered a reset instead of their link, because the live link was derived under the old key.
+2. **Set it on the project first**: `make secret ENV=<env> K=INVITE_LINK_KEY` (paste the new key at the prompt). From then on every link an owner creates or resets is derived under the new key, so nothing made while the sweep runs can slip past it. Until the sweep finishes, owners are offered a reset instead of their link, because the live link was derived under the old key.
 3. Dry run against the project (reads, counts, changes nothing). The service role key is under Dashboard → Settings → API Keys:
 
    ```bash
@@ -396,15 +399,52 @@ red cross for infrastructure nobody has set up yet teaches people to ignore red
 crosses. `deploy-prod` fails instead: a production deploy that deployed nothing
 must not look like one that did.
 
+## Settings only the founder can change (to do)
+
+Nothing in the repository can set these, and no agent may: they are hosted
+project and repository settings. Each is written down here so it is a known
+gap with an owner, not a surprise.
+
+- [ ] **Enforce SSL on the database connection, on both projects.** Dashboard,
+  Database, Settings, SSL configuration, "Enforce SSL on incoming connections".
+  It is off today. The Supabase CLI and the pooler connect with TLS already, so
+  this is safe to switch on; `psql` by hand needs `sslmode=require`.
+- [ ] **Database network restrictions, on `circles-dev` and `circles-prod`.**
+  Both projects allow `0.0.0.0/0` and `::/0`. Nothing in the product connects
+  to Postgres directly (the app and the functions go through the API gateway),
+  **but the deploy workflows do: `supabase db push --linked` in `deploy-dev`
+  and `deploy-prod` connects to the database from a GitHub-hosted runner, whose
+  addresses are not fixed.** So "restrict to nothing" would turn every deploy
+  red. Decide knowingly: keep the open range and lean on enforced SSL and the
+  database password, or restrict to the founder's own address and move
+  migrations to a runner with a fixed address first. Whichever it is, record the
+  choice here.
+- [ ] **A branch policy on the `dev` GitHub environment.** It has none, so
+  `deploy-dev` can be dispatched from any branch and that branch's workflow
+  file runs with the dev credentials. Settings, Environments, `dev`,
+  "Deployment branches": selected branches, `main` only.
+- [ ] **`production`: its approval is a pause, not a review.** The required
+  reviewer is the founder and the environment allows self-review and admin
+  bypass, so the approval on `deploy-prod` gives the person who dispatched the
+  deploy a moment to read the migration plan, and nobody else sees it. Turn off
+  "Allow administrators to bypass protection rules" and add a second reviewer
+  if that is ever not enough.
+- [ ] **Revoke the old dev Resend key**, now that dev's Auth SMTP sender is on
+  `mail.wenna.app` (14 October).
+
 ## Checking it from the outside
 
 ```bash
 pnpm check:env <domain>
 ```
 
-HTTPS, HSTS, `Referrer-Policy: no-referrer`, a `Content-Security-Policy` (with
+Two requests, each held to its own headers. **`/start`, an app route:** HTTPS,
+HSTS, `Referrer-Policy: no-referrer`, a `Content-Security-Policy` (with
 no `unsafe-inline` or `unsafe-eval` for scripts, and `frame-ancestors 'none'`),
-`X-Content-Type-Options: nosniff`, a `Permissions-Policy`, and SPF/DKIM/DMARC on `mail.<domain>`
+`X-Content-Type-Options: nosniff` and a `Permissions-Policy`. **`/`, the
+website (ADR 0052):** HSTS, `strict-origin-when-cross-origin`, a policy with
+`default-src 'none'`, no script and `frame-ancestors 'none'`, and nosniff. Then
+SPF/DKIM/DMARC on `mail.<domain>`
 — queried against 1.1.1.1 rather than the system resolver, because a local cache
 will cheerfully serve a record that was deleted an hour ago. Not part of
 `pnpm check`: it needs the network and a domain that exists.
@@ -431,13 +471,16 @@ them inline; that is the one concession. A page that needs a new origin (an
 analytics host, an embed) must add it there, and the live suite fails on any
 console message from the policy, so the omission is found before a deploy does.
 `deploy-prod` runs `check:env` after it deploys, so a **rollback to a release
-older than SUS-119 ends red** on these three checks; the rollback itself is not
+older than SUS-119 ends red** on these three checks, and one older than the website's own headers (ADR 0052) on the `/` checks too; the rollback itself is not
 undone by it.
 
 **Dev routes.** Everything under `app/(dev)` (the gallery, the brand sheet, the
 fixture screens, `/settings/diagnostics`) answers not-found when
-`EXPO_PUBLIC_APP_ENV` is `production`, and `/_sitemap` is left out of the
-production export (the plugin's `sitemap: false`), so it answers 404. Other
+`EXPO_PUBLIC_APP_ENV` is `production`. `/_sitemap` is left out of every export
+whose `EXPO_PUBLIC_APP_ENV` is not `development` (the plugin's `sitemap: false`),
+so production and previews answer 404. A deployed `dev` is built as
+`development` and still lists its routes; closing that needs a build flag
+`deploy-dev` does not set yet (SUS-192). Other
 deployed environments redirect the fixtures to `/start` (SUS-140), and the
 smoke export keeps them for the gallery.
 

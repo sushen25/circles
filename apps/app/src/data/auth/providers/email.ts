@@ -11,12 +11,14 @@ import type { SignedIn } from './types';
  * cannot see it — which is the failure Continue-as exists to repair, caused on
  * purpose. A code is typed into the tab that is already open.
  *
- * **The template is what makes that true, and only locally so far.**
- * `supabase/templates/magic-link.html` overrides the stock template on the
- * local stack to send `{{ .Token }}`; both hosted projects still carry
- * Supabase's own, which sends `{{ .ConfirmationURL }}`. Test against local —
- * `pnpm mail <address>` prints the code — or you are exercising a flow this
- * module does not implement. Fixing the hosted templates is S1-19's.
+ * **The template is what makes that true.**
+ * `supabase/templates/magic-link.html` sends `{{ .Token }}` on the local stack.
+ * A hosted project sends whatever its own Auth email template says, which is a
+ * dashboard setting outside this repository, and this comment does not vouch
+ * for it: Supabase's stock template sends `{{ .ConfirmationURL }}`, a link.
+ * Read the template on the project before trusting a hosted sign-in to be a
+ * code. Test against local — `pnpm mail <address>` prints the code — or you
+ * may be exercising a flow this module does not implement.
  */
 
 /**

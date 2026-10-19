@@ -43,6 +43,16 @@ const FIELDS: readonly string[] = [
   'retention_last_finished_at',
 ];
 
+/** The report sits in a `<pre>`, so the text is escaped for HTML: a value is data, never markup. */
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function lines(summary: Summary): string {
   return FIELDS.map((field) => `${field}: ${String(summary[field] ?? '—')}`).join('\n');
 }
@@ -86,7 +96,7 @@ export async function reportHealth(service: Db, requestId: string): Promise<bool
         {
           to,
           subject: 'Daily health summary',
-          html: `<pre>${text}</pre>`,
+          html: `<pre>${escapeHtml(text)}</pre>`,
           text,
           tags: { kind: 'health' },
         },

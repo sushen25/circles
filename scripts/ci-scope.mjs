@@ -3,7 +3,10 @@
  * Decides whether a set of changed files can affect anything `pnpm check`
  * tests. Reads paths on stdin, one per line; prints `prose` or `code`.
  *
- * `prose` is deliberately narrow: Markdown anywhere, and `.claude/`. It is
+ * `prose` is deliberately narrow: Markdown anywhere, and nothing else. That
+ * includes `.claude/`: the Markdown in it is prose, but `.claude/skills/**\/*.sh`
+ * and the JSON beside them run on the founder's machine with `gh` and Supabase
+ * credentials, so a change to one is code and gets the suites. It is also
  * tempting to add `docs/`, and wrong — `docs/design/gen.py` is the source the
  * design tokens are generated from, and the `.dc.html` artboards are generated
  * from it, so `check:tokens` reads both. A path is only prose if no check
@@ -19,7 +22,7 @@
  * run; the other way it is a broken main.
  */
 
-const PROSE = [/\.md$/i, /^\.claude\//];
+const PROSE = [/\.md$/i];
 
 const input = await new Promise((resolve) => {
   let buffer = '';

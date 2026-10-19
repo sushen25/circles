@@ -5,6 +5,7 @@ create or replace function public.member_cap()
 returns integer
 language sql
 immutable
+set search_path = ''
 as $$ select 20 $$;
 
 comment on function public.member_cap() is

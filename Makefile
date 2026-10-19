@@ -249,10 +249,10 @@ format: ## Prettier, writing
 secrets: ## Names and digests of ENV's secrets, never values: make secrets ENV=dev
 	@$(SUPABASE) secrets list --project-ref $(REF)
 
-secret: ## Set one secret on ENV: make secret ENV=prod K=NAME V=value (no V: a fresh random value)
+secret: ## Set one secret on ENV, value from stdin: make secret ENV=prod K=NAME   (GENERATE=1: a fresh random value)
 	@[ -n "$(K)" ] || { echo 'K=NAME is required: make secret ENV=$(ENV) K=INVITE_LINK_KEY'; exit 2; }
-	@cd "$$(mktemp -d)" && "$(CURDIR)/$(SUPABASE)" secrets set --project-ref $(REF) "$(K)=$(or $(V),$$(openssl rand -base64 32))" \
-	  && echo "$(K) set on $(ENV) ($(REF))"
+	@[ "$(origin V)" != "command line" ] || { echo 'V= is gone: it put the value in shell history. Pipe it in (pbpaste | make secret ENV=$(ENV) K=$(K)) or type it at the prompt.'; exit 2; }
+	@SUPABASE="$(CURDIR)/$(SUPABASE)" REF="$(REF)" ENV_NAME="$(ENV)" GENERATE="$(GENERATE)" "$(CURDIR)/scripts/set-secret.sh" "$(K)"
 
 unsecret: ## Remove one secret from ENV: make unsecret ENV=prod K=EMAIL_CAPTURE_URL
 	@[ -n "$(K)" ] || { echo 'K=NAME is required: make unsecret ENV=$(ENV) K=EMAIL_CAPTURE_URL'; exit 2; }

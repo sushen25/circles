@@ -47,7 +47,7 @@
     "check:transitions": "node scripts/gen-transitions.mjs --check",
     "check:events": "node scripts/gen-events.mjs --check",
     "check:functions": "node scripts/gen-sql-functions.mjs --check",
-    "check:workflows": "node scripts/check-workflows.mjs && node --experimental-strip-types --test scripts/ci-gates.test.mjs scripts/workflow-hygiene.test.mjs scripts/e2e-live-scopes.test.mjs scripts/rotate-invite-key.test.mjs",
+    "check:workflows": "node scripts/check-workflows.mjs && node --experimental-strip-types --test scripts/ci-gates.test.mjs scripts/workflow-hygiene.test.mjs scripts/ci-scope.test.mjs scripts/set-secret.test.mjs scripts/e2e-live-scopes.test.mjs scripts/rotate-invite-key.test.mjs",
     "check:docs": "node scripts/check-docs.mjs",
     "check:env": "node scripts/check-environment.mjs",
     "check:client-env": "node scripts/check-client-env.mjs"

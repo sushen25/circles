@@ -15,8 +15,8 @@
  * sending domain today, and failing `dev` on records it was never meant to have
  * is how a check gets ignored.
  *
- * Reads nothing secret and sends nothing anywhere except DNS and one GET to the
- * domain itself.
+ * Reads nothing secret and sends nothing anywhere except DNS and two GETs to the
+ * domain itself (`/start`, the app, and `/`, the website).
  */
 
 import { Resolver } from 'node:dns/promises';
@@ -115,6 +115,45 @@ try {
   );
 } catch (error) {
   record('HTTPS serves the app', false, error instanceof Error ? error.message : String(error));
+}
+
+// --- the website at the bare host -----------------------------------------
+// ADR 0052: `/` is the marketing page, a static document with its own headers:
+// a public cache and `strict-origin-when-cross-origin` (it carries no secret),
+// where the app routes above send `no-store` and `no-referrer`. Each is held to
+// its own expectation, so neither passes for the other's.
+try {
+  const res = await fetch(`https://${domain}/`, { method: 'GET', redirect: 'follow' });
+  record('Website serves /', res.ok, `${res.status} ${res.statusText}`);
+
+  const hsts = res.headers.get('strict-transport-security');
+  record(
+    'Website HSTS header',
+    Boolean(hsts) && /max-age=\d{6,}/.test(hsts ?? ''),
+    hsts ?? 'absent',
+  );
+
+  const referrer = res.headers.get('referrer-policy');
+  record(
+    'Website Referrer-Policy: strict-origin-when-cross-origin',
+    referrer === 'strict-origin-when-cross-origin',
+    referrer ?? 'absent',
+  );
+
+  const csp = res.headers.get('content-security-policy') ?? '';
+  record(
+    'Website CSP: no script, not frameable',
+    csp !== '' &&
+      !/script-src/.test(csp) &&
+      /default-src 'none'/.test(csp) &&
+      /frame-ancestors 'none'/.test(csp),
+    csp !== '' ? `${csp.slice(0, 60)}…` : 'absent',
+  );
+
+  const nosniff = res.headers.get('x-content-type-options');
+  record('Website X-Content-Type-Options: nosniff', nosniff === 'nosniff', nosniff ?? 'absent');
+} catch (error) {
+  record('Website serves /', false, error instanceof Error ? error.message : String(error));
 }
 
 // --- email authentication on the sending subdomain ------------------------

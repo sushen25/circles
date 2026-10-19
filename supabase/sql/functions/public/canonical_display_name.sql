@@ -16,6 +16,7 @@ create or replace function public.canonical_display_name(value text)
 returns text
 language sql
 immutable
+set search_path = ''
 as $$
   select lower(
     regexp_replace(
