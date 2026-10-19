@@ -1,6 +1,6 @@
 import { brand } from '@circles/config';
 
-import { optional } from '../env.ts';
+import { isHosted, optional } from '../env.ts';
 import { log } from '../logging.ts';
 
 /**
@@ -12,7 +12,10 @@ import { log } from '../logging.ts';
  *   mail catcher's HTTP API (Mailpit, `pnpm mail`). `supabase/config.toml` sets
  *   it for every local stack, and it **wins over `RESEND_API_KEY`**, so a local
  *   or CI stack cannot reach the real provider even if somebody puts a real key
- *   in their shell. No hosted project sets it.
+ *   in their shell. No hosted project sets it, and a hosted one that has it
+ *   anyway **refuses to send** (`email_unconfigured`, as `turnstile.ts` refuses
+ *   to skip its check there): mail diverted to a catcher that is not there
+ *   vanishes with every sign saying it was sent. See `isHosted` in `env.ts`.
  * - **Resend**, when `RESEND_API_KEY` is set: the REST API, which is one POST
  *   and not worth a dependency (non-negotiable 11).
  *
@@ -212,6 +215,10 @@ export async function sendEmail(
 
   try {
     if (transport === undefined) throw new EmailSendError('email_unconfigured');
+    // The capture override is a local-stack setting. On a hosted project it
+    // would divert every product email to a catcher that is not there, so it is
+    // a misconfiguration to refuse loudly, not a transport to use.
+    if (transport === 'capture' && isHosted()) throw new EmailSendError('email_unconfigured');
     for (const [name, value] of Object.entries(message.tags ?? {})) {
       if (!TAG.test(name) || !TAG.test(value)) throw new EmailSendError('email_rejected');
     }
