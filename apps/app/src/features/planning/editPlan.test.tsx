@@ -1,21 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as Planning from '../../data/planning';
 import { FunctionError } from '../../data/functions';
 import * as fixture from './fixtures';
+import { tap } from '../../test/tap';
 
 /**
  * EditPlan and ChangeTime against a mocked `revise-plan` (S1-26): the warning
  * is the preview's own list, Save sends the preview's version, and a stale
  * preview is asked again rather than saved over.
  */
-
-// The preview waits for the form to settle (`SETTLE_MS`) before it asks, so a
-// full parallel run can take longer than the default second to show it.
-configure({ asyncUtilTimeout: 5_000 });
 
 const push = vi.fn();
 const replace = vi.fn();
@@ -71,7 +68,7 @@ afterEach(() => vi.restoreAllMocks());
 describe('editing the dates', () => {
   it('shows, before saving, exactly who the preview says will be asked again', async () => {
     show(<EditPlanFlow id="sunday-crew" planId="thu-17" />);
-    fireEvent.click(await screen.findByRole('checkbox', { name: 'Next 7 days' }));
+    await tap(screen.findByRole('checkbox', { name: 'Next 7 days' }));
 
     expect(
       await screen.findByText(
@@ -88,8 +85,8 @@ describe('editing the dates', () => {
 
   it('saves with the version the preview came back with, then hands over the message', async () => {
     show(<EditPlanFlow id="sunday-crew" planId="thu-17" />);
-    fireEvent.click(await screen.findByRole('checkbox', { name: 'Next 7 days' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Save and ask again' }));
+    await tap(screen.findByRole('checkbox', { name: 'Next 7 days' }));
+    await tap(screen.findByRole('button', { name: 'Save and ask again' }));
 
     await waitFor(() => expect(saveRevision).toHaveBeenCalledTimes(1));
     const [planId, revision, version] = saveRevision.mock.calls[0] as [
@@ -122,8 +119,8 @@ describe('editing the dates', () => {
       ),
     );
     show(<EditPlanFlow id="sunday-crew" planId="thu-17" />);
-    fireEvent.click(await screen.findByRole('checkbox', { name: 'Next 7 days' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Save and ask again' }));
+    await tap(screen.findByRole('checkbox', { name: 'Next 7 days' }));
+    await tap(screen.findByRole('button', { name: 'Save and ask again' }));
 
     expect(
       await screen.findByText(
@@ -147,7 +144,7 @@ describe('editing the dates', () => {
       ),
     );
     show(<EditPlanFlow id="sunday-crew" planId="thu-17" />);
-    fireEvent.click(await screen.findByRole('checkbox', { name: 'Next 7 days' }));
+    await tap(screen.findByRole('checkbox', { name: 'Next 7 days' }));
     await screen.findByRole('button', { name: 'Save and ask again' });
     // The next preview does not come back until the test says so.
     let answer: (value: unknown) => void = () => undefined;
@@ -160,7 +157,7 @@ describe('editing the dates', () => {
     fireEvent.click(save);
     expect(saveRevision).toHaveBeenCalledTimes(1);
     answer({ ...ASKS_AGAIN, version: '1.6' });
-    fireEvent.click(await screen.findByRole('button', { name: 'Save and ask again' }));
+    await tap(screen.findByRole('button', { name: 'Save and ask again' }));
     await waitFor(() => expect(saveRevision).toHaveBeenCalledTimes(2));
     expect(saveRevision.mock.calls[1]?.[2]).toBe('1.6');
   });
@@ -168,11 +165,11 @@ describe('editing the dates', () => {
   it('retries a save whose answer was lost with the same key', async () => {
     saveRevision.mockRejectedValueOnce(new FunctionError(undefined, 'no answer'));
     show(<EditPlanFlow id="sunday-crew" planId="thu-17" />);
-    fireEvent.click(await screen.findByRole('checkbox', { name: 'Next 7 days' }));
+    await tap(screen.findByRole('checkbox', { name: 'Next 7 days' }));
     const save = await screen.findByRole('button', { name: 'Save and ask again' });
-    fireEvent.click(save);
+    await tap(save);
     expect(await screen.findByText(/^Something went wrong/)).toBeTruthy();
-    fireEvent.click(save);
+    await tap(save);
     await waitFor(() => expect(saveRevision).toHaveBeenCalledTimes(2));
     expect(saveRevision.mock.calls[1]?.[3]).toBe(saveRevision.mock.calls[0]?.[3]);
   });
@@ -191,7 +188,7 @@ describe('editing the dates', () => {
     // The plan asks about Mon 14 to Sun 20, so Wednesday is picked.
     const wednesday = await screen.findByRole('button', { name: /16.*, picked$/ });
     expect(wednesday).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(wednesday);
+    await tap(wednesday);
     expect(screen.getByRole('button', { name: /16/ })).toHaveAttribute('aria-pressed', 'false');
     fireEvent.click(screen.getByRole('button', { name: 'Use these dates' }));
 
@@ -227,7 +224,7 @@ describe('editing the dates', () => {
   it('gives back exactly the days Start over cleared, with Undo', async () => {
     show(<EditPlanFlow id="sunday-crew" planId="thu-17" />);
     fireEvent.click((await screen.findAllByRole('checkbox', { name: 'Custom' }))[0]!);
-    fireEvent.click(await screen.findByRole('button', { name: /16.*, picked$/ }));
+    await tap(screen.findByRole('button', { name: /16.*, picked$/ }));
     const summary = screen.getByText(/, /, { selector: '[aria-live]' }).textContent;
 
     fireEvent.click(screen.getByRole('button', { name: 'Start over' }));
@@ -255,7 +252,7 @@ describe('editing the dates', () => {
     });
     saveRevision.mockResolvedValue({ ...ASKS_AGAIN, bumps_revision: false, revision: 1 });
     show(<EditPlanFlow id="sunday-crew" planId="thu-17" />);
-    fireEvent.click(await screen.findByRole('button', { name: 'One more person' }));
+    await tap(screen.findByRole('button', { name: 'One more person' }));
 
     expect(
       await screen.findByText(
@@ -357,7 +354,7 @@ describe('a failed refetch while editing', () => {
         <EditPlanFlow id="sunday-crew" planId="thu-17" />
       </QueryClientProvider>,
     );
-    fireEvent.click(await screen.findByRole('checkbox', { name: 'Next 7 days' }));
+    await tap(screen.findByRole('checkbox', { name: 'Next 7 days' }));
     await screen.findByRole('button', { name: 'Save and ask again' });
     planDetails.mockRejectedValue(new Error('offline'));
     await client.invalidateQueries({ queryKey: ['plan-details'] });
@@ -382,7 +379,7 @@ describe('who has to be there', () => {
     });
     show(<EditPlanFlow id="sunday-crew" planId="thu-17" />);
     fireEvent.click((await screen.findAllByRole('button', { name: 'Change' }))[0]!);
-    fireEvent.click(await screen.findByRole('checkbox', { name: 'Lee (left the circle)' }));
+    await tap(screen.findByRole('checkbox', { name: 'Lee (left the circle)' }));
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     await waitFor(() =>
       expect(previewRevision.mock.calls.at(-1)?.[1]).toEqual({ requiredMemberIds: ['maya'] }),

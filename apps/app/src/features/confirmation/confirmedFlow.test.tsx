@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as Confirmation from '../../data/confirmation';
+import { tap } from '../../test/tap';
 
 /**
  * The confirmed screens (S1-28): who gets which, what the organiser shares,
@@ -152,7 +153,7 @@ describe('the organiser', () => {
     // Three quiet actions where there were two (ADR 0051): the sibling edit, and
     // "Change the time" renamed for what it does.
     expect(screen.queryByRole('button', { name: 'Change the time' })).toBeNull();
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit this plan' }));
+    await tap(screen.findByRole('button', { name: 'Edit this plan' }));
     expect(push).toHaveBeenCalledWith({
       pathname: '/circles/[id]/plan/[planId]/edit-locked',
       params: { id: 'sunday-crew', planId: 'thu-17' },
@@ -219,7 +220,7 @@ describe('a member', () => {
 
   it("says they can't make it with a write to their own row, and records only which way", async () => {
     show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('button', { name: "I can't make it after all" }));
+    await tap(screen.findByRole('button', { name: "I can't make it after all" }));
     await waitFor(() =>
       expect(setAttendance).toHaveBeenCalledWith('confirmation-1', 'nina', 'cant'),
     );
@@ -247,7 +248,7 @@ describe('a member', () => {
     const { AttendanceError } = await import('../../data/confirmation');
     setAttendance.mockRejectedValue(new AttendanceError('refused'));
     show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('button', { name: "I can't make it after all" }));
+    await tap(screen.findByRole('button', { name: "I can't make it after all" }));
     expect(await screen.findByText(/can't be changed now/)).toBeTruthy();
     expect(track).not.toHaveBeenCalledWith('attendance_updated', expect.anything());
   });
@@ -274,7 +275,7 @@ describe('the calendar sheet', () => {
 
   it('offers the device calendar and not Google, and downloads the file', async () => {
     show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Add to calendar' }));
+    await tap(screen.findByRole('button', { name: 'Add to calendar' }));
     expect(track).toHaveBeenCalledWith('calendar_add_opened', { ...IDS, surface: 'web' });
     expect(
       screen.getByText("Nothing is added to anyone's calendar without their tap."),
@@ -304,7 +305,7 @@ describe('the calendar sheet', () => {
     let arrive: (ics: string) => void = () => undefined;
     calendarFile.mockReturnValue(new Promise<string>((resolve) => (arrive = resolve)));
     show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Add to calendar' }));
+    await tap(screen.findByRole('button', { name: 'Add to calendar' }));
 
     expect(row().getAttribute('aria-busy')).toBe('true');
     expect(row().getAttribute('aria-label')).toBe('Apple or device calendar. Getting it ready…');
@@ -345,7 +346,7 @@ describe('the calendar sheet', () => {
     const retry = screen.getByRole('button', { name: 'Try again' });
     expect(calendarFile).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(retry);
+    await tap(retry);
     await waitFor(() => expect(calendarFile).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(row().getAttribute('aria-busy')).toBe('false'));
     expect(screen.queryByText("We couldn't get it.")).toBeNull();
@@ -465,7 +466,7 @@ describe('the calendar sheet', () => {
       calendarLink.mockRejectedValueOnce(new Error('boom'));
       calendarLink.mockResolvedValue(LINK);
       show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} calendar />);
-      fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+      await tap(screen.findByRole('button', { name: 'Try again' }));
       await waitFor(() => expect(calendarLink).toHaveBeenCalledTimes(2));
       expect(await screen.findByText('Downloads an event file')).toBeTruthy();
     });
