@@ -20,11 +20,8 @@ for (const path of ['/', '/circles', '/sign-in']) {
     page,
   }) => {
     await page.goto(path);
-    const painted = await page.evaluate(() => ({
-      html: getComputedStyle(document.documentElement).backgroundColor,
-      body: getComputedStyle(document.body).backgroundColor,
-    }));
-    expect(painted).toEqual({ html: rgb(color.ground), body: rgb(color.ground) });
+    await expect(page.locator('html')).toHaveCSS('background-color', rgb(color.ground));
+    await expect(page.locator('body')).toHaveCSS('background-color', rgb(color.ground));
     await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', color.ground);
   });
 }
