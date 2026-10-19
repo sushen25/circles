@@ -780,6 +780,59 @@ test('mutation: another workflow may not have a job called check', () => {
   assert.match(r.output, /only check\.yml may have one/);
 });
 
+test('mutation: the preview clean-up cannot be dropped, widened or unguarded', () => {
+  const cleanup = '.github/workflows/preview-cleanup.yml';
+  const guard = 'github.event.pull_request.head.repo.full_name == github.repository';
+  for (const [file, edit, message] of [
+    [cleanup, (t) => t.replace('types: [closed]', 'types: [closed, opened]'), /\[closed\]` only/],
+    [
+      cleanup,
+      (t) => t.replace('    types: [closed]', "    types: [closed]\n    paths-ignore: ['**.md']"),
+      /path filter/,
+    ],
+    [cleanup, (t) => t.replace('pull_request_target:', 'pull_request:'), /pull_request_target/],
+    [cleanup, (t) => t.replaceAll('deploy:alias:delete', 'deploy:alias:list'), /no job runs/],
+    [cleanup, (t) => t.replace(`if: ${guard}`, 'if: true'), /no fork guard/],
+    [
+      cleanup,
+      (t) => t.replaceAll('EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}', 'EXPO_TOKEN: x'),
+      /EXPO_TOKEN/,
+    ],
+    [
+      cleanup,
+      (t) => t.replace('    permissions:\n      contents: read\n', ''),
+      /its own permissions/,
+    ],
+    [
+      cleanup,
+      (t) =>
+        t.replace(
+          '    permissions:\n      contents: read\n',
+          '    permissions:\n      contents: write\n',
+        ),
+      /its own permissions/,
+    ],
+    [
+      cleanup,
+      (t) =>
+        t.replace(
+          '          ref: ${{ github.event.repository.default_branch }}\n',
+          '          ref: x\n',
+        ),
+      /default branch/,
+    ],
+    [
+      '.github/workflows/preview.yml',
+      (t) => t.replace('  pull_request:\n', '  pull_request:\n    types: [opened, closed]\n'),
+      /clean-up is preview-cleanup/,
+    ],
+  ]) {
+    const r = checkWorkflowsOn(null, file, edit);
+    assert.equal(r.status, 1, r.output);
+    assert.match(r.output, message);
+  }
+});
+
 test('mutation: the live shards cover the whole suite', () => {
   let r = checkWorkflowsOn((t) => t.replace("shard: ['1/2', '2/2']", "shard: ['1/2']"));
   assert.equal(r.status, 1);

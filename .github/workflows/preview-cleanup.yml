@@ -1,0 +1,100 @@
+# Deletes a PR's preview alias when the PR closes, merged or not (SUS-232).
+#
+# `preview` makes the EAS Hosting alias `pr-<number>` for every PR and the
+# account allows 200, after which every new preview fails at "Assigning alias".
+#
+# This is its own workflow, not a job in preview.yml, for two reasons. The
+# `paths-ignore` there would skip the close of a PR that deployed code and later
+# reverted to Markdown only, leaving its alias behind. And it checks out the
+# default branch, not the PR: a PR that was closed because it no longer builds
+# must still have its alias deleted.
+name: preview-cleanup
+
+on:
+  # `pull_request_target`, not `pull_request`: GitHub does not start
+  # `pull_request` runs for a PR with merge conflicts, so a conflicted PR closed
+  # unmerged would keep its alias. This is safe because the job runs the default
+  # branch's code, never the PR's: it checks out `default_branch`, and the fork
+  # guard keeps fork PRs out of the secret. Keep it that way.
+  pull_request_target:
+    types: [closed]
+
+# One run per PR, shared with `preview`: a close cancels a deploy still in
+# flight, so it cannot re-create the alias just after it is deleted.
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    name: cleanup
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Same guard as `preview`: forks never had an alias or the token.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    # Checkout is all this job reads; it writes nothing to the repository or PR.
+    permissions:
+      contents: read
+
+    steps:
+      - name: Is Expo configured
+        id: config
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -n "$EXPO_TOKEN" ]; then echo "ready=true" >> "$GITHUB_OUTPUT";
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "No EXPO_TOKEN — nothing to clean up; see docs/runbooks/environments.md." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # The default branch, which builds, not the PR's code (see the top).
+      - uses: actions/checkout@v4
+        if: steps.config.outputs.ready == 'true'
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: pnpm/action-setup@v4
+        if: steps.config.outputs.ready == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.config.outputs.ready == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.config.outputs.ready == 'true'
+
+      # eas reads app.config.ts for the project id, and that imports
+      # @circles/config, which resolves to dist/ (see `preview`).
+      - name: Build the workspace packages
+        if: steps.config.outputs.ready == 'true'
+        run: pnpm run build
+
+      - name: Delete the PR's alias
+        if: steps.config.outputs.ready == 'true'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # With no alias name this command deletes the PRODUCTION alias, so an
+          # empty or odd number must stop here, not reach it.
+          case "$PR_NUMBER" in
+            ''|*[!0-9]*) echo "Not a PR number: '$PR_NUMBER'" >&2; exit 1 ;;
+          esac
+          # An alias that is already gone (the PR never deployed, or it was
+          # cleared by hand) is the state we want, not a failure. Any other
+          # error still fails the job. eas-cli says, for a missing alias:
+          # "No hosting deployment alias with the name 'pr-1' exists."
+          if pnpm --filter app exec eas deploy:alias:delete "pr-$PR_NUMBER" --non-interactive > eas-alias-delete.log 2>&1; then
+            cat eas-alias-delete.log
+          else
+            status=$?
+            cat eas-alias-delete.log
+            if grep -qiE 'no hosting deployment alias|not found|does not exist|no such|no alias' eas-alias-delete.log; then
+              echo "Alias pr-$PR_NUMBER is already gone." >> "$GITHUB_STEP_SUMMARY"
+            else
+              exit "$status"
+            fi
+          fi
