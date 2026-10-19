@@ -1060,15 +1060,17 @@ describe('what the others have said (SUS-129)', () => {
   it('shows the counts it reads, in words, and sends exactly the answer it would without them', async () => {
     othersSaid.mockResolvedValue(othersPartial);
     open();
+    // The counts first: while the read is out the screen holds the longer line
+    // as invisible room (SUS-136), so the line alone does not say they are in.
     expect(
-      await screen.findByText(
+      await screen.findByRole('button', { name: /^Thursday\D*17.*, 4 others could make it$/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
         "Tap every evening you'd be up for, or drag across them. The number is how many people can make it, you included once you tap.",
       ),
     ).toBeInTheDocument();
     expect(othersSaid).toHaveBeenCalledWith(PLAN.id);
-    expect(
-      screen.getByRole('button', { name: /^Thursday\D*17.*, 4 others could make it$/ }),
-    ).toBeInTheDocument();
 
     // The tile counts the reader once it is tapped, and says so in words.
     const before = dayButton('Monday', 14).textContent;
