@@ -508,18 +508,17 @@ select is(
 
 -- On Sunday Crew, which is an external-cohort circle: an event with no circle
 -- and no person to place it by is in neither cohort (410_circle_cohort.sql).
+-- The sessions missing are client events (a denominator no table can hold); the
+-- returns are the audit rows a completed reattachment writes (SUS-213).
 insert into analytics.events (event_id, event_name, schema_version, circle_id, properties, occurred_at)
-select gen_random_uuid(), n, 1, (select circle_id from t), case when n = 'member_reattached' then '{"source": "list"}'::jsonb else '{}' end,
-       pg_temp.at(3, '10:00')
-from (values
-  ('session_missing_on_return'), ('session_missing_on_return'), ('session_missing_on_return'),
-  ('session_missing_on_return'), ('session_missing_on_return'),
-  ('member_reattached'), ('member_reattached'), ('member_reattached'), ('member_reattached')
-) as v (n);
--- Somebody arriving from an emailed link is a different population, in neither half.
-insert into analytics.events (event_id, event_name, schema_version, circle_id, properties, occurred_at)
-select gen_random_uuid(), 'member_reattached', 1, (select circle_id from t), '{"source": "email"}', pg_temp.at(3, '10:00')
+select gen_random_uuid(), 'session_missing_on_return', 1, (select circle_id from t), '{}', pg_temp.at(3, '10:00')
 from generate_series(1, 5);
+-- Somebody arriving from an emailed link is a different population, in neither half.
+insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata, occurred_at)
+select '00000000-0000-0000-0000-0000000f0002', 'circles.member_reattached', 'circle', (select circle_id from t),
+  jsonb_build_object('from_user_id', gen_random_uuid(), 'to_user_id', '00000000-0000-0000-0000-0000000f0002', 'source', src),
+  pg_temp.at(3, '10:00')
+from (values ('list'), ('list'), ('list'), ('list'), ('email'), ('email'), ('email'), ('email'), ('email')) as v (src);
 select is(
   (select array[missing, reattached] from analytics.gate_reattach where day = pg_temp.d(3)),
   array[5::bigint, 4::bigint],
@@ -561,16 +560,19 @@ select is(
 
 insert into analytics.events (event_id, event_name, schema_version, user_id, properties, occurred_at)
 values
-  -- Verified by the emailed link.
+  -- Verified by the emailed link (the contact below).
   (gen_random_uuid(), 'email_submitted', 1, '00000000-0000-0000-0000-0000000f0002', '{"save_place": false}', pg_temp.at(4, '10:00')),
-  (gen_random_uuid(), 'email_verified', 1, '00000000-0000-0000-0000-0000000f0002', '{}', pg_temp.at(4, '10:05')),
-  -- Verified by typing the code back, which is how the default route says so.
+  -- Verified by typing the code back, which is how the default route says so (the claim below).
   (gen_random_uuid(), 'email_submitted', 1, '00000000-0000-0000-0000-0000000f0003', '{"save_place": true}', pg_temp.at(4, '10:00')),
-  (gen_random_uuid(), 'account_claimed', 1, '00000000-0000-0000-0000-0000000f0003', '{"moment": "after_answer"}', pg_temp.at(4, '10:06')),
   -- Never verified.
   (gen_random_uuid(), 'email_submitted', 1, '00000000-0000-0000-0000-0000000f0004', '{"save_place": true}', pg_temp.at(4, '10:00')),
   -- A saved member's one button: no route, nothing to verify, not a guest.
   (gen_random_uuid(), 'email_submitted', 1, '00000000-0000-0000-0000-0000000f0001', '{}', pg_temp.at(4, '10:00'));
+insert into private.email_contacts (user_id, email_normalized, status, verified_at)
+values ('00000000-0000-0000-0000-0000000f0002', 'nina-gate@example.com', 'verified', pg_temp.at(4, '10:05'));
+insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata, occurred_at)
+values ('00000000-0000-0000-0000-0000000f0003', 'growth.account_claimed', 'account', '00000000-0000-0000-0000-0000000f0003',
+        '{"moment": "after_answer", "merged_memberships": 0}', pg_temp.at(4, '10:06'));
 select is(
   -- Summed over the cohorts: Sam is in no circle, so his submission is in none
   -- (410_circle_cohort.sql has the split).

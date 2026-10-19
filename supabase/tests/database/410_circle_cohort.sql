@@ -214,13 +214,15 @@ from public.plans p where p.short_code = 'fapckz';
 -- Events: two with a circle on them (one of each cohort), and two with only a
 -- user: Nina is in a founder circle, Tom is in none.
 insert into analytics.events (event_id, event_name, schema_version, circle_id, properties, occurred_at)
-select gen_random_uuid(), n, 1, c, case when n = 'member_reattached' then '{"source": "list"}'::jsonb else '{}' end,
-       pg_temp.at(1, '10:00')
-from cs, (values
-  ('session_missing_on_return', 'f'), ('session_missing_on_return', 'f'), ('member_reattached', 'f'),
-  ('session_missing_on_return', 'r'), ('session_missing_on_return', 'r'), ('session_missing_on_return', 'r'),
-  ('member_reattached', 'r'), ('member_reattached', 'r')
-) as v (n, which)
+select gen_random_uuid(), 'session_missing_on_return', 1, c, '{}', pg_temp.at(1, '10:00')
+from cs, (values ('f'), ('f'), ('r'), ('r'), ('r')) as v (which)
+cross join lateral (select case v.which when 'f' then cs.f else cs.r end as c) x;
+-- The returns are the audit rows completed reattachments write (SUS-213).
+insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata, occurred_at)
+select '00000000-0000-0000-0000-0000000c0003', 'circles.member_reattached', 'circle', c,
+  jsonb_build_object('from_user_id', gen_random_uuid(), 'to_user_id', '00000000-0000-0000-0000-0000000c0003', 'source', 'list'),
+  pg_temp.at(1, '10:00')
+from cs, (values ('f'), ('r'), ('r')) as v (which)
 cross join lateral (select case v.which when 'f' then cs.f else cs.r end as c) x;
 insert into analytics.events (event_id, event_name, schema_version, user_id, properties, occurred_at)
 values
