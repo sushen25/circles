@@ -1,7 +1,7 @@
 # Campaign links
 
 How to tag a link you post, and how to read what came of it. The reasoning is in
-[ADR 0083](../decisions/0083-a-campaign-tag-labels-a-circles-cohort-row-never-a-person.md);
+[ADR 0084](../decisions/0084-a-campaign-tag-labels-a-circles-cohort-row-never-a-person.md);
 the screen is the founder analytics (`/founder/analytics`).
 
 ## Tag a link

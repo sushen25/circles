@@ -1,11 +1,11 @@
 ---
-adr: 83
+adr: 84
 title: "A campaign tag labels a circle's cohort row, never a person"
 status: accepted
 date: 2026-10-20
 builds_on: [58, 61]
 ---
-# ADR 0083: A campaign tag labels a circle's cohort row, never a person
+# ADR 0084: A campaign tag labels a circle's cohort row, never a person
 
 _Status: accepted · 20 October 2026 · builds on [ADR 0058](0058-every-circle-carries-a-cohort-only-the-founder-can-see.md), whose founder-only row it adds a label to, and on [ADR 0061](0061-the-chasing-survey-never-holds-lock-it-in.md), whose "an optional question never gates anything" it applies to the source question_
 
