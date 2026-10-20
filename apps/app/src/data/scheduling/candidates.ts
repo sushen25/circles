@@ -94,6 +94,8 @@ export type PlanCandidates = {
   organiserUserId: string | null;
   /** When the plan was made: the clock of the "nothing in yet" question (SUS-240). */
   createdAt: string;
+  /** Somebody other than the viewer has answered on any revision (an edit clears the current ones). */
+  othersAnsweredEver: boolean;
   /** The circle's first named plan, which the stalled question is asked of (SUS-240). */
   isFirstPlan: boolean;
   me: string | undefined;
@@ -167,47 +169,50 @@ export async function planCandidates(
   const { data: session } = await client.auth.getSession();
   const me = session.session?.user.id;
 
-  const [circle, roster, participants, sets, summaries, open, earlier] = await Promise.all([
-    client.from('circles').select('name, owner_user_id').eq('id', plan.circle_id).maybeSingle(),
-    // No status filter: a required member who has left the circle is still
-    // named by a near-miss, and a name for their id has to come from somewhere.
-    planRoster(client, plan.id),
-    client
-      .from('plan_participants')
-      .select('user_id, joined_at')
-      .eq('plan_id', plan.id)
-      .eq('revision', plan.revision)
-      .order('joined_at', { ascending: true })
-      .order('user_id', { ascending: true }),
-    client
-      .from('candidate_sets')
-      .select('id, input_version, eligible_count, responded_count, active_member_count')
-      .eq('plan_id', plan.id)
-      .eq('revision', plan.revision)
-      .order('generated_at', { ascending: false })
-      .limit(1),
-    client
-      .from('response_summaries')
-      .select('user_id')
-      .eq('plan_id', plan.id)
-      .eq('revision', plan.revision),
-    // `'now'` is Postgres's own input for the current time, so the deadline is
-    // compared on the database's clock rather than this phone's.
-    client
-      .from('plans')
-      .select('id')
-      .eq('id', plan.id)
-      .gt('response_deadline', 'now')
-      .maybeSingle(),
-    // Is there a named plan in this circle that was made before this one? Only
-    // the circle's first is asked "what's happened?" (SUS-240).
-    client
-      .from('plans')
-      .select('id', { count: 'exact', head: true })
-      .eq('circle_id', plan.circle_id)
-      .eq('mode', 'named')
-      .lt('created_at', plan.created_at),
-  ]);
+  const [circle, roster, participants, sets, summaries, open, earlier, everAnswered] =
+    await Promise.all([
+      client.from('circles').select('name, owner_user_id').eq('id', plan.circle_id).maybeSingle(),
+      // No status filter: a required member who has left the circle is still
+      // named by a near-miss, and a name for their id has to come from somewhere.
+      planRoster(client, plan.id),
+      client
+        .from('plan_participants')
+        .select('user_id, joined_at')
+        .eq('plan_id', plan.id)
+        .eq('revision', plan.revision)
+        .order('joined_at', { ascending: true })
+        .order('user_id', { ascending: true }),
+      client
+        .from('candidate_sets')
+        .select('id, input_version, eligible_count, responded_count, active_member_count')
+        .eq('plan_id', plan.id)
+        .eq('revision', plan.revision)
+        .order('generated_at', { ascending: false })
+        .limit(1),
+      client
+        .from('response_summaries')
+        .select('user_id')
+        .eq('plan_id', plan.id)
+        .eq('revision', plan.revision),
+      // `'now'` is Postgres's own input for the current time, so the deadline is
+      // compared on the database's clock rather than this phone's.
+      client
+        .from('plans')
+        .select('id')
+        .eq('id', plan.id)
+        .gt('response_deadline', 'now')
+        .maybeSingle(),
+      // Is there a named plan in this circle that was made before this one? Only
+      // the circle's first is asked "what's happened?" (SUS-240).
+      client
+        .from('plans')
+        .select('id', { count: 'exact', head: true })
+        .eq('circle_id', plan.circle_id)
+        .eq('mode', 'named')
+        .lt('created_at', plan.created_at),
+      // Any revision: an edit clears the current answers, not the fact somebody came.
+      client.from('response_summaries').select('user_id').eq('plan_id', plan.id),
+    ]);
   if (
     circle.error !== null ||
     roster.error !== null ||
@@ -215,7 +220,8 @@ export async function planCandidates(
     sets.error !== null ||
     summaries.error !== null ||
     open.error !== null ||
-    earlier.error !== null
+    earlier.error !== null ||
+    everAnswered.error !== null
   ) {
     throw new Error(FAILED);
   }
@@ -297,6 +303,7 @@ export async function planCandidates(
     extendedThisRevision: plan.deadline_extended_on_revision === plan.revision,
     organiserUserId: plan.organiser_user_id,
     createdAt: plan.created_at,
+    othersAnsweredEver: everAnswered.data.some((r) => r.user_id !== null && r.user_id !== me),
     isFirstPlan: plan.mode === 'named' && (earlier.count ?? 0) === 0,
     me,
     isOrganiser,

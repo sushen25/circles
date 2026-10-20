@@ -1,6 +1,8 @@
 import type { CircleId, FirstPlanStalledAnswer, PlanId } from '@circles/contracts';
 import { firstPlanQuiet, fromISO, type Instant } from '@circles/domain';
 
+import { useRef } from 'react';
+
 import { track } from '../../analytics/track';
 import type { PlanCandidates } from '../../data/scheduling';
 import { useNudge } from '../growth/useNudge';
@@ -31,10 +33,23 @@ export function stalledDue(data: PlanCandidates | undefined, now: Instant): bool
   return firstPlanQuiet({
     createdAt: fromISO(data.createdAt),
     now,
-    othersAnswered: Math.max(0, answered - mine),
+    othersAnswered: data.othersAnsweredEver ? 1 : Math.max(0, answered - mine),
     isFirstPlan: data.isFirstPlan,
     stillAsking: data.state === 'collecting' || data.state === 'ready',
   });
+}
+
+/**
+ * Which mount of the screen owns a plan's question once it has been shown.
+ * `useNudge` lets an unanswered prompt come back on a later mount (right for the
+ * prompts that want an answer); this one is shown once, so a screen mounted
+ * again in the same session, having left without a tap, is not shown it.
+ */
+const owner = new Map<string, symbol>();
+
+/** For tests: a new session. */
+export function forgetStalledQuestions(): void {
+  owner.clear();
 }
 
 export function useStalledQuestion(
@@ -43,10 +58,14 @@ export function useStalledQuestion(
   now: Instant,
 ): StalledQuestion | undefined {
   const due = stalledDue(data, now);
+  const mount = useRef(Symbol('stalled'));
   const nudge = useNudge('first_plan_stalled', { planId: data?.planId, enabled: due });
   if (data === undefined || !due || nudge.showing !== 'show' || nudge.answered !== undefined) {
     return undefined;
   }
+  const holder = owner.get(data.planId);
+  if (holder === undefined) owner.set(data.planId, mount.current);
+  else if (holder !== mount.current) return undefined;
   return {
     onChoose: (answer) => {
       track('first_plan_stalled', {

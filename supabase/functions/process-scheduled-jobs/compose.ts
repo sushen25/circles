@@ -211,7 +211,12 @@ export async function inputFor(
         return { skip: 'not_asking' };
       }
       if (job.user_id !== context.organiserUserId) return { skip: 'not_the_organiser' };
-      if (context.eligibility.responses.some((r) => r.userId !== context.organiserUserId)) {
+      // Any revision: an answer followed by an edit is still an answer.
+      const answered = [
+        ...context.eligibility.responses.map((r) => r.userId as string),
+        ...(context.eligibility.answeredEarlierIds ?? []),
+      ];
+      if (answered.some((id) => id !== context.organiserUserId)) {
         return { skip: 'answered_since' };
       }
       const stopToken = await stopTokenFor('organiser');

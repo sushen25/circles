@@ -39,6 +39,7 @@ vi.mock('../../platform/share', () => ({ shareMessage: vi.fn(), copyText: vi.fn(
 
 const { CandidatesFlow } = await import('./CandidatesFlow');
 const { forgetSessionNudges } = await import('../growth/useNudge');
+const { forgetStalledQuestions } = await import('./useStalledQuestion');
 const fixture = await import('./fixtures');
 
 const HOUR = 3_600_000;
@@ -68,6 +69,7 @@ function waitingFor(age: number, overrides: object = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   forgetSessionNudges();
+  forgetStalledQuestions();
   askToShow.mockResolvedValue({ suppressed: false });
   recordAnswer.mockResolvedValue(undefined);
 });
@@ -129,6 +131,33 @@ describe('the organiser of a first plan nobody has answered', () => {
 
     expect(await screen.findByText('Share the link again')).toBeTruthy();
     await waitFor(() => expect(askToShow).toHaveBeenCalled());
+    expect(screen.queryByText(QUESTION)).toBeNull();
+  });
+
+  it('is not asked once somebody has answered, even if an edit cleared their answer', async () => {
+    planCandidates.mockResolvedValue(waitingFor(60, { othersAnsweredEver: true }));
+    show();
+
+    expect(await screen.findByText('Share the link again')).toBeTruthy();
+    expect(screen.queryByText(QUESTION)).toBeNull();
+    expect(askToShow).not.toHaveBeenCalled();
+  });
+
+  it('is not shown again to a screen mounted afresh after leaving without a tap', async () => {
+    planCandidates.mockResolvedValue(waitingFor(60));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const flow = (
+      <QueryClientProvider client={client}>
+        <CandidatesFlow id="sunday-crew" planId="thu-17" which="candidates" />
+      </QueryClientProvider>
+    );
+    const first = render(flow);
+    expect(await screen.findByText(QUESTION)).toBeTruthy();
+    first.unmount();
+
+    render(flow);
+    expect(await screen.findByText('Share the link again')).toBeTruthy();
+    await new Promise((resolve) => setTimeout(resolve, 30));
     expect(screen.queryByText(QUESTION)).toBeNull();
   });
 

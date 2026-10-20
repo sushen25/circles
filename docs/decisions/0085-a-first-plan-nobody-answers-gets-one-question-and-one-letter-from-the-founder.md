@@ -122,3 +122,6 @@ to any of that is a new decision.
   DKIM. The reply goes to the support address.
 - A circle whose organiser has no confirmed address, or has organiser letters
   off at 48 hours, never gets the letter.
+- "Once per plan" for the question is per person (the `nudge_states` row is the
+  viewer's), so a plan handed to a new organiser can ask them once as well. The
+  letter has no such gap: its cap is the circle's.
