@@ -55,6 +55,29 @@ export const en = {
     meetup_updates: 'Meetup updates',
     sign_out: 'Sign out',
     delete_my_account_and_data: 'Delete my account and data',
+    export_my_data: 'Download my data',
+    export_detail: 'Everything we hold that is yours, as a file',
+    exporting: 'Getting your file…',
+    exported: 'Saved. You can download your data once a day.',
+    export_unsupported:
+      "Downloads aren't in the app yet. Write to {support} and we'll send you the file.",
+    export_too_soon: "You've already downloaded your data today. Try again tomorrow.",
+    couldnt_export: "We couldn't get your data. Try again.",
+    delete_title: 'Delete your account?',
+    delete_body:
+      "You'll be signed out everywhere and taken out of every circle straight away. Your friends see you as Former member, your answers are deleted, and the email we send about plans stops. Thirty days from now we delete the rest and nothing identifies you.",
+    delete_owner_heading: 'Circles you own',
+    delete_hands_on: '{circle} goes to {name}, who has been in it longest.',
+    delete_archives:
+      '{circle} has nobody to hand it to, so it is archived now and deleted with your account.',
+    delete_continue: 'Continue',
+    delete_sure_title: "This can't be undone",
+    delete_sure_body:
+      "You won't be able to sign in again with this account. Download your data first if you want a copy.",
+    delete_now: 'Delete my account',
+    deleting: 'Deleting…',
+    couldnt_delete: "We couldn't delete your account, and nothing has changed. Try again.",
+    delete_back: 'Back',
     notifications: 'Notifications',
     notifications_detail: 'What we send you, circle by circle',
     row_label: '{title}. {detail}',
@@ -1740,9 +1763,9 @@ export const en = {
     privacy_calendar_heading: 'Your calendar stays yours',
     privacy_calendar_body:
       'The group sees who can make each time we suggest. Nobody sees your calendar, and nobody is shown your whole availability with your name on it. Calendar events on your phone never leave it.',
-    privacy_leave_heading: 'Removing your details',
+    privacy_leave_heading: 'Leaving, exporting and deleting',
     privacy_leave_body:
-      'A circle owner can remove a member. To have your details removed, write to {support}. There is no delete button in the app yet.',
+      'You can leave a circle, download your data, or delete your account from Account. Deleting signs you out everywhere and takes you out of every circle at once; thirty days later we delete your profile and the private details we hold, and nothing identifies you. Write to {support} if you would rather we did it.',
     questions: 'Questions: {support}',
   },
   linkInvalid: {
@@ -2220,7 +2243,7 @@ export const en = {
     anyone_can_ask_for_plan_updates:
       'Anyone can ask for updates about a plan, and each of those emails has a stop link. If you sign in to organise plans or start a quiet ask, you also get letters about those, and each has a stop link that works without signing in; you can turn them back on in notification settings. If you have a saved place in a circle that has a catch-up rhythm, you may get an occasional nudge to plan the next one, and it has a stop link. We never sell addresses, and other companies deliver the email for us.',
     to_have_your_details_removed:
-      'To have your details removed, write to {support}. There is no delete button in the app yet.',
+      'You can leave a circle, download your data or delete your account any time from Account. Write to {support} if you would rather we did it.',
   },
   pushAsk: {
     want_to_know_when_sunday_crew_has: 'Want to know when Sunday Crew has options?',
@@ -2511,6 +2534,9 @@ export const en = {
     sam: 'Sam',
     joined_5_sep: 'Place saved · joined 5 Sep',
     archive_this_circle: 'Archive this circle',
+    leave_this_circle: 'Leave this circle',
+    owner_cant_leave:
+      "You own this circle, so you can't leave it. To step away, delete your account from Account: it goes to the member who has been in it longest.",
     link_ending: '{domain}/join#…{tail}',
     link_loading: 'Getting the link',
     link_couldnt_load: "We couldn't get the link just now.",
@@ -2547,6 +2573,11 @@ export const en = {
     remove_body:
       '{name} stops seeing {circle} straight away. Their times for plans still asking are deleted.',
     couldnt_remove: "{name} wasn't removed. Try again.",
+    leave_title: 'Leave {circle}?',
+    leave_body:
+      "You'll lose access straight away, and your answers to plans still asking are deleted. Everyone else stays. You can only come back with a new invite link.",
+    leave_confirm: 'Leave {circle}',
+    couldnt_leave: "That didn't work, and you're still in the circle. Try again.",
     archive_title: 'Archive {circle}?',
     archive_body:
       'It stops every prompt and moves to the bottom of your circles. Nothing is deleted, and you can bring it back.',

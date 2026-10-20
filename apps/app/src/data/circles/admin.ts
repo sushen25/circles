@@ -1,5 +1,6 @@
 import {
   GetInviteLinkResponse,
+  LeaveCircleResponse,
   RemoveMemberResponse,
   RenameInCircleResponse,
   RotateInviteResponse,
@@ -63,6 +64,15 @@ export async function removeMember(
     'remove-member',
     { idempotency_key: idempotencyKey, circle_id: circleId, user_id: userId },
     RemoveMemberResponse,
+  );
+}
+
+/** Leave a circle: the member's own removal (S4-05). Not the owner, who deletes their account. */
+export async function leaveCircle(circleId: string, idempotencyKey: IdempotencyKey): Promise<void> {
+  await invokeFunction(
+    'leave-circle',
+    { idempotency_key: idempotencyKey, circle_id: circleId },
+    LeaveCircleResponse,
   );
 }
 

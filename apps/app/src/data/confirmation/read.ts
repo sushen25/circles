@@ -54,7 +54,7 @@ export type ConfirmationRead = {
   /** Who could make it when it was locked in. Frozen; never a non-responder. */
   going: string[];
   revision: number;
-  confirmedBy: string;
+  confirmedBy: string | null;
   confirmedAt: string;
   /** The organiser's own time, not one of the options (ADR 0051). */
   ownTime: boolean;

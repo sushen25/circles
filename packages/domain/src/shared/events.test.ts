@@ -20,6 +20,7 @@ describe('domain events', () => {
       confirmation: 6,
       communication: 3,
       growth: 3,
+      identity: 1,
     });
     expect(new Set(DOMAIN_EVENT_NAMES).size).toBe(DOMAIN_EVENT_NAMES.length);
   });
@@ -28,7 +29,7 @@ describe('domain events', () => {
     for (const name of DOMAIN_EVENT_NAMES) {
       expect(name, name).toMatch(/^[a-z]+\.[a-z_]+$/);
       expect(contextOf(name), name).toMatch(
-        /^(circles|planning|availability|scheduling|confirmation|communication|growth)$/,
+        /^(circles|planning|availability|scheduling|confirmation|communication|growth|identity)$/,
       );
     }
   });
