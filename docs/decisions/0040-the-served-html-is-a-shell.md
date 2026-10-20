@@ -148,3 +148,12 @@ What this settles for each of the three:
   carries no script, so the Content-Security-Policy's one script hash stays the
   hydrate script's. This changes none of the decision above. `viewport-fit=cover`
   is not taken: `Sheet` does not pad for the bottom inset yet.
+
+- **The page runs under the toolbar (SUS-235, 20 October 2026).** Both documents
+  now ask for `viewport-fit=cover` (`app/+html.tsx` and the landing page), so the
+  ground the previous note painted runs edge to edge on an iPhone and the app
+  pads the safe area itself. `Screen` already did, and now pads left and right
+  too (landscape); `Sheet`, the one bottom-anchored surface and a `Modal`
+  outside `Screen`, adds the bottom inset to its own padding; the landing page
+  reads `env(safe-area-inset-*)` through four custom properties for its header,
+  its side margins and its close band. This changes none of the decision above.
