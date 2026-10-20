@@ -306,6 +306,9 @@ describe('sending a cadence nudge', () => {
     fetched = [];
     process.env.EMAIL_CAPTURE_URL = 'http://capture.test';
     process.env.EXPO_PUBLIC_APP_ORIGIN = 'https://app.test';
+    // The capture override only works on a local stack; say so rather than
+    // inherit whatever an earlier file in this process left (SUS-239).
+    process.env.CIRCLES_ENV = 'local';
     (globalThis as { fetch?: unknown }).fetch = (url: string, init?: { body?: string }) => {
       fetched.push({ url: String(url), body: String(init?.body ?? '') });
       return Promise.resolve(new Response(JSON.stringify({ ID: 'captured' })));
@@ -315,6 +318,7 @@ describe('sending a cadence nudge', () => {
   afterEach(() => {
     delete process.env.EMAIL_CAPTURE_URL;
     delete process.env.EXPO_PUBLIC_APP_ORIGIN;
+    delete process.env.CIRCLES_ENV;
     globalThis.fetch = realFetch;
   });
 

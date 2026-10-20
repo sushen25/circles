@@ -39,6 +39,9 @@ let lines: string[];
 beforeEach(() => {
   delete process.env['EMAIL_CAPTURE_URL'];
   delete process.env['RESEND_API_KEY'];
+  // Another file in the same process may have left these set (SUS-239).
+  delete process.env['CIRCLES_ENV'];
+  delete process.env['SUPABASE_URL'];
   lines = [];
   for (const level of ['log', 'warn', 'error'] as const) {
     vi.spyOn(console, level).mockImplementation((...args: unknown[]) => {
