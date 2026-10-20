@@ -1,13 +1,13 @@
 ---
 adr: 72
 title: "The analytics ingest records only what a caller can know"
-status: proposed
+status: accepted
 date: 2026-10-15
 builds_on: [58]
 ---
 # ADR 0072: The analytics ingest records only what a caller can know
 
-_Status: proposed · 15 October 2026 · builds on the first-party ingest of architecture §15 and on [ADR 0058](0058-every-circle-carries-a-cohort-only-the-founder-can-see.md), whose cohorts the gates are counted in_
+_Status: accepted · 15 October 2026 · builds on the first-party ingest of architecture §15 and on [ADR 0058](0058-every-circle-carries-a-cohort-only-the-founder-can-see.md), whose cohorts the gates are counted in_
 
 ## Context
 

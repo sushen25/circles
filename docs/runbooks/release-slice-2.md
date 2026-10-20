@@ -49,9 +49,9 @@ until these are Done:
   permanent once a link leaves the founder, so the domain moves before the
   first group is invited, not after.
 
-Also due before any real inbox gets mail: **SUS-81**, the emailed tokens in URL
-paths, which hosting logs keep. Slice 2 adds no new token, but it adds letters
-that carry the existing ones.
+The emailed tokens (SUS-81) already travel in the URL fragment, which hosting
+logs never see (ADR 0023). Slice 2 adds no new token, but it adds letters that
+carry the existing ones, so that matters here.
 
 ## What deploys
 
@@ -216,8 +216,12 @@ dispatcher.
 
 ## Decisions waiting on you before the cohort gate
 
-These ADRs are still **proposed**. Accept or reject each one before groups 2 and
-3 join, because the cohort will be living under them:
+ADRs 0034 to 0041 were **proposed** when this was written. Their code has since
+merged and other files cite them as fact, so they are now **accepted** (an ADR is
+accepted when its PR merges; [working process](../working-process.md)). 0042 is
+the one still open, and it is not on `main` yet. Reject or amend an accepted one
+only with a new ADR, before groups 2 and 3 join, because the cohort will be living
+under them:
 
 | ADR | Decision | From |
 |---|---|---|

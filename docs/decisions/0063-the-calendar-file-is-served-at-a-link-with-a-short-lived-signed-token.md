@@ -1,13 +1,13 @@
 ---
 adr: 63
 title: "The calendar file is served at a link with a short-lived signed token"
-status: proposed
+status: accepted
 date: 2026-10-11
 builds_on: [51]
 ---
 # ADR 0063: The calendar file is served at a link with a short-lived signed token
 
-_Status: proposed · 11 October 2026 · amends how `generate-ics` is authorised (architecture §9 and §14), and builds on [ADR 0051](0051-the-organiser-sets-the-final-plan.md), which made one calendar entry follow a move_
+_Status: accepted · 11 October 2026 · amends how `generate-ics` is authorised (architecture §9 and §14), and builds on [ADR 0051](0051-the-organiser-sets-the-final-plan.md), which made one calendar entry follow a move_
 
 ## Context
 

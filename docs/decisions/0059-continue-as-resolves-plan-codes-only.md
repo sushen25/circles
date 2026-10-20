@@ -1,13 +1,13 @@
 ---
 adr: 59
 title: "Continue-as resolves plan codes only, never a circle's own code"
-status: proposed
+status: accepted
 date: 2026-10-09
 amends: [49]
 ---
 # ADR 0059: Continue-as resolves plan codes only, never a circle's own code
 
-_Status: proposed · 9 October 2026 · amends [ADR 0049](0049-continue-as-resolves-a-code-only-while-it-is-live.md) decision 1 and its last consequence, and spec §5.1_
+_Status: accepted · 9 October 2026 · amends [ADR 0049](0049-continue-as-resolves-a-code-only-while-it-is-live.md) decision 1 and its last consequence, and spec §5.1_
 
 ## Context
 

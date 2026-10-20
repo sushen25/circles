@@ -1,12 +1,12 @@
 ---
 adr: 34
 title: "`ink-3` is dark enough to read"
-status: proposed
+status: accepted
 date: 2026-09-24
 ---
 # ADR 0034: `ink-3` is dark enough to read
 
-_Status: proposed · 24 September 2026_
+_Status: accepted · 24 September 2026_
 
 ## Context
 

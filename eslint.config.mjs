@@ -23,8 +23,8 @@ import tseslint from 'typescript-eslint';
  * learned which folder it pointed at. `scripts/eslint-boundaries.test.mjs`
  * lints one deliberate violation per rule and fails if any goes unreported.
  *
- * `apps/app` and `supabase/functions` elements were declared before those
- * folders existed so that their tickets inherited the rule rather than wrote it.
+ * `apps/app` and `supabase/functions` are elements too, so the rules above hold
+ * for them as they do for the packages.
  */
 const elements = [
   // Each element is a folder, matched from the repository root (`partialMatch:

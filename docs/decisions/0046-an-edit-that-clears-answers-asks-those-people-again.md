@@ -1,12 +1,12 @@
 ---
 adr: 46
 title: "An edit that clears answers asks those people again"
-status: proposed
+status: accepted
 date: 2026-10-01
 ---
 # ADR 0046: An edit that clears answers asks those people again
 
-_Status: proposed · 1 October 2026_
+_Status: accepted · 1 October 2026_
 
 ## Context
 

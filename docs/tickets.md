@@ -1,5 +1,7 @@
 # Circles MVP — ticket index
 
+**This index stops at SUS-77.** Linear is the index for everything after it; look a ticket up by its `SUS-N` there.
+
 Linear project **Circles MVP** (team Sushen). Ticket bodies cross-reference each other by S-number; this table maps S-numbers to Linear ids. Milestones are the delivery slices from [the spec](./mvp-product-spec.md) §15. Every ticket names the spec/architecture sections and the `docs/design/` artboards it implements.
 
 | S | Linear | Title |

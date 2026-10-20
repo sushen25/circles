@@ -1,6 +1,6 @@
 // How much of the database is actually exercised by the database tests.
 //
-// There are 47 functions in `public`, `planning`, `private` and `jobs`, and
+// There are well over a hundred functions in `public`, `planning`, `private` and `jobs` (one file each under `supabase/sql/functions`), and
 // since ADR 0015 each one's definition lives in a file you can read. What no
 // file said was whether anything *calls* them. `check_function_bodies` catches
 // a syntax error when a migration applies; a renamed column or a wrong cast

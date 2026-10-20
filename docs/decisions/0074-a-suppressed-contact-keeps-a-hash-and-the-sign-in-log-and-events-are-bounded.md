@@ -1,13 +1,13 @@
 ---
 adr: 74
 title: "A suppressed contact keeps a hash and not the address; the sign-in log is pruned; an event follows its user"
-status: proposed
+status: accepted
 date: 2026-10-15
 builds_on: [5, 14, 25, 57]
 ---
 # ADR 0074: A suppressed contact keeps a hash and not the address; the sign-in log is pruned; an event follows its user
 
-_Status: proposed · 15 October 2026 · builds on [ADR 0005](0005-willing-windows-retained-12-months.md), [ADR 0014](0014-retention-runs-in-the-database.md), [ADR 0025](0025-the-preferences-link-is-minted-with-each-email.md) and [ADR 0057](0057-who-started-a-plan-is-kept-as-long-as-the-plan.md)_
+_Status: accepted · 15 October 2026 · builds on [ADR 0005](0005-willing-windows-retained-12-months.md), [ADR 0014](0014-retention-runs-in-the-database.md), [ADR 0025](0025-the-preferences-link-is-minted-with-each-email.md) and [ADR 0057](0057-who-started-a-plan-is-kept-as-long-as-the-plan.md)_
 
 ## Context
 

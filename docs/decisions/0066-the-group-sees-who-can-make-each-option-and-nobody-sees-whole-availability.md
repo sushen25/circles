@@ -1,14 +1,14 @@
 ---
 adr: 66
 title: "The group sees who can make each option, and nobody sees anyone's whole availability"
-status: proposed
+status: accepted
 date: 2026-10-11
 amends: [45]
 builds_on: [45, 51]
 ---
 # ADR 0066: The group sees who can make each option, and nobody sees anyone's whole availability
 
-_Status: proposed · 11 October 2026 · amended 15 October 2026 (SUS-211: the editor's hours wait for two other answers; the day counts do not) · amends spec §5.6 and §8.2 in wording only, and [ADR 0045](0045-the-editor-shows-what-others-have-said-as-counts.md) on the hours at one answer; builds on [ADR 0045](0045-the-editor-shows-what-others-have-said-as-counts.md) and [ADR 0051](0051-the-organiser-sets-the-final-plan.md)_
+_Status: accepted · 11 October 2026 · amended 15 October 2026 (SUS-211: the editor's hours wait for two other answers; the day counts do not) · amends spec §5.6 and §8.2 in wording only, and [ADR 0045](0045-the-editor-shows-what-others-have-said-as-counts.md) on the hours at one answer; builds on [ADR 0045](0045-the-editor-shows-what-others-have-said-as-counts.md) and [ADR 0051](0051-the-organiser-sets-the-final-plan.md)_
 
 ## Context
 

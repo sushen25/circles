@@ -1,14 +1,14 @@
 ---
 adr: 64
 title: "Join limits charge the person asking, and a member's call is free"
-status: proposed
+status: accepted
 date: 2026-10-10
 amends: [22]
 builds_on: [12]
 ---
 # ADR 0064: Join limits charge the person asking, and a member's call is free
 
-_Status: proposed · Date: 10 October 2026_
+_Status: accepted · Date: 10 October 2026_
 
 ## Context
 

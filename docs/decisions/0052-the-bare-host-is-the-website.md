@@ -1,12 +1,12 @@
 ---
 adr: 52
 title: "The bare host is the website, and the app's front door on the web is `/start`"
-status: proposed
+status: accepted
 date: 2026-10-03
 ---
 # ADR 0052: The bare host is the website, and the app's front door on the web is `/start`
 
-_Status: proposed · 3 October 2026_
+_Status: accepted · 3 October 2026_
 
 ## Context
 

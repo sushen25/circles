@@ -61,11 +61,14 @@ Edge Functions, and the web build on the custom domain of the day (since
 moved to `wenna.app`, SUS-99; `pnpm check:env wenna.app` should pass eleven of
 eleven once its records are in).
 
-That is a deployed environment, **not a released product.** The client is still
-fixture-driven — `/join` renders a fixture and never reads the invite secret
-out of the fragment, nothing calls `redeem-invite`, `create-circle` or
-`create-plan`, and `src/data/session.ts` holds a null token until S1-14 sets
-one. So production serves a screen gallery in front of a complete backend.
+That is a deployed environment, **not a released product.** Two things are true
+and they are different. The *repository* has the real client: `/join` reads the
+invite secret out of the fragment and calls `redeem-invite`, and the screens call
+`create-circle`, `create-plan` and the rest (S1-14 to S1-24). The *deployed
+build* is whatever `deploy-prod` last shipped, and it ships the commit it is
+dispatched on (in practice `main`), so production now serves that client, not a screen gallery. What has not happened is the
+release itself (SUS-48): no real group has been invited, so no link has reached
+anyone through the product.
 
 **That is a statement about the client, not about the system — and the
 difference matters.** The backend is live and publicly reachable. The bundle
@@ -74,12 +77,12 @@ served from the production host necessarily carries
 `disable_signup` is `false`. So anybody can sign up with any address, become a
 permanent identity, and call `create-circle` directly: its guard refuses only
 anonymous callers, and it answers with an `invite_secret`. From there
-`redeem-invite` accepts an anonymous caller with that secret. Nothing about a
-fixture-driven UI prevents any of it; rate limits (10 circles per user per
+`redeem-invite` accepts an anonymous caller with that secret. Nothing about the
+client prevents any of it; rate limits (10 circles per user per
 hour, 20 per IP) are the only brake.
 
-What is true is narrower: **no invite link has been shipped**, and none can
-reach anyone through the product, so §5.2's boundary — which is about links
+What is true is narrower: **no invite link has been shared with a real group**
+(SUS-48 is open), so §5.2's boundary — which is about links
 arriving in somebody's chat — has not been crossed by deploying. The honest
 summary is that production is an open backend with no front door advertised,
 not a closed system.
@@ -166,9 +169,11 @@ host, once real mail has gone out, does not change.
 `pnpm check:env wenna.app` runs the email checks against it. `dev` has none and
 never will: it does not send, and `--no-email` is the right invocation there.
 
-Nothing sends *product* email yet. S1-19 brought the templates, the sender
-(`supabase/functions/_shared/email/`) and `email-provider-webhook`; S1-20's
-dispatcher is what will call them, so nothing has used that domain.
+The repository sends *product* email: S1-19 brought the templates, the sender
+(`supabase/functions/_shared/email/`) and `email-provider-webhook`, and S1-20's
+dispatcher calls them. The deployed `prod` has all of it. What is still true of
+production is that no real group has been invited (SUS-48), so no letter has
+gone to a person outside the founder's own testing.
 
 **Supabase Auth is a different sender, and it is already live.** Sign-in codes
 do not go through Resend; the hosted project sends them itself. With email OTP
@@ -293,7 +298,7 @@ which suits a secret nothing else has to agree with:
 | `CRON_SECRET` | **nobody — you invent it.** Its only job is that `jobs.invoke_process_scheduled_jobs()` and `_shared/internal.ts` agree on it. It cannot be read back, and the Vault secret `circles_cron_secret` needs the same string | own value | own value |
 | `INVITE_LINK_KEY` | **nobody — you invent it**: `openssl rand -base64 32`. Invite secrets are derived with it so the owner can see their link again ([ADR 0028](../decisions/0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md)). **Optional, and quiet when missing**: links are still made, but only a reset gets the owner a link back. Changing it later makes every existing link unshowable (they keep working): to change it *because it leaked*, follow "The invite key has leaked" below instead of just setting a new value. Local stacks set it in `config.toml` | own value | own value |
 | `CALENDAR_LINK_KEY` | **nobody — you invent it**: `openssl rand -base64 32`. `generate-ics` signs the short-lived token a calendar link carries with it, so one tap on an iPhone opens the system Add to Calendar ([ADR 0063](../decisions/0063-the-calendar-file-is-served-at-a-link-with-a-short-lived-signed-token.md)). **Optional, and quiet when missing**: with no key no token is made and the app fetches the file with the bearer instead (four taps on an iPhone, not one). Changing it only ends links already minted, and they last 15 minutes. Local stacks set it in `config.toml` | own value | own value |
-| `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile, pairs with the site key. **The name matters:** `_shared/turnstile.ts` reads exactly this, and skips the check when it is unset rather than failing — so a secret stored under any other name leaves web joins unverified and looks configured | the **dummy** `1x0000000000000000000000000000000AA`, pairing with the dummy site key at repository scope | the real one |
+| `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile, pairs with the site key. **The name matters:** `_shared/turnstile.ts` reads exactly this, and on a hosted project refuses with 503 when it is unset (it skips the check only off-hosted, see `CIRCLES_ENV`) — so a secret stored under any other name makes every web join fail rather than pass unverified | the **dummy** `1x0000000000000000000000000000000AA`, pairing with the dummy site key at repository scope | the real one |
 | `CIRCLES_ENV` | `hosted` or `local`, **you choose**. Says whether `_shared/turnstile.ts` should refuse a web join when `TURNSTILE_SECRET_KEY` is missing (hosted) or skip the check (local), and whether `_shared/email/resend.ts` refuses `EMAIL_CAPTURE_URL` (hosted) or honours it (local); never set `local` on a hosted project. **Optional, and safe when missing**: without it a function judges from `SUPABASE_URL` and treats anything that is not `localhost`, `127.0.0.1`, `kong` or `host.docker.internal` as hosted, so a custom domain fails closed. Set `hosted` anyway so the answer is a statement rather than an inference | `hosted` | `hosted` |
 | `TURNSTILE_ALLOWED_HOSTNAMES` | Comma-separated hostnames a solved challenge may name, e.g. the production app host. Cloudflare reports where the widget was solved; with this set, a good token solved anywhere else is refused. **Optional**: unset, the hostname is not checked. Leave it unset on `dev`, whose dummy key reports a placeholder hostname | unset | the app's host |
 | `EMAIL_CAPTURE_URL` | **never on a hosted project.** Local only, from `config.toml`. Set on one, it wins over `RESEND_API_KEY` and every product email goes to a catcher that is not there | never | never |
@@ -545,16 +550,21 @@ remove it again.
 
 ## Expected security-advisor warnings
 
-`get_advisors(type: "security")` on a hosted project reports four warnings that
-are **correct and expected**. Check any new one against this list before
-treating it as a finding:
+`get_advisors(type: "security")` on a hosted project reports the findings below.
+They are **correct and expected**. Check any new one against this list before
+treating it as a finding. Read from the Management API on both `circles-dev` and
+`circles-prod` on 19 October 2026 (`GET /v1/projects/<ref>/advisors/security`,
+read-only token); the two returned the same 89 findings.
 
-| Warning | Why it is fine |
+| Finding (level, count) | Why it is fine |
 |---|---|
-| `auth_is_member` executable by `anon` and `authenticated` | Ours, and deliberate. The RLS policies call it, so it carries `revoke all … from public` followed by an explicit grant to exactly those two roles (§14). It is a stub returning `false` until S1-07 — it fails closed. |
-| `rls_auto_enable` executable by `anon` and `authenticated` | Not ours. A Supabase platform event-trigger function that auto-enables RLS on new public tables. It reads `pg_event_trigger_ddl_commands()`, so a direct call outside a DDL event does nothing. |
-| Anonymous access policies on `cron.job`, `cron.job_run_details` | pg_cron's own tables, created by the extension. |
-| Leaked-password protection disabled | There are no passwords. Sign-in is a six-digit code or an OAuth provider (§10). |
+| `security_definer_view` (ERROR, 3): `plan_interest_counts`, `response_summaries`, `circle_roster` | Deliberate. A view reads the base tables as its owner so a member can see an aggregate without seeing the rows under it, and each one filters on the caller inside its own `WHERE`: `circle_roster` on `auth.uid()` being an active member of the same circle, the other two on `auth_is_member(circle)`. `plan_interest_counts` joins `private.plan_interest` by design and shows counts only, never who (ADR 0060). A fourth definer view is a finding. |
+| `rls_enabled_no_policy` (INFO, 20): `analytics.events`, five tables in `jobs`, `planning.transitions`, twelve in `private`, `public.circle_invites` | Deliberate. These tables have row-level security on and no policy, plus `revoke all … from anon, authenticated`, so no client can read or write them; only definer functions and the service role reach them. `supabase/tests/database/490_catalogue.sql` fails if a table in `private`, `jobs`, `analytics` or `planning` is readable or writable by `anon` or `authenticated`; `public.circle_invites` has its grants revoked in migration `0002`. |
+| `function_search_path_mutable` (WARN, 4): `public.canonical_display_name`, `public.member_cap`, `public.soft_quorum`, `planning.allowed_keys` | Fixed by SUS-192 (migration 0069), which pins each to `search_path = ''`. They are plain immutable helpers that read no table, so there was nothing to hijack, and they no longer appear once 0069 is deployed to the project. **After that deploy, any `function_search_path_mutable` is a real finding.** |
+| `anon_security_definer_function_executable` (WARN, 6): `auth_is_member`, `auth_is_owner`, `auth_is_permanent`, `invite_preview`, `preview_for_code`, `rls_auto_enable` | The first three are called by the RLS policies, so they carry `revoke all … from public` and an explicit grant to exactly `anon` and `authenticated` (§14); each answers from `auth.uid()` and says false for nobody signed in. `invite_preview` and `preview_for_code` are what a link shows before any sign-in, and return only the preview a link already carries. `rls_auto_enable` is not ours: a Supabase platform event-trigger function that auto-enables RLS on new public tables. It reads `pg_event_trigger_ddl_commands()`, so a direct call outside a DDL event does nothing. |
+| `authenticated_security_definer_function_executable` (WARN, 37): the same six, plus 31 product functions (`create_circle`, `create_plan`, `revise_plan`, `confirm_meetup`, `remove_member`, `founder_summary` and the rest) | Deliberate. Authorisation is in the database (§7.4): each is a definer function called, by an Edge Function or directly over RPC, with the caller's JWT, and each decides from `auth.uid()` (membership, ownership, or for the founder functions the allowlist). `490_catalogue.sql` fails if a definer function does not pin its `search_path` or is executable by `public`. A function that appears here and is not a product function is a finding. |
+| `auth_allow_anonymous_sign_ins` (WARN, 18): sixteen tables in `public`, plus `cron.job` and `cron.job_run_details` | Anonymous sign-in is the product: a guest answers with no account. The policies on these tables apply to the `authenticated` role, which anonymous users hold, and gate on `auth_is_member`, `auth_is_permanent` or `auth.uid()` wherever a table needs more than "signed in". The two `cron` tables are pg_cron's own, created by the extension. |
+| `auth_leaked_password_protection` (WARN, 1) | There are no passwords. Sign-in is a six-digit code or an OAuth provider (§10). |
 
 Also true, and not in the table because the advisor does not name it: `pg_net`'s
 `net.http_get` and `net.http_post` are executable by `anon` and `authenticated`.

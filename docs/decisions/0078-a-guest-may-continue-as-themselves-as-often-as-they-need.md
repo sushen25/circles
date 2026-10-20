@@ -1,13 +1,13 @@
 ---
 adr: 78
 title: "A guest may continue as themselves as often as they need: no cap on how often a membership moves"
-status: proposed
+status: accepted
 date: 2026-10-17
 amends: [6, 49]
 ---
 # ADR 0078: A guest may continue as themselves as often as they need: no cap on how often a membership moves
 
-_Status: proposed · 17 October 2026 · amends [ADR 0006](0006-continue-as-reattachment-without-owner-approval.md) and [ADR 0049](0049-continue-as-resolves-a-code-only-while-it-is-live.md) (decision 4)_
+_Status: accepted · 17 October 2026 · amends [ADR 0006](0006-continue-as-reattachment-without-owner-approval.md) and [ADR 0049](0049-continue-as-resolves-a-code-only-while-it-is-live.md) (decision 4)_
 
 ## Context
 

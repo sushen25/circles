@@ -1,14 +1,14 @@
 ---
 adr: 77
 title: "An answer never given opens empty: previous times are not applied on open, they wait for a tap"
-status: proposed
+status: accepted
 date: 2026-10-16
 amends: [37, 68]
 builds_on: [5]
 ---
 # ADR 0077: An answer never given opens empty: previous times are not applied on open, they wait for a tap
 
-_Status: proposed (the explicit tap now exists: SUS-227, below) · 16 October 2026 · amends [ADR 0068](0068-a-tapped-day-has-a-time-and-the-answer-is-one-line.md) and [ADR 0037](0037-usual-times-are-read-not-written.md) (previous times are no longer applied when the editor opens); builds on [ADR 0005](0005-willing-windows-retained-12-months.md)_
+_Status: accepted (the explicit tap now exists: SUS-227, below) · 16 October 2026 · amends [ADR 0068](0068-a-tapped-day-has-a-time-and-the-answer-is-one-line.md) and [ADR 0037](0037-usual-times-are-read-not-written.md) (previous times are no longer applied when the editor opens); builds on [ADR 0005](0005-willing-windows-retained-12-months.md)_
 
 ## Context
 
