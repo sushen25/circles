@@ -37,6 +37,8 @@ export type EmailMessage = {
   readonly text: string;
   /** `List-Unsubscribe`, from `render`. */
   readonly headers?: Readonly<Record<string, string>> | undefined;
+  /** A person's name for the From line, over the product's: see `RenderedEmail`. */
+  readonly fromName?: string | undefined;
   /** Provider tags: ASCII letters, digits, `_` and `-` only. Never content. */
   readonly tags?: Readonly<Record<string, string>> | undefined;
 };
@@ -113,6 +115,11 @@ function sender(): { name: string; email: string } {
     : { name: match[1] ?? brand.name, email: match[2] ?? brand.sender };
 }
 
+/** `Sushen <hello@…>` for a letter from a person, else the product's sender. */
+function fromOf(message: EmailMessage): string {
+  return message.fromName === undefined ? brand.sender : `${message.fromName} <${sender().email}>`;
+}
+
 function codeFor(status: number): EmailErrorCode {
   if (status === 401 || status === 403) return 'email_unauthorised';
   if (status === 429) return 'email_rate_limited';
@@ -150,7 +157,7 @@ async function viaResend(
         : { 'idempotency-key': context.idempotencyKey }),
     },
     body: JSON.stringify({
-      from: brand.sender,
+      from: fromOf(message),
       to: [message.to],
       reply_to: brand.supportEmail,
       subject: message.subject,
@@ -175,7 +182,7 @@ async function viaCapture(base: string, message: EmailMessage, http: Fetch): Pro
     signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      From: { Email: from.email, Name: from.name },
+      From: { Email: from.email, Name: message.fromName ?? from.name },
       To: [{ Email: message.to }],
       ReplyTo: [{ Email: brand.supportEmail }],
       Subject: message.subject,

@@ -138,6 +138,28 @@ describe('nudgeEligibility: the organiser source question', () => {
   });
 });
 
+describe('nudgeEligibility: the first plan stalled question (SUS-240)', () => {
+  it('is asked once per plan, for a saved place and an app alike', () => {
+    for (const tier of ['guest', 'saved', 'app'] as const) {
+      expect(nudgeEligibility('first_plan_stalled', [], tier, NOW, { planId: THURSDAY })).toEqual({
+        kind: 'show',
+      });
+    }
+    const asked = [row('first_plan_stalled')];
+    expect(
+      nudgeEligibility('first_plan_stalled', asked, 'saved', NOW, { planId: THURSDAY }),
+    ).toEqual({ kind: 'skip', reason: 'already_shown' });
+  });
+
+  it('needs a plan, and does not spend the one-per-session budget', () => {
+    expect(nudgeEligibility('first_plan_stalled', [], 'saved', NOW)).toEqual({
+      kind: 'skip',
+      reason: 'needs_plan',
+    });
+    expect(spendsSessionBudget('first_plan_stalled')).toBe(false);
+  });
+});
+
 describe('nudgeEligibility: one per session', () => {
   it('holds a second saved-place or app prompt in the same session', () => {
     for (const moment of ['after_attendance_start_circle', 'second_response_app'] as const) {

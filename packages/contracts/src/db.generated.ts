@@ -1294,6 +1294,14 @@ export type Database = {
         Args: { p_error?: string; p_id: string }
         Returns: undefined
       }
+      dispatch_first_plan_quiet: {
+        Args: { p_jobs: Json; p_plan_id: string }
+        Returns: number
+      }
+      dispatch_first_plan_quiet_candidates: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
       dispatch_handed_off_since: {
         Args: { p_plan_id: string; p_since: string }
         Returns: boolean

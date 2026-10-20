@@ -1,4 +1,5 @@
 /** @jsxImportSource react */
+import { brand } from '@circles/config';
 import { render as toHtml } from '@react-email/render';
 import type { ReactNode } from 'react';
 
@@ -14,6 +15,7 @@ import {
   didItHappenCopy,
   didItHappenParticipantCopy,
 } from './templates/DidItHappen.tsx';
+import { FirstPlanQuiet, firstPlanQuietCopy } from './templates/FirstPlanQuiet.tsx';
 import { LockedIn, lockedInCopy } from './templates/LockedIn.tsx';
 import { Moved, movedCopy } from './templates/Moved.tsx';
 import { OptionsReady, optionsReadyCopy } from './templates/OptionsReady.tsx';
@@ -73,6 +75,7 @@ const TEMPLATES: { [K in EmailKind]: Template<Extract<EmailInput, { kind: K }>> 
   threshold_initiator: { copy: thresholdInitiatorCopy, Component: ThresholdInitiator },
   quiet_expired: { copy: quietExpiredCopy, Component: QuietExpired },
   asked_again: { copy: askedAgainCopy, Component: AskedAgain },
+  first_plan_quiet: { copy: firstPlanQuietCopy, Component: FirstPlanQuiet },
 };
 
 /**
@@ -126,5 +129,12 @@ export async function render(input: EmailInput): Promise<RenderedEmail> {
       htmlToTextOptions: { selectors: [{ selector: 'h1', options: { uppercase: false } }] },
     }),
   ]);
-  return { subject: template.copy(input).subject, html, text, headers: headersFor(input) };
+  return {
+    subject: template.copy(input).subject,
+    html,
+    text,
+    headers: headersFor(input),
+    // A letter from a person says so in its From line (ADR 0085).
+    ...(input.kind === 'first_plan_quiet' ? { fromName: brand.founderName } : {}),
+  };
 }

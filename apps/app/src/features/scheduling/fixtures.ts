@@ -52,6 +52,8 @@ const BASE: PlanCandidates = {
   latestStart: '2026-09-20T10:30:00.000Z',
   extendedThisRevision: false,
   organiserUserId: 'maya',
+  createdAt: '2026-09-12T09:00:00.000Z',
+  isFirstPlan: true,
   me: 'maya',
   isOrganiser: true,
   isOwner: true,

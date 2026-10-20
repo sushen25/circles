@@ -125,6 +125,12 @@ export const SUNDAY_CREW: { readonly [K in EmailKind]: Extract<EmailInput, { kin
     dailyStartMin: 17 * 60 + 30,
     dailyEndMin: 22 * 60 + 30,
   },
+  // The founder's one letter to Maya, 48 hours into her first plan (ADR 0085).
+  first_plan_quiet: {
+    ...circle,
+    kind: 'first_plan_quiet',
+    stopToken: fixtureToken('organiser_stop'),
+  },
 };
 
 /** Every member of the Sunday Crew but the circle itself. A subject may name none of them. */

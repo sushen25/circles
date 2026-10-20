@@ -375,6 +375,7 @@ All ids are `uuid` (v7 where ordering helps). All tables have `created_at`, `upd
 | `plan_required_members` | `plan_id`, `revision`, `user_id` | |
 | `private.plan_initiators` | `plan_id`, `initiator_user_id` | never selectable by clients |
 | `private.circle_cohorts` | `circle_id`, `cohort` (`founder|external`), `source` (`default|founder`), `set_at`, `source_ref` (the campaign tag, a slug, written once by `tag_circle_source`; [ADR 0084](decisions/0084-a-campaign-tag-labels-a-circles-cohort-row-never-a-person.md)) | one row per circle, set by an insert trigger from the owner's allowlist membership and by `public.founder_set_circle_cohort`; never selectable by clients, never in a payload ([ADR 0058](decisions/0058-every-circle-carries-a-cohort-only-the-founder-can-see.md)) |
+| `private.first_plan_quiet_letters` | `circle_id` (primary key), `plan_id`, `decided_at` | one row per circle, ever: that the founder's `first_plan_quiet` letter has been decided for it (sent, or not wanted); written with its job by `dispatch_first_plan_quiet`; never selectable by clients ([ADR 0085](decisions/0085-a-first-plan-nobody-answers-gets-one-question-and-one-letter-from-the-founder.md)) |
 | `private.plan_interest` | `plan_id`, `user_id`, `response` (`keen|not_this_time`), `responded_at` | unique `(plan_id, user_id)`; exposed to clients only as a count after threshold |
 
 **Availability (`public`)**

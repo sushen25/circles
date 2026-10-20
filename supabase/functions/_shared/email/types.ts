@@ -209,6 +209,18 @@ export type QuietExpiredInput = Base & {
   readonly stopToken: string;
 };
 
+/**
+ * The founder's one "want a hand?" letter to the organiser of a circle's first
+ * plan, 48 hours in and still unanswered (SUS-240, ADR 0085). A person writing
+ * to a person: it names the circle and nothing else. No plan code, no names, no
+ * counts, and no button — the way to answer it is to reply. It carries the
+ * organiser stop link (ADR 0069) and `List-Unsubscribe`.
+ */
+export type FirstPlanQuietInput = Base & {
+  readonly kind: 'first_plan_quiet';
+  readonly stopToken: string;
+};
+
 export type EmailInput =
   | VerifyEmailInput
   | LockedInInput
@@ -223,7 +235,8 @@ export type EmailInput =
   | DidItHappenInput
   | AboutTimeInput
   | ThresholdInitiatorInput
-  | QuietExpiredInput;
+  | QuietExpiredInput
+  | FirstPlanQuietInput;
 
 /** The kinds that can be emailed. The other five are push-only (`kinds.ts`). */
 export type EmailKind = EmailInput['kind'];
@@ -244,6 +257,7 @@ export const EMAIL_KINDS = [
   'threshold_initiator',
   'quiet_expired',
   'asked_again',
+  'first_plan_quiet',
 ] as const satisfies readonly NotificationKind[];
 
 /**
@@ -266,6 +280,7 @@ export const STOP_LINK_KINDS = {
   options_ready: 'organiser',
   replies_closed: 'organiser',
   did_it_happen: 'organiser',
+  first_plan_quiet: 'organiser',
   threshold_initiator: 'quiet',
   quiet_expired: 'quiet',
 } as const satisfies Partial<Record<EmailKind, StopFamily>>;
@@ -292,4 +307,11 @@ export type RenderedEmail = {
    * link; and for the account-holder kinds, their stop link (ADR 0069). No `List-Unsubscribe-Post` — see `render.tsx`.
    */
   readonly headers: Readonly<Record<string, string>>;
+  /**
+   * A person's name for the From line, where a letter is from a person and not
+   * from the product (`first_plan_quiet`, from the founder). The address is
+   * still the product's authenticated sender; replies go to the support
+   * address, as every letter's do.
+   */
+  readonly fromName?: string | undefined;
 };

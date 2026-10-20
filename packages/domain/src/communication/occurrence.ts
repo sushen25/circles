@@ -97,6 +97,13 @@ export function occurrenceFor(kind: NotificationKind, input: OccurrenceInput = {
     case 'asked_again':
       return ONCE;
 
+    // One per circle, ever (ADR 0085), and the cap is the database's: the
+    // `private.first_plan_quiet_letters` row the writer inserts first. The key
+    // is per plan and revision like the rest, which is why the cap cannot be
+    // left to it: a second plan in the same circle has a key of its own.
+    case 'first_plan_quiet':
+      return ONCE;
+
     // Once per revision, and once more for each hand-off: "the options are
     // ready" is news to whoever the plan was just handed to.
     case 'options_ready':

@@ -31,6 +31,9 @@ describe('the organiser-email switch', () => {
     // has to stop it, so the switch it writes covers it too.
     ['replies_closed', false, 'email'],
     ['replies_closed', true, 'nothing'],
+    // The founder's one-off letter is under the same switch (ADR 0085).
+    ['first_plan_quiet', false, 'email'],
+    ['first_plan_quiet', true, 'nothing'],
     // Not an organiser kind: its switch is "Nudges to plan the next one", per circle.
     ['about_time', false, 'email'],
     ['about_time', true, 'email'],

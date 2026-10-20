@@ -35,12 +35,18 @@ import { type Instant, compare } from '../shared/instant.js';
  *   account as the last step of the first run, once the circle exists (SUS-171). The row says
  *   the question was asked and nothing about the answer: that is an analytics
  *   event, never a column that joins a source to a person.
+ * - `first_plan_stalled` — "Nothing in yet. What's happened?", asked once of
+ *   the organiser on a first plan's waiting screen after 48 hours with no
+ *   answer from anyone else (SUS-240). Once per plan, which for a circle's
+ *   first plan is once; it never gates anything. The answer is an analytics
+ *   event, the row only says the question was shown.
  * - `reattached_twice_app`, `locked_in_app`, `email_given_app`,
  *   `second_response_app` — the app prompts (Slice 3). One cap group.
  */
 export const NUDGE_MOMENTS = [
   'after_attendance_start_circle',
   'email_given_app',
+  'first_plan_stalled',
   'locked_in_app',
   'organiser_gate',
   'organiser_source',
@@ -71,6 +77,7 @@ export type NudgeGroup = 'offer' | 'saved_place' | 'gate' | 'app';
 
 const GROUP: Record<NudgeMoment, NudgeGroup> = {
   sent_save_access: 'offer',
+  first_plan_stalled: 'offer',
   reattached_save_place: 'saved_place',
   after_attendance_start_circle: 'saved_place',
   organiser_gate: 'gate',

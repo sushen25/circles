@@ -28,6 +28,7 @@ describe('occurrenceFor', () => {
       'options_ready',
       'cancelled',
       'asked_again',
+      'first_plan_quiet',
     ] as const) {
       expect(occurrenceFor(kind)).toBe(ONCE);
     }

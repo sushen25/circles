@@ -201,6 +201,28 @@ export async function inputFor(
       if (stopToken === null) return { skip: 'contact_unverified' };
       return { kind: 'threshold_initiator', ...toOrganiser, stopToken };
     }
+    // The founder's one letter (ADR 0085), checked again now: held overnight by
+    // quiet hours, the plan may have been answered, decided, called off or
+    // handed to somebody else by morning, and "nothing's come in" would be
+    // untrue or sent to the wrong person.
+    case 'first_plan_quiet': {
+      const plan = context.eligibility.plan;
+      if (plan === undefined || (plan.state !== 'collecting' && plan.state !== 'ready')) {
+        return { skip: 'not_asking' };
+      }
+      if (job.user_id !== context.organiserUserId) return { skip: 'not_the_organiser' };
+      if (context.eligibility.responses.some((r) => r.userId !== context.organiserUserId)) {
+        return { skip: 'answered_since' };
+      }
+      const stopToken = await stopTokenFor('organiser');
+      if (stopToken === null) return { skip: 'contact_unverified' };
+      return {
+        kind: 'first_plan_quiet',
+        origin: toOrganiser.origin,
+        circleName: toOrganiser.circleName,
+        stopToken,
+      };
+    }
     case 'quiet_expired': {
       if (job.circle_id === null) return { skip: 'plan_gone' };
       const stopToken = await stopTokenFor('quiet');

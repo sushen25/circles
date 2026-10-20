@@ -92,6 +92,10 @@ export type PlanCandidates = {
   /** This revision's one extra day has been given (S2-05). */
   extendedThisRevision: boolean;
   organiserUserId: string | null;
+  /** When the plan was made: the clock of the "nothing in yet" question (SUS-240). */
+  createdAt: string;
+  /** The circle's first named plan, which the stalled question is asked of (SUS-240). */
+  isFirstPlan: boolean;
   me: string | undefined;
   isOrganiser: boolean;
   /**
@@ -148,7 +152,7 @@ export async function planCandidates(
   const client = authClient();
 
   const columns =
-    'id, short_code, circle_id, title, state, revision, input_version, time_zone, quorum, quorum_source, window_start, window_end, plan_days(day), daily_start_local, daily_end_local, duration_minutes, response_deadline, organiser_user_id, deadline_extended_on_revision';
+    'id, short_code, circle_id, title, state, revision, input_version, time_zone, quorum, quorum_source, window_start, window_end, plan_days(day), daily_start_local, daily_end_local, duration_minutes, response_deadline, organiser_user_id, deadline_extended_on_revision, created_at, mode';
   const query = client.from('plans').select(columns);
   const { data: plan, error } = await (
     'planId' in key ? query.eq('id', key.planId) : query.eq('short_code', key.code)
@@ -163,7 +167,7 @@ export async function planCandidates(
   const { data: session } = await client.auth.getSession();
   const me = session.session?.user.id;
 
-  const [circle, roster, participants, sets, summaries, open] = await Promise.all([
+  const [circle, roster, participants, sets, summaries, open, earlier] = await Promise.all([
     client.from('circles').select('name, owner_user_id').eq('id', plan.circle_id).maybeSingle(),
     // No status filter: a required member who has left the circle is still
     // named by a near-miss, and a name for their id has to come from somewhere.
@@ -195,6 +199,14 @@ export async function planCandidates(
       .eq('id', plan.id)
       .gt('response_deadline', 'now')
       .maybeSingle(),
+    // Is there a named plan in this circle that was made before this one? Only
+    // the circle's first is asked "what's happened?" (SUS-240).
+    client
+      .from('plans')
+      .select('id', { count: 'exact', head: true })
+      .eq('circle_id', plan.circle_id)
+      .eq('mode', 'named')
+      .lt('created_at', plan.created_at),
   ]);
   if (
     circle.error !== null ||
@@ -202,7 +214,8 @@ export async function planCandidates(
     participants.error !== null ||
     sets.error !== null ||
     summaries.error !== null ||
-    open.error !== null
+    open.error !== null ||
+    earlier.error !== null
   ) {
     throw new Error(FAILED);
   }
@@ -283,6 +296,8 @@ export async function planCandidates(
     latestStart: latestStartOf(plan),
     extendedThisRevision: plan.deadline_extended_on_revision === plan.revision,
     organiserUserId: plan.organiser_user_id,
+    createdAt: plan.created_at,
+    isFirstPlan: plan.mode === 'named' && (earlier.count ?? 0) === 0,
     me,
     isOrganiser,
     isOwner: me !== undefined && circle.data?.owner_user_id === me,
