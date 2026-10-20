@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8" />
+<!-- Still mode: the same scenes as video.html, `body.still` metrics, posed at each poster frame. -->
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body class="still">
+<script type="module">
+import { build, seek, still } from './stage.js';
+Object.assign(window, { build, seek, still, stageReady: true });
+</script>
+</body>
+</html>

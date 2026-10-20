@@ -85,3 +85,4 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0078](./0078-a-guest-may-continue-as-themselves-as-often-as-they-need.md) | A guest may continue as themselves as often as they need: no cap on how often a membership moves | accepted (amends 0006, 0049) |
 | [0079](./0079-the-time-of-day-is-on-the-first-screen-and-a-time-for-each-day-opens-in-place.md) | The time of day is on the first screen as pills, and a time for each day opens in place | accepted (amends 0068) |
 | [0080](./0080-the-reattach-and-verified-gates-count-product-rows-not-events.md) | The reattach and verified gates count product rows, not events | accepted |
+| [0081](./0081-the-content-loop-lives-in-the-monorepo-outside-the-gate.md) | The content loop lives in the monorepo under content/, outside the gate | accepted |

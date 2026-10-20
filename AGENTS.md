@@ -19,6 +19,7 @@ with no account and no app; the organiser confirms a real time.
 | Decisions    | [`docs/decisions/`](docs/decisions/README.md)                                                                       |
 | Guest → app  | [`docs/guest-to-app-flow.md`](docs/guest-to-app-flow.md)                                                            |
 | How we work  | [`docs/working-process.md`](docs/working-process.md), tickets in [`docs/tickets.md`](docs/tickets.md)               |
+| Content      | [`content/CLAUDE.md`](content/CLAUDE.md): the content loop, its own npm project outside the gate (ADR 0081)         |
 
 ## Commands
 

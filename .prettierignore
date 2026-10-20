@@ -7,6 +7,9 @@ pnpm-lock.yaml
 docs/
 .claude/
 
+# the content loop: its own npm project with its own formatting (content/CLAUDE.md)
+content/
+
 # generated native projects and Expo caches (expo prebuild — see apps/app/README.md)
 apps/*/android/
 apps/*/ios/

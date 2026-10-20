@@ -1,0 +1,54 @@
+# The content loop (content/CLAUDE.md): merge = approve. On a push to `main`
+# that touches the queue, and on an evening schedule, publish anything in
+# content/queue with `status: approved` that is due, then commit the ledger
+# and the moved files back. It writes only under content/, and `ci-scope`
+# treats content/ as prose, so these commits never run the gate or a deploy.
+name: content-publish
+on:
+  push:
+    branches: [main]
+    paths: ['content/queue/**']
+  schedule:
+    - cron: '*/30 7-13 * * *' # 18:00–00:30 Melbourne (AEDT), every half hour
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: content-publish
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: content
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npm run publish
+        env:
+          BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
+          BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          LINKEDIN_PERSON_ID: ${{ secrets.LINKEDIN_PERSON_ID }}
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+          MEDIA_BASE_URL: ${{ vars.MEDIA_BASE_URL }}
+      - name: commit ledger and moves
+        run: |
+          git config user.name "wenna-content bot"
+          git config user.email "bot@wenna.app"
+          git add -A queue published publish/ledger.jsonl
+          git diff --cached --quiet || git commit -m "content: publish $(date -u +%Y-%m-%dT%H:%M)"
+          git push
