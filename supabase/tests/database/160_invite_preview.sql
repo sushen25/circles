@@ -2,7 +2,7 @@
 --
 -- Who opens an invite link has no session, and a preview that needed one would
 -- push a sign-in in front of the one page §5.1 says must come before any
--- prompt. Since SUS-214 (ADR 0081) the digest is an HMAC under a key the browser
+-- prompt. Since SUS-214 (ADR 0082) the digest is an HMAC under a key the browser
 -- cannot hold, so the page asks the `invite-preview` Edge Function, which has no
 -- session either and calls this as the service role. So the function is
 -- asserted as the service role, and as refused to every client role.

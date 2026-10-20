@@ -61,7 +61,7 @@ function seen(request: Request): Seen {
 function leaksIn(request: Seen): Leak[] {
   const leaks: Leak[] = [];
   const { url, body, headers } = request;
-  // The two functions that exist to receive the fragment and hash it (ADR 0081).
+  // The two functions that exist to receive the fragment and hash it (ADR 0082).
   const toRedeem =
     request.method === 'POST' && /\/(redeem-invite|invite-preview)$/.test(new URL(url).pathname);
   for (const { value, kind } of mintedSecrets()) {

@@ -1,6 +1,6 @@
--- SUS-214, ADR 0081: an invite secret and a re-entry token are stored under an
+-- SUS-214, ADR 0082: an invite secret and a re-entry token are stored under an
 -- HMAC that a copy of the database cannot reproduce, and a link made before
--- that still opens its circle for as long as ADR 0081 says.
+-- that still opens its circle for as long as ADR 0082 says.
 --
 -- The database cannot tell an HMAC from any other 32 bytes: the Edge Function
 -- makes it under `INVITE_DIGEST_KEY`, which no table, function or setting here

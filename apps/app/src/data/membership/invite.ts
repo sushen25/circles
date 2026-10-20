@@ -45,7 +45,7 @@ export function inviteSecretFromHash(hash: string): string | null {
  * Null covers revoked, unknown and archived alike — the server will not say
  * which, and neither will the screen.
  *
- * **The hashing is the server's** (SUS-214, ADR 0081). An invite is stored as an
+ * **The hashing is the server's** (SUS-214, ADR 0082). An invite is stored as an
  * HMAC under a key only the Edge Functions hold, so a browser cannot compute the
  * digest and must not be given the key. The fragment goes in the body of
  * `invite-preview`, once, like `redeem-invite`'s; it is never put in a URL, a

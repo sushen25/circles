@@ -461,7 +461,7 @@ CRON_SECRET = "local"
 INVITE_LINK_KEY = "local"
 
 # Local only, and the same kind of value: the key an invite secret's and a
-# re-entry token's digest is an HMAC under (SUS-214, ADR 0081). Unlike
+# re-entry token's digest is an HMAC under (SUS-214, ADR 0082). Unlike
 # `INVITE_LINK_KEY` it is **required**: a function without it answers 503 and
 # stores or looks up nothing, and never falls back to a plain SHA-256. `dev` and
 # `prod` each set their own, at least 32 characters (a shorter value is refused
@@ -536,7 +536,7 @@ verify_jwt = false
 [functions.manage-email-preferences]
 verify_jwt = false
 
-# The Join page's preview (SUS-214, ADR 0081). Shown before any prompt, so the
+# The Join page's preview (SUS-214, ADR 0082). Shown before any prompt, so the
 # visitor has no session and the gateway has no JWT to check; the invite secret in
 # the body is the authorisation, and a per-address limit is the brake.
 [functions.invite-preview]

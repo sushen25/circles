@@ -378,7 +378,7 @@ Rehearse it on a local stack first (`http://127.0.0.1:54321`, the key in `supaba
 
 ## The invite digest key (SUS-214)
 
-`INVITE_DIGEST_KEY` is the key a new invite secret's and emailed re-entry token's stored digest is an HMAC under ([ADR 0081](../decisions/0081-invite-and-re-entry-digests-are-an-hmac-under-a-key-only-the-functions-hold.md)), so a copy of the database cannot reproduce one. It is not `INVITE_LINK_KEY` (which derives the secret, is optional and has its own leak runbook above) and is a different value on purpose. Local stacks set it in `config.toml`.
+`INVITE_DIGEST_KEY` is the key a new invite secret's and emailed re-entry token's stored digest is an HMAC under ([ADR 0082](../decisions/0082-invite-and-re-entry-digests-are-an-hmac-under-a-key-only-the-functions-hold.md)), so a copy of the database cannot reproduce one. It is not `INVITE_LINK_KEY` (which derives the secret, is optional and has its own leak runbook above) and is a different value on purpose. Local stacks set it in `config.toml`.
 
 **Required, and it fails closed.** Without it creating or resetting a link, joining, the Join page's preview, an emailed way back in and every letter carrying a re-entry link answer 503 (or are retried by the dispatcher), and nothing falls back to a plain SHA-256. A hosted value shorter than 32 characters is refused too, so a stray `local` cannot protect a hosted project.
 

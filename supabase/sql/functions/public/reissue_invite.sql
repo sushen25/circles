@@ -55,7 +55,7 @@ begin
     return false;
   end if;
 
-  -- Always an HMAC: the sweep computes it under the project's digest key (ADR 0081).
+  -- Always an HMAC: the sweep computes it under the project's digest key (ADR 0082).
   insert into public.circle_invites (id, circle_id, secret_hash, digest_kind, created_by)
   values (p_invite_id, p_circle_id, p_secret_hash, 'hmac', owner)
   returning * into issued;

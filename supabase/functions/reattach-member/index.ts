@@ -68,7 +68,7 @@ Deno.serve(
               // Hashed here, as the database stores it: a token is never a
               // parameter in its readable form (§14). The HMAC under
               // `INVITE_DIGEST_KEY`, and beside it the plain SHA-256 for a link
-              // emailed before that existed (SUS-214, ADR 0081).
+              // emailed before that existed (SUS-214, ADR 0082).
               p_reentry_token_hash: digests.current,
               p_legacy_token_hash: digests.legacy,
             });

@@ -37,7 +37,7 @@ create or replace function public.create_circle(
   -- no answer, not an empty place.
   default_area text default null,
   -- What `invite_secret_hash` is: `hmac` from the Edge Function that holds the
-  -- digest key, `sha256` from one that does not (ADR 0081). Passed to `issue_invite`.
+  -- digest key, `sha256` from one that does not (ADR 0082). Passed to `issue_invite`.
   digest_kind text default 'sha256'
 )
 returns public.circles

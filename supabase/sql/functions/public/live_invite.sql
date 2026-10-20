@@ -19,7 +19,7 @@
 -- server. (The owner check is `auth_is_owner`'s, restated for a caller who is
 -- an argument rather than `auth.uid()`.)
 --
--- **Which kind of digest it is** (SUS-214, ADR 0081): an invite made after the
+-- **Which kind of digest it is** (SUS-214, ADR 0082): an invite made after the
 -- change is an HMAC under `INVITE_DIGEST_KEY`, one made before is a plain
 -- SHA-256, and `get-invite-link` compares the one that matches.
 --

@@ -15,7 +15,7 @@
 --
 -- Not granted to any client role.
 --
--- **Two digests, one token** (SUS-214, ADR 0081). A token made after the change
+-- **Two digests, one token** (SUS-214, ADR 0082). A token made after the change
 -- is stored as an HMAC under a key the database never holds (`p_reentry_token_hash`,
 -- kind `hmac`); one made before it is a plain SHA-256 (`p_legacy_token_hash`,
 -- kind `sha256`). the lookup takes whichever the stored row's kind

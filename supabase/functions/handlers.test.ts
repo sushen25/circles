@@ -171,7 +171,7 @@ const CIRCLE_ROW = {
 // Built at run time: a secret-shaped literal is what a scanner looks for.
 const DIGEST_KEY = `digest-${globalThis.crypto.randomUUID()}`;
 
-/** What `_shared/digest.ts` should make, computed independently of it (SUS-214, ADR 0081). */
+/** What `_shared/digest.ts` should make, computed independently of it (SUS-214, ADR 0082). */
 function hmacOf(purpose: 'invite' | 'reentry', value: string): string {
   return `\\x${createHmac('sha256', DIGEST_KEY).update(`circles.digest.v1:${purpose}:${value}`).digest('hex')}`;
 }
@@ -554,7 +554,7 @@ describe('redeem-invite', () => {
   });
 });
 
-describe('invite-preview (SUS-214, ADR 0081)', () => {
+describe('invite-preview (SUS-214, ADR 0082)', () => {
   const secret = 'x'.repeat(43);
   const ROW = { circle_name: 'Sunday Crew', inviter_name: 'Maya', member_initials: ['M', 'N'] };
 
@@ -932,7 +932,7 @@ describe('reattach-member', () => {
     const args = called('reattach_with_token')[0]?.args ?? {};
     expect(args['p_reentry_token_hash']).toMatch(/^\\x[0-9a-f]{64}$/);
     // An HMAC under the server key; the plain SHA-256 rides beside it for a link
-    // emailed before the key existed (SUS-214, ADR 0081).
+    // emailed before the key existed (SUS-214, ADR 0082).
     expect(args['p_reentry_token_hash']).toBe(hmacOf('reentry', token));
     expect(args['p_legacy_token_hash']).toBe(sha256Of(token));
     expect(args['p_user_id']).toBe(CALLER);
@@ -4660,7 +4660,7 @@ describe('process-scheduled-jobs', () => {
   it('tries a letter again when the digest key is missing, instead of failing it for good', async () => {
     // A guest's letter carries a re-entry link, whose digest needs the key. Without
     // it nothing has been sent and nothing is lost, so the job is retried like a
-    // provider having a bad minute (SUS-214, ADR 0081).
+    // provider having a bad minute (SUS-214, ADR 0082).
     delete process.env.INVITE_DIGEST_KEY;
     capturing();
     withDue(dueJob());

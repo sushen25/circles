@@ -19,7 +19,7 @@ import { verifyTurnstile } from '../_shared/turnstile.ts';
  * client because the digest it takes is what the database stores: if it were,
  * a copy of `circle_invites` would be a set of working links (SUS-114).
  *
- * **The digest is an HMAC under `INVITE_DIGEST_KEY`** (SUS-214, ADR 0081), so a
+ * **The digest is an HMAC under `INVITE_DIGEST_KEY`** (SUS-214, ADR 0082), so a
  * copy of the table cannot reproduce one either. The plain SHA-256 goes beside
  * it for a link made before that change; the database matches each only against
  * the kind the row was stored as. Without the key this answers 503 and does

@@ -4,7 +4,7 @@ import { Unavailable } from './problem.ts';
 
 /**
  * The digest an invite secret or a re-entry token is stored under (SUS-214,
- * ADR 0081, amending ADR 0028).
+ * ADR 0082, amending ADR 0028).
  *
  * HMAC-SHA-256 under `INVITE_DIGEST_KEY`, a secret only the Edge Functions
  * hold. The database stores the result and never sees the key, so a copy of
@@ -17,7 +17,7 @@ import { Unavailable } from './problem.ts';
  * a laptop because it is not load-bearing; this key is.) The one place SHA-256
  * survives is {@link legacy}: the digest of a link made before this change,
  * offered to the database beside the HMAC so that links already in group chats
- * keep working, for as long as ADR 0081 says.
+ * keep working, for as long as ADR 0082 says.
  *
  * The key is one secret with a context string per purpose, so a digest made for
  * one purpose is not valid for the other.

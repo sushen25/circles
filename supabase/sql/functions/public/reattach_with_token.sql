@@ -16,7 +16,7 @@
 -- parameter, which is what architecture §14 keeps out of query logs.
 --
 -- **The digest is an HMAC under a key only the Edge Function holds** (SUS-214,
--- ADR 0081): the table cannot be turned into a digest by anybody who has the
+-- ADR 0082): the table cannot be turned into a digest by anybody who has the
 -- table alone. `p_legacy_token_hash` is the plain SHA-256 of the same token, for
 -- a link emailed before that change; it finds only a row stored as `sha256`
 -- (`email_action_tokens.digest_kind`), and no row made since is stored that way.
@@ -53,7 +53,7 @@ end;
 $$;
 
 comment on function public.reattach_with_token(uuid, bytea, bytea) is
-  'Moves a guest membership onto p_user_id from an emailed re-entry token digest (ADR 0006, ADR 0049). Service role only: the digest is stored, so it must not be a way in by itself, and the reattach-member Edge Function that hashes the token passes the caller it verified. The digest is an HMAC under a key the database does not hold; p_legacy_token_hash finds only a token stored before that (ADR 0081).';
+  'Moves a guest membership onto p_user_id from an emailed re-entry token digest (ADR 0006, ADR 0049). Service role only: the digest is stored, so it must not be a way in by itself, and the reattach-member Edge Function that hashes the token passes the caller it verified. The digest is an HMAC under a key the database does not hold; p_legacy_token_hash finds only a token stored before that (ADR 0082).';
 
 revoke all on function public.reattach_with_token(uuid, bytea, bytea) from public;
 revoke all on function public.reattach_with_token(uuid, bytea, bytea) from anon, authenticated;

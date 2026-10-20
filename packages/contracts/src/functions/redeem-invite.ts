@@ -55,7 +55,7 @@ export type RedeemInviteResponse = z.infer<typeof RedeemInviteResponse>;
 /**
  * `invite-preview` — what the Join page shows before anybody has joined.
  *
- * A function and not a database call since SUS-214 (ADR 0081): the invite's
+ * A function and not a database call since SUS-214 (ADR 0082): the invite's
  * digest is an HMAC under a key only the Edge Functions hold, so a browser
  * cannot compute it. The caller has no session, as before; the `secret` is the
  * link's fragment and is hashed on the server. `preview` is null for a link

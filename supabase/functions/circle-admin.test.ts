@@ -100,7 +100,7 @@ function digestOf(secret: string): string {
   return `\\x${createHash('sha256').update(secret).digest('hex')}`;
 }
 
-/** The HMAC under `INVITE_DIGEST_KEY` every link made since SUS-214 is stored under (ADR 0081). */
+/** The HMAC under `INVITE_DIGEST_KEY` every link made since SUS-214 is stored under (ADR 0082). */
 function hmacOf(secret: string): string {
   return `\\x${createHmac('sha256', DIGEST_KEY).update(`circles.digest.v1:invite:${secret}`).digest('hex')}`;
 }

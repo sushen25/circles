@@ -2,7 +2,7 @@
 --
 -- (Numbered 0070: open pull requests hold 0068 and 0069.)
 --
--- SUS-214, ADR 0081 (amends ADR 0028). An invite secret and an emailed re-entry
+-- SUS-214, ADR 0082 (amends ADR 0028). An invite secret and an emailed re-entry
 -- token are stored as a digest. Until now it was a plain SHA-256, which anybody
 -- holding a copy of `circle_invites` or `email_action_tokens` (a backup, an
 -- export, a read-only SQL user) can recompute for a guess, and, together with
@@ -28,7 +28,7 @@
 -- The functions that look a digest up take the HMAC and, beside it, the legacy
 -- SHA-256 of the same secret. The legacy one finds only a `sha256` row and the
 -- HMAC only an `hmac` row, so neither can stand in for the other. Dropping the
--- legacy path is a later migration (ADR 0081 says when).
+-- legacy path is a later migration (ADR 0082 says when).
 --
 -- `invite_preview` was `anon`'s, keyed by a digest the browser computed. The
 -- browser cannot hold the key, so it is now the service role's and the new
@@ -40,14 +40,14 @@ alter table public.circle_invites
   add constraint circle_invites_digest_kind check (digest_kind in ('sha256', 'hmac'));
 
 comment on column public.circle_invites.digest_kind is
-  'How secret_hash was made: sha256 (a plain digest, before ADR 0081) or hmac (under INVITE_DIGEST_KEY, which the database does not hold). Said by whoever stores it; the default is the label an older function is telling the truth with.';
+  'How secret_hash was made: sha256 (a plain digest, before ADR 0082) or hmac (under INVITE_DIGEST_KEY, which the database does not hold). Said by whoever stores it; the default is the label an older function is telling the truth with.';
 
 alter table private.email_action_tokens
   add column digest_kind text not null default 'sha256',
   add constraint email_action_tokens_digest_kind check (digest_kind in ('sha256', 'hmac'));
 
 comment on column private.email_action_tokens.digest_kind is
-  'How token_hash was made: sha256, or hmac (a re-entry token issued after ADR 0081, under INVITE_DIGEST_KEY, which the database does not hold).';
+  'How token_hash was made: sha256, or hmac (a re-entry token issued after ADR 0082, under INVITE_DIGEST_KEY, which the database does not hold).';
 
 -- Why the default stays `sha256`: the migration is pushed before the functions
 -- are deployed, and until they are the old ones keep storing a plain SHA-256
@@ -83,7 +83,7 @@ drop function public.live_invite(uuid, uuid);
 --
 -- Not granted to any client role.
 --
--- **Two digests, one token** (SUS-214, ADR 0081). A token made after the change
+-- **Two digests, one token** (SUS-214, ADR 0082). A token made after the change
 -- is stored as an HMAC under a key the database never holds (`p_reentry_token_hash`,
 -- kind `hmac`); one made before it is a plain SHA-256 (`p_legacy_token_hash`,
 -- kind `sha256`). the lookup takes whichever the stored row's kind
@@ -445,7 +445,7 @@ create or replace function public.create_circle(
   -- no answer, not an empty place.
   default_area text default null,
   -- What `invite_secret_hash` is: `hmac` from the Edge Function that holds the
-  -- digest key, `sha256` from one that does not (ADR 0081). Passed to `issue_invite`.
+  -- digest key, `sha256` from one that does not (ADR 0082). Passed to `issue_invite`.
   digest_kind text default 'sha256'
 )
 returns public.circles
@@ -587,14 +587,14 @@ grant execute on function public.create_circle(text, text, text, text, text, byt
 -- `redeem_invite` is, so the capability itself never becomes a statement
 -- parameter (§14).
 --
--- **The service role's, since SUS-214 (ADR 0081).** The digest is an HMAC under
+-- **The service role's, since SUS-214 (ADR 0082).** The digest is an HMAC under
 -- a key only the Edge Functions hold, so a browser cannot compute it and the
 -- `anon` role cannot be given this. The Join page asks the `invite-preview`
 -- Edge Function, which needs no session either: it takes the secret, hashes it
 -- and calls this. The Edge Function carries a per-address limit, because it,
 -- unlike a stored digest, can be asked by anybody. `p_legacy_hash` is the plain
 -- SHA-256 of the same secret, for a link made before that change; it finds only
--- an invite stored as `sha256` (ADR 0081).
+-- an invite stored as `sha256` (ADR 0082).
 --
 -- **What it returns is the least that draws the page.** The circle's name; the
 -- name of whoever made the link, when they are still a member; and one initial
@@ -645,7 +645,7 @@ as $$
 $$;
 
 comment on function public.invite_preview(bytea, bytea) is
-  'The Join page before joining: circle name, inviter name and one initial per member, by invite digest. No row for a revoked or unknown invite or an archived circle. Service role only: the invite-preview Edge Function hashes the secret under a key the database does not hold (ADR 0081).';
+  'The Join page before joining: circle name, inviter name and one initial per member, by invite digest. No row for a revoked or unknown invite or an archived circle. Service role only: the invite-preview Edge Function hashes the secret under a key the database does not hold (ADR 0082).';
 
 revoke all on function public.invite_preview(bytea, bytea) from public;
 revoke all on function public.invite_preview(bytea, bytea) from anon, authenticated;
@@ -671,7 +671,7 @@ grant execute on function public.invite_preview(bytea, bytea) to service_role;
 -- invalidating anything.
 --
 -- **The digest is an HMAC under a key only the Edge Functions hold** (SUS-214,
--- ADR 0081). The database cannot tell an HMAC from any other 32 bytes, so the
+-- ADR 0082). The database cannot tell an HMAC from any other 32 bytes, so the
 -- kind is the caller's to say: `p_digest_kind` is `hmac` from the Edge Functions
 -- that hold the key. It defaults to `sha256`, the label an older function that
 -- sends a plain SHA-256 is telling the truth with, so a deploy that migrates the
@@ -792,7 +792,7 @@ grant execute on function public.issue_invite(uuid, bytea, uuid, text) to authen
 -- the contact's owner.
 --
 -- **The digest is an HMAC under a key only the Edge Function holds** (SUS-214,
--- ADR 0081), and the caller says so with `p_digest_kind = 'hmac'`; the default,
+-- ADR 0082), and the caller says so with `p_digest_kind = 'hmac'`; the default,
 -- `sha256`, is the truth for an older function that sends a plain SHA-256, so a
 -- deploy that migrates before it replaces the functions mislabels nothing. Every
 -- token made before the change is `sha256` and opens its link until it expires.
@@ -888,7 +888,7 @@ grant execute on function public.issue_reentry_token(uuid, uuid, bytea, text) to
 -- server. (The owner check is `auth_is_owner`'s, restated for a caller who is
 -- an argument rather than `auth.uid()`.)
 --
--- **Which kind of digest it is** (SUS-214, ADR 0081): an invite made after the
+-- **Which kind of digest it is** (SUS-214, ADR 0082): an invite made after the
 -- change is an HMAC under `INVITE_DIGEST_KEY`, one made before is a plain
 -- SHA-256, and `get-invite-link` compares the one that matches.
 --
@@ -992,7 +992,7 @@ grant execute on function public.reattach_member(uuid, uuid) to authenticated;
 -- parameter, which is what architecture §14 keeps out of query logs.
 --
 -- **The digest is an HMAC under a key only the Edge Function holds** (SUS-214,
--- ADR 0081): the table cannot be turned into a digest by anybody who has the
+-- ADR 0082): the table cannot be turned into a digest by anybody who has the
 -- table alone. `p_legacy_token_hash` is the plain SHA-256 of the same token, for
 -- a link emailed before that change; it finds only a row stored as `sha256`
 -- (`email_action_tokens.digest_kind`), and no row made since is stored that way.
@@ -1029,7 +1029,7 @@ end;
 $$;
 
 comment on function public.reattach_with_token(uuid, bytea, bytea) is
-  'Moves a guest membership onto p_user_id from an emailed re-entry token digest (ADR 0006, ADR 0049). Service role only: the digest is stored, so it must not be a way in by itself, and the reattach-member Edge Function that hashes the token passes the caller it verified. The digest is an HMAC under a key the database does not hold; p_legacy_token_hash finds only a token stored before that (ADR 0081).';
+  'Moves a guest membership onto p_user_id from an emailed re-entry token digest (ADR 0006, ADR 0049). Service role only: the digest is stored, so it must not be a way in by itself, and the reattach-member Edge Function that hashes the token passes the caller it verified. The digest is an HMAC under a key the database does not hold; p_legacy_token_hash finds only a token stored before that (ADR 0082).';
 
 revoke all on function public.reattach_with_token(uuid, bytea, bytea) from public;
 revoke all on function public.reattach_with_token(uuid, bytea, bytea) from anon, authenticated;
@@ -1050,11 +1050,11 @@ grant execute on function public.reattach_with_token(uuid, bytea, bytea) to serv
 -- digest finds the invite; the row it finds is the authority.
 --
 -- **The digest is an HMAC under a key only the Edge Function holds** (SUS-214,
--- ADR 0081), so a copy of `circle_invites` is not enough to compute one.
+-- ADR 0082), so a copy of `circle_invites` is not enough to compute one.
 -- `p_legacy_hash` is the plain SHA-256 of the same secret, offered so that a
 -- link made before that change still opens its circle: it finds only a row
 -- stored as `sha256` (`circle_invites.digest_kind`), and every invite made since
--- is stored as `hmac`. The legacy path is removed once ADR 0081's condition is
+-- is stored as `hmac`. The legacy path is removed once ADR 0082's condition is
 -- met.
 --
 -- **The service role's, and nobody else's (SUS-114).** The table keeps only a
@@ -1150,7 +1150,7 @@ end;
 $$;
 
 comment on function public.redeem_invite(uuid, bytea, text, bytea) is
-  'Joins p_user_id to the circle behind an invite digest. Idempotent on an existing active membership; raises invite_inactive, duplicate_name or circle_full. Service role only: the digest is stored, so it must not be a way in by itself, and the redeem-invite Edge Function that hashes the secret passes the caller it verified (SUS-114). The digest is an HMAC under a key the database does not hold; p_legacy_hash finds only an invite stored as a plain SHA-256 before that (ADR 0081).';
+  'Joins p_user_id to the circle behind an invite digest. Idempotent on an existing active membership; raises invite_inactive, duplicate_name or circle_full. Service role only: the digest is stored, so it must not be a way in by itself, and the redeem-invite Edge Function that hashes the secret passes the caller it verified (SUS-114). The digest is an HMAC under a key the database does not hold; p_legacy_hash finds only an invite stored as a plain SHA-256 before that (ADR 0082).';
 
 revoke all on function public.redeem_invite(uuid, bytea, text, bytea) from public;
 revoke all on function public.redeem_invite(uuid, bytea, text, bytea) from anon, authenticated;
@@ -1214,7 +1214,7 @@ begin
     return false;
   end if;
 
-  -- Always an HMAC: the sweep computes it under the project's digest key (ADR 0081).
+  -- Always an HMAC: the sweep computes it under the project's digest key (ADR 0082).
   insert into public.circle_invites (id, circle_id, secret_hash, digest_kind, created_by)
   values (p_invite_id, p_circle_id, p_secret_hash, 'hmac', owner)
   returning * into issued;

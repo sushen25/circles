@@ -1,12 +1,12 @@
 ---
-adr: 81
+adr: 82
 title: "Invite and re-entry digests are an HMAC under a key only the Edge Functions hold"
 status: proposed
 date: 2026-10-19
 amends: [28, 73]
 builds_on: [49]
 ---
-# ADR 0081: Invite and re-entry digests are an HMAC under a key only the Edge Functions hold
+# ADR 0082: Invite and re-entry digests are an HMAC under a key only the Edge Functions hold
 
 _Status: proposed · 19 October 2026 · amends [ADR 0028](0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md), which stored the SHA-256 of an invite secret, and [ADR 0073](0073-an-invite-digest-and-a-re-entry-digest-are-not-a-way-in.md), which made the functions that take a digest the service role's but left `invite_preview` to `anon` and the HMAC as a follow-up, and builds on [ADR 0049](0049-continue-as-resolves-a-code-only-while-it-is-live.md), which defined the emailed re-entry path_
 

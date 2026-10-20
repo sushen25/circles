@@ -11,14 +11,14 @@
 -- `redeem_invite` is, so the capability itself never becomes a statement
 -- parameter (§14).
 --
--- **The service role's, since SUS-214 (ADR 0081).** The digest is an HMAC under
+-- **The service role's, since SUS-214 (ADR 0082).** The digest is an HMAC under
 -- a key only the Edge Functions hold, so a browser cannot compute it and the
 -- `anon` role cannot be given this. The Join page asks the `invite-preview`
 -- Edge Function, which needs no session either: it takes the secret, hashes it
 -- and calls this. The Edge Function carries a per-address limit, because it,
 -- unlike a stored digest, can be asked by anybody. `p_legacy_hash` is the plain
 -- SHA-256 of the same secret, for a link made before that change; it finds only
--- an invite stored as `sha256` (ADR 0081).
+-- an invite stored as `sha256` (ADR 0082).
 --
 -- **What it returns is the least that draws the page.** The circle's name; the
 -- name of whoever made the link, when they are still a member; and one initial
@@ -69,7 +69,7 @@ as $$
 $$;
 
 comment on function public.invite_preview(bytea, bytea) is
-  'The Join page before joining: circle name, inviter name and one initial per member, by invite digest. No row for a revoked or unknown invite or an archived circle. Service role only: the invite-preview Edge Function hashes the secret under a key the database does not hold (ADR 0081).';
+  'The Join page before joining: circle name, inviter name and one initial per member, by invite digest. No row for a revoked or unknown invite or an archived circle. Service role only: the invite-preview Edge Function hashes the secret under a key the database does not hold (ADR 0082).';
 
 revoke all on function public.invite_preview(bytea, bytea) from public;
 revoke all on function public.invite_preview(bytea, bytea) from anon, authenticated;

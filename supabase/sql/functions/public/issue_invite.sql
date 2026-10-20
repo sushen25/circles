@@ -17,7 +17,7 @@
 -- invalidating anything.
 --
 -- **The digest is an HMAC under a key only the Edge Functions hold** (SUS-214,
--- ADR 0081). The database cannot tell an HMAC from any other 32 bytes, so the
+-- ADR 0082). The database cannot tell an HMAC from any other 32 bytes, so the
 -- kind is the caller's to say: `p_digest_kind` is `hmac` from the Edge Functions
 -- that hold the key. It defaults to `sha256`, the label an older function that
 -- sends a plain SHA-256 is telling the truth with, so a deploy that migrates the

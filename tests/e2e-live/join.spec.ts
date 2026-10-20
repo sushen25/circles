@@ -73,9 +73,9 @@ test('with no plan asking, a new member lands on the circle, and is let in', asy
   ).toHaveCount(0);
 });
 
-test('a link made before the HMAC still previews and joins (ADR 0081)', async ({ page }) => {
+test('a link made before the HMAC still previews and joins (ADR 0082)', async ({ page }) => {
   // Links already in group chats are stored as the plain SHA-256 and marked so.
-  // They keep working through the legacy digest until the window in ADR 0081 ends.
+  // They keep working through the legacy digest until the window in ADR 0082 ends.
   const crew = sundayCrew({ withPlan: false });
   sql(`update public.circle_invites
        set secret_hash = extensions.digest('${crew.secret}', 'sha256'), digest_kind = 'sha256'

@@ -110,7 +110,7 @@ export function mint(value: string, kind: Minted['kind']): string {
 
 /**
  * The digest the Edge Functions store an invite secret or a re-entry token under
- * (ADR 0081): HMAC-SHA-256 under `INVITE_DIGEST_KEY`, which a local stack sets to
+ * (ADR 0082): HMAC-SHA-256 under `INVITE_DIGEST_KEY`, which a local stack sets to
  * `local` in `supabase/config.toml`. As SQL, for the fixtures that insert one
  * directly; the same bytes `_shared/digest.ts` computes.
  */

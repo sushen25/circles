@@ -12,12 +12,12 @@
 //   SUPABASE_URL=...  SUPABASE_SERVICE_ROLE_KEY=...  INVITE_LINK_KEY_NEW=...  \
 //     INVITE_DIGEST_KEY=...  node scripts/rotate-invite-key.mjs [--apply] [--hosted]
 //
-// `INVITE_DIGEST_KEY` is the project's digest key (ADR 0081): every new digest
+// `INVITE_DIGEST_KEY` is the project's digest key (ADR 0082): every new digest
 // is an HMAC under it, so this has to compute the same one. It is the key the
 // project already has, not a new one. A live invite stored as a plain SHA-256
-// (made before ADR 0081) is never "under the new key", so running this with
+// (made before ADR 0082) is never "under the new key", so running this with
 // `INVITE_LINK_KEY_NEW` set to the key the project already uses reissues every
-// such invite as an HMAC: that is how ADR 0081's "rotate every live link" is done.
+// such invite as an HMAC: that is how ADR 0082's "rotate every live link" is done.
 //
 // - Dry run unless `--apply`: it reads, counts and reports, and changes nothing.
 // - The service role key and the new key come from the environment, never from

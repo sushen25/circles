@@ -14,7 +14,7 @@ import { callerAddress, enforce } from '../_shared/rate.ts';
  *
  * It used to be a database call the browser made with the SHA-256 of the
  * fragment. The digest is an HMAC under `INVITE_DIGEST_KEY` since SUS-214
- * (ADR 0081), which a browser cannot hold, so the hashing moved here: the page
+ * (ADR 0082), which a browser cannot hold, so the hashing moved here: the page
  * posts the fragment, this hashes it and asks `public.invite_preview`, which is
  * the service role's.
  *

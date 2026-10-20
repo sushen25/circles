@@ -25,7 +25,7 @@
 -- the contact's owner.
 --
 -- **The digest is an HMAC under a key only the Edge Function holds** (SUS-214,
--- ADR 0081), and the caller says so with `p_digest_kind = 'hmac'`; the default,
+-- ADR 0082), and the caller says so with `p_digest_kind = 'hmac'`; the default,
 -- `sha256`, is the truth for an older function that sends a plain SHA-256, so a
 -- deploy that migrates before it replaces the functions mislabels nothing. Every
 -- token made before the change is `sha256` and opens its link until it expires.

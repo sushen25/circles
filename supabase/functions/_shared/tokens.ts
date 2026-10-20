@@ -91,7 +91,7 @@ export async function issueReentryToken(
     p_circle_id: circleId,
     p_contact_id: contactId,
     // An HMAC under `INVITE_DIGEST_KEY`, not the plain SHA-256 the other
-    // purposes use (SUS-214, ADR 0081): the key is required, so a function
+    // purposes use (SUS-214, ADR 0082): the key is required, so a function
     // without it answers 503 and issues nothing rather than a weaker digest.
     p_token_hash: (await reentryDigests(token)).current,
     p_digest_kind: 'hmac',

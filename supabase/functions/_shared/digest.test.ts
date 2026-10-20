@@ -5,7 +5,7 @@ import { Unavailable } from './problem.ts';
 
 /**
  * The digest an invite secret or a re-entry token is stored under (SUS-214,
- * ADR 0081). HMAC-SHA-256 under `INVITE_DIGEST_KEY`, held by the Edge Functions
+ * ADR 0082). HMAC-SHA-256 under `INVITE_DIGEST_KEY`, held by the Edge Functions
  * and never by the database, so a copy of the tables cannot reproduce it.
  */
 
