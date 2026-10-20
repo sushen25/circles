@@ -40,8 +40,9 @@ export async function deletionPreview(): Promise<OwnedCircle[]> {
  * `signOut()` tries first may be refused and it falls back to the local one,
  * which is the point of reusing it.
  *
- * The key is the caller's, held for the sheet's life, so a retry after a lost
- * response is answered from the record instead of meeting a banned account.
+ * The key is the caller's, held for the sheet's life. A retry after a lost
+ * response may be refused as signed out, because the session really is gone;
+ * the screen then says it could not delete, and signing in is refused if it did.
  */
 export async function deleteMyAccount(
   idempotencyKey: IdempotencyKey,

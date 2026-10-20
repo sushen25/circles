@@ -47,7 +47,6 @@ declare
   owned record;
   mine record;
   heir uuid;
-  new_organiser uuid;
   n_transferred integer := 0;
   n_archived integer := 0;
   stale uuid[] := '{}';
@@ -56,20 +55,27 @@ begin
     raise exception 'delete_account requires a signed-in actor'
       using errcode = 'insufficient_privilege';
   end if;
+  if exists (select 1 from private.account_deletions d where d.user_id = caller) then
+    return jsonb_build_object('stale_plans', '[]'::jsonb, 'transferred', 0, 'archived', 0);
+  end if;
   if not public.auth_is_permanent() then
     raise exception 'requires_saved_place' using errcode = 'insufficient_privilege';
   end if;
 
-  if exists (select 1 from private.account_deletions d where d.user_id = caller) then
-    return jsonb_build_object('stale_plans', '[]'::jsonb, 'transferred', 0, 'archived', 0);
-  end if;
+  -- Every circle they are in, locked first and in id order: the order
+  -- `remove_member`, `leave_circle` and `create_plan` lock in (circle, then
+  -- its plans), so a removal racing this cannot deadlock with it.
+  perform 1 from public.circles c
+  where c.id in (select m.circle_id from public.circle_members m where m.user_id = caller)
+     or c.owner_user_id = caller
+  order by c.id
+  for update;
 
   -- 1. Circles they own, in id order so two deletions racing cannot deadlock.
   for owned in
     select c.id from public.circles c
-    where c.owner_user_id = caller and c.status = 'active'
+    where c.owner_user_id = caller
     order by c.id
-    for update
   loop
     select m.user_id into heir
     from public.circle_members m
@@ -80,7 +86,9 @@ begin
     limit 1;
 
     if heir is null then
-      update public.circles set status = 'archived' where id = owned.id;
+      -- An archived circle with nobody to go to stays as it is, and is deleted
+      -- with the account at the purge, as the preview said.
+      update public.circles set status = 'archived' where id = owned.id and status = 'active';
       n_archived := n_archived + 1;
     else
       update public.circles set owner_user_id = heir where id = owned.id;
@@ -92,27 +100,13 @@ begin
     end if;
   end loop;
 
-  -- 2. Plans they organise that still have a future.
+  -- 2. Plans they organise that still have a future, in every circle they are in.
   for mine in
-    select p.id, p.circle_id, p.revision
-    from public.plans p
-    join public.circles c on c.id = p.circle_id
-    where p.organiser_user_id = caller
-      and c.status = 'active'
-      and p.state in ('collecting', 'ready', 'confirmed')
-    order by p.id
+    select distinct m.circle_id from public.circle_members m
+    where m.user_id = caller and m.status = 'active'
+    order by m.circle_id
   loop
-    select m.user_id into new_organiser
-    from public.circle_members m
-    join public.profiles pr on pr.user_id = m.user_id
-    join public.plan_participants pp
-      on pp.plan_id = mine.id and pp.revision = mine.revision and pp.user_id = m.user_id
-    where m.circle_id = mine.circle_id and m.status = 'active'
-      and m.user_id <> caller and pr.is_permanent
-    order by m.joined_at, m.user_id
-    limit 1;
-
-    update public.plans set organiser_user_id = new_organiser where id = mine.id;
+    perform private.hand_on_plans(caller, mine.circle_id);
   end loop;
 
   -- 3. Memberships. The trigger does the rest of removal.

@@ -119,6 +119,8 @@ describe('account', () => {
     expect(screen.getByText(/Former member/)).toBeVisible();
     expect(deleteMyAccount).not.toHaveBeenCalled();
 
+    await waitFor(() => expect(deletionPreview).toHaveBeenCalled());
+    await act(async () => {});
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(await screen.findByText("This can't be undone")).toBeVisible();
     expect(deleteMyAccount).not.toHaveBeenCalled();
@@ -153,6 +155,8 @@ describe('account', () => {
     wrap(<AccountFlow />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Delete my account and data' }));
+    await waitFor(() => expect(deletionPreview).toHaveBeenCalled());
+    await act(async () => {});
     fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
     await act(async () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Delete my account' }));

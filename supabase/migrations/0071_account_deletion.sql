@@ -496,6 +496,60 @@ revoke all on function jobs.run_retention() from public;
 revoke all on function jobs.run_retention() from anon, authenticated;
 revoke all on function jobs.run_retention() from service_role;
 
+-- supabase/sql/functions/private/hand_on_plans.sql
+-- ---------------------------------------------------------------------------
+-- A person is leaving a circle, and the plans they organise go on (S4-05,
+-- ADR 0083). Used by `public.delete_account` and `public.leave_circle`, so the
+-- two cannot disagree.
+--
+-- A named plan that still has a future goes to the longest-standing member who
+-- could organise one (active, a saved place, a participant of the current
+-- revision), or to nobody: a plan with no organiser is already a legal state.
+-- A quiet plan always goes to nobody, because its role is one somebody
+-- *accepts* (`accept_organiser`) and is never given. Nothing is cancelled.
+-- ---------------------------------------------------------------------------
+
+create or replace function private.hand_on_plans(p_user_id uuid, p_circle_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  mine record;
+  next_organiser uuid;
+begin
+  for mine in
+    select p.id, p.revision, p.mode
+    from public.plans p
+    where p.circle_id = p_circle_id
+      and p.organiser_user_id = p_user_id
+      and p.state in ('collecting', 'ready', 'confirmed')
+    order by p.id
+  loop
+    next_organiser := null;
+    if mine.mode = 'named' then
+      select m.user_id into next_organiser
+      from public.circle_members m
+      join public.profiles pr on pr.user_id = m.user_id
+      join public.plan_participants pp
+        on pp.plan_id = mine.id and pp.revision = mine.revision and pp.user_id = m.user_id
+      where m.circle_id = p_circle_id and m.status = 'active'
+        and m.user_id <> p_user_id and pr.is_permanent
+      order by m.joined_at, m.user_id
+      limit 1;
+    end if;
+    update public.plans set organiser_user_id = next_organiser where id = mine.id;
+  end loop;
+end;
+$$;
+
+comment on function private.hand_on_plans(uuid, uuid) is
+  'The named plans a leaving person organises in one circle go to an eligible participant or to nobody; quiet plans to nobody (S4-05, ADR 0083).';
+
+revoke all on function private.hand_on_plans(uuid, uuid) from public;
+revoke all on function private.hand_on_plans(uuid, uuid) from anon, authenticated;
+
 -- supabase/sql/functions/private/purge_account.sql
 -- ---------------------------------------------------------------------------
 -- The end of an account deletion: thirty days on (S4-05, ADR 0083).
@@ -536,15 +590,26 @@ begin
   update private.audit_log a set actor_user_id = null where a.actor_user_id = p_user_id;
   update private.audit_log a set resource_id = null
   where a.resource_type = 'account' and a.resource_id = p_user_id;
-  update private.audit_log a set metadata = a.metadata - 'user_id'
-  where a.metadata ->> 'user_id' = p_user_id::text;
+  update private.audit_log a
+  set metadata = a.metadata - 'user_id' - 'from_user_id' - 'to_user_id'
+  where a.metadata ->> 'user_id' = p_user_id::text
+     or a.metadata ->> 'from_user_id' = p_user_id::text
+     or a.metadata ->> 'to_user_id' = p_user_id::text;
 
   update public.meetup_confirmations k
   set available_user_ids = array_remove(k.available_user_ids, p_user_id)
   where k.available_user_ids @> array[p_user_id];
+  -- A stored candidate set counts its people (`candidates_counts`), so the id
+  -- is replaced by the nil uuid and not removed: the count stays what it was
+  -- and nobody is named. The same for the one person a near miss names.
   update public.candidates c
-  set available_user_ids = array_remove(c.available_user_ids, p_user_id)
+  set available_user_ids = array_replace(
+    c.available_user_ids, p_user_id, '00000000-0000-0000-0000-000000000000'::uuid)
   where c.available_user_ids @> array[p_user_id];
+  update public.candidates c
+  set near_miss_reason = jsonb_set(
+    c.near_miss_reason, '{userId}', to_jsonb('00000000-0000-0000-0000-000000000000'::text))
+  where c.near_miss_reason ->> 'userId' = p_user_id::text;
 
   delete from auth.users u where u.id = p_user_id;
 end;
@@ -581,7 +646,7 @@ as $$
       limit 1
     )
   from public.circles c
-  where c.owner_user_id = (select auth.uid()) and c.status = 'active'
+  where c.owner_user_id = (select auth.uid())
   order by c.created_at, c.id;
 $$;
 
@@ -591,6 +656,40 @@ comment on function public.account_deletion_preview() is
 revoke all on function public.account_deletion_preview() from public;
 revoke all on function public.account_deletion_preview() from anon, authenticated;
 grant execute on function public.account_deletion_preview() to authenticated;
+
+-- supabase/sql/functions/public/auth_is_permanent.sql
+create or replace function public.auth_is_permanent()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  -- Signed in, and not anonymous. Read from the JWT rather than from
+  -- `profiles`, because a row the caller can update is not a credential.
+  --
+  -- A missing claim reads as anonymous. That is the safe direction: the only
+  -- thing this gates is creation, and refusing a permanent user is a retry
+  -- while admitting an anonymous one strands a plan (ADR 0004).
+  select (select auth.uid()) is not null
+     and coalesce(
+           nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'is_anonymous',
+           'true'
+         ) = 'false'
+     -- Not somebody who has deleted their account: an access token issued
+     -- before the deletion lives for up to an hour, and must not make a circle
+     -- for a person who is no longer here (S4-05, ADR 0083).
+     and not exists (
+       select 1 from private.account_deletions d where d.user_id = (select auth.uid())
+     );
+$$;
+
+comment on function public.auth_is_permanent() is
+  'True when the caller has a saved place (Apple, Google or email code). Gates circle and plan creation (ADR 0004). A missing claim reads as anonymous.';
+
+revoke all on function public.auth_is_permanent() from public;
+revoke all on function public.auth_is_permanent() from anon, authenticated;
+grant execute on function public.auth_is_permanent() to anon, authenticated;
 
 -- supabase/sql/functions/public/delete_account.sql
 -- ---------------------------------------------------------------------------
@@ -642,7 +741,6 @@ declare
   owned record;
   mine record;
   heir uuid;
-  new_organiser uuid;
   n_transferred integer := 0;
   n_archived integer := 0;
   stale uuid[] := '{}';
@@ -651,20 +749,27 @@ begin
     raise exception 'delete_account requires a signed-in actor'
       using errcode = 'insufficient_privilege';
   end if;
+  if exists (select 1 from private.account_deletions d where d.user_id = caller) then
+    return jsonb_build_object('stale_plans', '[]'::jsonb, 'transferred', 0, 'archived', 0);
+  end if;
   if not public.auth_is_permanent() then
     raise exception 'requires_saved_place' using errcode = 'insufficient_privilege';
   end if;
 
-  if exists (select 1 from private.account_deletions d where d.user_id = caller) then
-    return jsonb_build_object('stale_plans', '[]'::jsonb, 'transferred', 0, 'archived', 0);
-  end if;
+  -- Every circle they are in, locked first and in id order: the order
+  -- `remove_member`, `leave_circle` and `create_plan` lock in (circle, then
+  -- its plans), so a removal racing this cannot deadlock with it.
+  perform 1 from public.circles c
+  where c.id in (select m.circle_id from public.circle_members m where m.user_id = caller)
+     or c.owner_user_id = caller
+  order by c.id
+  for update;
 
   -- 1. Circles they own, in id order so two deletions racing cannot deadlock.
   for owned in
     select c.id from public.circles c
-    where c.owner_user_id = caller and c.status = 'active'
+    where c.owner_user_id = caller
     order by c.id
-    for update
   loop
     select m.user_id into heir
     from public.circle_members m
@@ -675,7 +780,9 @@ begin
     limit 1;
 
     if heir is null then
-      update public.circles set status = 'archived' where id = owned.id;
+      -- An archived circle with nobody to go to stays as it is, and is deleted
+      -- with the account at the purge, as the preview said.
+      update public.circles set status = 'archived' where id = owned.id and status = 'active';
       n_archived := n_archived + 1;
     else
       update public.circles set owner_user_id = heir where id = owned.id;
@@ -687,27 +794,13 @@ begin
     end if;
   end loop;
 
-  -- 2. Plans they organise that still have a future.
+  -- 2. Plans they organise that still have a future, in every circle they are in.
   for mine in
-    select p.id, p.circle_id, p.revision
-    from public.plans p
-    join public.circles c on c.id = p.circle_id
-    where p.organiser_user_id = caller
-      and c.status = 'active'
-      and p.state in ('collecting', 'ready', 'confirmed')
-    order by p.id
+    select distinct m.circle_id from public.circle_members m
+    where m.user_id = caller and m.status = 'active'
+    order by m.circle_id
   loop
-    select m.user_id into new_organiser
-    from public.circle_members m
-    join public.profiles pr on pr.user_id = m.user_id
-    join public.plan_participants pp
-      on pp.plan_id = mine.id and pp.revision = mine.revision and pp.user_id = m.user_id
-    where m.circle_id = mine.circle_id and m.status = 'active'
-      and m.user_id <> caller and pr.is_permanent
-    order by m.joined_at, m.user_id
-    limit 1;
-
-    update public.plans set organiser_user_id = new_organiser where id = mine.id;
+    perform private.hand_on_plans(caller, mine.circle_id);
   end loop;
 
   -- 3. Memberships. The trigger does the rest of removal.
@@ -960,7 +1053,7 @@ begin
     'email', jsonb_build_object(
       'contacts', coalesce((
         select jsonb_agg(jsonb_build_object(
-          'status', c.status, 'address_hint', hint,
+          'status', c.status,
           'verified_at', c.verified_at, 'suppressed_at', c.suppressed_at
         ) order by c.created_at, c.id)
         from private.email_contacts c where c.user_id = me
@@ -1041,6 +1134,10 @@ begin
   if not found then
     raise exception 'member_not_found' using errcode = 'no_data_found';
   end if;
+
+  -- The plans they organise go on, as they do when an account is deleted: a
+  -- named plan whose organiser has left would otherwise be nobody's.
+  perform private.hand_on_plans(caller, p_circle_id);
 
   insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata)
   values (caller, 'circles.member_left', 'circle', p_circle_id, '{}'::jsonb);

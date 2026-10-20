@@ -1,6 +1,7 @@
 import { isValidDisplayName, normaliseDisplayName } from '@circles/domain';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import { Platform } from 'react-native';
 import { useMemo, useState } from 'react';
 
 import { t } from '../../copy';
@@ -172,35 +173,39 @@ function LiveAccount() {
       onChangeZone={() => setPicking(true)}
       onPrivacy={() => router.push('/settings/privacy')}
       onNotifications={() => router.push('/settings/notifications')}
-      onExport={() => {
-        setExporting(true);
-        setExportNote(undefined);
-        exportMyData()
-          .then(({ filename, contents }) => {
-            const saved = saveFile(contents, filename, 'application/json');
-            setExportNote(
-              saved === 'saved'
-                ? { kind: 'ok', text: t('account', 'exported') }
-                : {
+      onExport={
+        Platform.OS !== 'web'
+          ? undefined
+          : () => {
+              setExporting(true);
+              setExportNote(undefined);
+              exportMyData()
+                .then(({ filename, contents }) => {
+                  const saved = saveFile(contents, filename, 'application/json');
+                  setExportNote(
+                    saved === 'saved'
+                      ? { kind: 'ok', text: t('account', 'exported') }
+                      : {
+                          kind: 'warn',
+                          text:
+                            saved === 'unsupported'
+                              ? t('account', 'export_unsupported')
+                              : t('account', 'couldnt_export'),
+                        },
+                  );
+                })
+                .catch((error: unknown) =>
+                  setExportNote({
                     kind: 'warn',
                     text:
-                      saved === 'unsupported'
-                        ? t('account', 'export_unsupported')
+                      error instanceof FunctionError && error.reason === 'too_many_requests'
+                        ? t('account', 'export_too_soon')
                         : t('account', 'couldnt_export'),
-                  },
-            );
-          })
-          .catch((error: unknown) =>
-            setExportNote({
-              kind: 'warn',
-              text:
-                error instanceof FunctionError && error.reason === 'too_many_requests'
-                  ? t('account', 'export_too_soon')
-                  : t('account', 'couldnt_export'),
-            }),
-          )
-          .finally(() => setExporting(false));
-      }}
+                  }),
+                )
+                .finally(() => setExporting(false));
+            }
+      }
       exporting={exporting}
       exportNote={exportNote}
       onDeleteAccount={() => {
@@ -227,8 +232,11 @@ function LiveAccount() {
       <DeleteAccountSheet
         step={deleting}
         owned={owned.data ?? []}
+        loadingOwned={owned.isPending || owned.isError}
         busy={busy}
-        problem={deleteProblem}
+        problem={
+          deleteProblem ?? (owned.isError ? t('account', 'couldnt_check_circles') : undefined)
+        }
         onContinue={() => setDeleting('sure')}
         onBack={() => setDeleting('explain')}
         onDismiss={() => {

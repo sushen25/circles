@@ -46,6 +46,10 @@ begin
     raise exception 'member_not_found' using errcode = 'no_data_found';
   end if;
 
+  -- The plans they organise go on, as they do when an account is deleted: a
+  -- named plan whose organiser has left would otherwise be nobody's.
+  perform private.hand_on_plans(caller, p_circle_id);
+
   insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata)
   values (caller, 'circles.member_left', 'circle', p_circle_id, '{}'::jsonb);
 

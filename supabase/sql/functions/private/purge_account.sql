@@ -37,15 +37,26 @@ begin
   update private.audit_log a set actor_user_id = null where a.actor_user_id = p_user_id;
   update private.audit_log a set resource_id = null
   where a.resource_type = 'account' and a.resource_id = p_user_id;
-  update private.audit_log a set metadata = a.metadata - 'user_id'
-  where a.metadata ->> 'user_id' = p_user_id::text;
+  update private.audit_log a
+  set metadata = a.metadata - 'user_id' - 'from_user_id' - 'to_user_id'
+  where a.metadata ->> 'user_id' = p_user_id::text
+     or a.metadata ->> 'from_user_id' = p_user_id::text
+     or a.metadata ->> 'to_user_id' = p_user_id::text;
 
   update public.meetup_confirmations k
   set available_user_ids = array_remove(k.available_user_ids, p_user_id)
   where k.available_user_ids @> array[p_user_id];
+  -- A stored candidate set counts its people (`candidates_counts`), so the id
+  -- is replaced by the nil uuid and not removed: the count stays what it was
+  -- and nobody is named. The same for the one person a near miss names.
   update public.candidates c
-  set available_user_ids = array_remove(c.available_user_ids, p_user_id)
+  set available_user_ids = array_replace(
+    c.available_user_ids, p_user_id, '00000000-0000-0000-0000-000000000000'::uuid)
   where c.available_user_ids @> array[p_user_id];
+  update public.candidates c
+  set near_miss_reason = jsonb_set(
+    c.near_miss_reason, '{userId}', to_jsonb('00000000-0000-0000-0000-000000000000'::text))
+  where c.near_miss_reason ->> 'userId' = p_user_id::text;
 
   delete from auth.users u where u.id = p_user_id;
 end;

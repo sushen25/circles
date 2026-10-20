@@ -50,7 +50,8 @@ to everybody else, and cannot sign in, *now*; the data is gone in thirty days.
    `private.purge_account` for each due account, one subtransaction each: it
    deletes the circles they still own (an archived circle with its plans),
    takes their id out of the audit log's actor and subject columns and out of
-   the lists of who was free, and deletes the auth user. The cascade takes the
+   the lists of who was free (replaced by the nil uuid in a stored candidate set,
+   which counts its people), and deletes the auth user. The cascade takes the
    profile, memberships, attendance, nudges, devices and everything else keyed on it.
 3. **The five foreign keys.** `circles.owner_user_id` stays `not null` with no
    action: a circle has an owner until it is archived and deleted.
@@ -60,7 +61,7 @@ to everybody else, and cannot sign in, *now*; the data is gone in thirty days.
    Who issued a link, pressed Lock it in or reported an outcome is history
    nothing reads to decide; the link, the time and the outcome stay.
    `analytics.events.user_id` already followed (ADR 0074).
-4. **An archived circle is deleted with its owner's purge.** The auth user
+4. **An archived circle with nobody to go to is deleted with its owner's purge.** (One already archived that has an heir is handed on like any other, and the preview lists every circle the person owns.) The auth user
    cannot go while it owns a circle, and a circle whose owner is deleting and
    which has no other saved-place member has nobody who can act on it. Its
    guests lose it after thirty days. The screen says so before the owner
@@ -70,7 +71,7 @@ to everybody else, and cannot sign in, *now*; the data is gone in thirty days.
    the *address* and also suppresses every other contact holding it; a person
    who deletes and comes back would be silenced. There is nothing to protect
    by keeping the row: no letter is owed to a deleted account.
-6. **`leave-circle` is the owner's Remove done by the person.** Any active
+6. **`leave-circle` is the owner's Remove done by the person,** and, like a deletion, hands on the named plans they organise (`private.hand_on_plans`; a quiet plan's organiser is cleared, never given to anybody). Any active
    member, guests included. The same trigger does the same things, the name is
    kept, and the owner cannot leave (they delete the account, which hands the
    circle on). A guest's anonymous identity is not purged by it; that is
@@ -115,3 +116,8 @@ to everybody else, and cannot sign in, *now*; the data is gone in thirty days.
 - `Confirmation.confirmedBy` in the domain is `UserId | null`.
 - A purge that fails for one person is named in the run and tried again the
   next day; it does not hold up the others.
+- An access token issued before a deletion lives up to an hour. It reads nothing
+  (every membership is gone) and `auth_is_permanent` refuses it, so it cannot
+  create a circle; Edge Functions reject it because its session is gone.
+- Still left, and tolerated: unprocessed outbox payloads and the auth service's
+  own sign-in log (90 days) can name the person until their own retention ends.

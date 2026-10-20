@@ -22,7 +22,7 @@ as $$
       limit 1
     )
   from public.circles c
-  where c.owner_user_id = (select auth.uid()) and c.status = 'active'
+  where c.owner_user_id = (select auth.uid())
   order by c.created_at, c.id;
 $$;
 

@@ -15,6 +15,7 @@ export type DeleteStep = 'explain' | 'sure';
 export function DeleteAccountSheet({
   step,
   owned,
+  loadingOwned,
   busy,
   problem,
   onContinue,
@@ -25,6 +26,8 @@ export function DeleteAccountSheet({
   /** Closed when undefined. */
   step: DeleteStep | undefined;
   owned: readonly OwnedCircle[];
+  /** The circles are still being worked out: Continue waits, so the warning is never skipped. */
+  loadingOwned: boolean;
   busy: boolean;
   problem: string | undefined;
   onContinue: () => void;
@@ -75,7 +78,8 @@ export function DeleteAccountSheet({
           <Button
             label={t('account', 'delete_continue')}
             variant="secondary"
-            onPress={onContinue}
+            busy={loadingOwned}
+            onPress={loadingOwned ? undefined : onContinue}
           />
           <Tertiary label={t('common', 'cancel')} onPress={onDismiss} />
         </>

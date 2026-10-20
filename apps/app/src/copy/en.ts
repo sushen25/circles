@@ -78,6 +78,8 @@ export const en = {
     deleting: 'Deleting…',
     couldnt_delete: "We couldn't delete your account, and nothing has changed. Try again.",
     delete_back: 'Back',
+    couldnt_check_circles:
+      "We couldn't check which circles you own, so we can't say where they would go. Close this and try again.",
     notifications: 'Notifications',
     notifications_detail: 'What we send you, circle by circle',
     row_label: '{title}. {detail}',

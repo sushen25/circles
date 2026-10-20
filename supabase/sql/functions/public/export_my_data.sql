@@ -139,7 +139,7 @@ begin
     'email', jsonb_build_object(
       'contacts', coalesce((
         select jsonb_agg(jsonb_build_object(
-          'status', c.status, 'address_hint', hint,
+          'status', c.status,
           'verified_at', c.verified_at, 'suppressed_at', c.suppressed_at
         ) order by c.created_at, c.id)
         from private.email_contacts c where c.user_id = me
