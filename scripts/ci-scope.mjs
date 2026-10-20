@@ -16,13 +16,20 @@
  * `README.md` and `CLAUDE.md` are formatted by Prettier (`docs/` is not), and
  * `check:docs` reads every link, and `check-unimported` reads them for the
  * scripts they name, so the caller still runs all three on a prose change.
- * Prose skips the suites, not the gate.
+ * Prose skips the suites, not the gate. `content/` is prose for the same
+ * reason `.md` is: no check opens it (see the note above `PROSE`).
  *
  * Anything unrecognised is `code`. The cost of being wrong that way is a slow
  * run; the other way it is a broken main.
  */
 
-const PROSE = [/\.md$/i];
+// `content/` is the content loop (content/CLAUDE.md): its own npm project
+// outside the pnpm workspace, with its own `npm run check`, ignored by
+// Prettier, ESLint and `check:brand`, so nothing `pnpm check` opens lives
+// there. Its bot commits a ledger line most evenings; the gate for each would
+// be thirty minutes to verify nothing. Its two workflows are still read by
+// `check:workflows`, which runs on every change.
+const PROSE = [/\.md$/i, /^content\//];
 
 const input = await new Promise((resolve) => {
   let buffer = '';

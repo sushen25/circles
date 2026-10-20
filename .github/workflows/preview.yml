@@ -12,6 +12,9 @@ on:
       # design tokens come from.
       - '**.md'
       - '.claude/**'
+      # The content loop: its own npm project, outside the bundle and the
+      # database (content/CLAUDE.md), committed to most evenings by its bot.
+      - 'content/**'
 
 permissions:
   contents: read

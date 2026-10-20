@@ -1,0 +1,40 @@
+# Nightly metrics for published content (content/analytics/pull.ts). Appends
+# to content/analytics/posts.jsonl and commits it. Writes only under content/.
+name: content-analytics
+on:
+  schedule:
+    - cron: '15 16 * * *' # 03:15 Melbourne, nightly
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: content-analytics
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: content
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npm run analytics
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      - run: |
+          git config user.name "wenna-content bot"
+          git config user.email "bot@wenna.app"
+          git add analytics/posts.jsonl
+          git diff --cached --quiet || git commit -m "content: analytics $(date -u +%Y-%m-%d)"
+          git push

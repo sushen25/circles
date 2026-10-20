@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8" />
+<!-- Video mode. Components inject their own CSS as they are built. -->
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<script type="module">
+import { build, seek } from './stage.js';
+Object.assign(window, { build, seek, stageReady: true });
+</script>
+</body>
+</html>
