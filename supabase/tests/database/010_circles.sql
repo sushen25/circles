@@ -1001,7 +1001,11 @@ select is(
        -- S4-05 (ADR 0083). The caller's own account: what deleting it would do to
        -- the circles they own, deleting it, leaving one circle, and a download
        -- of their own data. `500_account_deletion.sql`.
-       'account_deletion_preview', 'delete_account', 'leave_circle', 'export_my_data'
+       'account_deletion_preview', 'delete_account', 'leave_circle', 'export_my_data',
+       -- SUS-240. The circle's owner records the campaign tag a link carried, on
+       -- the founder-only cohort row, once; returns nothing.
+       -- `500_source_ref_and_stalled_plans.sql`.
+       'tag_circle_source'
      )),
   '',
   'only the intended functions in public are callable by authenticated'
