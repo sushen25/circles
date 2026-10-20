@@ -140,9 +140,10 @@ describe('the card', () => {
     await tap(toggle);
     expect(toggle).toHaveAttribute('aria-checked', 'false');
     expect(screen.getByText('Nothing is saved.')).toBeVisible();
-    // Nothing is made, so there is nothing to explain or link.
-    expect(screen.queryByRole('link', { name: 'terms' })).toBeNull();
-    expect(screen.queryByText(/For people 18 and over/)).toBeNull();
+    // The address is still being asked for, so the policies stay one tap away (S4-05).
+    expect(screen.getByRole('link', { name: 'terms' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'privacy' })).toBeVisible();
+    expect(screen.getByText(/For people 18 and over/)).toBeVisible();
   });
 
   it('shows no switch to somebody whose place is already saved', async () => {

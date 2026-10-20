@@ -276,6 +276,9 @@ def candidate(day, time, count, names, exception, why, rec=False, waiting=()):
         between(marks(names, waiting), f'<div class="sm">{exception}</div>'),
         rec=rec, gap=10)
 
+# The line under the first ask: the guest join, the name step and the email offer on Sent (S4-05).
+LEGAL_LINE = sm('For people 18 and over. Read the <a href="#">terms</a> and <a href="#">privacy</a>.')
+
 def wordmark(): return '<div class="wordmark">Circles</div>'
 
 # ============ SCREENS ============
@@ -291,7 +294,7 @@ S["Join"] = shell(
         row(marks(["Maya","Alex","Tom","Jess","Sam"]), sm("5 people are in so far")),
         notice("No account or app needed. Your friends see who can make each time, never your calendar."),
     ) +
-    foot(pri("Choose my times"), ter("What is Circles?"))
+    foot(pri("Choose my times"), ter("What is Circles?"), LEGAL_LINE)
 )
 
 S["ContinueAs"] = shell(
@@ -320,7 +323,7 @@ S["Name"] = shell(
         inp("Your first name", ph=True),
         sm("This is what Maya and the others will see next to your times."),
     ) +
-    foot(pri("Continue"))
+    foot(pri("Continue"), LEGAL_LINE)
 )
 
 # The plan link's name step (SUS-203): the same screen, no inviter to name, and
@@ -332,7 +335,7 @@ S["NamePlanLink"] = shell(
         inp("Your first name", ph=True),
         sm("This is what the circle will see next to your times."),
     ) +
-    foot(pri("Continue"), ter("I have an account"))
+    foot(pri("Continue"), ter("I have an account"), LEGAL_LINE)
 )
 
 ev = [False]*10
@@ -565,13 +568,13 @@ def sent_card(address="", switch="on", member=None):
         rows.append(between(
             stack(title("Save my place in Sunday Crew"), sm(SENT_ACCOUNT_LINE if on else "Nothing is saved."), gap=2),
             f'<div class="toggle{" on" if on else ""}"><i></i></div>'))
-        if on:
-            rows.append(sm('For people 18 and over. Read the <a href="#">terms</a> and <a href="#">privacy</a>.'))
     return card(
         row(ic("mail", 20, T["ink2"]), title("Hear when it's locked in")),
         sm(f"We'll email you at {member}.") if member else (inp(address, ph=False) if address else inp("you@example.com", ph=True)),
         sm(CONSENT_2026_10_06),
         *rows,
+        # Where an address is asked for, whatever the switch says (S4-05).
+        LEGAL_LINE,
         pri("Email me about this meetup"),
         ter("Not now"),
     )
@@ -1540,7 +1543,11 @@ S["Privacy"] = shell(
         card(row(ic("eye-off", 20, T["ink2"]), title("Your calendar stays on your phone")), p("If you turn on the calendar check, we read busy times on this device only, to grey out clashes. Event names never leave your phone."), gap=8),
         card(row(ic("people", 20, T["ink2"]), title("Friends see a combined result")), p("They see which options work for you, never a personal schedule. Before enough people are keen on a quiet ask, nobody sees anyone's answer."), gap=8),
         card(row(ic("mail", 20, T["ink2"]), title("What email you get")), p("Anyone can ask for updates about a plan, and each of those emails has a stop link. If you sign in to organise plans or start a quiet ask, you also get letters about those, and each has a stop link that works without signing in; you can turn them back on in notification settings. If you have a saved place in a circle that has a catch-up rhythm, you may get an occasional nudge to plan the next one, and it has a stop link. We never sell addresses, and other companies deliver the email for us."), gap=8),
-        sm("You can leave a circle, download your data or delete your account any time from Account. Write to hello@wenna.app if you would rather we did it."),
+        card(row(ic("shield", 20, T["ink2"]), title("What we keep")), p("Your name, time zone and the times you mark. Your email address if you sign in, or the one a guest gives for a plan. The circles and plans you are in, with any notes and places typed into them. A random id for your browser, and the events a screen sends, which never hold names, emails or notes."), gap=8),
+        card(row(ic("people", 20, T["ink2"]), title("Who else handles it")), p("Hosting, the database, email delivery and the check that a guest is a person are run by other companies for us. We do not sell your data, and there are no ads."), gap=8),
+        card(row(ic("shield", 20, T["ink2"]), title("How long we keep it")), p("The times you mark are kept for 12 months while you are in an active circle. Delete your account and we delete the rest 30 days later. The full list is on the privacy page."), gap=8),
+        sm("Download your data, change your name or delete your account any time from Account, and leave a circle from its settings. Write to hello@wenna.app if you would rather we did it."),
+        sm('<a href="#">Read the full privacy page</a>'),
     )
 )
 

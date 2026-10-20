@@ -1,43 +1,197 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+
 import { brand } from '@circles/config';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
+import { en } from '../../copy';
 import { LegalScreen } from './LegalScreen';
+import { MainScreen } from './MainScreen';
+import { NameScreen } from './NameScreen';
 import { PrivacyScreen } from './PrivacyScreen';
 
 /**
- * SUS-102, restored by S4-05: the privacy words say only what the product does
- * today. Delete my account, leave a circle and download my data now exist, so
- * the pages may say so, and must not say there is no way to; what they must
- * still not promise is what the product does not do (selling or sharing is a
- * claim about processors, which the full policy covers).
+ * SUS-102, restored by S4-05: the privacy words say only what the product does.
+ * Delete my account, leave a circle and download my data exist, so the pages
+ * say so; what they must not promise is what the product does not do, and every
+ * period they name has to be one the database enforces, because that is the one
+ * claim a reader cannot check for themselves.
  */
 const NOT_YET = /no delete button|not in the app yet|sell or share|never sell or share/i;
 
+const textOf = (kind: 'terms' | 'privacy') => {
+  const { container, unmount } = render(<LegalScreen kind={kind} />);
+  const text = container.textContent ?? '';
+  unmount();
+  return text;
+};
+
+/** A file in the repository, found from wherever the run started (the package or the root). */
+function repo(path: string): string {
+  let dir = process.cwd();
+  while (!existsSync(join(dir, 'pnpm-workspace.yaml'))) {
+    const up = dirname(dir);
+    if (up === dir) throw new Error('not inside the workspace');
+    dir = up;
+  }
+  return readFileSync(join(dir, path), 'utf8');
+}
+
+/** `12 months`, `30 days`: a period as `run_retention` writes it, in one spelling. */
+const normal = (n: string, unit: string) => `${n} ${unit.replace(/s$/, '')}${n === '1' ? '' : 's'}`;
+
+/** The periods the database enforces: every interval in `run_retention`, and the purge's own. */
+function enforced(): Set<string> {
+  const periods = new Set<string>();
+  const sql = repo('supabase/sql/functions/jobs/run_retention.sql');
+  for (const [, n, unit] of sql.matchAll(/interval '(\d+) (days?|months?|years?)'/g)) {
+    periods.add(normal(n!, unit!));
+  }
+  const migration = repo('supabase/migrations/0071_account_deletion.sql');
+  const purge = /purge_after timestamptz[^\n]*interval '(\d+) (days?|months?|years?)'/.exec(
+    migration,
+  );
+  expect(purge, 'the purge period is still where this test reads it').not.toBeNull();
+  periods.add(normal(purge![1]!, purge![2]!));
+  return periods;
+}
+
+/** The periods a page states, as digits and a unit: `12 months`, `1 day`. */
+const stated = (text: string) =>
+  [...text.matchAll(/\b(\d+) (days?|months?|years?)\b/g)].map(([, n, unit]) => normal(n!, unit!));
+
 describe('what the privacy pages promise', () => {
-  it('/privacy names the controls that exist, and the support address', () => {
-    const { container } = render(<LegalScreen kind="privacy" />);
-    const text = container.textContent ?? '';
+  it('/privacy names who runs it, the version and the support address', () => {
+    const text = textOf('privacy');
 
     expect(text).not.toMatch(NOT_YET);
-    expect(screen.getByText('Who else handles it')).toBeVisible();
-    expect(screen.getByText('What email you get')).toBeVisible();
-    expect(text).toContain(`Write to ${brand.supportEmail}`);
+    expect(text).toContain('[OPERATOR NAME]');
+    expect(text).toContain('In force from [EFFECTIVE DATE].');
+    expect(text).toContain(`write to ${brand.supportEmail}`);
+    expect(text).toContain('aged 18 and over');
+  });
+
+  it('/privacy lists what the code collects, including what the old page left out', () => {
+    const text = textOf('privacy');
+
+    for (const collected of [
+      // The address a guest gives without signing in, and the record of asking.
+      'If you join without signing in and ask for updates about a plan, the address you type',
+      'which wording you agreed to',
+      // Attendance, outcome reports, interest answers, notes and place names.
+      'whether you went',
+      'report of how it went',
+      'whether you are keen',
+      'note or place name',
+      // The analytics device id, hashed IPs, and the session's IP and browser.
+      'a random id for your browser, kept in its local storage',
+      'hashed form of your IP address',
+      'IP address and browser details it started from',
+    ]) {
+      expect(text, collected).toContain(collected);
+    }
+  });
+
+  it('/privacy names every processor, and a country only where the repository gives one', () => {
+    const text = textOf('privacy');
+
+    for (const processor of ['Supabase', 'Resend', 'Cloudflare Turnstile', 'Expo']) {
+      expect(text, processor).toContain(processor);
+    }
+    expect(text).toContain(`mail sent to ${brand.supportEmail}`);
+    // Singapore is the production database's region (docs/runbooks/environments.md).
+    // Every other processor waits for somebody to confirm where it is.
+    expect(text).toContain('Country: Singapore');
+    expect(text.match(/\[CONFIRM COUNTRY\]/g)).toHaveLength(4);
+    expect(text).not.toMatch(/Country: (?!Singapore|\[CONFIRM COUNTRY\])/);
+  });
+
+  it('/privacy says which email an account gets without opting in, and that guests get none unasked', () => {
+    const text = textOf('privacy');
+
+    expect(text).toContain('With an account, without opting in one by one');
+    expect(text).toContain('a sign-in code');
+    expect(text).toContain('an occasional nudge to plan the next one');
+    expect(text).toContain('only if you ask for it for that plan');
+  });
+
+  it('/privacy states only periods the database enforces, and the ones it does not are open', () => {
+    const text = textOf('privacy');
+    const known = enforced();
+
+    for (const period of stated(text)) {
+      expect(known.has(period), `"${period}" is not a period run_retention enforces`).toBe(true);
+    }
+    for (const period of ['12 months', '30 days', '7 days', '90 days', '1 day']) {
+      expect(stated(text), period).toContain(period);
+      expect(known.has(period), period).toBe(true);
+    }
+
+    // Undecided, so named as undecided and given no number.
+    const open = en.legal.privacy_retain_open;
+    expect(open).toMatch(/^Still being decided: /);
+    for (const undecided of ['notes', 'place names', 'analytics events', 'archived', 'guests']) {
+      expect(open, undecided).toContain(undecided);
+    }
+    expect(stated(open)).toEqual([]);
+  });
+
+  it('/privacy names the routes that exist: access, correction, deletion, leaving and a complaint', () => {
+    const text = textOf('privacy');
+
+    // The labels are the account screen's own, so renaming one breaks this.
+    expect(text).toContain(en.account.export_my_data);
     expect(text).toContain('delete your account from Account');
-    expect(text).toContain('thirty days later');
+    expect(text).toContain('leave a circle from its settings');
+    expect(text).toContain('change your name and time zone in Account');
+    expect(text).toContain('30 days later we delete your profile');
+    expect(text).toContain(`write to ${brand.supportEmail}`);
+    expect(text).toContain('Office of the Australian Information Commissioner');
   });
 
-  it('/terms makes no promise the product does not keep', () => {
-    const { container } = render(<LegalScreen kind="terms" />);
-    expect(container.textContent ?? '').not.toMatch(NOT_YET);
+  it('/terms states who runs it, 18+, no ads, no selling data and the 12-month windows', () => {
+    const text = textOf('terms');
+
+    expect(text).not.toMatch(NOT_YET);
+    expect(text).toContain('[OPERATOR NAME]');
+    expect(text).toContain('In force from [EFFECTIVE DATE].');
+    expect(text).toContain('18 and over');
+    expect(text).toContain('No ads. We do not sell your data');
+    expect(text).toContain('12 months while you are in an active circle');
+    for (const period of stated(text)) expect(enforced().has(period), period).toBe(true);
   });
 
-  it('/settings/privacy names the same controls', () => {
+  it('/settings/privacy names the same controls and keeps no promise the page cannot', () => {
     const { container } = render(<PrivacyScreen />);
     const text = container.textContent ?? '';
 
     expect(text).not.toMatch(NOT_YET);
     expect(text).toContain('delete your account any time from Account');
     expect(text).toContain(`Write to ${brand.supportEmail}`);
+    expect(screen.getByRole('link', { name: 'Read the full privacy page' })).toBeVisible();
+    for (const period of stated(text)) expect(enforced().has(period), period).toBe(true);
+  });
+});
+
+describe('where the pages are shown', () => {
+  it('the guest join links terms and privacy, and says 18+', () => {
+    render(
+      <MainScreen
+        invite={{ circleName: 'Sunday Crew', inviterName: 'Maya', memberInitials: ['M'] }}
+      />,
+    );
+
+    expect(screen.getByText(/For people 18 and over/)).toBeVisible();
+    expect(screen.getByRole('link', { name: 'terms' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'privacy' })).toBeVisible();
+  });
+
+  it('the name step links terms and privacy, and says 18+', () => {
+    render(<NameScreen circleName="Sunday Crew" />);
+
+    expect(screen.getByText(/For people 18 and over/)).toBeVisible();
+    expect(screen.getByRole('link', { name: 'terms' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'privacy' })).toBeVisible();
   });
 });

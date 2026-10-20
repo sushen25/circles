@@ -291,7 +291,8 @@ travels in a URL) and `/name` (`YourNameFlow`, with `TimeZoneScreen` for the
 zone). `/sign-in?next=/j/<code>` is where "I have an account" on a plan link
 leads (ADR 0022); only a plan link survives as `next` (`data/auth/returnPath.ts`).
 `/(auth)/code` redirects to `/sign-in` when there is a backend. `/terms` and
-`/privacy` are static (`LegalScreen`) and have no artboard.
+`/privacy` are static (`LegalScreen`) and have no artboard; the Privacy artboard is `/settings/privacy`.
+The guest join, the name step and the email offer on Sent each carry `LegalLine` (18+, and links to both pages).
 
 **Real since S1-23:** `/settings/account` (`AccountFlow`: name and time zone
 through `saveProfile`, the session's own address shown, Privacy and
