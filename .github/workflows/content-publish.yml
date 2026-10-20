@@ -34,6 +34,13 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: 22 }
       - run: npm ci
+      # The slideshow guard (publish/guards.ts) refuses an item whose slides are
+      # not in out/<slug>/, and out/ is never committed, so the runner renders
+      # the approved items itself. Bluesky and LinkedIn upload these PNGs;
+      # Threads and Instagram fetch by URL from MEDIA_BASE_URL, which this job
+      # does not fill (content/README.md, "Going live", step 3).
+      - run: npx playwright install --with-deps chromium
+      - run: npm run render -- --approved
       - run: npm run publish
         env:
           BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
@@ -49,6 +56,9 @@ jobs:
         run: |
           git config user.name "wenna-content bot"
           git config user.email "bot@wenna.app"
-          git add -A queue published publish/ledger.jsonl
+          # The ledger does not exist until the first post, and a pathspec that
+          # matches nothing fails `git add`; the whole publish/ dir is what the
+          # publisher writes to (ledger.jsonl only), so stage that.
+          git add -A -- queue published publish
           git diff --cached --quiet || git commit -m "content: publish $(date -u +%Y-%m-%dT%H:%M)"
           git push
