@@ -1,7 +1,7 @@
 import type { CircleId, FirstPlanStalledAnswer, PlanId } from '@circles/contracts';
 import { firstPlanQuiet, fromISO, type Instant } from '@circles/domain';
 
-import { useRef } from 'react';
+import { useState } from 'react';
 
 import { track } from '../../analytics/track';
 import type { PlanCandidates } from '../../data/scheduling';
@@ -58,14 +58,14 @@ export function useStalledQuestion(
   now: Instant,
 ): StalledQuestion | undefined {
   const due = stalledDue(data, now);
-  const mount = useRef(Symbol('stalled'));
+  const [mount] = useState(() => Symbol('stalled'));
   const nudge = useNudge('first_plan_stalled', { planId: data?.planId, enabled: due });
   if (data === undefined || !due || nudge.showing !== 'show' || nudge.answered !== undefined) {
     return undefined;
   }
   const holder = owner.get(data.planId);
-  if (holder === undefined) owner.set(data.planId, mount.current);
-  else if (holder !== mount.current) return undefined;
+  if (holder === undefined) owner.set(data.planId, mount);
+  else if (holder !== mount) return undefined;
   return {
     onChoose: (answer) => {
       track('first_plan_stalled', {
