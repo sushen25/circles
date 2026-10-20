@@ -23,7 +23,8 @@ const WORDS = {
 
 export function OrganiserSourceScreen({ onChoose }: OrganiserSourceProps) {
   const answers = ORGANISER_SOURCES.filter(
-    (source): source is keyof typeof WORDS => source !== 'skipped',
+    // `content` is recorded for a tagged link without asking (SUS-240), never offered.
+    (source): source is keyof typeof WORDS => source !== 'skipped' && source !== 'content',
   );
   return (
     <Screen>

@@ -1822,6 +1822,10 @@ export type Database = {
         Args: { p_ends_at: string; p_plan_id: string; p_starts_at: string }
         Returns: Json
       }
+      tag_circle_source: {
+        Args: { p_circle_id: string; p_source_ref: string }
+        Returns: undefined
+      }
       take_rate_token: {
         Args: {
           p_cost?: number

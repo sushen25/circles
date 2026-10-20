@@ -76,6 +76,7 @@ const { brand } = await import('@circles/config');
 const { resetClientErrors } = await import('../../analytics/clientError');
 const { SignInFlow } = await import('./SignInFlow');
 const { forgetSessionNudges } = await import('../growth/useNudge');
+const { clearArrivalTag, keepArrivalTag } = await import('../../data/draft');
 const { WelcomeFlow } = await import('./WelcomeFlow');
 const { YourNameFlow } = await import('./YourNameFlow');
 
@@ -322,6 +323,49 @@ describe('Save your place, the gate of the first run (ADR 0053)', () => {
       await throughTheCode();
       await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/new/finish'));
       expect(sourceEvents()).toEqual([]);
+    });
+
+    describe('arriving on a tagged link (SUS-240)', () => {
+      beforeEach(() => clearArrivalTag());
+      afterEach(() => clearArrivalTag());
+
+      it('is not asked: the post is the answer, recorded as content, and counts as asked', async () => {
+        await keepArrivalTag('tt-always-the-one-3');
+        await throughTheCode();
+        await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/new/finish'));
+        expect(screen.queryByText(QUESTION)).toBeNull();
+        expect(sourceEvents()).toEqual([['organiser_source', { source: 'content' }]]);
+        // The account's own record says the question was asked, as for any answer.
+        expect(recordAnswer).toHaveBeenCalledTimes(1);
+        expect(recordAnswer.mock.calls[0]?.[0]).toEqual({
+          moment: 'organiser_source',
+          planId: undefined,
+        });
+        expect(recordAnswer.mock.calls[0]?.[1]).toBe('tapped');
+      });
+
+      it('puts the tag itself in no event', async () => {
+        await keepArrivalTag('tt-always-the-one-3');
+        await throughTheCode();
+        await waitFor(() => expect(replace).toHaveBeenCalled());
+        expect(JSON.stringify(track.mock.calls)).not.toContain('tt-always-the-one-3');
+        expect(JSON.stringify(recordAnswer.mock.calls)).not.toContain('tt-always-the-one-3');
+      });
+
+      it('records nothing for an account that was asked before, tag or not', async () => {
+        await keepArrivalTag('tt-always-the-one-3');
+        askToShow.mockResolvedValue({ suppressed: true, reason: 'already_shown' });
+        await throughTheCode();
+        await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/new/finish'));
+        expect(sourceEvents()).toEqual([]);
+      });
+
+      it('asks as today when the tag was malformed, because none was kept', async () => {
+        await keepArrivalTag('Not A Slug!');
+        await throughTheCode();
+        expect(await screen.findByText(QUESTION)).toBeVisible();
+        expect(sourceEvents()).toEqual([]);
+      });
     });
 
     it('is not asked at the ordinary sign-in, where there is no gate', async () => {

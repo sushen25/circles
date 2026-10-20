@@ -32,6 +32,10 @@ test('an allowlisted account sees the north star, the gates, the funnel and adop
     await expect(page.getByText('Not measured').first()).toBeVisible();
     await expect(page.getByText(/Missing: no price test or payment event/)).toBeVisible();
     await expect(page.getByText('Funnel', { exact: true })).toBeVisible();
+    // Which post an organiser came from, and the first plans that have stopped (SUS-240).
+    await expect(page.getByText('By post', { exact: true })).toBeVisible();
+    await expect(page.getByText('Stalled first plans', { exact: true })).toBeVisible();
+    await expect(page.getByRole('checkbox', { name: 'Both cohorts' })).toBeChecked();
     await expect(page.getByText('Feature adoption')).toBeVisible();
     await expect(page.getByText('Previous times used when offered')).toBeVisible();
 

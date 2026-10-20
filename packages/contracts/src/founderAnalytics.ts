@@ -73,6 +73,39 @@ export type SourceNumbers = z.infer<typeof SourceNumbers>;
 export const FUNNEL_SOURCES = [...ORGANISER_SOURCES, 'unknown'] as const;
 export type FunnelSourceFilter = (typeof FUNNEL_SOURCES)[number];
 
+/**
+ * The funnel's counts for one campaign tag (`?from=`, SUS-240): the circle row
+ * counters and a few events' totals, attributed through the circle the tag is
+ * on. The tag is a label for a post and never for a person.
+ */
+export const SourceRefNumbers = SourceNumbers;
+export type SourceRefNumbers = SourceNumbers;
+
+/**
+ * The three ways a circle's first plan can have stopped (SUS-240), in the order
+ * a plan meets them: made and not shared after 24 hours; shared, with nobody
+ * else answering after 48; answered, but short of the quorum at the deadline.
+ */
+export const STALL_STATES = ['not_shared', 'shared_quiet', 'answered_short'] as const;
+export type StallState = (typeof STALL_STATES)[number];
+
+/**
+ * First plans that have stopped, counted: the Monday of the week the circle
+ * began, its cohort and source, one state, how many circles, and how long the
+ * oldest and the middle one have been stopped (hours, floored). Counts and ages
+ * only; no circle, plan, code or person.
+ */
+export const StalledRow = z.object({
+  week: z.string(),
+  cohort: z.enum(['founder', 'external']),
+  source: z.string(),
+  state: z.enum(STALL_STATES),
+  circles: Count,
+  oldest_hours: Count,
+  median_hours: Count,
+});
+export type StalledRow = z.infer<typeof StalledRow>;
+
 export const FounderAnalytics = z.object({
   /** The Monday the period starts on. */
   since: z.string(),
@@ -87,6 +120,10 @@ export const FounderAnalytics = z.object({
   counters: z.record(z.string(), Count),
   /** The funnel split by the organiser's answer; never which organiser. */
   by_source: z.record(z.string(), SourceNumbers).default({}),
+  /** The funnel split by the campaign tag on the circle (SUS-240); never which organiser. */
+  by_source_ref: z.record(z.string(), SourceRefNumbers).default({}),
+  /** First plans that have stopped, by week, cohort, source and state (SUS-240). */
+  stalled: z.array(StalledRow).default([]),
   events: z.array(EventRow),
 });
 export type FounderAnalytics = z.infer<typeof FounderAnalytics>;
@@ -623,4 +660,96 @@ export function isEmpty(result: FounderAnalytics): boolean {
       ),
     )
   );
+}
+
+// --- by campaign tag and stalled first plans (SUS-240) -----------------------------
+
+/** One campaign tag's funnel, for the by-post table: the counts a post can be read by. */
+export type PostRow = {
+  tag: string;
+  circles: number;
+  plansShared: number;
+  answered: number;
+  confirmed: number;
+  happened: number;
+};
+
+/**
+ * The tags seen in the period with the figures the question "which post led
+ * anywhere" is asked of: circles made, plans shared, people who answered, plans
+ * confirmed and meetups that happened. Busiest first, then by name.
+ */
+export function postsOf(result: FounderAnalytics): PostRow[] {
+  return Object.entries(result.by_source_ref)
+    .map(([tag, numbers]) => ({
+      tag,
+      circles: numbers.counters.circles_created ?? 0,
+      plansShared: numbers.events.plan_shared ?? 0,
+      answered: numbers.counters.answers ?? 0,
+      confirmed: numbers.counters.plans_confirmed ?? 0,
+      happened: numbers.counters.reported_happened ?? 0,
+    }))
+    .sort((a, b) => b.circles - a.circles || a.tag.localeCompare(b.tag));
+}
+
+export type StallCohortFilter = StalledRow['cohort'] | 'all';
+
+export type StallWeek = {
+  week: string;
+  /** One block per source in the week, each with the three states (zeros included). */
+  sources: {
+    source: string;
+    states: Record<StallState, { circles: number; oldestHours: number; medianHours: number }>;
+  }[];
+};
+
+/**
+ * The stalled first plans laid out by week, newest first, then source: every
+ * source in a week shows all three states, so a state with nobody in it reads
+ * as nought rather than missing. Rows of both cohorts are combined for `all`.
+ */
+export function stalledOf(
+  result: FounderAnalytics,
+  cohort: StallCohortFilter = 'all',
+): StallWeek[] {
+  const weeks = new Map<string, Map<string, StallWeek['sources'][number]['states']>>();
+  for (const row of result.stalled) {
+    if (cohort !== 'all' && row.cohort !== cohort) continue;
+    const sources = weeks.get(row.week) ?? new Map();
+    const states =
+      sources.get(row.source) ??
+      ({
+        not_shared: { circles: 0, oldestHours: 0, medianHours: 0 },
+        shared_quiet: { circles: 0, oldestHours: 0, medianHours: 0 },
+        answered_short: { circles: 0, oldestHours: 0, medianHours: 0 },
+      } satisfies StallWeek['sources'][number]['states']);
+    const was = states[row.state];
+    const circles = was.circles + row.circles;
+    // Two cohorts' rows for one state fold into one line: the oldest is the
+    // older, and the middle one is the mean of the two middles, weighted by how many.
+    states[row.state] = {
+      circles,
+      oldestHours: Math.max(was.oldestHours, row.oldest_hours),
+      medianHours: Math.round(
+        (was.medianHours * was.circles + row.median_hours * row.circles) / circles,
+      ),
+    };
+    sources.set(row.source, states);
+    weeks.set(row.week, sources);
+  }
+  return [...weeks.entries()]
+    .sort(([a], [b]) => (a < b ? 1 : a > b ? -1 : 0))
+    .map(([week, sources]) => ({
+      week,
+      sources: [...sources.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([source, states]) => ({ source, states })),
+    }));
+}
+
+/** How many circles are stalled in the rows shown. */
+export function stalledTotal(result: FounderAnalytics, cohort: StallCohortFilter = 'all'): number {
+  return result.stalled
+    .filter((row) => cohort === 'all' || row.cohort === cohort)
+    .reduce((sum, row) => sum + row.circles, 0);
 }

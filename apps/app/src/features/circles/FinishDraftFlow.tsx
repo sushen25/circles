@@ -6,7 +6,13 @@ import { useEffect, useRef, useState } from 'react';
 import { track } from '../../analytics/track';
 import { deviceTimeZone, guard, ownProfile, useSession } from '../../data/auth';
 import { createCircle, keepInviteSecret } from '../../data/circles';
-import { clearDraft, readDraft, saveDraft } from '../../data/draft';
+import {
+  clearArrivalTag,
+  clearDraft,
+  readArrivalTag,
+  readDraft,
+  saveDraft,
+} from '../../data/draft';
 import { createPlan } from '../../data/planning';
 import { failureOf } from '../identity/join/failure';
 import { formOf, isUntouched } from '../planning/draftPlan';
@@ -83,7 +89,11 @@ export function FinishDraftFlow() {
         cadence: draft.cadence,
         timeZone: profile.zone ?? deviceTimeZone() ?? 'UTC',
         idempotencyKey: draft.keys.circle,
+        // The post the organiser came from, when a tagged link brought them
+        // (SUS-240): a label for the circle's founder-only cohort row.
+        sourceRef: await readArrivalTag(),
       });
+      await clearArrivalTag();
       keepInviteSecret(made.circle.id, made.invite_secret);
       if (!draft.circleCounted) {
         track('circle_created', { circle_id: made.circle.id });

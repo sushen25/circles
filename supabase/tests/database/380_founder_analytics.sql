@@ -123,8 +123,8 @@ select throws_ok(
 );
 select is(
   (select array(select jsonb_object_keys(public.founder_analytics(pg_temp.d(2))) order by 1)),
-  array['by_source', 'cohort_circles', 'counters', 'events', 'gates', 'north_star', 'since'],
-  'somebody on the allowlist gets the seven parts'
+  array['by_source', 'by_source_ref', 'cohort_circles', 'counters', 'events', 'gates', 'north_star', 'since', 'stalled'],
+  'somebody on the allowlist gets the nine parts'
 );
 select is(
   public.founder_analytics(pg_temp.d(2)) ->> 'since',

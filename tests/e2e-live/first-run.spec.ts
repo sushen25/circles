@@ -336,6 +336,89 @@ test('"How did you hear about Wenna?" is asked once per account, counts one word
   await other.close();
 });
 
+test('arriving on a tagged link skips "How did you hear", counts content, and tags the circle (SUS-240)', async ({
+  page,
+}) => {
+  const tag = `tt-e2e-${globalThis.crypto.randomUUID().slice(0, 8)}`;
+  const name = `Tagged ${globalThis.crypto.randomUUID().slice(0, 8)}`;
+  const email = `${globalThis.crypto.randomUUID()}@example.test`;
+  // Where the tag goes after the arrival: the page's own requests only.
+  const sent: string[] = [];
+  page.on('request', (request) => {
+    if (request.resourceType() === 'fetch' || request.resourceType() === 'xhr') {
+      sent.push(`${request.url()} ${request.postData() ?? ''}`);
+    }
+  });
+
+  // What the site's "Start a plan" hands the app.
+  await page.goto(`/start?via=site&from=${tag}`);
+  await page.getByLabel('Circle name').fill(name);
+  await page.getByRole('button', { name: `Create ${name}` }).click();
+  await expect(page.getByText('Your first catch-up')).toBeVisible();
+  await page.getByRole('button', { name: 'Ask the group' }).click();
+  await expect(page.getByText("Your plan's ready. Save your place.")).toBeVisible();
+  // Reached through the draft, a reload and the round trip to the code: the tag is kept.
+  await page.reload();
+  await expect(page.getByText("Your plan's ready. Save your place.")).toBeVisible();
+
+  await signInByCode(page, email);
+  await expect(page).toHaveURL(/\/name$/);
+  await expect(page.getByText('How did you hear about Wenna?')).toHaveCount(0);
+  await page.getByLabel('Your name').fill('Maya');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(page.getByText(`Ask ${name}.`)).toBeVisible();
+
+  // Counted as `content` and as asked; the account is not asked again.
+  const sources = sql(
+    `select e.properties::text from analytics.events e join auth.users u on u.id = e.user_id
+      where e.event_name = 'organiser_source' and u.email = '${email}'`,
+  );
+  expect(sources).toEqual([['{"source": "content"}']]);
+  expect(
+    sql(
+      `select n.answer from nudge_states n join auth.users u on u.id = n.user_id
+        where u.email = '${email}' and n.moment = 'organiser_source'`,
+    ),
+  ).toEqual([['tapped']]);
+
+  // On the circle's founder-only cohort row, and nowhere a client can read.
+  expect(
+    sql(
+      `select cc.source_ref from private.circle_cohorts cc join circles c on c.id = cc.circle_id
+        where c.name = '${name}'`,
+    ),
+  ).toEqual([[tag]]);
+  // The only request that carried it is the one that makes the circle.
+  expect(
+    sent.filter((request) => request.includes(tag)).every((r) => /create-circle/.test(r)),
+  ).toBe(true);
+  expect(sent.some((request) => /create-circle/.test(request) && request.includes(tag))).toBe(true);
+  expect(sent.filter((request) => /track-events/.test(request) && request.includes(tag))).toEqual(
+    [],
+  );
+  // And it is not left on the device once the circle is made.
+  expect(await page.evaluate(() => globalThis.localStorage.getItem('circles.arrival-tag'))).toBe(
+    null,
+  );
+});
+
+test('a malformed tag is dropped and the question is asked as today (SUS-240)', async ({
+  page,
+}) => {
+  const email = `${globalThis.crypto.randomUUID()}@example.test`;
+  await page.goto('/start?via=site&from=Not%20A%20Slug');
+  expect(await page.evaluate(() => globalThis.localStorage.getItem('circles.arrival-tag'))).toBe(
+    null,
+  );
+  await page
+    .getByLabel('Circle name')
+    .fill(`Untagged ${globalThis.crypto.randomUUID().slice(0, 8)}`);
+  await page.getByRole('button', { name: /^Create / }).click();
+  await page.getByRole('button', { name: 'Ask the group' }).click();
+  await signInByCode(page, email, 'Skip');
+  await expect(page).toHaveURL(/\/name$/);
+});
+
 test('abandoning at the gate creates nothing, and a reload keeps the draft', async ({ page }) => {
   const name = `Abandon ${globalThis.crypto.randomUUID().slice(0, 8)}`;
   await draftThroughThePlan(page, name);

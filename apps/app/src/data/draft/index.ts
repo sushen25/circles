@@ -19,3 +19,10 @@ export type {
   DraftWay,
   OrganiserDraft,
 } from './organiserDraft';
+export {
+  ARRIVAL_TAG_KEY,
+  ARRIVAL_TAG_TTL_MS,
+  clearArrivalTag,
+  keepArrivalTag,
+  readArrivalTag,
+} from './arrivalTag';

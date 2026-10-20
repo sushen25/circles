@@ -28,6 +28,8 @@ import { dayOf } from './figures';
 import { FunnelSection } from './FunnelSection';
 import { GatesSection } from './GatesSection';
 import { NorthStarSection } from './NorthStarSection';
+import { PostsSection } from './PostsSection';
+import { StalledSection } from './StalledSection';
 
 /**
  * Founder analytics — `docs/design/FounderAnalytics.dc.html` (SUS-166): the
@@ -132,6 +134,8 @@ export function AnalyticsScreen({
             <NorthStarSection months={data.north_star} />
             <GatesSection data={data} />
             <FunnelSection data={data} />
+            <PostsSection data={data} />
+            <StalledSection data={data} />
             <AdoptionSection data={data} />
             <Small>{t('founderAnalytics', 'never_split')}</Small>
           </>

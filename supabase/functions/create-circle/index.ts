@@ -72,6 +72,17 @@ Deno.serve(
       });
       if (error !== null) throw error;
 
+      // The campaign tag the organiser arrived on (SUS-240): a label for a post,
+      // written to the circle's founder-only cohort row. It is best effort and
+      // never the reason a circle is not made, and it is not logged. A retry
+      // returns the response of the first attempt, so it is tagged once.
+      if (body.source_ref !== undefined) {
+        await caller.rpc('tag_circle_source', {
+          p_circle_id: circle.id,
+          p_source_ref: body.source_ref,
+        });
+      }
+
       return { circle: circleDto(circle), invite_secret: secret };
     },
   }),

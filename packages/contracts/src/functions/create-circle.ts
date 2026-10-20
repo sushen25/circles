@@ -1,4 +1,4 @@
-import { isValidDisplayName, normaliseDisplayName } from '@circles/domain';
+import { isValidDisplayName, normaliseDisplayName, parseSourceRef } from '@circles/domain';
 import { z } from 'zod';
 
 import { CircleDto } from '../dtos.js';
@@ -46,6 +46,13 @@ export const CreateCircleRequest = Mutation.extend({
    * blank is the same as not answering.
    */
   default_area: z.string().trim().max(60).optional(),
+  /**
+   * The campaign tag the organiser arrived on (`?from=`, SUS-240). A label for a
+   * post, never for the person; the database keeps it on the circle's founder-only
+   * cohort row. Anything that is not a slug is dropped and not refused: a tag
+   * must never be the reason a circle is not made.
+   */
+  source_ref: z.unknown().transform(parseSourceRef).optional(),
 });
 export type CreateCircleRequest = z.infer<typeof CreateCircleRequest>;
 
