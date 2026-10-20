@@ -157,19 +157,24 @@ facts as (
   select
     f.*,
     c.created_at as circle_created_at,
-    (select min(e.occurred_at) from analytics.events e
-      where e.plan_id = f.id and e.event_name = 'plan_shared') as shared_event_at,
+    -- The first sign the plan reached anybody: the share sheet opening, somebody
+    -- other than the owner joining the circle once the plan existed, or answering.
+    least(
+      (select min(e.occurred_at) from analytics.events e
+        where e.plan_id = f.id and e.event_name = 'plan_shared'),
+      (select min(m.joined_at) from public.circle_members m
+        where m.circle_id = f.circle_id and m.user_id <> c.owner_user_id
+          and m.status = 'active' and m.joined_at >= f.created_at),
+      (select min(r.created_at) from public.plan_responses r
+        where r.plan_id = f.id and r.user_id <> c.owner_user_id)
+    ) as shared_at,
     -- Somebody other than the owner who has answered, on any revision.
     (select count(distinct r.user_id) from public.plan_responses r
       where r.plan_id = f.id and r.user_id <> c.owner_user_id)::int as others_answered,
     -- Who can come on the plan as it stands: the owner counts, as the quorum does.
     (select count(distinct r.user_id) from public.plan_responses r
       where r.plan_id = f.id and r.revision = f.revision
-        and r.status in ('windows', 'flexible'))::int as can_come,
-    exists (
-      select 1 from public.circle_members m
-      where m.circle_id = f.circle_id and m.user_id <> c.owner_user_id and m.status = 'active'
-    ) as someone_joined
+        and r.status in ('windows', 'flexible'))::int as can_come
   from firsts f
   join public.circles c on c.id = f.circle_id
   -- Still asking: a plan that was confirmed, cancelled or has run out has not
@@ -179,7 +184,7 @@ facts as (
 judged as (
   select
     f.*,
-    (f.shared_event_at is not null or f.someone_joined or f.others_answered > 0) as shared
+    (f.shared_at is not null) as shared
   from facts f
 )
 select
@@ -198,7 +203,7 @@ cross join lateral (
         when j.others_answered > 0 and j.response_deadline <= now() and j.can_come < j.quorum
           then 'answered_short'
         when j.others_answered = 0 and j.shared
-             and now() - coalesce(j.shared_event_at, j.created_at) >= interval '48 hours'
+             and now() - j.shared_at >= interval '48 hours'
           then 'shared_quiet'
         when not j.shared and now() - j.created_at >= interval '24 hours'
           then 'not_shared'
@@ -206,7 +211,7 @@ cross join lateral (
       extract(epoch from (
         now() - case
           when j.others_answered > 0 then j.response_deadline
-          when j.shared then coalesce(j.shared_event_at, j.created_at)
+          when j.shared then j.shared_at
           else j.created_at
         end
       )) / 3600.0 as age_hours
@@ -422,11 +427,24 @@ begin
         )
       )), '{}'::jsonb)
       from (
-        select f.source_ref
-        from analytics.funnel_counts f
-        where f.day >= v_from and f.source_ref is not null
-        group by f.source_ref
-        order by sum(f.n) desc, f.source_ref
+        -- A tag with only events in the period (a plan made before it, shared
+        -- in it) is listed too, after the ones with rows.
+        select t.source_ref
+        from (
+          select f.source_ref, sum(f.n)::bigint as weight
+          from analytics.funnel_counts f
+          where f.day >= v_from and f.source_ref is not null
+          group by f.source_ref
+          union all
+          select es.source_ref, 0::bigint
+          from analytics.events e
+          join analytics.event_source_ref es on es.event_id = e.id
+          where es.source_ref is not null
+            and e.event_name in ('plan_shared', 'availability_submitted', 'meetup_confirmed')
+            and (e.occurred_at at time zone 'UTC')::date >= v_from
+        ) t
+        group by t.source_ref
+        order by sum(t.weight) desc, t.source_ref
         limit 40
       ) r
     ),

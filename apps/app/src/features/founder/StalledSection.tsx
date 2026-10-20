@@ -56,11 +56,16 @@ export function StalledSection({ data }: { data: FounderAnalytics }) {
                         <BodyText>
                           {figures.circles === 0
                             ? t('founderAnalytics', 'stalled_none')
-                            : t('founderAnalytics', 'stalled_figure', {
-                                count: figures.circles,
-                                oldest: ageOf(figures.oldestHours),
-                                median: ageOf(figures.medianHours),
-                              })}
+                            : figures.medianHours === null
+                              ? t('founderAnalytics', 'stalled_figure_oldest', {
+                                  count: figures.circles,
+                                  oldest: ageOf(figures.oldestHours),
+                                })
+                              : t('founderAnalytics', 'stalled_figure', {
+                                  count: figures.circles,
+                                  oldest: ageOf(figures.oldestHours),
+                                  median: ageOf(figures.medianHours),
+                                })}
                         </BodyText>
                       </Stack>
                     );

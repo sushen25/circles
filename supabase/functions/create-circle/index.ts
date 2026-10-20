@@ -44,6 +44,9 @@ Deno.serve(
   jsonHandler({
     name: 'create-circle',
     schema: CreateCircleRequest,
+    // The tag is a label that may be gone on a retry (sent once, then forgotten
+    // by the device): the same circle is still the same request.
+    fingerprintExcludes: ['source_ref'],
     guard: async ({ actor, service, request }) => {
       if (actor.isAnonymous) {
         // The database refuses this too, and that is the enforcement. Saying it

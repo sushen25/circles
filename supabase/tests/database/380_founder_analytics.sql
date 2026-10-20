@@ -702,7 +702,7 @@ select ok(
 );
 select is(
   (select array(select jsonb_object_keys(public.founder_analytics(pg_temp.d(0)) -> 'by_source') order by 1)),
-  array['friend_group', 'meetup', 'other', 'reddit', 'skipped', 'unknown'],
+  array['content', 'friend_group', 'meetup', 'other', 'reddit', 'skipped', 'unknown'],
   'every source is there, empty or not'
 );
 select ok(

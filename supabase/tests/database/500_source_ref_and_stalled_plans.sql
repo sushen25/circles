@@ -250,8 +250,9 @@ select p.id, 1, u, 'windows' from public.plans p,
   unnest(array['00000000-0000-0000-0000-0000000d0006'::uuid, '00000000-0000-0000-0000-0000000d000a'::uuid,
                '00000000-0000-0000-0000-0000000d000b'::uuid]) u
 where p.short_code = 'kmnpq5';
--- Stu: made 30 hours ago and somebody has joined, which shows it was shared: not stalled yet.
-select pg_temp.make_plan((select stu from cs), '00000000-0000-0000-0000-0000000d0007', 'kmnpq6', interval '30 hours', interval '5 days', 2);
+-- Stu: made 60 hours ago and somebody has only just joined, which shows it was shared
+-- just now: not stalled, and not "quiet for 48 hours" for the sixty it was unshared.
+select pg_temp.make_plan((select stu from cs), '00000000-0000-0000-0000-0000000d0007', 'kmnpq6', interval '60 hours', interval '5 days', 2);
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 select stu, '00000000-0000-0000-0000-0000000d000a', 'Tara' from cs;
 -- Uma: a first plan that was cancelled, and a second made 30 hours ago that nobody has come to.
@@ -295,6 +296,16 @@ select ok(
   'the view has no id, code, name or address to return'
 );
 
+-- Vic: a circle and plan from before the period, tagged, whose plan was shared today:
+-- the tag has no counter in the period, only an event, and is listed all the same.
+update public.circles set created_at = now() - interval '30 days' where id = (select vic from cs);
+select pg_temp.make_plan((select vic from cs), '00000000-0000-0000-0000-0000000d000b', 'kmnpqb', interval '30 days', interval '5 days', 2);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000d000b');
+select public.tag_circle_source((select vic from cs), 'cmp-late');
+select pg_temp.act_as_postgres();
+insert into analytics.events (event_id, event_name, schema_version, plan_id, properties, occurred_at)
+select gen_random_uuid(), 'plan_shared', 1, p.id, '{}', now() from public.plans p where p.short_code = 'kmnpqb';
+
 -- Pia's circle is tagged too, by the owner as the app does it.
 select pg_temp.act_as('00000000-0000-0000-0000-0000000d0004');
 select public.tag_circle_source((select pia from cs), 'rd-profile');
@@ -329,7 +340,7 @@ select is(
 );
 select is(
   (select array(select jsonb_object_keys(public.founder_analytics(current_date - 7) -> 'by_source_ref') order by 1)),
-  array['rd-profile', 'tt-always-the-one-3'], 'and only tags that exist are listed'
+  array['cmp-late', 'rd-profile', 'tt-always-the-one-3'], 'tags that exist are listed, one with only an event in the period included'
 );
 select is(
   public.founder_analytics(current_date - 7) -> 'by_source_ref' -> 'rd-profile' -> 'events' ->> 'plan_shared',

@@ -12,13 +12,11 @@ import {
   funnelOf,
   isEmpty,
   judgeGate,
-  postsOf,
   problemWithFilter,
   ratesOf,
   sinceFor,
-  stalledOf,
-  stalledTotal,
 } from './founderAnalytics';
+import { postsOf, stalledOf, stalledTotal } from './founderStalled';
 import { emptyFounderAnalytics, founderAnalyticsFixture } from './founderAnalytics.fixture';
 
 const gate = (id: string) => {
@@ -396,7 +394,7 @@ describe('stalled first plans (SUS-240)', () => {
     expect(stalledOf(emptyFounderAnalytics)).toEqual([]);
   });
 
-  it('folds two cohorts into one line: the older oldest, a weighted middle', () => {
+  it('folds two cohorts into one line: the older oldest, and no middle (it cannot be combined)', () => {
     const merged = stalledOf({
       ...emptyFounderAnalytics,
       stalled: [
@@ -423,7 +421,7 @@ describe('stalled first plans (SUS-240)', () => {
     expect(merged[0]?.sources[0]?.states.not_shared).toEqual({
       circles: 4,
       oldestHours: 60,
-      medianHours: 35,
+      medianHours: null,
     });
   });
 

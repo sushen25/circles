@@ -1018,6 +1018,17 @@ describe('create-circle', () => {
     expect(JSON.stringify(called('create_circle'))).not.toContain('tt-always-the-one-3');
   });
 
+  it('fingerprints the request without the tag, so a retry that no longer has it is the same request', async () => {
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    await load('create-circle')(post({ ...body, source_ref: 'tt-always-the-one-3' }));
+    const first = called('begin_request')[0]?.args['p_fingerprint'];
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    await load('create-circle')(post(body));
+    const second = called('begin_request')[1]?.args['p_fingerprint'];
+    expect(first).toBeDefined();
+    expect(second).toBe(first);
+  });
+
   it('makes the circle without a tag, and drops one that is not a slug rather than refuse', async () => {
     state.users = [{ id: CALLER, is_anonymous: false }];
     expect((await load('create-circle')(post(body))).status).toBe(200);

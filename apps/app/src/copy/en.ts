@@ -1164,6 +1164,7 @@ export const en = {
     stalled_state_shared_quiet: 'Shared, no answers after 48 h',
     stalled_state_answered_short: 'Answered, short of the quorum at the deadline',
     stalled_figure: '{count} · oldest {oldest} · middle {median}',
+    stalled_figure_oldest: '{count} · oldest {oldest}',
     stalled_none: '0',
     age_hours: '{hours} h',
     age_days_hours: '{days} d {hours} h',

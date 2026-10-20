@@ -198,11 +198,24 @@ begin
         )
       )), '{}'::jsonb)
       from (
-        select f.source_ref
-        from analytics.funnel_counts f
-        where f.day >= v_from and f.source_ref is not null
-        group by f.source_ref
-        order by sum(f.n) desc, f.source_ref
+        -- A tag with only events in the period (a plan made before it, shared
+        -- in it) is listed too, after the ones with rows.
+        select t.source_ref
+        from (
+          select f.source_ref, sum(f.n)::bigint as weight
+          from analytics.funnel_counts f
+          where f.day >= v_from and f.source_ref is not null
+          group by f.source_ref
+          union all
+          select es.source_ref, 0::bigint
+          from analytics.events e
+          join analytics.event_source_ref es on es.event_id = e.id
+          where es.source_ref is not null
+            and e.event_name in ('plan_shared', 'availability_submitted', 'meetup_confirmed')
+            and (e.occurred_at at time zone 'UTC')::date >= v_from
+        ) t
+        group by t.source_ref
+        order by sum(t.weight) desc, t.source_ref
         limit 40
       ) r
     ),
