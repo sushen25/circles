@@ -45,10 +45,13 @@ describe('what the privacy pages promise', () => {
       // Attendance, outcome reports, interest answers, notes and place names.
       'whether you went',
       'report of how it went',
-      'whether you are keen',
+      "who started it and each person's answer about whether they are keen are stored privately",
       'note or place name',
       // The analytics device id, hashed IPs, and the session's IP and browser.
       'a random id for your browser, kept in its local storage',
+      'whether you used the calendar check',
+      'which prompts you have seen',
+      'leave a circle from its settings, which ends their access',
       'hashed form of your IP address',
       'IP address and browser details it started from',
     ]) {
