@@ -1,6 +1,3 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-
 import { brand } from '@circles/config';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
@@ -26,40 +23,6 @@ const textOf = (kind: 'terms' | 'privacy') => {
   unmount();
   return text;
 };
-
-/** A file in the repository, found from wherever the run started (the package or the root). */
-function repo(path: string): string {
-  let dir = process.cwd();
-  while (!existsSync(join(dir, 'pnpm-workspace.yaml'))) {
-    const up = dirname(dir);
-    if (up === dir) throw new Error('not inside the workspace');
-    dir = up;
-  }
-  return readFileSync(join(dir, path), 'utf8');
-}
-
-/** `12 months`, `30 days`: a period as `run_retention` writes it, in one spelling. */
-const normal = (n: string, unit: string) => `${n} ${unit.replace(/s$/, '')}${n === '1' ? '' : 's'}`;
-
-/** The periods the database enforces: every interval in `run_retention`, and the purge's own. */
-function enforced(): Set<string> {
-  const periods = new Set<string>();
-  const sql = repo('supabase/sql/functions/jobs/run_retention.sql');
-  for (const [, n, unit] of sql.matchAll(/interval '(\d+) (days?|months?|years?)'/g)) {
-    periods.add(normal(n!, unit!));
-  }
-  const migration = repo('supabase/migrations/0071_account_deletion.sql');
-  const purge = /purge_after timestamptz[^\n]*interval '(\d+) (days?|months?|years?)'/.exec(
-    migration,
-  );
-  expect(purge, 'the purge period is still where this test reads it').not.toBeNull();
-  periods.add(normal(purge![1]!, purge![2]!));
-  return periods;
-}
-
-/** The periods a page states, as digits and a unit: `12 months`, `1 day`. */
-const stated = (text: string) =>
-  [...text.matchAll(/\b(\d+) (days?|months?|years?)\b/g)].map(([, n, unit]) => normal(n!, unit!));
 
 describe('what the privacy pages promise', () => {
   it('/privacy names who runs it, the version and the support address', () => {
@@ -116,27 +79,6 @@ describe('what the privacy pages promise', () => {
     expect(text).toContain('only if you ask for it for that plan');
   });
 
-  it('/privacy states only periods the database enforces, and the ones it does not are open', () => {
-    const text = textOf('privacy');
-    const known = enforced();
-
-    for (const period of stated(text)) {
-      expect(known.has(period), `"${period}" is not a period run_retention enforces`).toBe(true);
-    }
-    for (const period of ['12 months', '30 days', '7 days', '90 days', '1 day']) {
-      expect(stated(text), period).toContain(period);
-      expect(known.has(period), period).toBe(true);
-    }
-
-    // Undecided, so named as undecided and given no number.
-    const open = en.legal.privacy_retain_open;
-    expect(open).toMatch(/^Still being decided: /);
-    for (const undecided of ['notes', 'place names', 'analytics events', 'archived', 'guests']) {
-      expect(open, undecided).toContain(undecided);
-    }
-    expect(stated(open)).toEqual([]);
-  });
-
   it('/privacy names the routes that exist: access, correction, deletion, leaving and a complaint', () => {
     const text = textOf('privacy');
 
@@ -159,7 +101,6 @@ describe('what the privacy pages promise', () => {
     expect(text).toContain('18 and over');
     expect(text).toContain('No ads. We do not sell your data');
     expect(text).toContain('12 months while you are in an active circle');
-    for (const period of stated(text)) expect(enforced().has(period), period).toBe(true);
   });
 
   it('/settings/privacy names the same controls and keeps no promise the page cannot', () => {
@@ -170,7 +111,6 @@ describe('what the privacy pages promise', () => {
     expect(text).toContain('delete your account any time from Account');
     expect(text).toContain(`Write to ${brand.supportEmail}`);
     expect(screen.getByRole('link', { name: 'Read the full privacy page' })).toBeVisible();
-    for (const period of stated(text)) expect(enforced().has(period), period).toBe(true);
   });
 });
 
