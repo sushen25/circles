@@ -35,7 +35,7 @@ import { FinishDraftScreen, type FinishDraftProblem } from './FinishDraftScreen'
  * `create-plan` are not touched: an anonymous session is still refused by the
  * first, and the circle is still the member's own.
  *
- * **The last step is "How did you hear about Wenna?"** (SUS-171, moved here
+ * **The last step is "How did you hear about {brand}?"** (SUS-171, moved here
  * on 21 October): once the account, the circle and the plan all exist, and just
  * before the person lands in the circle. It is optional, asked once per account,
  * skipped for a tagged arrival (SUS-240), and nothing waits on it. The draft and

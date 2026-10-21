@@ -189,7 +189,7 @@ export function SignInFlow({ returnTo, gate }: SignInFlowProps) {
         hasName,
         circleId,
       });
-      // "How did you hear about Wenna?" is not asked here: it is the last thing
+      // "How did you hear about {brand}?" is not asked here: it is the last thing
       // the first run does, once the circle exists (FinishDraftFlow, SUS-171).
       router.replace(destination);
     };
