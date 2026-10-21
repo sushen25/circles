@@ -328,7 +328,11 @@ describe('the owner’s other settings', () => {
   it('never offers the owner Leave, and says why', async () => {
     fetchInviteSecret.mockResolvedValue(undefined);
     wrap(<SettingsFlow id={CIRCLE} />);
-    expect(await screen.findByText(/You own this circle, so you can't leave it/)).toBeVisible();
+    expect(
+      await screen.findByText(
+        /You own this circle, so you can't leave it.*the saved-place member who has been in it longest/,
+      ),
+    ).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Leave this circle' })).toBeNull();
   });
 

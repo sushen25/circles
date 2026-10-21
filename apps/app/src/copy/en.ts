@@ -58,7 +58,7 @@ export const en = {
     export_my_data: 'Download my data',
     export_detail: 'Everything we hold that is yours, as a file',
     exporting: 'Getting your file…',
-    exported: 'Saved. You can download your data once a day.',
+    exported: 'Downloaded. You can download your data once a day.',
     export_unsupported:
       "Downloads aren't in the app yet. Write to {support} and we'll send you the file.",
     export_too_soon: "You've already downloaded your data today. Try again tomorrow.",
@@ -67,7 +67,7 @@ export const en = {
     delete_body:
       "You'll be signed out everywhere and taken out of every circle straight away. Your friends see you as Former member, your answers are deleted, and the email we send about plans stops. Thirty days from now we delete the rest and nothing identifies you.",
     delete_owner_heading: 'Circles you own',
-    delete_hands_on: '{circle} goes to {name}, who has been in it longest.',
+    delete_hands_on: '{circle} goes to {name}, the saved-place member who has been in it longest.',
     delete_archives:
       '{circle} has nobody to hand it to, so it is archived now and deleted with your account.',
     delete_continue: 'Continue',
@@ -78,6 +78,10 @@ export const en = {
     deleting: 'Deleting…',
     couldnt_delete: "We couldn't delete your account, and nothing has changed. Try again.",
     delete_back: 'Back',
+    deleted_title: 'Your account is deleted',
+    deleted_body:
+      "You're signed out, and you're out of every circle. Your friends see you as Former member. Thirty days from now we delete the rest and nothing identifies you.",
+    deleted_done: 'Done',
     couldnt_check_circles:
       "We couldn't check which circles you own, so we can't say where they would go. Close this and try again.",
     notifications: 'Notifications',
@@ -1560,7 +1564,8 @@ export const en = {
     code: 'Code',
     continue: 'Continue',
     checking: 'Checking',
-    wrong_code: "That code didn't work. Check it, or send a new one.",
+    wrong_code:
+      "That code didn't work. Check it, or send a new one. If you deleted your account, that address can't be used to sign in again.",
     send_a_new_code: 'Send a new code',
     new_code_sent: 'A new code is on its way.',
     couldnt_save: "Something went wrong, so your place wasn't saved. Please try again.",
@@ -1568,7 +1573,8 @@ export const en = {
     reference: 'Ref {reference}',
     didnt_get_it: "Didn't get it? Check spam, or send another.",
     send_another_in: 'Send another in {count}s',
-    expired: 'That code has expired. Send a new one.',
+    expired:
+      "That code has expired. Send a new one. If you deleted your account, that address can't be used to sign in again.",
     too_many_tries: "That's a lot of tries. Wait a few minutes, then send a new code.",
     couldnt_sign_in: "Something went wrong, so you're not signed in yet. Please try again.",
     couldnt_send: "We couldn't send the code. Try again in a moment.",
@@ -2538,7 +2544,7 @@ export const en = {
     archive_this_circle: 'Archive this circle',
     leave_this_circle: 'Leave this circle',
     owner_cant_leave:
-      "You own this circle, so you can't leave it. To step away, delete your account from Account: it goes to the member who has been in it longest.",
+      "You own this circle, so you can't leave it. To step away, delete your account from Account: it goes to the saved-place member who has been in it longest.",
     link_ending: '{domain}/join#…{tail}',
     link_loading: 'Getting the link',
     link_couldnt_load: "We couldn't get the link just now.",

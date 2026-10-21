@@ -128,7 +128,7 @@ describe('account', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Delete my account' }));
     });
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/'));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/deleted'));
     expect(deleteMyAccount).toHaveBeenCalledTimes(1);
   });
 
@@ -141,7 +141,9 @@ describe('account', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Delete my account and data' }));
     expect(
-      await screen.findByText('Sunday Crew goes to Nina, who has been in it longest.'),
+      await screen.findByText(
+        'Sunday Crew goes to Nina, the saved-place member who has been in it longest.',
+      ),
     ).toBeVisible();
     expect(
       screen.getByText(
@@ -182,6 +184,8 @@ describe('account', () => {
       'wenna-my-data-2026-10-20.json',
       'application/json',
     );
-    expect(await screen.findByText(/Saved\. You can download your data once a day/)).toBeVisible();
+    expect(
+      await screen.findByText(/Downloaded\. You can download your data once a day/),
+    ).toBeVisible();
   });
 });

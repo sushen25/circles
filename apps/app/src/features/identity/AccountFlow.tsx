@@ -35,8 +35,8 @@ import { filterZones, groupZones, supportedZones, zoneLabel } from './zones';
  * Download my data and Delete my account and data are S4-05's (ADR 0083).
  * Delete is two steps, and the first names the circles the person owns and
  * where each goes, from the server's own preview, so the screen never decides
- * who inherits. It goes back to Welcome only once the account is gone and this
- * device is signed out.
+ * who inherits. It goes to the Deleted screen (`/deleted`, which needs no session) only once
+ * the account is gone and this device is signed out.
  */
 export function AccountFlow() {
   return hasBackend() ? <LiveAccount /> : <FixtureAccount />;
@@ -248,7 +248,7 @@ function LiveAccount() {
           deleteMyAccount(deleteKey)
             .then(() => {
               queryClient.clear();
-              router.replace('/');
+              router.replace('/deleted');
             })
             .catch(() => {
               // Nothing has changed, or the answer was lost and the same key

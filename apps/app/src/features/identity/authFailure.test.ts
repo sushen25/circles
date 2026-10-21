@@ -28,6 +28,9 @@ describe('authFailure and failureOf use one rule for "offline" (SUS-200)', () =>
     expect(authFailure(named('AuthApiError', { code: 'otp_expired', status: 403 }))).toBe(
       'wrong_code',
     );
+    expect(authFailure(named('AuthApiError', { code: 'user_banned', status: 403 }))).toBe(
+      'wrong_code',
+    );
     expect(authFailure(named('AuthApiError', { status: 422 }))).toBe('other');
   });
 

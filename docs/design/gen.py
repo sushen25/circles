@@ -816,7 +816,7 @@ S["Settings"] = shell(
                    li(marks(["Jess"], large=True), "Jess", "Place saved · joined 4 Sep", right=f'<div class="sm">Remove</div>'), divider(),
                    li(marks(["Sam"], large=True), "Sam", "Place saved · joined 5 Sep", right=f'<div class="sm">Remove</div>'), gap=0, pad=6), gap=8),
         ter("Archive this circle", plain=True),
-        sm("You own this circle, so you can't leave it. To step away, delete your account from Account: it goes to the member who has been in it longest. A member who is not the owner sees Leave this circle here instead."),
+        sm("You own this circle, so you can't leave it. To step away, delete your account from Account: it goes to the saved-place member who has been in it longest. A member who is not the owner sees Leave this circle here instead."),
         gap=18)
 , minh=980)
 
@@ -2035,7 +2035,7 @@ def account_sheet(*parts):
 
 S["DeleteAccount"] = account_sheet(
     stack(title("Delete your account?"), p("You'll be signed out everywhere and taken out of every circle straight away. Your friends see you as Former member, your answers are deleted, and the email we send about plans stops. Thirty days from now we delete the rest and nothing identifies you."), gap=6),
-    stack(sm("Circles you own"), p("Sunday Crew goes to Nina, who has been in it longest."), p("Book Club has nobody to hand it to, so it is archived now and deleted with your account."), gap=6),
+    stack(sm("Circles you own"), p("Sunday Crew goes to Nina, the saved-place member who has been in it longest."), p("Book Club has nobody to hand it to, so it is archived now and deleted with your account."), gap=6),
     sec("Continue"), ter("Cancel", plain=True))
 S["DeleteAccountSure"] = account_sheet(
     stack(title("This can't be undone"), p("You won't be able to sign in again with this account. Download your data first if you want a copy."), gap=6),
