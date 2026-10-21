@@ -15,6 +15,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { setEnvLine } from './envfile.ts';
+import { youtubeAccessToken } from './youtube-token.ts';
 import type { Caption } from '../lib/queue.ts';
 
 export type Media = {
@@ -308,21 +309,6 @@ export function youtubePrivacy(): (typeof YOUTUBE_PRIVACY)[number] {
   const v = (process.env.YOUTUBE_PRIVACY || 'private').trim();
   if (!(YOUTUBE_PRIVACY as readonly string[]).includes(v)) throw new Error(`YOUTUBE_PRIVACY "${v}" is not one of ${YOUTUBE_PRIVACY.join(', ')}`);
   return v as (typeof YOUTUBE_PRIVACY)[number];
-}
-
-async function youtubeAccessToken(): Promise<string> {
-  const tok = await json<{ access_token: string }>(
-    await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      body: new URLSearchParams({
-        client_id: env('YOUTUBE_CLIENT_ID'),
-        client_secret: env('YOUTUBE_CLIENT_SECRET'),
-        refresh_token: env('YOUTUBE_REFRESH_TOKEN'),
-        grant_type: 'refresh_token',
-      }),
-    }),
-  );
-  return tok.access_token;
 }
 
 /**

@@ -15,12 +15,20 @@
     "gallery": "node --env-file-if-exists=.env --experimental-strip-types render/gallery.ts",
     "auth:youtube": "node --env-file-if-exists=.env --experimental-strip-types publish/auth-youtube.ts",
     "auth:tiktok": "node --env-file-if-exists=.env --experimental-strip-types publish/auth-tiktok.ts",
-    "test": "node --experimental-strip-types --test publish/*.test.ts",
+    "test": "node --experimental-strip-types --test 'publish/*.test.ts' 'analytics/*.test.ts' 'analytics/platforms/*.test.ts'",
     "upload": "node --env-file-if-exists=.env --experimental-strip-types publish/upload.ts",
-    "refresh:tokens": "node --env-file-if-exists=.env --experimental-strip-types publish/refresh-tokens.ts"
+    "refresh:tokens": "node --env-file-if-exists=.env --experimental-strip-types publish/refresh-tokens.ts",
+    "posted": "node --env-file-if-exists=.env --experimental-strip-types analytics/posted.ts",
+    "hand": "node --env-file-if-exists=.env --experimental-strip-types analytics/hand.ts",
+    "tokens": "node --env-file-if-exists=.env --experimental-strip-types analytics/tokens.ts",
+    "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@atproto/api": "^0.14.0",
     "playwright": "^1.49.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^5.9.3"
   }
 }

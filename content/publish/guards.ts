@@ -28,9 +28,10 @@ export const DAILY_CAP: Record<string, number> = {
 /**
  * `from` is the link tag the post carried (lib/links.ts); older rows have none.
  * `kind` is "drafted" for a DRAFT_ONLY platform (the id is TikTok's publish_id);
- * a row without it was posted.
+ * a row without it was posted. `by: 'hand'` marks a post the founder made
+ * by hand and claimed afterwards (npm run posted, or the pull's auto-claim).
  */
-export type Ledger = { date: string; platform: string; slug: string; id: string; at: string; from?: string; kind?: 'posted' | 'drafted' }[];
+export type Ledger = { date: string; platform: string; slug: string; id: string; at: string; from?: string; kind?: 'posted' | 'drafted'; by?: 'hand' }[];
 
 export function readLedger(path = 'publish/ledger.jsonl'): Ledger {
   if (!existsSync(path)) return [];

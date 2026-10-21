@@ -3,3 +3,8 @@ node_modules/
 test-results/
 # renders are regenerated, never committed; the bucket at MEDIA_BASE_URL serves them
 out/
+# the Insights screenshots the founder drops for /transcribe: the numbers are committed, the images never are
+inbox/screens/*
+!inbox/screens/.gitkeep
+# what /transcribe moved out of the way, still images: inbox/done/<slug>-<platform>/
+inbox/done/*/
