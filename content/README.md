@@ -33,26 +33,31 @@ npm run dry-run                      # dry-run publisher: prints the plan
    because `out/` is git-ignored and the publisher refuses a slideshow with
    no slides on disk; Bluesky and LinkedIn upload those PNGs directly.
 3. **Threads and Instagram** need a Meta app and a bucket (R2 or S3) that
-   serves `out/` by URL. The runner's renders never reach the bucket: there
-   is no upload step yet, and one only gets added if it can run without a
-   second set of secrets. Until then, render locally and upload
-   `out/<slug>/` to the bucket by hand _before_ approving the piece; the
-   runner re-renders the same PNGs for Bluesky and LinkedIn, and Threads and
-   Instagram fetch yours from `MEDIA_BASE_URL/<slug>/NN.png`. Until
-   `MEDIA_BASE_URL` is set the publisher skips those two platforms and says
-   so.
+   serves `out/` by URL. Renders are not committed here (`content/out/` is
+   git-ignored), so the bucket is the host: `https://media.wenna.app`
+   (`docs/runbooks/content-media.md`). The runner renders its own stills and
+   MP4 (for Bluesky, LinkedIn, YouTube and TikTok, which take uploads) but
+   has no upload step, so run `npm run upload queue/<file>.md` locally for a
+   piece _before_ approving it; Threads and Instagram fetch yours from
+   `MEDIA_BASE_URL/<slug>/`. Until `MEDIA_BASE_URL` is set the publisher
+   skips those two platforms and says so.
 4. **Daily Routine** (Claude Code → Routines): clone the Circles repo, work
    in `content/`, run `/daily`. It opens one PR a day on a `claude/` branch.
    You read it on your phone, edit if needed, merge.
-5. **TikTok and Reddit** are never scripted. The PR body and the publisher's
-   `hand` lines carry the text; you post them.
+5. **YouTube and TikTok** need a one-time sign-in each (`npm run auth:youtube`,
+   `npm run auth:tiktok`; setup in `.env.example`). YouTube uploads are
+   private until Google audits the API project. TikTok only ever gets a
+   draft in your inbox: you add a sound and post it. Reddit is never
+   scripted; the PR body and the publisher's `hand` lines carry its text.
+   Who posts where is in `CLAUDE.md`.
 
 ## Links
 
 Every link the publisher posts carries a tag naming the post:
 `wenna.app/?from=bs-only-moves` (Bluesky, the "only-moves" piece). Drafts
 write `wenna.app` plain; the tag is added on publish and printed in the
-`hand` lines for TikTok and Reddit, so paste those, not the draft. On the
+`hand` lines for Reddit (and the `draft` line's caption for a TikTok video),
+so paste those, not the draft. On the
 Wenna side the tag lands on the circle's founder-only cohort row and the
 funnel reads by it (circles SUS-240; until that ships the parameter is
 ignored harmlessly).
@@ -66,9 +71,13 @@ page. Keep the list in `context/facts.md` so nobody invents a second scheme.
 `npm run video` turns the same skit JSON into an animated 9:16 MP4 with
 sound: kinetic hook, messages springing in behind typing bubbles, full-screen
 time skips, a beat line, the grid ticking in, end card. Sound cues are
-synthesised by FFmpeg, so there is nothing to license. Post it as a TikTok
-or Reel by hand (the PNGs are the slideshow version of the same piece; use
-one or the other per platform, not both). Drop a royalty-free track at
+synthesised by FFmpeg, so there is nothing to license. Wherever a piece
+has its MP4, the publisher posts the video, not the stills: the Reel, the
+Short, the Threads and Bluesky posts, and the TikTok draft when the JPEG
+stills are not at `MEDIA_BASE_URL` (the stills are the slideshow version of
+the same piece; one or the other per platform, not both). LinkedIn stays
+text-first with one still. Threads and Instagram fetch the MP4 from
+`MEDIA_BASE_URL`; Bluesky uploads it. Drop a royalty-free track at
 `render/audio/bed.mp3` and it is mixed in quietly with a fade. Timings live
 at the top of `render/video.ts`.
 

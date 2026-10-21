@@ -250,12 +250,12 @@ media: slideshow
 ```
 
 ## tiktok
-Under 150 characters. No hashtags, no link. Lowercase texting register is fine. Posted by hand with the MP4.
+Under 150 characters. No hashtags, no link. Lowercase texting register is fine. The publisher sends the piece to the TikTok inbox as a draft; the founder pastes this caption, picks a sound and posts.
 
 > priya tried not initiating for a month. you can guess
 
 ## instagram
-1–3 short lines, under 300 characters. Up to five hashtags under `hashtags:`; they go in the first comment, never in the caption.
+1–3 short lines, under 300 characters. Up to five hashtags under `hashtags:`; the publisher puts them on their own line at the end of the caption, never inside the sentence.
 
 > Every group has one organiser. Priya took a month off and the chat took one too.
 
@@ -284,7 +284,7 @@ Under 1,200 characters, 3–6 short paragraphs, build-in-public register: one sp
 > Who's the organiser in your group, and have they ever been given the month off?
 
 ## youtube
-A `title:` line under 100 characters (this is what Shorts shows) and a one-line description under 100 characters. No hashtags in the title. Posted by hand as a Short.
+A `title:` line under 100 characters (this is what Shorts shows) and a one-line description under 100 characters. No hashtags in the title. The publisher uploads the MP4 as a Short with this title and line.
 
 title: The organiser took a month off
 
@@ -304,12 +304,12 @@ genuinely does not suit it, and say why in the PR body.
 
 | Platform | Limit | Register | Hashtags | Link | Posted by |
 |---|---|---|---|---|---|
-| tiktok | 150 | texting, lowercase ok | none | none | hand |
+| tiktok | 150 | texting, lowercase ok | none | none | script drafts, founder posts |
 | instagram | 300 | 1–3 lines | ≤5, under `hashtags:` | none | script |
 | threads | 500 | conversational, a real question | none | none | script |
 | bluesky | 300 | plain, founder voice | none | last line | script |
 | linkedin | 1,200 | build-in-public, 3–6 paragraphs, closing question | none | first comment | script |
-| youtube | 100 title + 100 line | `title:` line plus one sentence | none | none | hand |
+| youtube | 100 title + 100 line | `title:` line plus one sentence | none | none | script |
 
 Twin test: no sentence appears in two captions. Each platform gets its own
 angle on the same hook, not a trim of the same sentence: TikTok is the

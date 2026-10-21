@@ -6,8 +6,14 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { CAPTION_LIMIT, type Platform, type QueueItem } from '../lib/queue.ts';
 
-/** Platforms a script may ever post to. TikTok and Reddit are human-only. */
-export const SCRIPTABLE: ReadonlySet<Platform> = new Set(['bluesky', 'threads', 'instagram', 'linkedin']);
+/**
+ * Platforms a script may ever send to (ADR 0086). Reddit is human-only.
+ * TikTok is scriptable only as far as a draft: see DRAFT_ONLY.
+ */
+export const SCRIPTABLE: ReadonlySet<Platform> = new Set(['bluesky', 'threads', 'instagram', 'linkedin', 'youtube', 'tiktok']);
+
+/** The script sends these to the founder's inbox as a draft; the founder reads it, picks a sound and taps Post. */
+export const DRAFT_ONLY: ReadonlySet<Platform> = new Set(['tiktok']);
 
 /** Posts per platform per UTC day. Deliberately far below the API limits. */
 export const DAILY_CAP: Record<string, number> = {
@@ -15,10 +21,16 @@ export const DAILY_CAP: Record<string, number> = {
   threads: 3,
   instagram: 2,
   linkedin: 1,
+  youtube: 1,
+  tiktok: 2,
 };
 
-/** `from` is the link tag the post carried (lib/links.ts); older rows have none. */
-export type Ledger = { date: string; platform: string; slug: string; id: string; at: string; from?: string }[];
+/**
+ * `from` is the link tag the post carried (lib/links.ts); older rows have none.
+ * `kind` is "drafted" for a DRAFT_ONLY platform (the id is TikTok's publish_id);
+ * a row without it was posted.
+ */
+export type Ledger = { date: string; platform: string; slug: string; id: string; at: string; from?: string; kind?: 'posted' | 'drafted' }[];
 
 export function readLedger(path = 'publish/ledger.jsonl'): Ledger {
   if (!existsSync(path)) return [];
@@ -78,6 +90,15 @@ export function guardPlatform(
   if (item.fm.media === 'slideshow') {
     const dir = `out/${item.fm.slug}`;
     if (!existsSync(`${dir}/01.png`)) return { ok: false, reason: `no rendered slides in ${dir}; run npm run render` };
+  }
+  const mp4 = `out/${item.fm.slug}/${item.fm.slug}.mp4`;
+  if (platform === 'youtube') {
+    if (!caption.title) return { ok: false, reason: 'no title: line under ## youtube' };
+    if (caption.title.length > 100) return { ok: false, reason: `youtube title is ${caption.title.length} chars, limit 100` };
+    if (!existsSync(mp4)) return { ok: false, reason: `no ${mp4}; run npm run video` };
+  }
+  if (platform === 'tiktok' && !existsSync(mp4) && !existsSync(`out/${item.fm.slug}/01.jpg`)) {
+    return { ok: false, reason: `no ${mp4} and no JPEG stills; run npm run video or npm run render` };
   }
   return { ok: true };
 }

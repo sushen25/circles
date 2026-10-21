@@ -12,7 +12,12 @@
     "dry-run": "node --env-file-if-exists=.env --experimental-strip-types publish/publish.ts --dry-run",
     "check": "node --env-file-if-exists=.env --experimental-strip-types lib/check.ts",
     "video": "node --env-file-if-exists=.env --experimental-strip-types render/video.ts",
-    "gallery": "node --env-file-if-exists=.env --experimental-strip-types render/gallery.ts"
+    "gallery": "node --env-file-if-exists=.env --experimental-strip-types render/gallery.ts",
+    "auth:youtube": "node --env-file-if-exists=.env --experimental-strip-types publish/auth-youtube.ts",
+    "auth:tiktok": "node --env-file-if-exists=.env --experimental-strip-types publish/auth-tiktok.ts",
+    "test": "node --experimental-strip-types --test publish/*.test.ts",
+    "upload": "node --env-file-if-exists=.env --experimental-strip-types publish/upload.ts",
+    "refresh:tokens": "node --env-file-if-exists=.env --experimental-strip-types publish/refresh-tokens.ts"
   },
   "dependencies": {
     "@atproto/api": "^0.14.0",

@@ -4,6 +4,11 @@
  *   npm run video queue/2026-10-14-unpaid-project-manager.md
  *   → out/<slug>/<slug>.mp4   (1080x1920, 30 fps, H.264 + AAC, ~15–20 s)
  *
+ *   npm run video -- --approved
+ *   → the same for every approved slideshow, as `npm run render -- --approved`
+ *     does for the stills. The GitHub Action runs both before publishing, so
+ *     YouTube, TikTok and Bluesky (which upload the MP4) have it on the runner.
+ *
  * render/video.html lays the skit out as scenes (one component per slide,
  * render/components/) driven by Web Animations on one absolute clock. This script seeks that clock frame by frame and
  * screenshots, so the result is deterministic and never drops frames.
@@ -14,7 +19,9 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { parseQueueFile } from '../lib/queue.ts';
+import { listQueue, parseQueueFile, type QueueItem } from '../lib/queue.ts';
+import { guardItem } from '../publish/guards.ts';
+import type { Browser } from 'playwright';
 import { build, launch, openStage, type Cue } from './browser.ts';
 
 const FPS = 30;
@@ -31,21 +38,45 @@ function ffmpeg(args: string[]) {
   execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args], { stdio: 'inherit' });
 }
 
+function usage(): never {
+  console.error('usage: npm run video queue/<file>.md [queue/<file>.md …] | npm run video -- --approved');
+  process.exit(2);
+}
+
+/** The files to render: the ones named, or every approved slideshow (as render.ts picks them). */
+function pick(args: string[]): QueueItem[] {
+  if (args.includes('--approved')) {
+    if (args.length > 1) usage();
+    // The publisher's own item guard: approved, due, not stale, no [VERIFY]. A stale
+    // approved file would otherwise be rendered on every scheduled run for nothing.
+    return listQueue('queue').filter((i) => i.fm.media === 'slideshow' && guardItem(i, new Date()).ok);
+  }
+  if (!args.length) usage();
+  return args.map((f) => parseQueueFile(f));
+}
+
 async function main() {
-  const file = process.argv[2];
-  if (!file) {
-    console.error('usage: npm run video queue/<file>.md');
-    process.exit(2);
+  const items = pick(process.argv.slice(2));
+  if (!items.length) {
+    console.log('nothing to render: no approved slideshow is due in queue/');
+    return;
   }
   try {
     execFileSync('ffmpeg', ['-version'], { stdio: 'ignore' });
   } catch {
-    console.error('ffmpeg not found. macOS: brew install ffmpeg');
+    console.error('ffmpeg not found. macOS: brew install ffmpeg; Ubuntu: sudo apt-get install ffmpeg');
     process.exit(2);
   }
+  const browser = await launch();
+  try {
+    for (const item of items) await videoOne(browser, item);
+  } finally {
+    await browser.close();
+  }
+}
 
-  const item = parseQueueFile(file);
-  if (!item.skit) throw new Error(`${file}: no \`\`\`json slideshow block`);
+async function videoOne(browser: Browser, item: QueueItem) {
+  if (!item.skit) throw new Error(`${item.path}: no \`\`\`json slideshow block`);
   const outDir = resolve('out', item.fm.slug);
   const frames = join(outDir, 'frames');
   try {
@@ -55,7 +86,6 @@ async function main() {
   }
   mkdirSync(frames, { recursive: true });
 
-  const browser = await launch();
   const page = await openStage(browser, 'video');
   const { total, events } = await build(page, item.skit);
   const nFrames = Math.ceil(total * FPS);
@@ -65,7 +95,7 @@ async function main() {
     if (f % 60 === 0) process.stdout.write(`\r${f}/${nFrames} frames`);
   }
   process.stdout.write(`\r${nFrames}/${nFrames} frames\n`);
-  await browser.close();
+  await page.close();
 
   // Sound cues: one synthesised input per cue, delayed to its time, mixed.
   const mp4 = join(outDir, `${item.fm.slug}.mp4`);

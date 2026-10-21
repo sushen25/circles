@@ -2,11 +2,12 @@
  * Render a queue file's slideshow to 1080x1920 PNGs.
  *
  *   npm run render queue/2026-10-14-unpaid-project-manager.md
- *   → out/unpaid-project-manager/01.png … 0N.png
+ *   → out/unpaid-project-manager/01.png … 0N.png, and 01.jpg … 0N.jpg
+ *     (TikTok photo posts take JPEG or WebP, never PNG)
  *
  *   npm run render -- --approved
- *   → every queue file with `status: approved` and `media: slideshow`, which
- *     is what the publisher will try to post. The GitHub Action runs this
+ *   → every `media: slideshow` queue file that passes the publisher's item
+ *     guard (approved, due, not stale): what the publisher will try to post. The GitHub Action runs this
  *     before `npm run publish`, because out/ is never committed (ADR 0081)
  *     and the slideshow guard refuses an item with no slides on disk.
  *
@@ -20,6 +21,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { listQueue, parseQueueFile, type QueueItem } from '../lib/queue.ts';
+import { guardItem } from '../publish/guards.ts';
 import type { Browser } from 'playwright';
 import { build, launch, openStage } from './browser.ts';
 
@@ -32,7 +34,9 @@ function usage(): never {
 function pick(args: string[]): QueueItem[] {
   if (args.includes('--approved')) {
     if (args.length > 1) usage();
-    return listQueue('queue').filter((i) => i.fm.status === 'approved' && i.fm.media === 'slideshow');
+    // The publisher's own item guard: approved, due, not stale, no [VERIFY]. A stale
+    // approved file would otherwise be rendered on every scheduled run for nothing.
+    return listQueue('queue').filter((i) => i.fm.media === 'slideshow' && guardItem(i, new Date()).ok);
   }
   if (!args.length) usage();
   return args.map((f) => parseQueueFile(f));
@@ -41,7 +45,7 @@ function pick(args: string[]): QueueItem[] {
 async function main() {
   const items = pick(process.argv.slice(2));
   if (!items.length) {
-    console.log('nothing to render: no approved slideshow in queue/');
+    console.log('nothing to render: no approved slideshow is due in queue/');
     return;
   }
   const browser = await launch();
@@ -66,11 +70,12 @@ async function renderOne(browser: Browser, item: QueueItem) {
     await page.evaluate((k) => (window as any).still(k), i);
     const out = join(outDir, `${String(i + 1).padStart(2, '0')}.png`);
     await page.screenshot({ path: out, type: 'png', fullPage: false });
+    await page.screenshot({ path: out.replace(/\.png$/, '.jpg'), type: 'jpeg', quality: 92, fullPage: false });
     written.push(out);
   }
   await page.close();
 
-  // A caption sheet beside the PNGs, for hand-posting to TikTok.
+  // A caption sheet beside the PNGs, for pasting the TikTok caption onto the draft.
   const sheet = Object.entries(item.captions)
     .map(([p, c]) => `## ${p}\n${c.title ? `title: ${c.title}\n\n` : ''}${c.text}${c.hashtags.length ? `\n\n${c.hashtags.join(' ')}` : ''}`)
     .join('\n\n');
