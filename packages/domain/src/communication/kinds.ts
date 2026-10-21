@@ -35,7 +35,8 @@ export type NotificationKind =
   | 'did_it_happen_participant'
   | 'verify_email'
   | 'quiet_expired'
-  | 'asked_again';
+  | 'asked_again'
+  | 'first_plan_quiet';
 
 /**
  * Who a kind goes to, named rather than described.
@@ -84,8 +85,9 @@ export type NotificationSpec = {
    * this kind's **email** (ADR 0029). Push is untouched, and so is every kind
    * a subscription governs — that consent has its own stop link.
    *
-   * True for the three letters about a plan the organiser runs:
-   * `options_ready`, `replies_closed` and `did_it_happen`. `replies_closed`
+   * True for the letters about a plan the organiser runs:
+   * `options_ready`, `replies_closed`, `did_it_happen` and the founder's
+   * one-off `first_plan_quiet` (ADR 0085). `replies_closed`
    * was exempt under ADR 0029, because the plan waits on the organiser alone;
    * ADR 0069 removed the exemption, since a stop link under it has to stop it
    * (the founder's decision of 15 October 2026). False for `about_time`, whose
@@ -304,6 +306,22 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
     audience: 'answered_earlier',
     channels: ['push', 'email'],
     copyKey: 'push.asked_again',
+    respectsQuietHours: true,
+  },
+  {
+    // "Nothing's come in on your {circle} plan yet. If something's in the way,
+    // reply to this and I'll help you sort it." (SUS-240, ADR 0085): one plain
+    // letter from the founder to the organiser of a circle's first plan, 48
+    // hours in and still unanswered. A support letter under the organiser-email
+    // consent, not product marketing, so the same switch (ADR 0029) and the same
+    // stop link (ADR 0069) as the organiser's other letters. Email only: it is
+    // a person writing to a person, and a push cannot be replied to.
+    kind: 'first_plan_quiet',
+    emailNeedsSubscription: false,
+    organiserEmailSwitch: true,
+    audience: 'organiser',
+    channels: ['email'],
+    copyKey: 'email.first_plan_quiet',
     respectsQuietHours: true,
   },
 ];

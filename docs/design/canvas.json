@@ -784,8 +784,26 @@
       "title": "Account"
     },
     {
-      "file": "Privacy.dc.html",
+      "file": "DeleteAccount.dc.html",
       "x": 480,
+      "y": 5200,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Account \u00b7 delete, step one"
+    },
+    {
+      "file": "DeleteAccountSure.dc.html",
+      "x": 960,
+      "y": 5200,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Account \u00b7 delete, step two"
+    },
+    {
+      "file": "Privacy.dc.html",
+      "x": 1440,
       "y": 5200,
       "w": 390,
       "h": 844,
@@ -794,7 +812,7 @@
     },
     {
       "file": "Diagnostics.dc.html",
-      "x": 960,
+      "x": 1920,
       "y": 5200,
       "w": 390,
       "h": 844,
@@ -803,7 +821,7 @@
     },
     {
       "file": "SetTime.dc.html",
-      "x": 1440,
+      "x": 2400,
       "y": 5200,
       "w": 390,
       "h": 1500,
@@ -812,8 +830,8 @@
     },
     {
       "file": "ConfirmReviewOwn.dc.html",
-      "x": 1920,
-      "y": 5200,
+      "x": 0,
+      "y": 6500,
       "w": 390,
       "h": 980,
       "page": "organiser",
@@ -821,8 +839,8 @@
     },
     {
       "file": "EditLocked.dc.html",
-      "x": 2400,
-      "y": 5200,
+      "x": 480,
+      "y": 6500,
       "w": 390,
       "h": 980,
       "page": "organiser",
@@ -830,7 +848,7 @@
     },
     {
       "file": "FounderAnalytics.dc.html",
-      "x": 0,
+      "x": 960,
       "y": 6500,
       "w": 390,
       "h": 2100,
@@ -839,7 +857,7 @@
     },
     {
       "file": "CircleHomeFull.dc.html",
-      "x": 480,
+      "x": 1440,
       "y": 6500,
       "w": 390,
       "h": 844,
@@ -848,7 +866,7 @@
     },
     {
       "file": "SettingsFull.dc.html",
-      "x": 960,
+      "x": 1920,
       "y": 6500,
       "w": 390,
       "h": 844,

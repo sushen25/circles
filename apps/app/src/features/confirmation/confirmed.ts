@@ -181,7 +181,7 @@ export function asDomain(data: PlanConfirmation, confirmation: LockedIn): Confir
     placeName: confirmation.placeName,
     placeUrl: confirmation.placeUrl,
     note: confirmation.note,
-    confirmedBy: userId(confirmation.confirmedBy),
+    confirmedBy: confirmation.confirmedBy === null ? null : userId(confirmation.confirmedBy),
     status: confirmation.status,
     confirmedAt: fromISO(confirmation.confirmedAt),
     ownTime: confirmation.ownTime,

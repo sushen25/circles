@@ -14,6 +14,7 @@ situation, written the first time it happens rather than imagined in advance.
 | [Store listing](./store-listing.md) | The name, subtitle, description and icons to enter at first submission, and the one thing to check with App Review |
 | [Content media](./content-media.md) | `media.wenna.app`, where the content loop's renders are served from: the bucket, the CDN, `npm run upload`, and TikTok's domain check |
 | [Founder cohorts](./founder-cohorts.md) | Which of spec §11.4's two cohorts a circle is counted in, how to look and how to change it |
+| [Campaign links](./campaign-links.md) | Tagging a link you post with `?from=`, where the tag goes, and reading the funnel and the stalled first plans by it |
 | Stuck plans | A plan that will not transition — past its deadline with no candidates, or a confirmation that did not send |
 | Suppressed contacts | An address that has hard-bounced or complained and is no longer receiving anything |
 | Identity merges | A guest who has ended up as two members of one circle, or a claim that half-linked |

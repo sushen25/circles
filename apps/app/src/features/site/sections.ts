@@ -14,6 +14,20 @@ export const SITE_ARRIVAL_PARAM = 'via';
 export const SITE_ARRIVAL_VALUE = 'site';
 export const START_HREF = `/start?${SITE_ARRIVAL_PARAM}=${SITE_ARRIVAL_VALUE}`;
 
+/**
+ * The address a link to the site may carry its campaign tag on (`?from=`,
+ * SUS-240). The site hands it on to `/start` and nothing else: it is a slug
+ * (`parseSourceRef`), kept by the app in the first-run draft's company and
+ * written to the circle's founder-only cohort row when the organiser passes the
+ * gate. The page itself has no script and records nothing.
+ */
+export const CAMPAIGN_PARAM = 'from';
+
+/** "Start a plan", with the tag when there is one. A tag that is not a slug was dropped by the caller. */
+export function startHref(tag?: string): string {
+  return tag === undefined ? START_HREF : `${START_HREF}&${CAMPAIGN_PARAM}=${tag}`;
+}
+
 const ARROW =
   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
 const DOWN =
@@ -21,24 +35,24 @@ const DOWN =
 const TICK =
   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12l5 5L20 7"/></svg>';
 
-const start = (cls: string, label = text('start_plan'), extra = '') =>
-  `<a class="btn ${cls}" href="${START_HREF}">${label}${extra}</a>`;
+const start = (href: string, cls: string, label = text('start_plan'), extra = '') =>
+  `<a class="btn ${cls}" href="${href}">${label}${extra}</a>`;
 
-export function header(): string {
+export function header(href: string = START_HREF): string {
   return `<header class="wrap"><nav class="nav" aria-label="${text('main_nav')}">
 <a class="brand" href="#top" aria-label="${text('home')}">${markSvg(34)}<span>${brand.name.toLowerCase()}</span></a>
-<div class="navlinks"><a href="#how">${text('nav_how')}</a><a href="#privacy">${text('nav_privacy')}</a><a href="#organisers">${text('nav_organisers')}</a>${start('btn-primary btn-small')}</div>
+<div class="navlinks"><a href="#how">${text('nav_how')}</a><a href="#privacy">${text('nav_privacy')}</a><a href="#organisers">${text('nav_organisers')}</a>${start(href, 'btn-primary btn-small')}</div>
 </nav></header>`;
 }
 
-export function hero(): string {
+export function hero(href: string = START_HREF): string {
   return `<section class="hero"><div class="wrap">
 <h1 class="h1">${text('hero_before')}<em>${text('hero_em')}</em>${text('hero_after')}</h1>
 <p class="lede">${text('lede')}</p>
-<div class="ctas">${start('btn-primary')}<a class="tertiary" href="#how">${text('see_how')}${DOWN}</a></div>
+<div class="ctas">${start(href, 'btn-primary')}<a class="tertiary" href="#how">${text('see_how')}${DOWN}</a></div>
 <p class="proof">${text('proof')}</p>
 <div class="threads">${beforeThread()}${afterThread()}</div>
-<div class="composer"><div class="hint">${text('composer_hint')}</div>${start('btn-primary', text('start_plan'), ARROW)}</div>
+<div class="composer"><div class="hint">${text('composer_hint')}</div>${start(href, 'btn-primary', text('start_plan'), ARROW)}</div>
 </div></section>`;
 }
 
@@ -101,11 +115,11 @@ export function privacy(): string {
 </div></section>`;
 }
 
-export function organisers(): string {
+export function organisers(href: string = START_HREF): string {
   const feat = (n: 1 | 2 | 3 | 4 | 5) =>
     `<div class="feat"><h3 class="h3">${text(`feat${n}_title` as 'feat1_title')}</h3><p class="body">${text(`feat${n}_body` as 'feat1_body')}</p></div>`;
   return `<section class="section" id="organisers"><div class="wrap"><div class="org">
-<div class="sticky"><h2 class="h2">${text('org_title')}</h2><p class="sub">${text('org_sub')}</p>${start('btn-primary')}</div>
+<div class="sticky"><h2 class="h2">${text('org_title')}</h2><p class="sub">${text('org_sub')}</p>${start(href, 'btn-primary')}</div>
 <div>${feat(1)}${feat(2)}${feat(3)}${feat(4)}${feat(5)}</div>
 </div></div></section>`;
 }
@@ -117,11 +131,11 @@ export function free(): string {
 </div></div></section>`;
 }
 
-export function close(): string {
+export function close(href: string = START_HREF): string {
   return `<footer class="dark close"><div class="wrap">
 <div class="logo">${markSvg(88, color.invertAccent)}</div>
 <div class="lockday">${text('close_title')}</div><div class="see">${text('close_see')}</div>
-<p>${text('close_body')}</p><div class="last">${start('btn-invert')}</div></div>
+<p>${text('close_body')}</p><div class="last">${start(href, 'btn-invert')}</div></div>
 <div class="wrap footer-wrap"><div class="footer">
 <div class="who-line"><span class="word">${brand.name.toLowerCase()}</span><span>${text('footer_said')}</span></div>
 <div class="links"><a href="/privacy">${text('footer_privacy')}</a><a href="/terms">${text('footer_terms')}</a><a href="mailto:${brand.supportEmail}">${brand.supportEmail}</a><span>${text('footer_made')}</span></div>

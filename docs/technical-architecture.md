@@ -374,7 +374,8 @@ All ids are `uuid` (v7 where ordering helps). All tables have `created_at`, `upd
 | `plan_days` | `plan_id`, `day` | Only for a plan with gaps: no rows is every day from `window_start` to `window_end`; when there are rows, the first and last are the window's ends and at least one day between is missing (deferred, `enforce_plan_days`; [ADR 0047](decisions/0047-a-plan-may-ask-about-days-with-gaps.md)) |
 | `plan_required_members` | `plan_id`, `revision`, `user_id` | |
 | `private.plan_initiators` | `plan_id`, `initiator_user_id` | never selectable by clients |
-| `private.circle_cohorts` | `circle_id`, `cohort` (`founder|external`), `source` (`default|founder`), `set_at` | one row per circle, set by an insert trigger from the owner's allowlist membership and by `public.founder_set_circle_cohort`; never selectable by clients, never in a payload ([ADR 0058](decisions/0058-every-circle-carries-a-cohort-only-the-founder-can-see.md)) |
+| `private.circle_cohorts` | `circle_id`, `cohort` (`founder|external`), `source` (`default|founder`), `set_at`, `source_ref` (the campaign tag, a slug, written once by `tag_circle_source`; [ADR 0084](decisions/0084-a-campaign-tag-labels-a-circles-cohort-row-never-a-person.md)) | one row per circle, set by an insert trigger from the owner's allowlist membership and by `public.founder_set_circle_cohort`; never selectable by clients, never in a payload ([ADR 0058](decisions/0058-every-circle-carries-a-cohort-only-the-founder-can-see.md)) |
+| `private.first_plan_quiet_letters` | `circle_id` (primary key), `plan_id`, `decided_at` | one row per circle, ever: that the founder's `first_plan_quiet` letter has been decided for it (sent, or not wanted); written with its job by `dispatch_first_plan_quiet`; never selectable by clients ([ADR 0085](decisions/0085-a-first-plan-nobody-answers-gets-one-question-and-one-letter-from-the-founder.md)) |
 | `private.plan_interest` | `plan_id`, `user_id`, `response` (`keen|not_this_time`), `responded_at` | unique `(plan_id, user_id)`; exposed to clients only as a count after threshold |
 
 **Availability (`public`)**
@@ -467,7 +468,7 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 | Abandoned anonymous identities (no membership, > 30 days) | delete |
 | Auth service sign-in log (`auth.audit_log_entries`) | 90 days |
 | Audit log | 12 months, except `plan.created` (who started a named plan): kept while the plan exists, removed with it ([ADR 0057](decisions/0057-who-started-a-plan-is-kept-as-long-as-the-plan.md)) |
-| Deleted accounts | revoke immediately; purge identifiers within 30 days |
+| Deleted accounts | revoked immediately; 30 days after `delete-account`, `private.purge_account` deletes the circles they still own, takes their id out of the audit log and the lists of who was free, and deletes the auth user (the cascade takes the rest). One subtransaction per account, and per rule: a rule that raises is rolled back alone and named in `failed_rules` in the `retention.ran` row ([ADR 0083](decisions/0083-an-account-is-deleted-at-once-and-purged-after-thirty-days-a-member-can-leave-and-everyone-can-export.md)) |
 
 ## 9. Backend surface
 
@@ -507,7 +508,9 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 | `record-nudge` | member | May this prompt be shown (`nudgeEligibility` over the caller's rows; a yes is recorded as shown in the same request, a no writes nothing), or what was done with it |
 | `track-events` | any | Validate against the catalogue, strip anything not in the schema, insert |
 | `process-scheduled-jobs` | cron (service role) | Drain outbox → create notification jobs; send due jobs; expire quiet asks and plans; deadline reminders; cadence prompts; outcome prompts; retries with capped backoff. Not retention — that is `jobs.run_retention()` in the database ([ADR 0014](decisions/0014-retention-runs-in-the-database.md)) |
-| `delete-account` | permanent | *Not built yet.* Revoke sessions, anonymise, enqueue purge |
+| `delete-account` | permanent | `delete_account` in one transaction: owned circles handed to the longest-standing permanent member or archived, organised plans handed on or left with no organiser, memberships `removed` as 'Former member' (the removal trigger deletes answers and windows), email withdrawn and contacts deleted, push disabled, sessions deleted and the user banned; then revokes the token's session globally and recalculates the plans it made stale. `identity.account_deleted`. The retention job purges the rest after 30 days ([ADR 0083](decisions/0083-an-account-is-deleted-at-once-and-purged-after-thirty-days-a-member-can-leave-and-everyone-can-export.md)) |
+| `leave-circle` | member (guests included) | `leave_circle`: the owner's Remove done by the member; `owner_cannot_leave`, `member_not_found`; recalculates the plans it made stale |
+| `export-my-data` | member | `export_my_data`: the caller's own rows as JSON, nobody else's, the address as a hint; one a day (`too_many_requests`); no idempotency key, so the answer is recorded nowhere |
 
 Every function: Zod-validated input, a reference minted on the server (`_shared/respond.ts`; the caller's `X-Request-Id` is ignored, so a header can never put a token in a log) as the user-visible reference on errors ("Ref 7F3K-2Q"), structured JSON logs without PII, idempotent on a client-supplied `idempotency_key` **in the request body** for mutations ([ADR 0016](decisions/0016-idempotency-key-travels-in-the-request-body.md)) — inside the request's own schema, so a client that omits it fails at the boundary rather than at the retry.
 
@@ -598,7 +601,7 @@ domain event (outbox) → dispatcher → eligibility(recipient, kind, state) →
 | Transport | HTTPS everywhere; HSTS on the domain; Supabase JWT expiry 1 h with refresh |
 | Definer functions | `security definer` + `set search_path = ''` + explicit `revoke` from `public`; each has a pgTAP test that `anon` cannot call it where not intended |
 | Logs | Structured, PII-free; request id only; Supabase log retention as per plan |
-| Deletion | `delete-account` revokes sessions, anonymises memberships (display name → "Former member"), purges private data within 30 days |
+| Deletion | `delete-account` bans the user and deletes their sessions in its own transaction, anonymises memberships (display name → "Former member"), and `run_retention` purges the profile, `private.*` rows and the auth user after 30 days, one subtransaction per account ([ADR 0083](decisions/0083-an-account-is-deleted-at-once-and-purged-after-thirty-days-a-member-can-leave-and-everyone-can-export.md)) |
 | Age | Terms require 18+; no age-gating UI in MVP; no under-16 accounts by policy (review 5.5) |
 | Legal | Spam Act unsubscribe ≤ 5 working days (immediate here); consent records retained; privacy policy reviewed before public launch |
 

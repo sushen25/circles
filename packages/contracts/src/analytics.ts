@@ -92,10 +92,31 @@ export type ClaimMoment = (typeof CLAIM_MOMENTS)[number];
 /**
  * Where an organiser says they heard of the product (`organiser_source`,
  * SUS-171). `skipped` is a person who passed the question by; a person who was
- * never asked has no event at all.
+ * never asked has no event at all. `content` is not an answer: it is recorded,
+ * without asking, for an organiser who arrived on a tagged link (`?from=`,
+ * SUS-240), and the question is skipped for them.
  */
-export const ORGANISER_SOURCES = ['friend_group', 'reddit', 'meetup', 'other', 'skipped'] as const;
+export const ORGANISER_SOURCES = [
+  'friend_group',
+  'reddit',
+  'meetup',
+  'other',
+  'skipped',
+  'content',
+] as const;
 export type OrganiserSource = (typeof ORGANISER_SOURCES)[number];
+
+/**
+ * What an organiser says has happened, asked once on a first plan's waiting
+ * screen after 48 hours with no answer from anyone else (`first_plan_stalled`,
+ * SUS-240). Three words and nothing else: no free text. Skip records no event.
+ */
+export const FIRST_PLAN_STALLED_ANSWERS = [
+  'not_posted',
+  'posted_no_replies',
+  'wrong_group',
+] as const;
+export type FirstPlanStalledAnswer = (typeof FIRST_PLAN_STALLED_ANSWERS)[number];
 
 export const catalogue = {
   // --- identity -----------------------------------------------------------
@@ -112,8 +133,8 @@ export const catalogue = {
   organiser_gate_shown: event(1),
   organiser_gate_passed: event(1),
   app_first_open_linked: event(1),
-  // "How did you hear about {brand}?", once per account, after the gate's code is
-  // accepted (SUS-171). One of five words and nothing else: no free text, and
+  // "How did you hear about {brand}?", once per account, as the last step of the first
+  // run once the circle exists (SUS-171). One of six words and nothing else: no free text, and
   // the founder views read it by the account it came from without ever
   // returning that account (non-negotiable 8).
   organiser_source: event(1, { source: z.enum(ORGANISER_SOURCES) }),
@@ -268,6 +289,11 @@ export const catalogue = {
    * the place and the note are exactly what an event may not carry.
    */
   confirmation_edited: event(1),
+  // "Nothing in yet. What's happened?" (SUS-240, spec §11.3): the organiser's
+  // one tap on a first plan nobody has answered in 48 hours. The enum and
+  // nothing else; the plan and circle are the event's own columns, as for
+  // `organiser_chased`.
+  first_plan_stalled: event(1, { answer: z.enum(FIRST_PLAN_STALLED_ANSWERS) }),
   /**
    * "Did you have to chase anyone outside the app?" (spec §5.10) — the three
    * answers the review screen offers and `meetup_confirmations.chased_answer`

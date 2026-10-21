@@ -7,6 +7,7 @@ import { ensureGuestSession } from '../../../data/auth/guest';
 import { fetchInvitePreview, heldInvite, takeInviteOpen } from '../../../data/membership';
 import { LinkInvalidScreen } from '../LinkInvalidScreen';
 import { MainScreen } from '../MainScreen';
+import { useLegalLinks } from '../useLegalLinks';
 import { isOffline } from './failure';
 
 /**
@@ -27,6 +28,7 @@ const serverInvite = (): undefined => undefined;
 
 export function JoinFlow() {
   const router = useRouter();
+  const legal = useLegalLinks();
 
   /**
    * `undefined` while hydrating, then the held invite or `null`.
@@ -96,6 +98,8 @@ export function JoinFlow() {
       }}
       busy={starting}
       onBack={back}
+      onTerms={legal.onTerms}
+      onPrivacy={legal.onPrivacy}
       onNext={() => {
         // "Choose my times creates an anonymous session tied to that browser and
         // asks for a display name" (§5.1). The session first, so the Name step

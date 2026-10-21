@@ -28,13 +28,19 @@ npm run dry-run                      # dry-run publisher: prints the plan
 2. **GitHub**: add the same values as secrets of the Circles repository, and
    `MEDIA_BASE_URL` as a repository variable. From then on merging a PR is
    approval and `.github/workflows/content-publish.yml` posts within the
-   item's window and commits the ledger back, touching only `content/`.
+   item's window and commits the ledger back, touching only `content/`. The
+   runner installs Chromium and runs `npm run render -- --approved` first,
+   because `out/` is git-ignored and the publisher refuses a slideshow with
+   no slides on disk; Bluesky and LinkedIn upload those PNGs directly.
 3. **Threads and Instagram** need a Meta app and a bucket (R2 or S3) that
    serves `out/` by URL. Renders are not committed here (`content/out/` is
    git-ignored), so the bucket is the host: `https://media.wenna.app`
-   (`docs/runbooks/content-media.md`). Run `npm run upload queue/<file>.md`
-   for a piece before approving it. Until `MEDIA_BASE_URL` is set the publisher skips
-   those two platforms and says so.
+   (`docs/runbooks/content-media.md`). The runner renders its own stills and
+   MP4 (for Bluesky, LinkedIn, YouTube and TikTok, which take uploads) but
+   has no upload step, so run `npm run upload queue/<file>.md` locally for a
+   piece _before_ approving it; Threads and Instagram fetch yours from
+   `MEDIA_BASE_URL/<slug>/`. Until `MEDIA_BASE_URL` is set the publisher
+   skips those two platforms and says so.
 4. **Daily Routine** (Claude Code → Routines): clone the Circles repo, work
    in `content/`, run `/daily`. It opens one PR a day on a `claude/` branch.
    You read it on your phone, edit if needed, merge.

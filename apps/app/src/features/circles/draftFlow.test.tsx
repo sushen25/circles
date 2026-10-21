@@ -56,11 +56,19 @@ vi.mock('../../data/planning', async (original) => ({
   createPlan: (...a: unknown[]) => createPlan(...a),
 }));
 
+// The last step of the first run asks "How did you hear?" (sourceQuestion.test.tsx);
+// these tests are about what is made, so the account has been asked already.
+vi.mock('../../data/growth', () => ({
+  askToShow: () => Promise.resolve({ suppressed: true, reason: 'already_shown' }),
+  recordAnswer: () => Promise.resolve(undefined),
+}));
+
 const { FirstCircleFlow } = await import('./FirstCircleFlow');
 const { FinishDraftFlow } = await import('./FinishDraftFlow');
 const { FirstPlanDraftFlow } = await import('../planning/FirstPlanDraftFlow');
 const { SavePlaceFlow } = await import('../identity/SavePlaceFlow');
-const { DEFAULT_PLAN, readDraft, saveDraft } = await import('../../data/draft');
+const { DEFAULT_PLAN, keepArrivalTag, readArrivalTag, readDraft, saveDraft } =
+  await import('../../data/draft');
 const { FunctionError } = await import('../../data/functions');
 
 const CIRCLE = '00000000-0000-4000-8000-00000000c1c1';
@@ -281,6 +289,31 @@ describe('the finish', () => {
     expect(await readDraft()).toBeNull();
     // The invite secret is held in memory and never put in the address.
     expect(JSON.stringify(replace.mock.calls)).not.toContain(SECRET);
+  });
+
+  it('sends the campaign tag the organiser arrived on with the circle, and forgets it once it is made (SUS-240)', async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya' });
+    await draftReady();
+    await keepArrivalTag('tt-always-the-one-3');
+    wrap(<FinishDraftFlow />);
+
+    await waitFor(() => expect(replace).toHaveBeenCalled());
+    expect(createCircle).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceRef: 'tt-always-the-one-3' }),
+    );
+    expect(await readArrivalTag()).toBeUndefined();
+    // A label for the circle's founder-only row: never in an event or an address.
+    expect(JSON.stringify(track.mock.calls)).not.toContain('tt-always-the-one-3');
+    expect(JSON.stringify(replace.mock.calls)).not.toContain('tt-always-the-one-3');
+  });
+
+  it('sends no tag when no tagged link brought the organiser', async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya' });
+    await draftReady();
+    wrap(<FinishDraftFlow />);
+
+    await waitFor(() => expect(replace).toHaveBeenCalled());
+    expect(createCircle.mock.calls[0]?.[0]).not.toHaveProperty('sourceRef', expect.anything());
   });
 
   it('with Just invite people, makes the circle and no plan, and opens its invite', async () => {

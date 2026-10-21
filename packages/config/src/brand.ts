@@ -53,6 +53,14 @@ export const brand = {
    */
   supportEmail: 'hello@wenna.app',
   /**
+   * The first name the founder signs a personal letter with, and the display
+   * name it comes from (SUS-240, ADR 0085): "Sushen" in the From line of the
+   * one "want a hand?" letter, with the sender address above and replies going
+   * to `supportEmail`. A person writing to a person, so it is a name and not
+   * the product's.
+   */
+  founderName: 'Sushen',
+  /**
    * Deep-link scheme for native universal/app links. Still the codename, on
    * purpose: see the top of this file.
    */

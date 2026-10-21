@@ -6,7 +6,7 @@ import { t } from '../../copy';
 
 /**
  * OrganiserSource (SUS-171): "How did you hear about {brand}?", the one question
- * the organiser's gate asks, once per account, after the code is through. Four
+ * the first run asks, once per account, as its last step. Four
  * answers and Skip; each is a single tap that goes straight on, and none of
  * them is a field. What was chosen is an analytics word and nothing else.
  */
@@ -23,7 +23,8 @@ const WORDS = {
 
 export function OrganiserSourceScreen({ onChoose }: OrganiserSourceProps) {
   const answers = ORGANISER_SOURCES.filter(
-    (source): source is keyof typeof WORDS => source !== 'skipped',
+    // `content` is recorded for a tagged link without asking (SUS-240), never offered.
+    (source): source is keyof typeof WORDS => source !== 'skipped' && source !== 'content',
   );
   return (
     <Screen>

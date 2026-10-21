@@ -27,6 +27,12 @@
 -- `by_source` is the same counters and event totals split by the owner's answer
 -- to "How did you hear about Wenna?", counts only (SUS-171).
 --
+-- `by_source_ref` is the counters and a few event totals split by the campaign
+-- tag the organiser arrived on (SUS-240): a label for a post, never for a
+-- person, so it is the one string key this returns, and it is the founder's own
+-- to read. `stalled` is the first plans that have stopped, by the week the
+-- circle began and the source, as counts and ages (SUS-240).
+--
 -- The period is clamped to 400 days: it is a cost bound, not a rule, and the
 -- answer says from when it is.
 -- ---------------------------------------------------------------------------
@@ -160,8 +166,80 @@ begin
         )
       ))
       from (
-        values ('friend_group'), ('reddit'), ('meetup'), ('other'), ('skipped'), ('unknown')
+        values ('friend_group'), ('reddit'), ('meetup'), ('other'), ('skipped'), ('content'), ('unknown')
       ) as s(source)
+    ),
+    -- The funnel by the campaign tag (SUS-240). The tags seen in the period, the
+    -- forty busiest at most; per tag, the row counters and a few events' totals.
+    -- A tag is a slug the founder chose for a post, and nothing names the person
+    -- who followed it.
+    'by_source_ref', (
+      select coalesce(jsonb_object_agg(r.source_ref, jsonb_build_object(
+        'counters', (
+          select coalesce(jsonb_object_agg(c.counter, c.n), '{}'::jsonb)
+          from (
+            select f.counter, sum(f.n)::int as n
+            from analytics.funnel_counts f
+            where f.day >= v_from and f.source_ref = r.source_ref
+            group by f.counter
+          ) c
+        ),
+        'events', (
+          select coalesce(jsonb_object_agg(x.event_name, x.n), '{}'::jsonb)
+          from (
+            select e.event_name, count(*)::int as n
+            from analytics.events e
+            join analytics.event_source_ref es on es.event_id = e.id
+            where es.source_ref = r.source_ref
+              and e.event_name in ('plan_shared', 'availability_submitted', 'meetup_confirmed')
+              and (e.occurred_at at time zone 'UTC')::date >= v_from
+            group by e.event_name
+          ) x
+        )
+      )), '{}'::jsonb)
+      from (
+        -- A tag with only events in the period (a plan made before it, shared
+        -- in it) is listed too, after the ones with rows.
+        select t.source_ref
+        from (
+          select f.source_ref, sum(f.n)::bigint as weight
+          from analytics.funnel_counts f
+          where f.day >= v_from and f.source_ref is not null
+          group by f.source_ref
+          union all
+          select es.source_ref, 0::bigint
+          from analytics.events e
+          join analytics.event_source_ref es on es.event_id = e.id
+          where es.source_ref is not null
+            and e.event_name in ('plan_shared', 'availability_submitted', 'meetup_confirmed')
+            and (e.occurred_at at time zone 'UTC')::date >= v_from
+        ) t
+        group by t.source_ref
+        order by sum(t.weight) desc, t.source_ref
+        limit 40
+      ) r
+    ),
+    -- First plans that have stopped (SUS-240): by the Monday of the week the
+    -- circle began, its cohort, the source and the state; counts and ages only.
+    'stalled', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'week', s.week,
+        'cohort', s.cohort,
+        'source', s.source,
+        'state', s.state,
+        'circles', s.circles,
+        'oldest_hours', s.oldest_hours,
+        'median_hours', s.median_hours
+      ) order by s.week desc, s.cohort, s.source, s.state), '[]'::jsonb)
+      from (
+        select week, cohort, source, state,
+          count(*)::int as circles,
+          floor(max(age_hours))::int as oldest_hours,
+          floor(percentile_cont(0.5) within group (order by age_hours))::int as median_hours
+        from analytics.stalled_first_plans
+        where week >= v_from
+        group by week, cohort, source, state
+      ) s
     ),
     'events', (
       select coalesce(jsonb_agg(

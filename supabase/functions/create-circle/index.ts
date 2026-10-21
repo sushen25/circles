@@ -44,6 +44,9 @@ Deno.serve(
   jsonHandler({
     name: 'create-circle',
     schema: CreateCircleRequest,
+    // The tag is a label that may be gone on a retry (sent once, then forgotten
+    // by the device): the same circle is still the same request.
+    fingerprintExcludes: ['source_ref'],
     guard: async ({ actor, service, request }) => {
       if (actor.isAnonymous) {
         // The database refuses this too, and that is the enforcement. Saying it
@@ -71,6 +74,17 @@ Deno.serve(
         ...(body.default_area === undefined ? {} : { default_area: body.default_area }),
       });
       if (error !== null) throw error;
+
+      // The campaign tag the organiser arrived on (SUS-240): a label for a post,
+      // written to the circle's founder-only cohort row. It is best effort and
+      // never the reason a circle is not made, and it is not logged. A retry
+      // returns the response of the first attempt, so it is tagged once.
+      if (body.source_ref !== undefined) {
+        await caller.rpc('tag_circle_source', {
+          p_circle_id: circle.id,
+          p_source_ref: body.source_ref,
+        });
+      }
 
       return { circle: circleDto(circle), invite_secret: secret };
     },

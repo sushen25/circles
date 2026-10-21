@@ -5,6 +5,7 @@ import {
   DisplayXL,
   Foot,
   Label,
+  LegalLine,
   Loading,
   Marks,
   Notice,
@@ -50,6 +51,8 @@ export type MainProps = {
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
   onWhatIsBrand?: (() => void) | undefined;
+  onTerms?: (() => void) | undefined;
+  onPrivacy?: (() => void) | undefined;
 };
 
 function fromFixture(fixture: Fixture | undefined): InviteView | undefined {
@@ -72,6 +75,8 @@ export function MainScreen({
   onRetry,
   onBack,
   onWhatIsBrand,
+  onTerms,
+  onPrivacy,
 }: MainProps) {
   const view = invite ?? fromFixture(fixture);
   const loading = useLoadingHold(state === 'loading' || view === undefined);
@@ -142,6 +147,7 @@ export function MainScreen({
         {onWhatIsBrand === undefined ? null : (
           <Tertiary label={t('main', 'what_is_brand')} onPress={onWhatIsBrand} />
         )}
+        <LegalLine onTerms={onTerms} onPrivacy={onPrivacy} />
       </Foot>
     </Screen>
   );

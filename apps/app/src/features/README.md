@@ -268,20 +268,22 @@ there?" to whoever still owes it (`PastMeetup`), and the emailed way back in
 
 ### identity
 
-| Artboard              | Route                   | Component                |
-| --------------------- | ----------------------- | ------------------------ |
-| `Account.dc.html`     | `/settings/account`     | `AccountScreen`          |
-| `ContinueAs.dc.html`  | `/join/continue`        | `ContinueAsScreen`       |
-| `Diagnostics.dc.html` | `/settings/diagnostics` | `DiagnosticsScreen`      |
-| `EnterCode.dc.html`   | `/sign-in` (code step)  | `EnterCodeScreen`        |
-| `LinkInvalid.dc.html` | `/join/invalid`         | `LinkInvalidScreen`      |
-| `Main.dc.html`        | `/join`                 | `MainScreen`             |
-| `Name.dc.html`        | `/join/name`            | `NameScreen`             |
-| `Privacy.dc.html`     | `/settings/privacy`     | `PrivacyScreen`          |
-| `SaveAccess.dc.html`  | `/j/[code]/save-access` | `SaveAccessScreen`       |
-| `SignIn.dc.html`      | `/sign-in`              | `SignInScreen`           |
-| `SavePlace.dc.html`   | `/circles/new/save`     | `SignInScreen` (`place`) |
-| `YourName.dc.html`    | `/name`                 | `YourNameScreen`         |
+| Artboard                    | Route                                 | Component                |
+| --------------------------- | ------------------------------------- | ------------------------ |
+| `Account.dc.html`           | `/settings/account`                   | `AccountScreen`          |
+| `ContinueAs.dc.html`        | `/join/continue`                      | `ContinueAsScreen`       |
+| `DeleteAccount.dc.html`     | `/settings/account` (sheet, step one) | `DeleteAccountSheet`     |
+| `DeleteAccountSure.dc.html` | `/settings/account` (sheet, step two) | `DeleteAccountSheet`     |
+| `Diagnostics.dc.html`       | `/settings/diagnostics`               | `DiagnosticsScreen`      |
+| `EnterCode.dc.html`         | `/sign-in` (code step)                | `EnterCodeScreen`        |
+| `LinkInvalid.dc.html`       | `/join/invalid`                       | `LinkInvalidScreen`      |
+| `Main.dc.html`              | `/join`                               | `MainScreen`             |
+| `Name.dc.html`              | `/join/name`                          | `NameScreen`             |
+| `Privacy.dc.html`           | `/settings/privacy`                   | `PrivacyScreen`          |
+| `SaveAccess.dc.html`        | `/j/[code]/save-access`               | `SaveAccessScreen`       |
+| `SignIn.dc.html`            | `/sign-in`                            | `SignInScreen`           |
+| `SavePlace.dc.html`         | `/circles/new/save`                   | `SignInScreen` (`place`) |
+| `YourName.dc.html`          | `/name`                               | `YourNameScreen`         |
 
 **Real since S1-22:** `/` (`WelcomeFlow`; since ADR 0053 the first circle for somebody with no saved place, and its loading and error states for an account being sent on), `/sign-in` (`SignInFlow`, which
 drives `SignInScreen` and `EnterCodeScreen` on one route so the address never
@@ -289,13 +291,22 @@ travels in a URL) and `/name` (`YourNameFlow`, with `TimeZoneScreen` for the
 zone). `/sign-in?next=/j/<code>` is where "I have an account" on a plan link
 leads (ADR 0022); only a plan link survives as `next` (`data/auth/returnPath.ts`).
 `/(auth)/code` redirects to `/sign-in` when there is a backend. `/terms` and
-`/privacy` are static (`LegalScreen`) and have no artboard.
+`/privacy` are static (`LegalScreen`) and have no artboard; the Privacy artboard is `/settings/privacy`.
+The guest join, the name step and the email offer on Sent each carry `LegalLine` (18+, and links to both pages).
 
 **Real since S1-23:** `/settings/account` (`AccountFlow`: name and time zone
 through `saveProfile`, the session's own address shown, Privacy and
-Notifications, Sign out). "Delete my account and data" is on the artboard and
-is not drawn until S4-05 builds `delete-account`. `/settings/privacy` is the
-artboard's static copy.
+Notifications, Sign out). `/settings/privacy` is the artboard's static copy.
+
+**Real since S4-05 (ADR 0083):** Account also has "Download my data"
+(`export-my-data`, saved as a JSON file on the web) and "Delete my account and
+data" (`DeleteAccountSheet`, two steps, `delete-account`; the first names the
+circles the person owns and where each goes, from `account_deletion_preview`).
+The sheet's two steps are the `DeleteAccount` and `DeleteAccountSure`
+artboards. Circle settings has "Leave this circle" for a member who is not the
+owner (`leave-circle`), and tells the owner why they cannot. After deleting, the
+person lands on `/deleted` (`DeletedScreen`): it needs no session and has no
+artboard, like `/terms`.
 
 ### planning
 

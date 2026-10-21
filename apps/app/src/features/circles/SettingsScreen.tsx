@@ -90,6 +90,8 @@ export type SettingsProps = {
   onRemove?: ((userId: string) => void) | undefined;
   onRename?: (() => void) | undefined;
   onArchiveThisCircle?: (() => void) | undefined;
+  /** Leave this circle, for a member who is not its owner (S4-05). */
+  onLeaveThisCircle?: (() => void) | undefined;
   onBringBack?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
   onNext?: (() => void) | undefined;
@@ -170,6 +172,7 @@ export function SettingsScreen({
   onRemove,
   onRename,
   onArchiveThisCircle,
+  onLeaveThisCircle,
   onBringBack,
   onRetry,
   onBack,
@@ -322,6 +325,15 @@ export function SettingsScreen({
         {canManage && archived ? (
           <Button label={t('settings', 'bring_back')} variant="secondary" onPress={onBringBack} />
         ) : null}
+        {onLeaveThisCircle === undefined ? null : canManage ? (
+          <Small>{t('settings', 'owner_cant_leave')}</Small>
+        ) : (
+          <Tertiary
+            tone="plain"
+            label={t('settings', 'leave_this_circle')}
+            onPress={onLeaveThisCircle}
+          />
+        )}
       </Body>
       {children}
     </Screen>

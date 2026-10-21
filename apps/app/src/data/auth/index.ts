@@ -13,6 +13,8 @@
  */
 
 export { PLATFORM_HEADER, platformName } from './client';
+export { deleteMyAccount, deletionPreview, exportMyData } from './account';
+export type { OwnedCircle } from './account';
 export { currentSession, ensureGuestSession, isAnonymous } from './guest';
 export { guard } from './guards';
 export type { GuardDecision, GuardInput, Membership, RouteKind } from './guards';

@@ -40,6 +40,7 @@ vi.mock('../../data/circles/home', async (original) => ({
 const fetchInviteSecret = vi.fn();
 const resetInviteLink = vi.fn();
 const removeMember = vi.fn();
+const leaveCircle = vi.fn();
 const updateCircle = vi.fn();
 const saveMySwitches = vi.fn();
 vi.mock('../../data/circles', async (original) => ({
@@ -47,6 +48,7 @@ vi.mock('../../data/circles', async (original) => ({
   fetchInviteSecret: (...a: unknown[]) => fetchInviteSecret(...a),
   resetInviteLink: (...a: unknown[]) => resetInviteLink(...a),
   removeMember: (...a: unknown[]) => removeMember(...a),
+  leaveCircle: (...a: unknown[]) => leaveCircle(...a),
   updateCircle: (...a: unknown[]) => updateCircle(...a),
   saveMySwitches: (...a: unknown[]) => saveMySwitches(...a),
 }));
@@ -323,6 +325,17 @@ describe('the owner’s other settings', () => {
     expect(removeMember).toHaveBeenCalledWith(CIRCLE, 'tom', expect.any(String));
   });
 
+  it('never offers the owner Leave, and says why', async () => {
+    fetchInviteSecret.mockResolvedValue(undefined);
+    wrap(<SettingsFlow id={CIRCLE} />);
+    expect(
+      await screen.findByText(
+        /You own this circle, so you can't leave it.*the saved-place member who has been in it longest/,
+      ),
+    ).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Leave this circle' })).toBeNull();
+  });
+
   it('never offers to remove the owner', async () => {
     fetchInviteSecret.mockResolvedValue(undefined);
     wrap(<SettingsFlow id={CIRCLE} />);
@@ -386,6 +399,21 @@ describe('a member who is not the owner', () => {
     expect(screen.queryByRole('button', { name: /^Remove / })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Archive this circle' })).toBeNull();
     expect(fetchInviteSecret).not.toHaveBeenCalled();
+  });
+
+  it('leaves after asking, and goes back to the list of circles', async () => {
+    leaveCircle.mockResolvedValue(undefined);
+    wrap(<SettingsFlow id={CIRCLE} />);
+
+    await tap(screen.findByRole('button', { name: 'Leave this circle' }));
+    const sheet = screen.getByLabelText('Leave Sunday Crew?');
+    expect(within(sheet).getByText(/your answers to plans still asking are deleted/)).toBeVisible();
+    expect(leaveCircle).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Leave Sunday Crew' }));
+    });
+    expect(leaveCircle).toHaveBeenCalledWith(CIRCLE, expect.any(String));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles'));
   });
 
   it('turns quiet asks off for themselves', async () => {

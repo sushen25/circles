@@ -6,6 +6,7 @@ import { log } from '../_shared/logging.ts';
 import { cadenceWork } from './cadence.ts';
 import { loadContext } from './context.ts';
 import { classify, jobRowsFor } from './drain.ts';
+import { firstPlanQuietWork } from './first-plan-quiet.ts';
 import { type HeldAsk, openHeldAsks } from './quiet-held.ts';
 
 /**
@@ -44,6 +45,8 @@ export type TimedResult = {
   /** Quiet asks closed at their stop time, and held ones opened (S2-02). */
   quietExpired: number;
   quietOpened: number;
+  /** The founder's one letter to a first plan nobody answered, queued (SUS-240). */
+  firstPlanQuietQueued: number;
 };
 
 type TimedWorkRow = {
@@ -83,6 +86,7 @@ export async function timedWork(
     nudgesQueued: 0,
     quietExpired: row.quiet_expired ?? 0,
     quietOpened: 0,
+    firstPlanQuietQueued: 0,
   };
 
   // Held quiet asks whose circle is free again (ADR 0035), first: an ask that
@@ -141,6 +145,13 @@ export async function timedWork(
   const cadence = await cadenceWork(service, row.cadence ?? [], requestId, now, deadline);
   result.cadencePrompted = cadence.prompted;
   result.nudgesQueued = cadence.nudgesQueued;
+
+  // After the nudges, and for the same reason: the founder's letter to a first
+  // plan nobody has answered is not urgent, and one not reached this minute is
+  // reached the next (SUS-240, ADR 0085).
+  if (deadline()) return result;
+  const quiet = await firstPlanQuietWork(service, requestId, now, deadline);
+  result.firstPlanQuietQueued = quiet.queued;
 
   return result;
 }

@@ -6,9 +6,16 @@ import { useEffect, useRef, useState } from 'react';
 import { track } from '../../analytics/track';
 import { deviceTimeZone, guard, ownProfile, useSession } from '../../data/auth';
 import { createCircle, keepInviteSecret } from '../../data/circles';
-import { clearDraft, readDraft, saveDraft } from '../../data/draft';
+import {
+  clearArrivalTag,
+  clearDraft,
+  readArrivalTag,
+  readDraft,
+  saveDraft,
+} from '../../data/draft';
 import { createPlan } from '../../data/planning';
 import { failureOf } from '../identity/join/failure';
+import { OrganiserSourceStep } from '../identity/OrganiserSourceStep';
 import { formOf, isUntouched } from '../planning/draftPlan';
 import { customShape, WINDOW_EVENT } from '../planning/form';
 import { categoryLabel } from '../planning/words';
@@ -27,6 +34,15 @@ import { FinishDraftScreen, type FinishDraftProblem } from './FinishDraftScreen'
  * circle and the plan the first run made (ADR 0016). `create-circle` and
  * `create-plan` are not touched: an anonymous session is still refused by the
  * first, and the circle is still the member's own.
+ *
+ * **The last step is "How did you hear about {brand}?"** (SUS-171, moved here
+ * on 21 October): once the account, the circle and the plan all exist, and just
+ * before the person lands in the circle. It is optional, asked once per account,
+ * skipped for a tagged arrival (SUS-240), and nothing waits on it. The draft and
+ * the arrival tag are cleared as soon as the circle and plan are made, as before,
+ * so leaving at the question never leaves a draft for a circle that exists; the
+ * question is told whether the arrival was tagged, and a reload there goes to
+ * `/circles/new`, the circle already being theirs.
  *
  * Nothing here decides who may organise. A session that is not a saved place
  * goes back to the gate; the server's `requires_saved_place` is read the same
@@ -51,6 +67,10 @@ export function FinishDraftFlow() {
   const [problem, setProblem] = useState<FinishDraftProblem | undefined>();
   const [reference, setReference] = useState<string | undefined>();
   const [attempt, setAttempt] = useState(0);
+  // Everything is made; the question, then this route, is the only thing left.
+  const [onward, setOnward] = useState<
+    { to: Parameters<typeof router.replace>[0]; tagged: boolean } | undefined
+  >();
   const running = useRef(false);
 
   useEffect(() => {
@@ -78,12 +98,18 @@ export function FinishDraftFlow() {
         return;
       }
 
+      const tag = await readArrivalTag();
       const made = await createCircle({
         name: draft.circleName,
         cadence: draft.cadence,
         timeZone: profile.zone ?? deviceTimeZone() ?? 'UTC',
         idempotencyKey: draft.keys.circle,
+        // The post the organiser came from, when a tagged link brought them
+        // (SUS-240): a label for the circle's founder-only cohort row.
+        sourceRef: tag,
       });
+      const tagged = tag !== undefined;
+      await clearArrivalTag();
       keepInviteSecret(made.circle.id, made.invite_secret);
       if (!draft.circleCounted) {
         track('circle_created', { circle_id: made.circle.id });
@@ -92,7 +118,10 @@ export function FinishDraftFlow() {
 
       if (draft.way === 'invite') {
         await clearDraft();
-        router.replace({ pathname: '/circles/[id]/invite', params: { id: made.circle.id } });
+        setOnward({
+          to: { pathname: '/circles/[id]/invite', params: { id: made.circle.id } },
+          tagged,
+        });
         return;
       }
 
@@ -125,9 +154,12 @@ export function FinishDraftFlow() {
       });
       void queryClient.invalidateQueries({ queryKey: ['circle-home', circleId] });
       await clearDraft();
-      router.replace({
-        pathname: '/circles/[id]/plan/[planId]/shared',
-        params: { id: circleId, planId: plan.plan_id },
+      setOnward({
+        to: {
+          pathname: '/circles/[id]/plan/[planId]/shared',
+          params: { id: circleId, planId: plan.plan_id },
+        },
+        tagged,
       });
     };
 
@@ -154,6 +186,10 @@ export function FinishDraftFlow() {
     // not run the finish again, which makes nothing twice only because of the keys.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [decision.kind, attempt]);
+
+  if (onward !== undefined) {
+    return <OrganiserSourceStep tagged={onward.tagged} onDone={() => router.replace(onward.to)} />;
+  }
 
   return (
     <FinishDraftScreen

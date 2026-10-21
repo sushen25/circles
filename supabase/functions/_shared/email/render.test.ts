@@ -45,6 +45,7 @@ const POINTS_AT_SETTINGS: readonly string[] = [
   'options_ready',
   'replies_closed',
   'did_it_happen',
+  'first_plan_quiet',
   'about_time',
 ];
 
@@ -176,6 +177,7 @@ describe('render', () => {
       options_ready: 'organiser',
       replies_closed: 'organiser',
       did_it_happen: 'organiser',
+      first_plan_quiet: 'organiser',
       threshold_initiator: 'quiet',
       quiet_expired: 'quiet',
     });
@@ -290,6 +292,36 @@ describe('render', () => {
         './__snapshots__/replies_closed_owner.txt',
       );
       await expect(email.html).toMatchFileSnapshot('./__snapshots__/replies_closed_owner.html');
+    });
+  });
+
+  describe('the founder’s first-plan letter (ADR 0085)', () => {
+    it('says the words the ticket gives, and signs them with the founder’s name', async () => {
+      const email = await render(SUNDAY_CREW.first_plan_quiet);
+      expect(email.subject).toBe("Nothing's come in on your Sunday Crew plan yet");
+      expect(email.text).toContain(
+        "Nothing's come in on your Sunday Crew plan yet. " +
+          "If something's in the way, reply to this and I'll help you sort it.",
+      );
+      expect(email.text).toContain(brand.founderName);
+    });
+
+    it('comes from the founder’s name, and replies go to the support address', async () => {
+      const email = await render(SUNDAY_CREW.first_plan_quiet);
+      expect(email.fromName).toBe(brand.founderName);
+      // Every other letter comes from the product.
+      for (const kind of EMAIL_KINDS.filter((k) => k !== 'first_plan_quiet')) {
+        expect((await render(SUNDAY_CREW[kind])).fromName).toBeUndefined();
+      }
+    });
+
+    it('is plain: no logo, no button, no plan code, and nobody named but the circle', async () => {
+      const email = await render(SUNDAY_CREW.first_plan_quiet);
+      expect(email.html).not.toMatch(/<img|brand\/|<button|role="button"/);
+      expect(email.text).not.toContain('pnemab');
+      expect(hrefs(email.html).some((href) => href.includes('/p/'))).toBe(false);
+      for (const name of MEMBER_NAMES) expect(email.text).not.toMatch(new RegExp(`\\b${name}\\b`));
+      expect(email.text).toContain(EN_EMAIL.footer.firstPlan('Sunday Crew'));
     });
   });
 

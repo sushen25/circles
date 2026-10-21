@@ -11,6 +11,7 @@ import { hasBackend } from '../../data/auth/client';
 import {
   fetchInviteSecret,
   heldInviteLink,
+  leaveCircle,
   removeMember,
   resetInviteLink,
   saveMySwitches,
@@ -72,6 +73,7 @@ type Asking =
   | { kind: 'reset' }
   | { kind: 'remove'; userId: string; name: string }
   | { kind: 'archive' }
+  | { kind: 'leave' }
   | { kind: 'rename' }
   | { kind: 'cadence' }
   | { kind: 'policy' };
@@ -182,6 +184,13 @@ function LiveSettings({ id }: { id: string }) {
       } else if (asking.kind === 'remove') {
         await removeMember(id, asking.userId, keyFor(`remove:${asking.userId}`));
         await refresh();
+      } else if (asking.kind === 'leave') {
+        await leaveCircle(id, keyFor('leave'));
+        // They are out: the circle is no longer theirs to see, on this device
+        // or in the list, and this screen has nothing left to show.
+        await queryClient.invalidateQueries({ queryKey: ['circles'] });
+        router.replace('/circles');
+        return;
       } else if (asking.kind === 'archive') {
         await updateCircle(id, { status: 'archived' });
         await queryClient.invalidateQueries({ queryKey: ['circles'] });
@@ -196,7 +205,9 @@ function LiveSettings({ id }: { id: string }) {
             ? t('settings', 'couldnt_reset')
             : asking.kind === 'remove'
               ? t('settings', 'couldnt_remove', { name: asking.name })
-              : t('settings', 'couldnt_save'),
+              : asking.kind === 'leave'
+                ? t('settings', 'couldnt_leave')
+                : t('settings', 'couldnt_save'),
       );
     } finally {
       setBusy(false);
@@ -216,13 +227,19 @@ function LiveSettings({ id }: { id: string }) {
             body: t('settings', 'remove_body', { name: asking.name, circle: data.name }),
             confirmLabel: t('settings', 'remove_name', { name: asking.name }),
           }
-        : asking?.kind === 'archive'
+        : asking?.kind === 'leave'
           ? {
-              title: t('settings', 'archive_title', { circle: data.name }),
-              body: t('settings', 'archive_body'),
-              confirmLabel: t('settings', 'archive'),
+              title: t('settings', 'leave_title', { circle: data.name }),
+              body: t('settings', 'leave_body'),
+              confirmLabel: t('settings', 'leave_confirm', { circle: data.name }),
             }
-          : undefined;
+          : asking?.kind === 'archive'
+            ? {
+                title: t('settings', 'archive_title', { circle: data.name }),
+                body: t('settings', 'archive_body'),
+                confirmLabel: t('settings', 'archive'),
+              }
+            : undefined;
 
   return (
     <SettingsScreen
@@ -274,6 +291,7 @@ function LiveSettings({ id }: { id: string }) {
       }
       onRename={() => setAsking({ kind: 'rename' })}
       onArchiveThisCircle={() => setAsking({ kind: 'archive' })}
+      onLeaveThisCircle={() => setAsking({ kind: 'leave' })}
       onBringBack={() =>
         void save({ status: 'active' }).then(() =>
           queryClient.invalidateQueries({ queryKey: ['circles'] }),

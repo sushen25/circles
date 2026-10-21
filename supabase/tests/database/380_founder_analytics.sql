@@ -123,8 +123,8 @@ select throws_ok(
 );
 select is(
   (select array(select jsonb_object_keys(public.founder_analytics(pg_temp.d(2))) order by 1)),
-  array['by_source', 'cohort_circles', 'counters', 'events', 'gates', 'north_star', 'since'],
-  'somebody on the allowlist gets the seven parts'
+  array['by_source', 'by_source_ref', 'cohort_circles', 'counters', 'events', 'gates', 'north_star', 'since', 'stalled'],
+  'somebody on the allowlist gets the nine parts'
 );
 select is(
   public.founder_analytics(pg_temp.d(2)) ->> 'since',
@@ -659,7 +659,7 @@ select pg_temp.act_as_postgres();
 select is(
   (select source from analytics.circle_source where circle_id = (select circle_id from t)),
   'unknown',
-  'a circle whose owner was never asked is unknown'
+  'a circle whose owner has not answered (never asked, or left before the last step) is unknown'
 );
 
 insert into analytics.events (event_id, event_name, schema_version, user_id, properties, occurred_at)
@@ -702,7 +702,7 @@ select ok(
 );
 select is(
   (select array(select jsonb_object_keys(public.founder_analytics(pg_temp.d(0)) -> 'by_source') order by 1)),
-  array['friend_group', 'meetup', 'other', 'reddit', 'skipped', 'unknown'],
+  array['content', 'friend_group', 'meetup', 'other', 'reddit', 'skipped', 'unknown'],
   'every source is there, empty or not'
 );
 select ok(

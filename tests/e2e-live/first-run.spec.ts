@@ -79,12 +79,7 @@ async function draftThroughThePlan(page: Page, circleName: string): Promise<void
   await expect(page.getByText("Your plan's ready. Save your place.")).toBeVisible();
 }
 
-/**
- * `answer` is what a new organiser says at the gate to "How did you hear about
- * Wenna?" (SUS-171): a chip's name, or `Skip`. Left out, the sign-in is not at the
- * gate and nothing is asked.
- */
-async function signInByCode(page: Page, email: string, answer?: string): Promise<void> {
+async function signInByCode(page: Page, email: string): Promise<void> {
   await page.getByLabel('Your email').fill(email);
   await page.getByRole('button', { name: 'Send me a code' }).click();
   await expect(page.getByText(`Sent to ${email}.`, { exact: false })).toBeVisible();
@@ -97,7 +92,14 @@ async function signInByCode(page: Page, email: string, answer?: string): Promise
   await expect(code).toHaveAttribute('inputmode', 'numeric');
   await code.fill(await latestCodeFor(email));
   await page.getByRole('button', { name: 'Continue' }).click();
-  if (answer === undefined) return;
+}
+
+/**
+ * What a new organiser says to "How did you hear about Wenna?" (SUS-171): a
+ * chip's name, or `Skip`. It is the LAST step of the first run, after the
+ * account, the circle and the plan exist, and just before the circle.
+ */
+async function answerSource(page: Page, answer: string): Promise<void> {
   await expect(page.getByText('How did you hear about Wenna?')).toBeVisible();
   await page
     .getByRole(answer === 'Skip' ? 'button' : 'checkbox', { name: answer, exact: true })
@@ -151,14 +153,22 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
     requests.filter((request) => /create-circle|create-plan/.test(request)),
     'nothing is sent to be made before the place is saved',
   ).toEqual([]);
-  await signInByCode(page, email, 'Reddit');
+  await signInByCode(page, email);
 
+  // Straight after the code is Your name: the question is not the first thing.
   await expect(page).toHaveURL(/\/name$/);
   await expect(page.getByLabel('Your name')).toBeVisible();
+  await expect(page.getByText('How did you hear about Wenna?')).toHaveCount(0);
   expect(await typedFieldsOnScreen(page), 'Your name has one field').toBe(1);
   await page.getByLabel('Your name').fill('Maya');
   typed += 1;
   await page.getByRole('button', { name: 'Continue' }).click();
+
+  // The last step: the circle and the plan are made, and it is one tap.
+  await expect(page.getByText('How did you hear about Wenna?')).toBeVisible();
+  expect(circlesOwnedBy(profileFor(email)!.userId)).toHaveLength(1);
+  expect(await typedFieldsOnScreen(page), 'the question has nothing to type').toBe(0);
+  await answerSource(page, 'Reddit');
 
   // Straight to the share screen: the circle and the plan are made on the way.
   await expect(page.getByText('Ask Sunday Crew.')).toBeVisible();
@@ -307,9 +317,19 @@ test('"How did you hear about Wenna?" is asked once per account, counts one word
     ).map(([properties]) => properties);
   const before = 0;
 
-  await draftThroughThePlan(page, `Source ${globalThis.crypto.randomUUID().slice(0, 8)}`);
-  await signInByCode(page, email, 'A meetup or club');
+  const firstName = `Source ${globalThis.crypto.randomUUID().slice(0, 8)}`;
+  await draftThroughThePlan(page, firstName);
+  await signInByCode(page, email);
   await expect(page).toHaveURL(/\/name$/);
+  await expect(page.getByText('How did you hear about Wenna?')).toHaveCount(0);
+  await page.getByLabel('Your name').fill('Maya');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  // Asked last: the circle already exists, and nothing has been counted yet.
+  await expect(page.getByText('How did you hear about Wenna?')).toBeVisible();
+  expect(circleCountNamed(firstName)).toBe(1);
+  expect(sources()).toEqual([]);
+  await answerSource(page, 'A meetup or club');
+  await expect(page.getByText(`Ask ${firstName}.`)).toBeVisible();
 
   // The event is one word and nothing else; the account's own record holds only
   // that it was answered, the same for every choice.
@@ -324,16 +344,130 @@ test('"How did you hear about Wenna?" is asked once per account, counts one word
   // The same account at the gate on another device: not asked again.
   const other = await browser.newContext();
   const second = await other.newPage();
-  await draftThroughThePlan(second, `Source ${globalThis.crypto.randomUUID().slice(0, 8)}`);
+  const secondName = `Source ${globalThis.crypto.randomUUID().slice(0, 8)}`;
+  await draftThroughThePlan(second, secondName);
   await second.getByLabel('Your email').fill(email);
   await second.getByRole('button', { name: 'Send me a code' }).click();
   await expect(second.getByLabel('Code', { exact: true })).toBeVisible();
   await second.getByLabel('Code', { exact: true }).fill(await latestCodeFor(email));
   await second.getByRole('button', { name: 'Continue' }).click();
-  await expect(second).not.toHaveURL(/\/circles\/new\/save$/);
+  await expect(second.getByText(`Ask ${secondName}.`)).toBeVisible();
   await expect(second.getByText('How did you hear about Wenna?')).toHaveCount(0);
   expect(sources().length).toBe(before + 1);
   await other.close();
+});
+
+test('arriving on a tagged link skips "How did you hear", counts content, and tags the circle (SUS-240)', async ({
+  page,
+}) => {
+  const tag = `tt-e2e-${globalThis.crypto.randomUUID().slice(0, 8)}`;
+  const name = `Tagged ${globalThis.crypto.randomUUID().slice(0, 8)}`;
+  const email = `${globalThis.crypto.randomUUID()}@example.test`;
+  // Where the tag goes after the arrival: the page's own requests only.
+  const sent: string[] = [];
+  page.on('request', (request) => {
+    if (request.resourceType() === 'fetch' || request.resourceType() === 'xhr') {
+      sent.push(`${request.url()} ${request.postData() ?? ''}`);
+    }
+  });
+
+  // What the site's "Start a plan" hands the app.
+  await page.goto(`/start?via=site&from=${tag}`);
+  await page.getByLabel('Circle name').fill(name);
+  await page.getByRole('button', { name: `Create ${name}` }).click();
+  await expect(page.getByText('Your first catch-up')).toBeVisible();
+  await page.getByRole('button', { name: 'Ask the group' }).click();
+  await expect(page.getByText("Your plan's ready. Save your place.")).toBeVisible();
+  // Reached through the draft, a reload and the round trip to the code: the tag is kept.
+  await page.reload();
+  await expect(page.getByText("Your plan's ready. Save your place.")).toBeVisible();
+
+  await signInByCode(page, email);
+  await expect(page).toHaveURL(/\/name$/);
+  await expect(page.getByText('How did you hear about Wenna?')).toHaveCount(0);
+  await page.getByLabel('Your name').fill('Maya');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(page.getByText(`Ask ${name}.`)).toBeVisible();
+  await expect(page.getByText('How did you hear about Wenna?')).toHaveCount(0);
+
+  // Counted as `content` and as asked; the account is not asked again.
+  const sources = sql(
+    `select e.properties::text from analytics.events e join auth.users u on u.id = e.user_id
+      where e.event_name = 'organiser_source' and u.email = '${email}'`,
+  );
+  expect(sources).toEqual([['{"source": "content"}']]);
+  expect(
+    sql(
+      `select n.answer from nudge_states n join auth.users u on u.id = n.user_id
+        where u.email = '${email}' and n.moment = 'organiser_source'`,
+    ),
+  ).toEqual([['tapped']]);
+
+  // On the circle's founder-only cohort row, and nowhere a client can read.
+  expect(
+    sql(
+      `select cc.source_ref from private.circle_cohorts cc join circles c on c.id = cc.circle_id
+        where c.name = '${name}'`,
+    ),
+  ).toEqual([[tag]]);
+  // The only request that carried it is the one that makes the circle.
+  expect(
+    sent.filter((request) => request.includes(tag)).every((r) => /create-circle/.test(r)),
+  ).toBe(true);
+  expect(sent.some((request) => /create-circle/.test(request) && request.includes(tag))).toBe(true);
+  expect(sent.filter((request) => /track-events/.test(request) && request.includes(tag))).toEqual(
+    [],
+  );
+  // And it is not left on the device once the circle is made.
+  expect(await page.evaluate(() => globalThis.localStorage.getItem('circles.arrival-tag'))).toBe(
+    null,
+  );
+});
+
+test('a malformed tag is dropped and the question is asked as today (SUS-240)', async ({
+  page,
+}) => {
+  const email = `${globalThis.crypto.randomUUID()}@example.test`;
+  await page.goto('/start?via=site&from=Not%20A%20Slug');
+  expect(await page.evaluate(() => globalThis.localStorage.getItem('circles.arrival-tag'))).toBe(
+    null,
+  );
+  await page
+    .getByLabel('Circle name')
+    .fill(`Untagged ${globalThis.crypto.randomUUID().slice(0, 8)}`);
+  await page.getByRole('button', { name: /^Create / }).click();
+  await page.getByRole('button', { name: 'Ask the group' }).click();
+  await signInByCode(page, email);
+  await expect(page).toHaveURL(/\/name$/);
+  await page.getByLabel('Your name').fill('Maya');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await answerSource(page, 'Skip');
+});
+
+test('walking away at the last question leaves the source unanswered, with the circle made (SUS-171)', async ({
+  page,
+}) => {
+  const name = `Walked ${globalThis.crypto.randomUUID().slice(0, 8)}`;
+  const email = `${globalThis.crypto.randomUUID()}@example.test`;
+  await draftThroughThePlan(page, name);
+  await signInByCode(page, email);
+  await page.getByLabel('Your name').fill('Maya');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(page.getByText('How did you hear about Wenna?')).toBeVisible();
+  expect(circleCountNamed(name)).toBe(1);
+
+  // Gone without answering: no source, no error, and the circle is on their list.
+  await page.goto('/circles');
+  await expect(page.getByRole('button', { name: new RegExp(`^${name}\\.`) })).toBeVisible();
+  expect(
+    sql(
+      `select count(*) from analytics.events e join auth.users u on u.id = e.user_id
+        where e.event_name = 'organiser_source' and u.email = '${email}'`,
+    ),
+  ).toEqual([['0']]);
+  // And no draft is left behind to make a second circle from.
+  await page.goto('/circles/new');
+  await expect(page.getByLabel('Circle name')).toHaveValue('');
 });
 
 test('abandoning at the gate creates nothing, and a reload keeps the draft', async ({ page }) => {
@@ -384,9 +518,10 @@ test('the draft survives the email code, and the circle is made only after it', 
   await page.reload();
   await expect(page.getByText("Your plan's ready. Save your place.")).toBeVisible();
   const second = `${globalThis.crypto.randomUUID()}@example.test`;
-  await signInByCode(page, second, 'Skip');
+  await signInByCode(page, second);
   await page.getByLabel('Your name').fill('Maya');
   await page.getByRole('button', { name: 'Continue' }).click();
+  await answerSource(page, 'Skip');
 
   await expect(page.getByText(`Ask ${name}.`)).toBeVisible();
   expect(circleCountNamed(name)).toBe(1);
@@ -404,6 +539,8 @@ test('a signed-in organiser goes circle, plan, share with no gate', async ({ pag
   await page.getByRole('button', { name: `Create ${name}` }).click();
   await page.getByRole('button', { name: 'Ask the group' }).click();
 
+  // No gate, but an account never asked is asked once, last (SUS-171).
+  await answerSource(page, 'Skip');
   await expect(page.getByText(`Ask ${name}.`)).toBeVisible();
   await expect(page.getByText('Save your place')).toHaveCount(0);
   expect(circleCountNamed(name)).toBe(1);
@@ -420,7 +557,7 @@ test('on a desktop window the "Setting up" wait sits in the same centred column 
     await route.continue();
   });
   const email = `${globalThis.crypto.randomUUID()}@example.test`;
-  await signInByCode(page, email, 'Skip');
+  await signInByCode(page, email);
   await page.getByLabel('Your name').fill('Maya');
   await page.getByRole('button', { name: 'Continue' }).click();
 
@@ -436,5 +573,7 @@ test('on a desktop window the "Setting up" wait sits in the same centred column 
   );
   expect(sideways).toBeLessThanOrEqual(0);
 
-  await expect(page.getByText('Ask Sunday Crew.')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('How did you hear about Wenna?')).toBeVisible({ timeout: 20_000 });
+  await answerSource(page, 'Skip');
+  await expect(page.getByText('Ask Sunday Crew.')).toBeVisible();
 });

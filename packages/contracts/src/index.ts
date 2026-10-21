@@ -16,6 +16,7 @@ export * from './ids.js';
 export * from './time.js';
 export * from './analytics.js';
 export * from './founderAnalytics.js';
+export * from './founderStalled.js';
 export { emptyFounderAnalytics, founderAnalyticsFixture } from './founderAnalytics.fixture.js';
 export * from './growth.js';
 export * from './deeplinks.js';

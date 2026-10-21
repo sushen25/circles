@@ -91,6 +91,8 @@ export const ProblemReason = z.enum([
   'not_the_owner',
   /** `remove-member`: the owner cannot remove themselves; a circle is owned by a member. */
   'cannot_remove_owner',
+  /** `leave-circle`: the owner cannot leave; they delete their account, or the circle is handed on. */
+  'owner_cannot_leave',
   /** `revise-plan`: only the organiser edits. */
   'not_the_organiser',
   /**

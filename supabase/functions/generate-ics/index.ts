@@ -127,7 +127,7 @@ async function fileFor(
     place_name: string | null;
     place_url: string | null;
     note: string | null;
-    confirmed_by: string;
+    confirmed_by: string | null;
     status: ConfirmationStatus;
     confirmed_at: string;
     /** One calendar entry across a move: same UID, higher sequence (ADR 0051). */
@@ -156,7 +156,7 @@ async function fileFor(
     placeName: row.place_name ?? undefined,
     placeUrl: row.place_url ?? undefined,
     note: row.note ?? undefined,
-    confirmedBy: userId(row.confirmed_by),
+    confirmedBy: row.confirmed_by === null ? null : userId(row.confirmed_by),
     status: row.status,
     confirmedAt: toInstant(row.confirmed_at),
     calendarUid: row.calendar_uid,

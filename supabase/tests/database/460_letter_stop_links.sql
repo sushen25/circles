@@ -342,13 +342,15 @@ select 'email', k.kind, c.nina,
   case when k.kind = 'about_time' then null else 1 end,
   now() + interval '1 hour', repeat(k.key, 64)
 from c, (values ('about_time', 'a'), ('options_ready', 'b'), ('replies_closed', 'c'),
-                ('did_it_happen', 'd'), ('threshold_initiator', 'e'), ('quiet_expired', 'f')) as k (kind, key);
+                ('did_it_happen', 'd'), ('threshold_initiator', 'e'), ('quiet_expired', 'f'),
+                ('first_plan_quiet', '9')) as k (kind, key);
 select pg_temp.act_as_service();
 select public.stop_letters(pg_temp.hash_of('t-nina-org'), 'organiser');
 select is(
-  array[pg_temp.job_status('b'), pg_temp.job_status('c'), pg_temp.job_status('d')],
-  array['skipped:organiser_email_off', 'skipped:organiser_email_off', 'skipped:organiser_email_off'],
-  'the organiser tap skips the queued options ready, replies closed and did it happen'
+  array[pg_temp.job_status('b'), pg_temp.job_status('c'), pg_temp.job_status('d'), pg_temp.job_status('9')],
+  array['skipped:organiser_email_off', 'skipped:organiser_email_off', 'skipped:organiser_email_off',
+        'skipped:organiser_email_off'],
+  'the organiser tap skips the queued options ready, replies closed, did it happen and first plan quiet'
 );
 select is(
   array[pg_temp.job_status('a'), pg_temp.job_status('e'), pg_temp.job_status('f')],

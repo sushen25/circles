@@ -127,6 +127,63 @@ describe('the screen, from a fixture', () => {
     expect(screen.getByText(/Not measured: who took the role/)).toBeTruthy();
   });
 
+  it('reads the funnel by campaign tag, busiest post first, and names no organiser (SUS-240)', () => {
+    render(<AnalyticsScreen data={founderAnalyticsFixture} />);
+    expect(screen.getByText('By post')).toBeTruthy();
+    expect(screen.getByText('tt-always-the-one-3')).toBeTruthy();
+    expect(screen.getByText('3 made · 3 shared · 5 answered · 1 confirmed')).toBeTruthy();
+    expect(screen.getByText('rd-rpg-scheduling-boss')).toBeTruthy();
+    expect(screen.getByText('1 made · 1 shared · 0 answered · 0 confirmed')).toBeTruthy();
+  });
+
+  it('says so when nothing came from a tagged link', () => {
+    render(
+      <AnalyticsScreen
+        data={{
+          ...founderAnalyticsFixture,
+          by_source_ref: {},
+          stalled: [],
+        }}
+      />,
+    );
+    expect(screen.getByText('No circle in this period came from a tagged link.')).toBeTruthy();
+    expect(screen.getByText('No first plan has stopped in this period.')).toBeTruthy();
+  });
+
+  it('shows the stalled first plans in their three states, by week and source, as counts and ages (SUS-240)', () => {
+    render(<AnalyticsScreen data={founderAnalyticsFixture} />);
+    expect(screen.getByText('Stalled first plans')).toBeTruthy();
+    expect(screen.getByText('Circles begun the week of 12 Oct')).toBeTruthy();
+    expect(screen.getByText('Circles begun the week of 5 Oct')).toBeTruthy();
+    expect(screen.getAllByText('Made, not shared after 24 h').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Shared, no answers after 48 h').length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText('Answered, short of the quorum at the deadline').length,
+    ).toBeGreaterThan(0);
+    // 2 circles, the oldest 52 h (2 d 4 h), the middle one 30 h (1 d 6 h).
+    expect(screen.getByText('2 · oldest 2 d 4 h · middle 1 d 6 h')).toBeTruthy();
+    // An older one, 190 h.
+    expect(screen.getByText('1 · oldest 7 d 22 h · middle 7 d 22 h')).toBeTruthy();
+  });
+
+  it('reads the stalled plans for one cohort, and back to both', () => {
+    render(<AnalyticsScreen data={founderAnalyticsFixture} />);
+    const chip = (name: string) => screen.getByRole('checkbox', { name });
+    expect(chip('Both cohorts').getAttribute('aria-checked')).toBe('true');
+    // The funnel's own chip is one of them.
+    expect(screen.getAllByText("A friend's group")).toHaveLength(2);
+
+    fireEvent.click(chip('External cohort'));
+    expect(screen.getAllByText("A friend's group")).toHaveLength(1);
+    expect(screen.getAllByText('A post').length).toBeGreaterThan(1);
+
+    fireEvent.click(chip('Founder cohort'));
+    expect(screen.getAllByText("A friend's group")).toHaveLength(2);
+    expect(screen.queryByText('Circles begun the week of 5 Oct')).toBeNull();
+    fireEvent.click(chip('Both cohorts'));
+    expect(screen.getByText('Circles begun the week of 5 Oct')).toBeTruthy();
+  });
+
   it('reads the funnel by where the organiser heard of us, and back to all of it', () => {
     render(<AnalyticsScreen data={founderAnalyticsFixture} />);
     const chip = (name: string) => screen.getByRole('checkbox', { name });
@@ -138,7 +195,7 @@ describe('the screen, from a fixture', () => {
     expect(screen.queryByText('29 · 71% of the step before')).toBeNull();
     expect(screen.getByText(/counted under the answer of the circle's organiser/)).toBeTruthy();
 
-    fireEvent.click(chip('Not asked'));
+    fireEvent.click(chip('Not answered'));
     expect(screen.getByText('8 · 67% of the step before')).toBeTruthy();
 
     fireEvent.click(chip('All'));

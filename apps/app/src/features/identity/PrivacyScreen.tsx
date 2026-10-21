@@ -1,4 +1,14 @@
-import { Body, BodyText, Card, DisplayL, Screen, Small, Title, TopBar } from '../../components';
+import {
+  Body,
+  BodyText,
+  Card,
+  DisplayL,
+  InlineLink,
+  Screen,
+  Small,
+  Title,
+  TopBar,
+} from '../../components';
 import { Row } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
@@ -7,7 +17,7 @@ import type { ScreenState } from '../state';
 /**
  * Privacy — `docs/design/Privacy.dc.html`, reached from Account: what we keep
  * and who sees it, in the artboard's words. Static; it reads nothing. The
- * full policy is `/privacy` (S4-05).
+ * full policy is `/privacy`, one tap away (S4-05).
  */
 export type PrivacyProps = {
   fixture?: Fixture | undefined;
@@ -15,9 +25,11 @@ export type PrivacyProps = {
   /** The screen's one decision. */
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
+  /** The full policy, `/privacy`. */
+  onFullPolicy?: (() => void) | undefined;
 };
 
-export function PrivacyScreen({ onBack }: PrivacyProps) {
+export function PrivacyScreen({ onBack, onFullPolicy }: PrivacyProps) {
   return (
     <Screen>
       <TopBar title={t('privacy', 'privacy')} onBack={onBack} backLabel={t('common', 'back')} />
@@ -41,7 +53,30 @@ export function PrivacyScreen({ onBack }: PrivacyProps) {
           </Row>
           <BodyText>{t('privacy', 'anyone_can_ask_for_plan_updates')}</BodyText>
         </Card>
+        <Card>
+          <Row>
+            <Title>{t('privacy', 'what_we_keep')}</Title>
+          </Row>
+          <BodyText>{t('privacy', 'your_name_your_times_and_the_circles')}</BodyText>
+        </Card>
+        <Card>
+          <Row>
+            <Title>{t('privacy', 'who_else_handles_it')}</Title>
+          </Row>
+          <BodyText>{t('privacy', 'hosting_the_database_and_email')}</BodyText>
+        </Card>
+        <Card>
+          <Row>
+            <Title>{t('privacy', 'how_long_we_keep_it')}</Title>
+          </Row>
+          <BodyText>{t('privacy', 'the_times_you_mark_are_kept')}</BodyText>
+        </Card>
         <Small>{t('privacy', 'to_have_your_details_removed')}</Small>
+        <Small>
+          <InlineLink onPress={onFullPolicy}>
+            {t('privacy', 'read_the_full_privacy_page')}
+          </InlineLink>
+        </Small>
       </Body>
     </Screen>
   );

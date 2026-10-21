@@ -59,6 +59,7 @@ describe('the copy file', () => {
     const known = new Set([
       'brand',
       'domain',
+      'operator',
       'support',
       'circle',
       'inviter',
@@ -138,6 +139,12 @@ describe('the copy file', () => {
       // SUS-198's: circle home's marks say who answered and who has not yet.
       'answered',
       'waiting',
+      // SUS-240's: a post's figures on the founder screen, and a stalled plan's ages.
+      'circles',
+      'shared',
+      'confirmed',
+      'oldest',
+      'median',
     ]);
     for (const [screen, strings] of Object.entries(en)) {
       for (const [key, value] of Object.entries(strings)) {

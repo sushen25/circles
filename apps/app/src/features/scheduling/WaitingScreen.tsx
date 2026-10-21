@@ -1,12 +1,17 @@
+import { FIRST_PLAN_STALLED_ANSWERS, type FirstPlanStalledAnswer } from '@circles/contracts';
+
 import {
   Body,
   BodyText,
   Card,
+  Chip,
+  Chips,
   DisplayL,
   Label,
   Loading,
   Screen,
   Small,
+  Tertiary,
   Title,
   TopBar,
   useLoadingHold,
@@ -54,9 +59,22 @@ export type WaitingProps = {
   repliesClosed?: boolean | undefined;
   /** "Set the time yourself", before any option exists (ADR 0051). */
   onSetTime?: (() => void) | undefined;
+  /**
+   * "Nothing in yet. What's happened?" (SUS-240): present only when the question
+   * is to be asked, which is the organiser's, on a first plan 48 hours old that
+   * nobody has answered. One tap on an answer, or Skip; never required.
+   */
+  onStalledAnswer?: ((answer: FirstPlanStalledAnswer) => void) | undefined;
+  onStalledSkip?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 };
+
+const STALLED_WORDS = {
+  not_posted: 'stalled_not_posted',
+  posted_no_replies: 'stalled_posted_no_replies',
+  wrong_group: 'stalled_wrong_group',
+} as const satisfies Record<FirstPlanStalledAnswer, string>;
 
 export function WaitingScreen({
   state = 'default',
@@ -71,6 +89,8 @@ export function WaitingScreen({
   onChangeMyTimes,
   repliesClosed = false,
   onSetTime,
+  onStalledAnswer,
+  onStalledSkip,
   onRetry,
   onBack,
 }: WaitingProps) {
@@ -125,6 +145,22 @@ export function WaitingScreen({
           </Stack>
         </Card>
         <Small>{t('waiting', 'only_you')}</Small>
+        {onStalledAnswer === undefined ? null : (
+          <Stack gap={10}>
+            <BodyText>{t('waiting', 'nothing_yet_question')}</BodyText>
+            <Chips>
+              {FIRST_PLAN_STALLED_ANSWERS.map((answer) => (
+                <Chip
+                  key={answer}
+                  label={t('waiting', STALLED_WORDS[answer])}
+                  onPress={() => onStalledAnswer(answer)}
+                />
+              ))}
+            </Chips>
+            <Small>{t('waiting', 'stalled_hint')}</Small>
+            <Tertiary label={t('waiting', 'stalled_skip')} onPress={() => onStalledSkip?.()} />
+          </Stack>
+        )}
         {onSetTime === undefined ? null : (
           <SetTimeRow
             title={t('waiting', 'set_title')}

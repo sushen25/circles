@@ -12,6 +12,7 @@ import {
 } from '../../../data/membership';
 import { LinkInvalidScreen } from '../LinkInvalidScreen';
 import { NameScreen } from '../NameScreen';
+import { useLegalLinks } from '../useLegalLinks';
 import { useNameStep } from './useNameStep';
 
 /**
@@ -22,6 +23,7 @@ import { useNameStep } from './useNameStep';
 
 export function NameFlow() {
   const router = useRouter();
+  const legal = useLegalLinks();
   // Read once. Joining releases the invite, and the render between that and the
   // navigation must not mistake a finished join for a lost link.
   const [secret] = useState(heldInvite);
@@ -81,6 +83,8 @@ export function NameFlow() {
       onChangeText={step.onChangeText}
       onNext={() => void step.submit()}
       onBack={back}
+      onTerms={legal.onTerms}
+      onPrivacy={legal.onPrivacy}
     />
   );
 }

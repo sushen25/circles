@@ -276,6 +276,9 @@ def candidate(day, time, count, names, exception, why, rec=False, waiting=()):
         between(marks(names, waiting), f'<div class="sm">{exception}</div>'),
         rec=rec, gap=10)
 
+# The line under the first ask: the guest join, the name step and the email offer on Sent (S4-05).
+LEGAL_LINE = sm('For people 18 and over. Read the <a href="#">terms</a> and <a href="#">privacy</a>.')
+
 def wordmark(): return '<div class="wordmark">Circles</div>'
 
 # ============ SCREENS ============
@@ -291,7 +294,7 @@ S["Join"] = shell(
         row(marks(["Maya","Alex","Tom","Jess","Sam"]), sm("5 people are in so far")),
         notice("No account or app needed. Your friends see who can make each time, never your calendar."),
     ) +
-    foot(pri("Choose my times"), ter("What is Circles?"))
+    foot(pri("Choose my times"), ter("What is Circles?"), LEGAL_LINE)
 )
 
 S["ContinueAs"] = shell(
@@ -320,7 +323,7 @@ S["Name"] = shell(
         inp("Your first name", ph=True),
         sm("This is what Maya and the others will see next to your times."),
     ) +
-    foot(pri("Continue"))
+    foot(pri("Continue"), LEGAL_LINE)
 )
 
 # The plan link's name step (SUS-203): the same screen, no inviter to name, and
@@ -332,7 +335,7 @@ S["NamePlanLink"] = shell(
         inp("Your first name", ph=True),
         sm("This is what the circle will see next to your times."),
     ) +
-    foot(pri("Continue"), ter("I have an account"))
+    foot(pri("Continue"), ter("I have an account"), LEGAL_LINE)
 )
 
 ev = [False]*10
@@ -565,13 +568,13 @@ def sent_card(address="", switch="on", member=None):
         rows.append(between(
             stack(title("Save my place in Sunday Crew"), sm(SENT_ACCOUNT_LINE if on else "Nothing is saved."), gap=2),
             f'<div class="toggle{" on" if on else ""}"><i></i></div>'))
-        if on:
-            rows.append(sm('For people 18 and over. Read the <a href="#">terms</a> and <a href="#">privacy</a>.'))
     return card(
         row(ic("mail", 20, T["ink2"]), title("Hear when it's locked in")),
         sm(f"We'll email you at {member}.") if member else (inp(address, ph=False) if address else inp("you@example.com", ph=True)),
         sm(CONSENT_2026_10_06),
         *rows,
+        # Where an address is asked for, whatever the switch says (S4-05).
+        LEGAL_LINE,
         pri("Email me about this meetup"),
         ter("Not now"),
     )
@@ -816,6 +819,7 @@ S["Settings"] = shell(
                    li(marks(["Jess"], large=True), "Jess", "Place saved · joined 4 Sep", right=f'<div class="sm">Remove</div>'), divider(),
                    li(marks(["Sam"], large=True), "Sam", "Place saved · joined 5 Sep", right=f'<div class="sm">Remove</div>'), gap=0, pad=6), gap=8),
         ter("Archive this circle", plain=True),
+        sm("You own this circle, so you can't leave it. To step away, delete your account from Account: it goes to the saved-place member who has been in it longest. A member who is not the owner sees Leave this circle here instead."),
         gap=18)
 , minh=980)
 
@@ -1526,7 +1530,7 @@ S["Account"] = shell(
         card(between(stack(title("Name"), sm("Maya"), gap=2), f'<div class="sm">Change</div>'), divider(),
              between(stack(title("Time zone"), sm("Melbourne (AEST)"), gap=2), f'<div class="sm">Change</div>'), divider(),
              between(stack(title("Email"), sm("maya@example.com"), gap=2), ""), gap=0),
-        card(li(ic("shield", 22, T["ink2"]), "Privacy", "What we keep, what friends see"), divider(), li(ic("mail", 22, T["ink2"]), "Email preferences", "Meetup updates"), gap=0, pad=6),
+        card(li(ic("shield", 22, T["ink2"]), "Privacy", "What we keep, what friends see"), divider(), li(ic("mail", 22, T["ink2"]), "Email preferences", "Meetup updates"), divider(), li(ic("share", 22, T["ink2"]), "Download my data", "Everything we hold that is yours, as a file"), gap=0, pad=6),
         ter("Sign out", plain=True),
         ter("Delete my account and data", plain=True),
     )
@@ -1538,8 +1542,12 @@ S["Privacy"] = shell(
         dl("What we keep, and who sees it"),
         card(row(ic("eye-off", 20, T["ink2"]), title("Your calendar stays on your phone")), p("If you turn on the calendar check, we read busy times on this device only, to grey out clashes. Event names never leave your phone."), gap=8),
         card(row(ic("people", 20, T["ink2"]), title("Friends see a combined result")), p("They see which options work for you, never a personal schedule. Before enough people are keen on a quiet ask, nobody sees anyone's answer."), gap=8),
-        card(row(ic("mail", 20, T["ink2"]), title("What email you get")), p("Anyone can ask for updates about a plan, and each of those emails has a stop link. If you sign in to organise plans or start a quiet ask, you also get letters about those, and each has a stop link that works without signing in; you can turn them back on in notification settings. If you have a saved place in a circle that has a catch-up rhythm, you may get an occasional nudge to plan the next one, and it has a stop link. We never sell addresses, and other companies deliver the email for us."), gap=8),
-        sm("To have your details removed, write to hello@wenna.app. There is no delete button in the app yet."),
+        card(row(ic("mail", 20, T["ink2"]), title("What email you get")), p("Anyone can ask for updates about a plan, and each update email has a stop link. If you sign in to organise plans or start a quiet ask, you also get letters about those, and each has a stop link that works without signing in; you can turn them back on in notification settings. If you have a saved place in a circle that has a catch-up rhythm, you may get an occasional nudge to plan the next one, and it has a stop link. We never sell addresses, and other companies deliver the email for us."), gap=8),
+        card(row(ic("shield", 20, T["ink2"]), title("What we keep")), p("Your name, time zone and the times you mark. Your email address if you sign in, or the one a guest gives for a plan. The circles and plans you are in, with any notes and places typed into them. A random id for your browser, and the events a screen sends, which never hold names, emails or notes."), gap=8),
+        card(row(ic("people", 20, T["ink2"]), title("Who else handles it")), p("Hosting, the database, email delivery and the check that a guest is a person are run by other companies for us. We do not sell your data, and there are no ads."), gap=8),
+        card(row(ic("shield", 20, T["ink2"]), title("How long we keep it")), p("The times you mark are kept for 12 months while you are in an active circle. Delete your account and 30 days later we delete your profile and the details linked to it. The full list is on the privacy page."), gap=8),
+        sm("On the web you can download your data, and you can change your name or delete your account any time from Account. Leave a circle from its settings unless you own it. Write to hello@wenna.app if you would rather we did it."),
+        sm('<a href="#">Read the full privacy page</a>'),
     )
 )
 
@@ -2021,6 +2029,25 @@ def cal_ready(sub): return card(li(row_icon, CAL_TITLE, sub), gap=0, pad=6)
 def cal_failed(sub):
     return card(f'<div class="li">{row_icon}<div class="stack" style="gap:2px;flex-grow:1;"><div class="title">{CAL_TITLE}</div><div class="sm">{sub}</div></div>{ter("Try again")}</div>', gap=0, pad=6)
 
+# S4-05 (ADR 0083): deleting the account, in two steps. The first names every
+# circle the person owns and where it goes, so an owner is told before they
+# choose; the second is the one button that does it.
+def account_sheet(*parts):
+    return shell(
+        '<div style="flex-grow:1;"></div>' +
+        f'<div style="background:{T["ground"]};border-radius:22px 22px 0 0;border-top:1px solid {T["line"]};padding:8px 22px 28px;display:flex;flex-direction:column;gap:14px;">'
+        f'<div style="width:40px;height:4px;border-radius:999px;background:{T["line"]};margin:0 auto 6px;"></div>'
+        + "".join(parts) + '</div>',
+        css=LB_CSS)
+
+S["DeleteAccount"] = account_sheet(
+    stack(title("Delete your account?"), p("You'll be signed out everywhere and taken out of every circle straight away. Your friends see you as Former member, your answers are deleted, and the email we send about plans stops. Thirty days from now we delete the rest and nothing identifies you."), gap=6),
+    stack(sm("Circles you own"), p("Sunday Crew goes to Nina, the saved-place member who has been in it longest."), p("Book Club has nobody to hand it to, so it is archived now and deleted with your account."), gap=6),
+    sec("Continue"), ter("Cancel", plain=True))
+S["DeleteAccountSure"] = account_sheet(
+    stack(title("This can't be undone"), p("You won't be able to sign in again with this account. Download your data first if you want a copy."), gap=6),
+    sec("Delete my account"), ter("Back", plain=True))
+
 S["AddToCalendarPreparing"] = cal_sheet(card(li_busy(CAL_TITLE, "Getting it ready…"), gap=0, pad=6))
 S["AddToCalendarSlow"] = cal_sheet(card(li_busy(CAL_TITLE, "Still working on it…"), gap=0, pad=6))
 S["AddToCalendarReady"] = cal_sheet(cal_ready("Opens your Calendar"))
@@ -2113,7 +2140,7 @@ pages = [{"id":"first","name":"0 · First time, organiser"},
          {"id":"loading","name":"7 · Loading and busy"}]
 
 titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning member","Name":"Name","NamePlanLink":"Name · plan link","Availability":"Availability · the first-time guest lands","AvailabilityPicking":"Availability · three days tapped","AvailabilityInline":"Availability · the time of day inline","AvailabilityPerDay":"Availability · not the same every day, a time for each day","AvailabilityHours":"Availability · a day's clock, its hours on a sheet","AvailabilityPicker":"Availability · the picker for one edge","AvailabilityOneChoiceHours":"Availability · a plan with one window, its hours","AvailabilityReturning":"Availability · returning member, Use my usual days offered","AvailabilityReturningTapped":"Availability · after Use my usual days, with Undo","AvailabilityOthersFirst":"Availability · first to answer","NoneWork":"None of these dates","Sent":"Sent · one step, switch on","SentOrganiser":"Sent · the organiser, who picks","SentSwitchOff":"Sent · switch off","SentCode":"Sent · the code","SentDone":"Sent · done","SentPartial":"Sent · place saved, emails failed","SentMember":"Sent · signed in, one button","SentMemberDone":"Sent · signed in, done","SentSuppressed":"Sent · address suppressed","SentSuppressedSaved":"Sent · suppressed, after the code","CheckEmail":"Check your email · app nudge","EmailVerified":"Email verified","EmailPrefs":"Email preferences · no sign-in","EmailVerifyConfirm":"Email verify · one tap first","ReentryConfirm":"Get back in · one tap first","NudgeStop":"Stop reminders · no sign-in","NudgeStopDone":"Stop reminders · done","OrganiserStop":"Stop organiser emails · no sign-in","OrganiserStopDone":"Stop organiser emails · done","QuietStop":"Stop quiet-ask emails · no sign-in","QuietStopDone":"Stop quiet-ask emails · done","SaveAccess":"Save access · the account's other doors","CandidatesMember":"Candidates · member view","ConfirmedGuest":"Confirmed · guest","AddToCalendar":"Add to calendar sheet","RescheduledGuest":"Rescheduled · guest","CancelledGuest":"Cancelled · guest","WasThere":"Attendance · morning after","LinkInvalid":"Invite link inactive",
-          "SignIn":"Sign in · returning organiser","SavePlace":"Save your place · the gate, before the share","EnterCode":"Enter code","YourName":"Your name · after sign-in","FirstCircle":"First circle · no account","InviteCircle":"Invite the circle","CircleHomeJoining":"Circle home · people joining","FirstPlan":"First plan · no account","EmptyCirclesList":"Circles · first run","CirclesList":"Circles list","CircleHome":"Circle home · finding a time","CircleHomeConfirmed":"Circle home · locked in","CircleHomeDue":"Circle home · about time","CreateCircle":"Create circle","ChooseMode":"Choose how to start","PlanSetup":"Plan setup","CustomWindow":"Custom window","PlanShared":"Plan shared · paste to chat","Waiting":"Waiting · no options yet","Candidates":"Candidates · partial replies","DeadlinePassed":"Replies closed · no decision","EditPlan":"Edit plan · reconfirm warning","ConfirmReview":"Confirm review","ConfirmedOrg":"Confirmed · organiser","ChangeTime":"Ask for new times","SetTime":"Set the time yourself","ConfirmReviewOwn":"Confirm review · a time of your own","EditLocked":"Edit this plan · locked in","ConfirmedGuestMoved":"Confirmed · guest, moved","CancelPlan":"Cancel plan","CancelledOrg":"Cancelled · organiser","NoQuorum":"No quorum","Outcome":"Did it happen?","PlanAnother":"Plan another · prefilled","Settings":"Circle settings","NotificationSettings":"Notification settings","Account":"Account","Privacy":"Privacy","Diagnostics":"Founder diagnostics","FounderAnalytics":"Founder analytics",
+          "SignIn":"Sign in · returning organiser","SavePlace":"Save your place · the gate, before the share","EnterCode":"Enter code","YourName":"Your name · after sign-in","FirstCircle":"First circle · no account","InviteCircle":"Invite the circle","CircleHomeJoining":"Circle home · people joining","FirstPlan":"First plan · no account","EmptyCirclesList":"Circles · first run","CirclesList":"Circles list","CircleHome":"Circle home · finding a time","CircleHomeConfirmed":"Circle home · locked in","CircleHomeDue":"Circle home · about time","CreateCircle":"Create circle","ChooseMode":"Choose how to start","PlanSetup":"Plan setup","CustomWindow":"Custom window","PlanShared":"Plan shared · paste to chat","Waiting":"Waiting · no options yet","Candidates":"Candidates · partial replies","DeadlinePassed":"Replies closed · no decision","EditPlan":"Edit plan · reconfirm warning","ConfirmReview":"Confirm review","ConfirmedOrg":"Confirmed · organiser","ChangeTime":"Ask for new times","SetTime":"Set the time yourself","ConfirmReviewOwn":"Confirm review · a time of your own","EditLocked":"Edit this plan · locked in","ConfirmedGuestMoved":"Confirmed · guest, moved","CancelPlan":"Cancel plan","CancelledOrg":"Cancelled · organiser","NoQuorum":"No quorum","Outcome":"Did it happen?","PlanAnother":"Plan another · prefilled","Settings":"Circle settings","NotificationSettings":"Notification settings","Account":"Account","DeleteAccount":"Account · delete, step one","DeleteAccountSure":"Account · delete, step two","Privacy":"Privacy","Diagnostics":"Founder diagnostics","FounderAnalytics":"Founder analytics",
           "SparkSetup":"Quiet ask · setup","SparkWaiting":"Quiet ask · initiator waiting","InterestPrompt":"Interest prompt · member","ThresholdRole":"Threshold reached · initiator","Volunteer":"Started quietly · keen member","SparkOpenedMember":"Started quietly · other member","SparkExpired":"Expired · initiator",
           "PushAsk":"Push permission · contextual","CalendarExplain":"Calendar · before permission","CalendarPick":"Calendar · pick calendars","AvailabilityOverlay":"Availability · calendar overlay","CalendarDenied":"Calendar · denied",
           "ConversionMap":"Guest → app · the map","ConfirmedGuestNudge":"Locked in · reminder nudge","AppSheet":"App sheet · four things a browser can't do","ReattachedNudge":"Rejoined · save your place","SecondSent":"Second response · app nudge","AfterAttendance":"After attendance · start a circle","InitiateGate":"Wants to organise · sign in first","AppLanding":"App first open · linked",
@@ -2151,7 +2178,7 @@ grid(["EmptyCirclesList","CirclesList","CreateCircle","InviteCircle","CircleHome
       "ChooseMode","PlanSetup","CustomWindow","Waiting","Candidates",
       "DeadlinePassed","EditPlan","ConfirmReview","ConfirmedOrg","CircleHomeConfirmed","ChangeTime",
       "CancelPlan","CancelledOrg","NoQuorum","Outcome","CircleHomeDue","PlanAnother",
-      "Settings","NotificationSettings","Account","Privacy","Diagnostics",
+      "Settings","NotificationSettings","Account","DeleteAccount","DeleteAccountSure","Privacy","Diagnostics",
       "SetTime","ConfirmReviewOwn","EditLocked","FounderAnalytics","CircleHomeFull","SettingsFull"], "organiser")
 grid(["SparkSetup","SparkWaiting","InterestPrompt","ThresholdRole","Volunteer","SparkOpenedMember","SparkExpired","SparkNobody"], "quiet")
 grid(["PushAsk","CalendarExplain","CalendarPick","AvailabilityOverlay","CalendarDenied"], "native")

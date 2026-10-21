@@ -9,7 +9,8 @@
 --                   is an active member of: someone who asks for the reminders
 --                   to stop has not asked for them to stop in one circle only.
 --   * `organiser` — the letters about a plan the person organises
---                   (`options_ready`, `replies_closed`, `did_it_happen`).
+--                   (`options_ready`, `replies_closed`, `did_it_happen`, and
+--                   the founder's one-off `first_plan_quiet`, ADR 0085).
 --                   `profiles.muted_organiser_email` ("Emails about plans you
 --                   organise"), the person's own row.
 --   * `quiet`     — the quiet ask's two letters to its initiator
@@ -91,7 +92,7 @@ begin
 
     update jobs.notification_jobs j
     set status = 'skipped', last_error = 'organiser_email_off', updated_at = now()
-    where j.kind in ('options_ready', 'replies_closed', 'did_it_happen')
+    where j.kind in ('options_ready', 'replies_closed', 'did_it_happen', 'first_plan_quiet')
       and j.channel = 'email'
       and j.status = 'scheduled'
       and j.contact_id in (

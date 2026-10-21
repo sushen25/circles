@@ -2,7 +2,8 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
 import { track } from '../../analytics/track';
-import { SITE_ARRIVAL_VALUE } from './sections';
+import { keepArrivalTag } from '../../data/draft';
+import { CAMPAIGN_PARAM, SITE_ARRIVAL_VALUE } from './sections';
 
 /**
  * Records `site_start_plan_clicked` when `/start` opens from the site's
@@ -13,11 +14,20 @@ import { SITE_ARRIVAL_VALUE } from './sections';
  * It carries nothing: no payload, and nothing in the URL beyond the one word
  * that says where the visitor came from. Once per mount, so a re-render never
  * counts twice.
+ *
+ * A link we post may also carry `?from=<tag>` (SUS-240), which the site hands on
+ * to this address. The tag is kept on this device (`keepArrivalTag`, a slug or
+ * nothing) until the organiser passes the gate, and is never in an event.
  */
 export function useSiteArrival(): void {
-  const params = useLocalSearchParams<{ via?: string }>();
+  const params = useLocalSearchParams<{ via?: string; from?: string | string[] }>();
   const sent = useRef(false);
   const via = params.via;
+  const from = params[CAMPAIGN_PARAM];
+
+  useEffect(() => {
+    void keepArrivalTag(from);
+  }, [from]);
 
   useEffect(() => {
     if (sent.current || via !== SITE_ARRIVAL_VALUE) return;

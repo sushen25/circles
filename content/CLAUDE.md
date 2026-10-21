@@ -71,7 +71,7 @@ publishes anything in `queue/` with `status: approved` and moves it to
 |---|---|
 | `context/` | positioning, voice, allowed facts, hook phrases. Edit by hand or via `/mine`. |
 | `queue/` | one markdown file per piece. `status: draft` → `approved` (by merge) → moved to `published/`. |
-| `render/` | `npm run render queue/<file>.md` writes 1080x1920 PNGs (and a JPEG of each, for TikTok) and a `contact.png` strip to `out/<slug>/`; `npm run video queue/<file>.md` writes the same skit as a 9:16 MP4 (needs ffmpeg). |
+| `render/` | `npm run render queue/<file>.md` writes 1080x1920 PNGs (and a JPEG of each, for TikTok) and a `contact.png` strip to `out/<slug>/`; `npm run video queue/<file>.md` writes the same skit as a 9:16 MP4 (needs ffmpeg). `-- --approved` does every approved slideshow, for either: what the Action runs before publishing. |
 | `publish/` | `npm run publish` posts approved queue items (TikTok as a draft), the MP4 wherever one is rendered (LinkedIn excepted); `npm run dry-run` prints what it would do; `npm test` checks the adapters' request shapes. Guards live in code, not prompts. `npm run auth:youtube` / `auth:tiktok` are the one-time sign-ins. |
 | `lib/links.ts` | the link tag: `wenna.app/?from=<platform>-<slug>`. The publisher applies it; Wenna reads it on the circle's founder-only cohort row (circles SUS-240). |
 | `analytics/` | `npm run analytics` appends a row per post per day to `posts.jsonl`. |

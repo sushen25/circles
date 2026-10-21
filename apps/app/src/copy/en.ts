@@ -55,6 +55,35 @@ export const en = {
     meetup_updates: 'Meetup updates',
     sign_out: 'Sign out',
     delete_my_account_and_data: 'Delete my account and data',
+    export_my_data: 'Download my data',
+    export_detail: 'Everything we hold that is yours, as a file',
+    exporting: 'Getting your file…',
+    exported: 'Downloaded. You can download your data once a day.',
+    export_unsupported:
+      "Downloads aren't in the app yet. Write to {support} and we'll send you the file.",
+    export_too_soon: "You've already downloaded your data today. Try again tomorrow.",
+    couldnt_export: "We couldn't get your data. Try again.",
+    delete_title: 'Delete your account?',
+    delete_body:
+      "You'll be signed out everywhere and taken out of every circle straight away. Your friends see you as Former member, your answers are deleted, and the email we send about plans stops. Thirty days from now we delete the rest and nothing identifies you.",
+    delete_owner_heading: 'Circles you own',
+    delete_hands_on: '{circle} goes to {name}, the saved-place member who has been in it longest.',
+    delete_archives:
+      '{circle} has nobody to hand it to, so it is archived now and deleted with your account.',
+    delete_continue: 'Continue',
+    delete_sure_title: "This can't be undone",
+    delete_sure_body:
+      "You won't be able to sign in again with this account. Download your data first if you want a copy.",
+    delete_now: 'Delete my account',
+    deleting: 'Deleting…',
+    couldnt_delete: "We couldn't delete your account, and nothing has changed. Try again.",
+    delete_back: 'Back',
+    deleted_title: 'Your account is deleted',
+    deleted_body:
+      "You're signed out, and you're out of every circle. Your friends see you as Former member. Thirty days from now we delete the rest and nothing identifies you.",
+    deleted_done: 'Done',
+    couldnt_check_circles:
+      "We couldn't check which circles you own, so we can't say where they would go. Close this and try again.",
     notifications: 'Notifications',
     notifications_detail: 'What we send you, circle by circle',
     row_label: '{title}. {detail}',
@@ -1112,7 +1141,33 @@ export const en = {
     funnel_source_meetup: 'A meetup or club',
     funnel_source_other: 'Somewhere else',
     funnel_source_skipped: 'Skipped',
-    funnel_source_unknown: 'Not asked',
+    funnel_source_content: 'A post',
+    funnel_source_unknown: 'Not answered',
+    // The funnel by the campaign tag on a link (SUS-240).
+    posts: 'By post',
+    posts_detail:
+      'Circles made by organisers who arrived on a tagged link, by the tag. A tag is a label for a post and never for a person. The forty busiest in the period.',
+    posts_empty: 'No circle in this period came from a tagged link.',
+    post_figure: '{circles} made · {shared} shared · {answered} answered · {confirmed} confirmed',
+    // First plans that have stopped (SUS-240).
+    stalled: 'Stalled first plans',
+    stalled_detail:
+      "A circle's first plan that has stopped, by the week the circle began. Counts and ages only: no names, circles or codes.",
+    stalled_caveat:
+      'Whether a plan was shared is when the share sheet opened, a floor: anyone who joined or answered shows it was shared.',
+    stalled_empty: 'No first plan has stopped in this period.',
+    stalled_cohort_all: 'Both cohorts',
+    stalled_cohort_founder: 'Founder cohort',
+    stalled_cohort_external: 'External cohort',
+    stalled_week: 'Circles begun the week of {date}',
+    stalled_state_not_shared: 'Made, not shared after 24 h',
+    stalled_state_shared_quiet: 'Shared, no answers after 48 h',
+    stalled_state_answered_short: 'Answered, short of the quorum at the deadline',
+    stalled_figure: '{count} · oldest {oldest} · middle {median}',
+    stalled_figure_oldest: '{count} · oldest {oldest}',
+    stalled_none: '0',
+    age_hours: '{hours} h',
+    age_days_hours: '{days} d {hours} h',
     // Neutral on purpose: it is on screen while the allowlist is still being asked,
     // and must not tell anybody else the route exists.
     loading: 'Getting things ready',
@@ -1535,7 +1590,8 @@ export const en = {
     code: 'Code',
     continue: 'Continue',
     checking: 'Checking',
-    wrong_code: "That code didn't work. Check it, or send a new one.",
+    wrong_code:
+      "That code didn't work. Check it, or send a new one. If you deleted your account, that address can't sign in again for 30 days.",
     send_a_new_code: 'Send a new code',
     new_code_sent: 'A new code is on its way.',
     couldnt_save: "Something went wrong, so your place wasn't saved. Please try again.",
@@ -1543,7 +1599,8 @@ export const en = {
     reference: 'Ref {reference}',
     didnt_get_it: "Didn't get it? Check spam, or send another.",
     send_another_in: 'Send another in {count}s',
-    expired: 'That code has expired. Send a new one.',
+    expired:
+      "That code has expired. Send a new one. If you deleted your account, that address can't sign in again for 30 days.",
     too_many_tries: "That's a lot of tries. Wait a few minutes, then send a new code.",
     couldnt_sign_in: "Something went wrong, so you're not signed in yet. Please try again.",
     couldnt_send: "We couldn't send the code. Try again in a moment.",
@@ -1710,40 +1767,107 @@ export const en = {
     try_again: 'Try again',
     reference: 'Ref {reference}',
   },
-  /** `/terms` and `/privacy`, linked from Welcome (S1-22). Not artboards. */
+  /**
+   * `/terms` and `/privacy`, linked from Welcome, sign-in, the guest join, the
+   * name step and the email offer on Sent (S1-22, S4-05). Not artboards.
+   *
+   * The operator is read from `brand.operator` (`{operator}`), never typed, and
+   * the version is the date the words last changed. What is not settled stays
+   * visible on purpose: each `[CONFIRM COUNTRY]` waits for the place somebody has
+   * confirmed with the processor, and a page that guessed would be a statement
+   * nobody checked. `legal.test.tsx` fails if those markers go missing before
+   * that answer, and the PR that lands one is the PR that edits that test.
+   */
   legal: {
+    version: 'In force from 21 October 2026.',
+    // The line under the first ask (guest join, name, the email offer), S4-05.
+    for_people_18_and_over: 'For people 18 and over. Read the',
+    terms: 'terms',
+    and: 'and',
+    privacy: 'privacy',
+    questions: 'Questions: {support}',
+
     terms_title: 'The terms, briefly',
+    terms_operator_heading: 'Who runs it',
+    terms_operator_body: '{brand} is run by {operator}. You can reach us at {support}.',
     terms_who_heading: 'Who it is for',
     terms_who_body:
-      '{brand} is for people aged 18 and over, organising time with friends they already know.',
+      '{brand} is for people aged 18 and over, organising time with friends they already know. By using it you are telling us you are 18 or over.',
     terms_what_heading: 'What it does',
     terms_what_body:
       'It helps a group find a time. It does not guarantee anyone turns up, and it is not a way to reach people who have not chosen to join your circle.',
+    terms_promise_heading: 'What we promise',
+    terms_promise_body:
+      'No ads. We do not sell your data, and we do not use it for advertising. What we keep, who else handles it and for how long is on the privacy page. For example, the times you mark as good for you are kept for 12 months while you are in an active circle.',
     terms_kind_heading: 'Be kind',
     terms_kind_body:
-      "Use names your friends would recognise, and don't use a circle to pester, deceive or harass anyone. We can remove a circle or an account that is used that way.",
+      "Use names your friends would recognise, and don't use a circle to pester, deceive or harass anyone. The names, notes and places you type can be read by the others in your circle, so keep them to what you would say to them. We can remove a circle or an account that is used to do any of that.",
+    terms_leave_heading: 'Leaving',
+    terms_leave_body:
+      'You can delete your account from Account at any time, and leave a circle from its settings unless you own it.',
     terms_beta_heading: 'An early version',
     terms_beta_body:
       'This is a private beta. Things will change, and we will tell you in the app before anything that affects you does.',
+
     privacy_title: 'Privacy, briefly',
-    privacy_keep_heading: 'What we keep',
-    privacy_keep_body:
-      'Your name, your time zone, the circles you are in, and the times you mark as good for you. If you sign in, your email address, so you can get back in.',
+    privacy_operator_heading: 'Who runs it',
+    privacy_operator_body:
+      '{brand} is run by {operator}. Write to {support} about anything on this page.',
+    privacy_age_heading: 'Who it is for',
+    privacy_age_body:
+      '{brand} is for people aged 18 and over. If you are under 18, please do not use it. If you think someone under 18 has joined a circle, write to {support}.',
+    privacy_keep_heading: 'What we collect',
+    privacy_keep_given:
+      'What you give us: a name (a first name is fine), your time zone and the times you mark as good for you. If you sign in, your email address. If you join without signing in and ask for updates about a plan, the address you type for that plan, with a record of when you asked and which wording you agreed to.',
+    privacy_keep_circle:
+      "What a circle holds: the circles you are in and their plans; whether you said you could come and, after a plan, whether you went; an organiser's report of how it went; and any note or place name typed into a plan. On a quiet ask, who started it and each person's answer about whether they are keen are stored privately and never shown to anyone else. The others in a circle can see your name, and a plan's notes and place.",
+    privacy_keep_systems:
+      'What our systems pick up: a random id for your browser, kept in its local storage, and the events a screen sends us, such as that a circle was joined. Events never hold your name, email address, notes or titles; during a session most carry your account or guest id and the circle or plan involved, and a few, such as those about quiet asks, are recorded against nobody. We also record whether you used the calendar check when answering (the events stay on your phone) and which prompts you have seen and whether you tapped or dismissed them. We keep a hashed form of your IP address, never the address itself, to limit repeated requests. A sign-in session keeps the IP address and browser details it started from. Our email provider tells us whether each email was delivered, delayed, failed, bounced or complained about.',
+    privacy_keep_host:
+      "Our web host keeps ordinary request logs, which can include the address of the page asked for and your IP address. A plan's short code is part of its link, so it can be in those logs.",
     privacy_never_heading: 'What we never do',
     privacy_never_body: 'No ads. We do not sell your data, and we do not use it for advertising.',
     privacy_others_heading: 'Who else handles it',
     privacy_others_body:
-      'Hosting, the database and email delivery are run by other companies on our behalf, so your details pass through them. They are there to run {brand}, not to market to you.',
+      'Other companies run parts of {brand} for us, so your details pass through them. They are there to run it, not to market to you.',
+    privacy_others_supabase:
+      'Supabase runs the database, sign-in and server functions. Country: Singapore, for the production database.',
+    privacy_others_resend:
+      'Resend sends our email, so it sees the address and the message. Country: [CONFIRM COUNTRY].',
+    privacy_others_cloudflare:
+      'Cloudflare Turnstile checks that a guest joining is a person, so it sees their browser and connection. Country: [CONFIRM COUNTRY].',
+    privacy_others_expo:
+      'Expo, through its EAS Hosting service, serves the web app and keeps its request logs. Country: [CONFIRM COUNTRY].',
+    privacy_others_forwarder:
+      'The service that forwards mail sent to {support} to us sees what you write to that address. Country: [CONFIRM COUNTRY].',
     privacy_email_heading: 'What email you get',
     privacy_email_body:
-      'A sign-in code when you sign in. If you sign in to organise plans or start a quiet ask, letters about those, each with a link in the email to stop that kind of letter without signing in; you can turn them back on in notification settings. If you have a saved place in a circle that has a catch-up rhythm, you may get an occasional nudge to plan the next one, with a link in the email to stop it without signing in. Anyone can ask for updates about a plan, and each of those emails has a stop link.',
+      'With an account, without opting in one by one: a sign-in code when you sign in; if you sign in to organise plans or start a quiet ask, letters about those; and, if you have a saved place in a circle that has a catch-up rhythm, an occasional nudge to plan the next one. Each of those but the code has a link in the email to stop that kind of letter without signing in, and you can turn them back on in notification settings.',
+    privacy_email_guests:
+      'Without an account, you get email about a plan only if you ask for it for that plan: one email to confirm the address, then updates about that plan, each with a stop link. We send no other email.',
     privacy_calendar_heading: 'Your calendar stays yours',
     privacy_calendar_body:
       'The group sees who can make each time we suggest. Nobody sees your calendar, and nobody is shown your whole availability with your name on it. Calendar events on your phone never leave it.',
-    privacy_leave_heading: 'Removing your details',
-    privacy_leave_body:
-      'A circle owner can remove a member. To have your details removed, write to {support}. There is no delete button in the app yet.',
-    questions: 'Questions: {support}',
+    privacy_retain_heading: 'How long we keep it',
+    privacy_retain_times:
+      'The times you mark: 12 months after you send them, while you are in an active circle. Then the times go, and only a summary of the parts of the day you usually offer stays, to fill in your next answer. If you leave or are removed from a circle, your times there go at once and the summary 30 days later. If a circle is archived, both go 30 days later.',
+    privacy_retain_email:
+      'Email addresses for plan updates: one never confirmed goes after 7 days, unless a confirmation is still waiting; a confirmed one goes about 30 days after no plan it is signed up to is still running and no email is waiting. Confirmation and stop links are removed 7 days after they are used or expire. The address of your account stays as long as the account does. If an address bounces or complains, we keep only a one-way scramble of it, so that we never write to it again.',
+    privacy_retain_other:
+      'Other records: the log of actions in the product, 12 months (who started a plan is kept as long as the plan is); the sign-in log, which names the address that signed in, 90 days; email delivery results, 30 days; the counters that limit repeated requests, 1 day; an invite link that was reset, 30 days; a guest session that never joined a circle, 30 days. Deleting your account removes your sign-in sessions, with their IP address and browser details, at once. Signing out ends the session on your device and removes it on ours when the connection allows.',
+    privacy_retain_account:
+      'When you delete your account you are signed out everywhere and taken out of every circle at once, and 30 days later we delete your profile and the private details linked to it; the sign-in log runs on its own 90 days. A circle you own with nobody to hand it to is deleted with your account. Notes and place names you added to a circle that carries on stay with it, and so do analytics events, no longer linked to your account; what you typed is not edited.',
+    privacy_retain_open:
+      'Still being decided: how long we keep notes and place names on plans that have ended, analytics events including the browser id, other circles that have been archived, guests who have left, and plan history such as responses, confirmations, attendance and outcome reports. Until we decide, they are kept, and this page will change when we do.',
+    privacy_rights_heading: 'Seeing, correcting and deleting your details, and complaints',
+    privacy_rights_access:
+      "To see what we hold about you, choose Download my data in Account on the web. You get a file of your own details and nobody else's, once a day. Elsewhere, or if that does not work, write to {support}.",
+    privacy_rights_correct:
+      "To correct it, change your name and time zone in Account, or the name a circle knows you by in that circle's settings. Or write to {support}.",
+    privacy_rights_delete:
+      "To delete it, delete your account from Account. A member who is not the owner can also leave a circle from its settings, which ends their access and deletes their times there; the name they used stays in that circle's history. Write to {support} if you would rather we did it.",
+    privacy_rights_complain:
+      'If you are not happy with how we have handled your details, write to {support}. You can also complain to the Office of the Australian Information Commissioner at oaic.gov.au.',
   },
   linkInvalid: {
     brand: '{brand}',
@@ -2218,9 +2342,19 @@ export const en = {
       "They see which options work for you, never a personal schedule. Before enough people are keen on a quiet ask, nobody sees anyone's answer.",
     what_email_you_get: 'What email you get',
     anyone_can_ask_for_plan_updates:
-      'Anyone can ask for updates about a plan, and each of those emails has a stop link. If you sign in to organise plans or start a quiet ask, you also get letters about those, and each has a stop link that works without signing in; you can turn them back on in notification settings. If you have a saved place in a circle that has a catch-up rhythm, you may get an occasional nudge to plan the next one, and it has a stop link. We never sell addresses, and other companies deliver the email for us.',
+      'Anyone can ask for updates about a plan, and each update email has a stop link. If you sign in to organise plans or start a quiet ask, you also get letters about those, and each has a stop link that works without signing in; you can turn them back on in notification settings. If you have a saved place in a circle that has a catch-up rhythm, you may get an occasional nudge to plan the next one, and it has a stop link. We never sell addresses, and other companies deliver the email for us.',
+    what_we_keep: 'What we keep',
+    your_name_your_times_and_the_circles:
+      'Your name, time zone and the times you mark. Your email address if you sign in, or the one a guest gives for a plan. The circles and plans you are in, with any notes and places typed into them. A random id for your browser, and the events a screen sends, which never hold names, emails or notes.',
+    who_else_handles_it: 'Who else handles it',
+    hosting_the_database_and_email:
+      'Hosting, the database, email delivery and the check that a guest is a person are run by other companies for us. We do not sell your data, and there are no ads.',
+    how_long_we_keep_it: 'How long we keep it',
+    the_times_you_mark_are_kept:
+      'The times you mark are kept for 12 months while you are in an active circle. Delete your account and 30 days later we delete your profile and the details linked to it. The full list is on the privacy page.',
+    read_the_full_privacy_page: 'Read the full privacy page',
     to_have_your_details_removed:
-      'To have your details removed, write to {support}. There is no delete button in the app yet.',
+      'On the web you can download your data, and you can change your name or delete your account any time from Account. Leave a circle from its settings unless you own it. Write to {support} if you would rather we did it.',
   },
   pushAsk: {
     want_to_know_when_sunday_crew_has: 'Want to know when Sunday Crew has options?',
@@ -2391,10 +2525,6 @@ export const en = {
     // The switch on (SUS-190, ADR 0067): an account is made, and the reminders can be stopped from their email.
     makes_an_account:
       'This makes you an account in {brand}, so you can get back in from any phone. Reminders about catching up can be stopped from the email itself.',
-    for_people_18_and_over: 'For people 18 and over. Read the',
-    terms: 'terms',
-    and: 'and',
-    privacy: 'privacy',
     nothing_is_saved: 'Nothing is saved.',
     kept_and_updates_on:
       "Done. We'll email {address} about this meetup, and your place in {circle} is saved: sign in with that address on any phone to get back to it.",
@@ -2511,6 +2641,9 @@ export const en = {
     sam: 'Sam',
     joined_5_sep: 'Place saved · joined 5 Sep',
     archive_this_circle: 'Archive this circle',
+    leave_this_circle: 'Leave this circle',
+    owner_cant_leave:
+      "You own this circle, so you can't leave it. To step away, delete your account from Account: it goes to the saved-place member who has been in it longest.",
     link_ending: '{domain}/join#…{tail}',
     link_loading: 'Getting the link',
     link_couldnt_load: "We couldn't get the link just now.",
@@ -2547,6 +2680,11 @@ export const en = {
     remove_body:
       '{name} stops seeing {circle} straight away. Their times for plans still asking are deleted.',
     couldnt_remove: "{name} wasn't removed. Try again.",
+    leave_title: 'Leave {circle}?',
+    leave_body:
+      "You'll lose access straight away, and your answers to plans still asking are deleted. Everyone else stays. You can only come back with a new invite link.",
+    leave_confirm: 'Leave {circle}',
+    couldnt_leave: "That didn't work, and you're still in the circle. Try again.",
     archive_title: 'Archive {circle}?',
     archive_body:
       'It stops every prompt and moves to the bottom of your circles. Nothing is deleted, and you can bring it back.',
@@ -2646,8 +2784,8 @@ export const en = {
     youre_offline: "You're offline. Connect, then try again.",
   },
   /**
-   * "How did you hear about {brand}?", asked once, right after the organiser's
-   * code is accepted (SUS-171). Four answers and a way past; no typing.
+   * "How did you hear about {brand}?", asked once, as the last step of the
+   * first run once the circle exists (SUS-171). Four answers and a way past; no typing.
    */
   organiserSource: {
     heading: 'How did you hear about {brand}?',
@@ -2983,6 +3121,14 @@ export const en = {
     link_copied: 'Copied. Paste it in the group chat.',
     link_couldnt_copy: "Couldn't copy the message. Try again.",
     edit_the_plan: 'Edit the plan',
+    /** The one optional question after 48 hours with nobody else in (SUS-240). */
+    nothing_yet_question: "Nothing in yet. What's happened?",
+    stalled_not_posted: "I haven't posted the link yet",
+    stalled_posted_no_replies: "I posted it, no one's replied",
+    stalled_wrong_group: "This isn't the right group for it",
+    stalled_hint:
+      "Optional. It tells us where a first plan gets stuck. It doesn't change the plan.",
+    stalled_skip: 'Skip',
     set_title: 'Set the time yourself',
     set_body: "Pick any day and time. You'll see who it works for before you lock it in.",
     loading: 'Getting the plan',

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -217,8 +217,6 @@ describe('Save your place, the gate of the first run (ADR 0053)', () => {
 
   it('goes on to make the circle once the code is through, telling the draft first', async () => {
     Object.assign(session, { status: 'saved', userId: 'maya' });
-    // Asked before: the source question is the next describe's.
-    askToShow.mockResolvedValue({ suppressed: true, reason: 'already_shown' });
     auth.ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Australia/Melbourne' });
     const onPassed = vi.fn().mockResolvedValue(undefined);
     wrap(<SignInFlow gate={{ place, onPassed }} />);
@@ -229,99 +227,17 @@ describe('Save your place, the gate of the first run (ADR 0053)', () => {
     expect(onPassed).toHaveBeenCalledTimes(1);
   });
 
-  describe('"How did you hear about {brand}?" (SUS-171)', () => {
-    const asked = () => askToShow.mock.calls.map(([target]) => target);
-    const sourceEvents = () => track.mock.calls.filter(([name]) => name === 'organiser_source');
-
-    async function throughTheCode() {
+  describe('"How did you hear about {brand}?" is not here (SUS-171)', () => {
+    it('is not asked at the gate: it is the last step of the first run, after the circle exists', async () => {
       Object.assign(session, { status: 'saved', userId: 'maya' });
       auth.ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Australia/Melbourne' });
-      const onPassed = vi.fn().mockResolvedValue(undefined);
-      wrap(<SignInFlow gate={{ place, onPassed }} />);
+      wrap(<SignInFlow gate={{ place, onPassed: vi.fn().mockResolvedValue(undefined) }} />);
       await sendCodeTo(ADDRESS);
       await enter('123456');
-      return onPassed;
-    }
-
-    it('is asked once the code is through and before the circle is made, with one tap on each answer', async () => {
-      const onPassed = await throughTheCode();
-      expect(await screen.findByText(QUESTION)).toBeVisible();
-      expect(replace).not.toHaveBeenCalled();
-      expect(onPassed).toHaveBeenCalledTimes(1);
-      expect(asked()).toEqual([{ moment: 'organiser_source', planId: undefined }]);
-      for (const name of ["A friend's group", 'Reddit', 'A meetup or club', 'Somewhere else']) {
-        expect(screen.getByRole('checkbox', { name })).toBeVisible();
-      }
-      expect(screen.getByRole('button', { name: 'Skip' })).toBeVisible();
-      expect(screen.queryByRole('textbox')).toBeNull();
-
-      fireEvent.click(screen.getByRole('checkbox', { name: 'Reddit' }));
-      expect(replace).toHaveBeenCalledWith('/circles/new/finish');
-      expect(sourceEvents()).toEqual([['organiser_source', { source: 'reddit' }]]);
-      // The account's own record says it was answered, the same for every choice.
-      expect(recordAnswer).toHaveBeenCalledTimes(1);
-      expect(recordAnswer.mock.calls[0]?.[0]).toEqual({
-        moment: 'organiser_source',
-        planId: undefined,
-      });
-      expect(recordAnswer.mock.calls[0]?.[1]).toBe('tapped');
-    });
-
-    it('records a skip as skipped and goes straight on', async () => {
-      await throughTheCode();
-      await tap(screen.findByRole('button', { name: 'Skip' }));
-      expect(replace).toHaveBeenCalledWith('/circles/new/finish');
-      expect(sourceEvents()).toEqual([['organiser_source', { source: 'skipped' }]]);
-      expect(recordAnswer.mock.calls[0]?.[1]).toBe('tapped');
-    });
-
-    it('goes on without the question when the server never answers, rather than waiting for ever', async () => {
-      askToShow.mockReturnValue(new Promise(() => undefined));
-      vi.useFakeTimers({ shouldAdvanceTime: true });
-      await throughTheCode();
-      expect(replace).not.toHaveBeenCalled();
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(4100);
-      });
-      expect(replace).toHaveBeenCalledWith('/circles/new/finish');
-      expect(sourceEvents()).toEqual([]);
-    });
-
-    it('is not asked again in this session by the same account at another gate', async () => {
-      await throughTheCode();
-      await tap(screen.findByRole('button', { name: 'Skip' }));
-      cleanup();
-      replace.mockReset();
-      askToShow.mockClear();
-      await throughTheCode();
       await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/new/finish'));
       expect(screen.queryByText(QUESTION)).toBeNull();
-      expect(sourceEvents()).toHaveLength(1);
-    });
-
-    it('counts a choice once, whatever else is tapped', async () => {
-      await throughTheCode();
-      const meetup = await screen.findByRole('checkbox', { name: 'A meetup or club' });
-      fireEvent.click(meetup);
-      fireEvent.click(meetup);
-      fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
-      expect(sourceEvents()).toHaveLength(1);
-      expect(replace).toHaveBeenCalledTimes(1);
-    });
-
-    it('never shows an account that has been asked before, and counts nothing', async () => {
-      askToShow.mockResolvedValue({ suppressed: true, reason: 'already_shown' });
-      await throughTheCode();
-      await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/new/finish'));
-      expect(screen.queryByText(QUESTION)).toBeNull();
-      expect(sourceEvents()).toEqual([]);
-    });
-
-    it('does not block on a server that cannot be asked', async () => {
-      askToShow.mockRejectedValue(new Error('offline'));
-      await throughTheCode();
-      await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/new/finish'));
-      expect(sourceEvents()).toEqual([]);
+      expect(askToShow).not.toHaveBeenCalled();
+      expect(track.mock.calls.filter(([name]) => name === 'organiser_source')).toEqual([]);
     });
 
     it('is not asked at the ordinary sign-in, where there is no gate', async () => {
@@ -458,7 +374,23 @@ describe('signing in by email', () => {
     });
     await enter('123456');
 
-    expect(await screen.findByText('That code has expired. Send a new one.')).toBeVisible();
+    expect(await screen.findByText(/^That code has expired\. Send a new one\./)).toBeVisible();
+  });
+
+  it('reads a deleted account as a wrong code, with the same words for any address', async () => {
+    // Auth answers a banned user 403 `user_banned` for any code, so a message of
+    // its own would tell anybody who knows an address that it was deleted. The
+    // one screen says both, and names the reason for the person it is true of.
+    auth.submitSignInCode.mockRejectedValue({ code: 'user_banned', status: 403 });
+    wrap(<SignInFlow />);
+    await sendCodeTo(ADDRESS);
+    await enter('123456');
+
+    expect(
+      await screen.findByText(
+        "That code didn't work. Check it, or send a new one. If you deleted your account, that address can't sign in again for 30 days.",
+      ),
+    ).toBeVisible();
   });
 
   it('empties the boxes after a wrong code and puts the cursor back in the first (SUS-204)', async () => {
