@@ -997,7 +997,11 @@ select is(
        -- this plan asks about: text, never a window, over the caller's own
        -- rows in the plan's circle, for an active member only.
        -- `370_previous_dayparts.sql`.
-       'previous_dayparts'
+       'previous_dayparts',
+       -- S4-05 (ADR 0083). The caller's own account: what deleting it would do to
+       -- the circles they own, deleting it, leaving one circle, and a download
+       -- of their own data. `500_account_deletion.sql`.
+       'account_deletion_preview', 'delete_account', 'leave_circle', 'export_my_data'
      )),
   '',
   'only the intended functions in public are callable by authenticated'

@@ -18,10 +18,13 @@ declare
   row_user uuid := coalesce(new.user_id, old.user_id);
 begin
   -- The circle itself may have gone in this transaction, taking its members
-  -- with it. Nothing to protect then.
+  -- with it. Nothing to protect then. Nor for an archived circle: an owner who
+  -- deletes their account with nobody to hand the circle to archives it first
+  -- (ADR 0083), and an archived circle needs no owner to act, only one to name
+  -- until the purge deletes the circle with them.
   if not exists (
     select 1 from public.circles c
-    where c.id = row_circle and c.owner_user_id = row_user
+    where c.id = row_circle and c.owner_user_id = row_user and c.status = 'active'
   ) then
     return null;
   end if;

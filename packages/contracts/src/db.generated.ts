@@ -152,7 +152,7 @@ export type Database = {
         Row: {
           circle_id: string
           created_at: string
-          created_by: string
+          created_by: string | null
           id: string
           revoked_at: string | null
           secret_hash: string
@@ -162,7 +162,7 @@ export type Database = {
         Insert: {
           circle_id: string
           created_at?: string
-          created_by: string
+          created_by?: string | null
           id?: string
           revoked_at?: string | null
           secret_hash: string
@@ -172,7 +172,7 @@ export type Database = {
         Update: {
           circle_id?: string
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           id?: string
           revoked_at?: string | null
           secret_hash?: string
@@ -308,7 +308,7 @@ export type Database = {
           candidate_id: string
           chased_answer: string | null
           confirmed_at: string
-          confirmed_by: string
+          confirmed_by: string | null
           created_at: string
           ends_at: string
           id: string
@@ -334,7 +334,7 @@ export type Database = {
           candidate_id: string
           chased_answer?: string | null
           confirmed_at?: string
-          confirmed_by: string
+          confirmed_by?: string | null
           created_at?: string
           ends_at: string
           id?: string
@@ -360,7 +360,7 @@ export type Database = {
           candidate_id?: string
           chased_answer?: string | null
           confirmed_at?: string
-          confirmed_by?: string
+          confirmed_by?: string | null
           created_at?: string
           ends_at?: string
           id?: string
@@ -493,7 +493,7 @@ export type Database = {
           note: string | null
           outcome: string
           reported_at: string
-          reported_by: string
+          reported_by: string | null
         }
         Insert: {
           confirmation_id: string
@@ -502,7 +502,7 @@ export type Database = {
           note?: string | null
           outcome: string
           reported_at?: string
-          reported_by: string
+          reported_by?: string | null
         }
         Update: {
           confirmation_id?: string
@@ -511,7 +511,7 @@ export type Database = {
           note?: string | null
           outcome?: string
           reported_at?: string
-          reported_by?: string
+          reported_by?: string | null
         }
         Relationships: [
           {
@@ -942,6 +942,14 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      account_deletion_preview: {
+        Args: never
+        Returns: {
+          circle_id: string
+          circle_name: string
+          heir_display_name: string
+        }[]
+      }
       after_attendance_facts: {
         Args: { p_plan_id: string }
         Returns: {
@@ -1055,7 +1063,7 @@ export type Database = {
           candidate_id: string
           chased_answer: string | null
           confirmed_at: string
-          confirmed_by: string
+          confirmed_by: string | null
           created_at: string
           ends_at: string
           id: string
@@ -1099,7 +1107,7 @@ export type Database = {
           candidate_id: string
           chased_answer: string | null
           confirmed_at: string
-          confirmed_by: string
+          confirmed_by: string | null
           created_at: string
           ends_at: string
           id: string
@@ -1266,6 +1274,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      delete_account: { Args: never; Returns: Json }
       dispatch_begin: { Args: { p_holder: string }; Returns: boolean }
       dispatch_cancel_pending: {
         Args: {
@@ -1347,7 +1356,7 @@ export type Database = {
           candidate_id: string
           chased_answer: string | null
           confirmed_at: string
-          confirmed_by: string
+          confirmed_by: string | null
           created_at: string
           ends_at: string
           id: string
@@ -1377,6 +1386,7 @@ export type Database = {
         Returns: Json
       }
       engine_input: { Args: { p_plan_id: string }; Returns: Json }
+      export_my_data: { Args: never; Returns: Json }
       extend_deadline: {
         Args: { p_plan_id: string }
         Returns: {
@@ -1502,7 +1512,7 @@ export type Database = {
         Returns: {
           circle_id: string
           created_at: string
-          created_by: string
+          created_by: string | null
           id: string
           revoked_at: string | null
           secret_hash: string
@@ -1544,6 +1554,7 @@ export type Database = {
         }
         Returns: Json
       }
+      leave_circle: { Args: { p_circle_id: string }; Returns: string[] }
       live_invite: {
         Args: { p_circle_id: string; p_user_id: string }
         Returns: {
@@ -1763,7 +1774,7 @@ export type Database = {
           note: string | null
           outcome: string
           reported_at: string
-          reported_by: string
+          reported_by: string | null
         }
         SetofOptions: {
           from: "*"

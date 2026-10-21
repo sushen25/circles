@@ -2072,6 +2072,7 @@ insert into identity_tables (name, moves) values
   -- Who may read the numbers. Nothing to do with a membership, and a guest
   -- identity being merged into a saved place does not inherit it.
   ('private.allowlist', false),
+  ('private.account_deletions', false),     -- only a saved place can delete itself (S4-05)
   -- An event is history, not a membership: `user_id` is set null when the user
   -- is deleted (SUS-191), and `move_membership` re-points the events it moves.
   ('analytics.events', false);

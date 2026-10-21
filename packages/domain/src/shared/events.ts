@@ -54,6 +54,8 @@ export const DOMAIN_EVENT_NAMES = [
   'growth.nudge_shown',
   'growth.nudge_answered',
   'growth.account_claimed',
+
+  'identity.account_deleted',
 ] as const;
 
 export type DomainEventName = (typeof DOMAIN_EVENT_NAMES)[number];

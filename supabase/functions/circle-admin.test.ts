@@ -22,6 +22,8 @@ const state = vi.hoisted(() => ({
   users: [] as { id: string; is_anonymous: boolean }[],
   served: [] as ((request: Request) => Promise<Response>)[],
   logged: [] as string[],
+  signedOut: [] as { token: string; scope: string }[],
+  signOutFails: false,
 }));
 
 const client = vi.hoisted(() => ({
@@ -33,6 +35,15 @@ const client = vi.hoisted(() => ({
     throw new Error('these functions read nothing but through their RPCs');
   },
   auth: {
+    admin: {
+      signOut: (token: string, scope: string) => {
+        state.signedOut.push({ token, scope });
+        return Promise.resolve({
+          data: null,
+          error: state.signOutFails ? { message: 'down', status: 500 } : null,
+        });
+      },
+    },
     getUser: () => {
       const next = state.users.shift();
       return Promise.resolve(
@@ -67,6 +78,9 @@ const handlers = {
   'rotate-invite': await serveOf('rotate-invite'),
   'remove-member': await serveOf('remove-member'),
   'rename-in-circle': await serveOf('rename-in-circle'),
+  'leave-circle': await serveOf('leave-circle'),
+  'delete-account': await serveOf('delete-account'),
+  'export-my-data': await serveOf('export-my-data'),
   'create-circle': await serveOf('create-circle'),
 };
 
@@ -113,6 +127,8 @@ beforeEach(() => {
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service';
   process.env.INVITE_LINK_KEY = LINK_KEY;
   state.rpcs = [];
+  state.signedOut = [];
+  state.signOutFails = false;
   state.users = [{ id: OWNER, is_anonymous: false }];
   state.answer = (fn) => bookkeeping(fn) ?? { data: null, error: null };
 });
@@ -413,5 +429,123 @@ describe('rename-in-circle', () => {
 
     expect(response.status).toBe(status);
     expect(await response.json()).toMatchObject({ reason });
+  });
+});
+
+describe('leave-circle', () => {
+  const body = { idempotency_key: KEY, circle_id: CIRCLE };
+
+  it('leaves through the database and recalculates the plans it made stale', async () => {
+    state.answer = (fn) =>
+      bookkeeping(fn) ??
+      (fn === 'leave_circle' ? { data: [PLAN], error: null } : { data: null, error: null });
+
+    const response = await handlers['leave-circle'](post(body));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true, affected_plans: 1 });
+    expect(called('leave_circle')[0]?.args).toEqual({ p_circle_id: CIRCLE });
+    expect(called('engine_input')[0]?.args).toEqual({ p_plan_id: PLAN });
+  });
+
+  it.each([
+    ['owner_cannot_leave', 409],
+    ['member_not_found', 404],
+  ])('says %s as the database does', async (reason, status) => {
+    state.answer = (fn) =>
+      bookkeeping(fn) ??
+      (fn === 'leave_circle'
+        ? { data: null, error: { code: 'P0001', message: reason } }
+        : { data: null, error: null });
+
+    const response = await handlers['leave-circle'](post(body));
+
+    expect(response.status).toBe(status);
+    expect(await response.json()).toMatchObject({ reason });
+  });
+});
+
+describe('delete-account', () => {
+  const body = { idempotency_key: KEY, confirm: true };
+  const done = { stale_plans: [PLAN], transferred: 1, archived: 2 };
+
+  it('deletes in the database, revokes the session everywhere, and recalculates', async () => {
+    state.answer = (fn) =>
+      bookkeeping(fn) ??
+      (fn === 'delete_account' ? { data: done, error: null } : { data: null, error: null });
+
+    const response = await handlers['delete-account'](post(body));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true, circles_handed_on: 1, circles_archived: 2 });
+    expect(state.signedOut).toEqual([{ token: 'a.token', scope: 'global' }]);
+    expect(called('engine_input')[0]?.args).toEqual({ p_plan_id: PLAN });
+  });
+
+  it('still answers 200 when the auth server cannot revoke, because the database already did', async () => {
+    state.signOutFails = true;
+    state.answer = (fn) =>
+      bookkeeping(fn) ??
+      (fn === 'delete_account' ? { data: done, error: null } : { data: null, error: null });
+
+    const response = await handlers['delete-account'](post(body));
+
+    expect(response.status).toBe(200);
+  });
+
+  it('refuses a request that does not say it means it', async () => {
+    const response = await handlers['delete-account'](
+      post({ idempotency_key: KEY, confirm: false }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(called('delete_account')).toHaveLength(0);
+  });
+
+  it('says requires_saved_place to a guest, and revokes nothing', async () => {
+    state.answer = (fn) =>
+      bookkeeping(fn) ??
+      (fn === 'delete_account'
+        ? { data: null, error: { code: '42501', message: 'requires_saved_place' } }
+        : { data: null, error: null });
+
+    const response = await handlers['delete-account'](post(body));
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ reason: 'requires_saved_place' });
+    expect(state.signedOut).toEqual([]);
+  });
+});
+
+describe('export-my-data', () => {
+  it('hands back the database’s document under a dated file name, and records no key', async () => {
+    state.answer = (fn) =>
+      bookkeeping(fn) ??
+      (fn === 'export_my_data'
+        ? { data: { account: { display_name: 'Nina' } }, error: null }
+        : { data: null, error: null });
+
+    const response = await handlers['export-my-data'](post({}));
+    const answer = (await response.json()) as { ok: boolean; filename: string; data: unknown };
+
+    expect(response.status).toBe(200);
+    expect(answer.filename).toMatch(/^[a-z]+-my-data-\d{4}-\d{2}-\d{2}\.json$/);
+    expect(answer.data).toEqual({ account: { display_name: 'Nina' } });
+    // The kit records an answer against its key for a week; this answer is the
+    // person's data, so there is no key to record it against.
+    expect(called('begin_request')).toHaveLength(0);
+  });
+
+  it('says too_many_requests on the second download of a day', async () => {
+    state.answer = (fn) =>
+      bookkeeping(fn) ??
+      (fn === 'export_my_data'
+        ? { data: null, error: { code: '57014', message: 'too_many_requests' } }
+        : { data: null, error: null });
+
+    const response = await handlers['export-my-data'](post({}));
+
+    expect(response.status).toBe(429);
+    expect(await response.json()).toMatchObject({ reason: 'too_many_requests' });
   });
 });

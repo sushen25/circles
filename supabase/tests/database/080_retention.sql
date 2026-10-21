@@ -471,7 +471,7 @@ select is(
 -- Idempotent: a further run finds nothing.
 select is(
   (select jobs.run_retention() - 'daypart_summaries'),
-  '{"outbox": 0, "audit_rows": 0, "windows_aged": 0, "rate_counters": 0, "delivery_events": 0, "revoked_invites": 0, "pending_contacts": 0, "served_requests": 0, "notification_jobs": 0, "plan_only_contacts": 0, "auth_audit_entries": 0, "expired_action_links": 0, "windows_of_the_gone": 0, "anonymous_identities": 0, "daypart_summaries_purged": 0}'::jsonb,
+  '{"outbox": 0, "audit_rows": 0, "windows_aged": 0, "rate_counters": 0, "delivery_events": 0, "revoked_invites": 0, "pending_contacts": 0, "served_requests": 0, "notification_jobs": 0, "plan_only_contacts": 0, "auth_audit_entries": 0, "expired_action_links": 0, "windows_of_the_gone": 0, "anonymous_identities": 0, "daypart_summaries_purged": 0, "accounts_purged": 0, "failed_rules": []}'::jsonb,
   'a second run deletes nothing'
 );
 

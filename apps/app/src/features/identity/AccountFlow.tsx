@@ -1,23 +1,42 @@
 import { isValidDisplayName, normaliseDisplayName } from '@circles/domain';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import { Platform } from 'react-native';
 import { useMemo, useState } from 'react';
 
 import { t } from '../../copy';
-import { ownEmailHint, ownProfile, saveProfile, signOut, useSession } from '../../data/auth';
+import {
+  deleteMyAccount,
+  deletionPreview,
+  exportMyData,
+  ownEmailHint,
+  ownProfile,
+  saveProfile,
+  signOut,
+  useSession,
+} from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
+import { FunctionError, newIdempotencyKey } from '../../data/functions';
+import { saveFile } from '../../platform/download';
 import { AccountScreen } from './AccountScreen';
+import { DeleteAccountSheet, type DeleteStep } from './DeleteAccountSheet';
 import { isOffline } from './join/failure';
 import { TimeZoneScreen } from './TimeZoneScreen';
 import { useSavedPlace } from './useSavedPlace';
 import { filterZones, groupZones, supportedZones, zoneLabel } from './zones';
 
 /**
- * `/settings/account` (spec §5.2). Name and time zone are the profile the Your
+ * `/settings/account` (spec §5.2, §13). Name and time zone are the profile the Your
  * name screen wrote, changed the same way (`saveProfile`, which judges the name
  * by the domain's rule). The address is shown as a hint (`m…@example.com`),
  * never held whole. Signing out goes back to Welcome only once it has
  * happened on this device.
+ *
+ * Download my data and Delete my account and data are S4-05's (ADR 0083).
+ * Delete is two steps, and the first names the circles the person owns and
+ * where each goes, from the server's own preview, so the screen never decides
+ * who inherits. It goes to the Deleted screen (`/deleted`, which needs no session) only once
+ * the account is gone and this device is signed out.
  */
 export function AccountFlow() {
   return hasBackend() ? <LiveAccount /> : <FixtureAccount />;
@@ -59,6 +78,17 @@ function LiveAccount() {
   const [busy, setBusy] = useState(false);
   const [picking, setPicking] = useState(false);
   const [query, setQuery] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const [exportNote, setExportNote] = useState<{ kind: 'ok' | 'warn'; text: string }>();
+  const [deleting, setDeleting] = useState<DeleteStep | undefined>();
+  const [deleteProblem, setDeleteProblem] = useState<string | undefined>();
+  const [deleteKey] = useState(() => newIdempotencyKey());
+  const owned = useQuery({
+    queryKey: ['account-deletion-preview', session.userId],
+    queryFn: deletionPreview,
+    enabled: gate === 'allow' && deleting !== undefined,
+    staleTime: 0,
+  });
 
   const zone = profile.data?.zone ?? 'UTC';
   const groups = useMemo(() => groupZones(supportedZones(), zone), [zone]);
@@ -143,6 +173,45 @@ function LiveAccount() {
       onChangeZone={() => setPicking(true)}
       onPrivacy={() => router.push('/settings/privacy')}
       onNotifications={() => router.push('/settings/notifications')}
+      onExport={
+        Platform.OS !== 'web'
+          ? undefined
+          : () => {
+              setExporting(true);
+              setExportNote(undefined);
+              exportMyData()
+                .then(({ filename, contents }) => {
+                  const saved = saveFile(contents, filename, 'application/json');
+                  setExportNote(
+                    saved === 'saved'
+                      ? { kind: 'ok', text: t('account', 'exported') }
+                      : {
+                          kind: 'warn',
+                          text:
+                            saved === 'unsupported'
+                              ? t('account', 'export_unsupported')
+                              : t('account', 'couldnt_export'),
+                        },
+                  );
+                })
+                .catch((error: unknown) =>
+                  setExportNote({
+                    kind: 'warn',
+                    text:
+                      error instanceof FunctionError && error.reason === 'too_many_requests'
+                        ? t('account', 'export_too_soon')
+                        : t('account', 'couldnt_export'),
+                  }),
+                )
+                .finally(() => setExporting(false));
+            }
+      }
+      exporting={exporting}
+      exportNote={exportNote}
+      onDeleteAccount={() => {
+        setDeleteProblem(undefined);
+        setDeleting('explain');
+      }}
       onSignOut={() => {
         setBusy(true);
         setProblem(undefined);
@@ -159,6 +228,36 @@ function LiveAccount() {
           });
       }}
       onBack={back}
-    />
+    >
+      <DeleteAccountSheet
+        step={deleting}
+        owned={owned.data ?? []}
+        loadingOwned={owned.isPending || owned.isError}
+        busy={busy}
+        problem={
+          deleteProblem ?? (owned.isError ? t('account', 'couldnt_check_circles') : undefined)
+        }
+        onContinue={() => setDeleting('sure')}
+        onBack={() => setDeleting('explain')}
+        onDismiss={() => {
+          if (!busy) setDeleting(undefined);
+        }}
+        onDelete={() => {
+          setBusy(true);
+          setDeleteProblem(undefined);
+          deleteMyAccount(deleteKey)
+            .then(() => {
+              queryClient.clear();
+              router.replace('/deleted');
+            })
+            .catch(() => {
+              // Nothing has changed, or the answer was lost and the same key
+              // will be answered from the record: either way, try again.
+              setBusy(false);
+              setDeleteProblem(t('account', 'couldnt_delete'));
+            });
+        }}
+      />
+    </AccountScreen>
   );
 }

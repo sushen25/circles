@@ -15,7 +15,13 @@ as $$
      and coalesce(
            nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'is_anonymous',
            'true'
-         ) = 'false';
+         ) = 'false'
+     -- Not somebody who has deleted their account: an access token issued
+     -- before the deletion lives for up to an hour, and must not make a circle
+     -- for a person who is no longer here (S4-05, ADR 0083).
+     and not exists (
+       select 1 from private.account_deletions d where d.user_id = (select auth.uid())
+     );
 $$;
 
 comment on function public.auth_is_permanent() is

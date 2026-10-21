@@ -64,6 +64,7 @@ describe('every reason either has a sentence on the planning screens or is liste
     'not_yet',
     'not_the_owner',
     'cannot_remove_owner',
+    'owner_cannot_leave',
     'not_the_initiator',
     'link_expired',
     'no_verified_contact',

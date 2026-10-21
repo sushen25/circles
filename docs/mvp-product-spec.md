@@ -132,6 +132,7 @@ Would like to see the group but avoids asking. Their job: "Let me discover wheth
 - **Member:** any identity that has joined a circle. Can respond, see plan information, and (with a saved place) initiate plans.
 - **Plan organiser:** the saved-place member who created a named plan, or the member who explicitly accepted the organiser role after a quiet ask reached threshold. A quiet plan has no organiser until someone accepts. Can confirm a time, add a place, edit, reschedule or cancel.
 - **Removed member:** loses circle and plan access immediately; historic aggregate attendance may remain; their availability is deleted.
+- **A member who leaves, and an account that is deleted:** a member (guests included) can leave a circle, which ends their membership as a removal does; the owner cannot, and instead deletes their account, which hands the circle to the longest-standing saved-place member or archives it. Deleting an account signs the person out everywhere at once and shows them to others as "Former member"; their profile and private details are purged after 30 days. Anyone can download their own data, once a day ([ADR 0083](decisions/0083-an-account-is-deleted-at-once-and-purged-after-thirty-days-a-member-can-leave-and-everyone-can-export.md)).
 
 There is no public user directory, follower graph or contact upload.
 

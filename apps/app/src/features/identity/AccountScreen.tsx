@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import {
   Body,
   BodyText,
@@ -26,11 +28,10 @@ import { LoadFailed } from '../system/LoadFailed';
 /**
  * Account — `docs/design/Account.dc.html` (spec §5.2): your name and time
  * zone, the address you sign in with, where Privacy and notifications live,
- * and signing out.
- *
- * "Delete my account and data" is on the artboard and is **not drawn**: it is
- * S4-05's (`delete-account`), and a row that leads nowhere is worse than none.
- * The artboard mapping still names it, so S4-05 knows where it goes.
+ * downloading your data, signing out, and deleting the account (S4-05, ADR
+ * 0083). Deleting asks twice in a sheet the flow owns (`DeleteAccountSheet`),
+ * and is drawn only when the flow can do it: a row that leads nowhere is worse
+ * than none.
  */
 export type AccountProps = {
   fixture?: Fixture | undefined;
@@ -52,6 +53,15 @@ export type AccountProps = {
   onPrivacy?: (() => void) | undefined;
   onNotifications?: (() => void) | undefined;
   onSignOut?: (() => void) | undefined;
+  /** Download my data; omitted where the flow cannot do it (fixtures). */
+  onExport?: (() => void) | undefined;
+  exporting?: boolean | undefined;
+  /** What the last export said, once it has said it. */
+  exportNote?: { kind: 'ok' | 'warn'; text: string } | undefined;
+  /** Opens the two-step delete; omitted where the flow cannot do it. */
+  onDeleteAccount?: (() => void) | undefined;
+  /** The delete sheet, rendered by the flow. */
+  children?: ReactNode;
   onRetry?: (() => void) | undefined;
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
@@ -75,6 +85,11 @@ export function AccountScreen({
   onPrivacy,
   onNotifications,
   onSignOut,
+  onExport,
+  exporting = false,
+  exportNote,
+  onDeleteAccount,
+  children,
   onRetry,
   onBack,
 }: AccountProps) {
@@ -143,7 +158,24 @@ export function AccountScreen({
             })}
             onPress={onNotifications}
           />
+          {onExport === undefined ? null : (
+            <>
+              <Divider />
+              <ListRow
+                title={t('account', 'export_my_data')}
+                detail={exporting ? t('account', 'exporting') : t('account', 'export_detail')}
+                label={t('account', 'row_label', {
+                  title: t('account', 'export_my_data'),
+                  detail: t('account', 'export_detail'),
+                })}
+                onPress={exporting ? undefined : onExport}
+              />
+            </>
+          )}
         </Card>
+        {exportNote === undefined ? null : (
+          <Notice kind={exportNote.kind}>{exportNote.text}</Notice>
+        )}
         <Tertiary
           tone="plain"
           label={t('account', 'sign_out')}
@@ -151,6 +183,13 @@ export function AccountScreen({
           busy={busy && !editingName}
           onPress={onSignOut}
         />
+        {onDeleteAccount === undefined ? null : (
+          <Tertiary
+            tone="plain"
+            label={t('account', 'delete_my_account_and_data')}
+            onPress={onDeleteAccount}
+          />
+        )}
       </Body>
       <Sheet
         visible={editingName}
@@ -179,6 +218,7 @@ export function AccountScreen({
         />
         <Tertiary label={t('common', 'cancel')} onPress={onCloseName} />
       </Sheet>
+      {children}
     </Screen>
   );
 }

@@ -126,7 +126,7 @@ function eveningIntents(
       kind: first,
       occurrence,
       desiredAt: now,
-      actorId: confirmation.confirmed_by,
+      actorId: confirmation.confirmed_by ?? undefined,
       confirmationId: id,
     },
     {

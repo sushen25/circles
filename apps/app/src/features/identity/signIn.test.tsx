@@ -458,7 +458,23 @@ describe('signing in by email', () => {
     });
     await enter('123456');
 
-    expect(await screen.findByText('That code has expired. Send a new one.')).toBeVisible();
+    expect(await screen.findByText(/^That code has expired\. Send a new one\./)).toBeVisible();
+  });
+
+  it('reads a deleted account as a wrong code, with the same words for any address', async () => {
+    // Auth answers a banned user 403 `user_banned` for any code, so a message of
+    // its own would tell anybody who knows an address that it was deleted. The
+    // one screen says both, and names the reason for the person it is true of.
+    auth.submitSignInCode.mockRejectedValue({ code: 'user_banned', status: 403 });
+    wrap(<SignInFlow />);
+    await sendCodeTo(ADDRESS);
+    await enter('123456');
+
+    expect(
+      await screen.findByText(
+        "That code didn't work. Check it, or send a new one. If you deleted your account, that address can't sign in again for 30 days.",
+      ),
+    ).toBeVisible();
   });
 
   it('empties the boxes after a wrong code and puts the cursor back in the first (SUS-204)', async () => {

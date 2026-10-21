@@ -88,7 +88,8 @@ export type Confirmation = {
   /** An address or map link. Never a link carrying a token — see `isSafeLink`. */
   readonly placeUrl?: string | undefined;
   readonly note?: string | undefined;
-  readonly confirmedBy: UserId;
+  /** Null once that person has deleted their account: the meetup is a fact, who pressed the button is not (ADR 0083). */
+  readonly confirmedBy: UserId | null;
   readonly status: ConfirmationStatus;
   readonly confirmedAt: Instant;
   /**
