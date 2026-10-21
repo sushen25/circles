@@ -1745,15 +1745,15 @@ export const en = {
    * `/terms` and `/privacy`, linked from Welcome, sign-in, the guest join, the
    * name step and the email offer on Sent (S1-22, S4-05). Not artboards.
    *
-   * Two things in here are not copy yet. `[OPERATOR NAME]` and `[EFFECTIVE DATE]`
-   * wait for the founder, and each `[CONFIRM COUNTRY]` waits for the place
-   * somebody has confirmed with the processor. They are left visible on purpose:
-   * a page that guessed would be a statement nobody checked. `legal.test.tsx`
-   * fails if the placeholders go missing before the founder's answer, and the PR
-   * that lands one is the PR that edits that test.
+   * The operator is read from `brand.operator` (`{operator}`), never typed, and
+   * the version is the date the words last changed. What is not settled stays
+   * visible on purpose: each `[CONFIRM COUNTRY]` waits for the place somebody has
+   * confirmed with the processor, and a page that guessed would be a statement
+   * nobody checked. `legal.test.tsx` fails if those markers go missing before
+   * that answer, and the PR that lands one is the PR that edits that test.
    */
   legal: {
-    version: 'In force from [EFFECTIVE DATE].',
+    version: 'In force from 21 October 2026.',
     // The line under the first ask (guest join, name, the email offer), S4-05.
     for_people_18_and_over: 'For people 18 and over. Read the',
     terms: 'terms',
@@ -1763,7 +1763,7 @@ export const en = {
 
     terms_title: 'The terms, briefly',
     terms_operator_heading: 'Who runs it',
-    terms_operator_body: '{brand} is run by [OPERATOR NAME]. You can reach us at {support}.',
+    terms_operator_body: '{brand} is run by {operator}. You can reach us at {support}.',
     terms_who_heading: 'Who it is for',
     terms_who_body:
       '{brand} is for people aged 18 and over, organising time with friends they already know. By using it you are telling us you are 18 or over.',
@@ -1786,7 +1786,7 @@ export const en = {
     privacy_title: 'Privacy, briefly',
     privacy_operator_heading: 'Who runs it',
     privacy_operator_body:
-      '{brand} is run by [OPERATOR NAME]. Write to {support} about anything on this page.',
+      '{brand} is run by {operator}. Write to {support} about anything on this page.',
     privacy_age_heading: 'Who it is for',
     privacy_age_body:
       '{brand} is for people aged 18 and over. If you are under 18, please do not use it. If you think someone under 18 has joined a circle, write to {support}.',

@@ -59,6 +59,7 @@ describe('the copy file', () => {
     const known = new Set([
       'brand',
       'domain',
+      'operator',
       'support',
       'circle',
       'inviter',

@@ -29,8 +29,10 @@ describe('what the privacy pages promise', () => {
     const text = textOf('privacy');
 
     expect(text).not.toMatch(NOT_YET);
-    expect(text).toContain('[OPERATOR NAME]');
-    expect(text).toContain('In force from [EFFECTIVE DATE].');
+    expect(text).toContain(`is run by ${brand.operator}.`);
+    expect(text).not.toContain('[OPERATOR NAME]');
+    expect(text).toContain('In force from 21 October 2026.');
+    expect(text).not.toContain('[EFFECTIVE DATE]');
     expect(text).toContain(`write to ${brand.supportEmail}`);
     expect(text).toContain('aged 18 and over');
   });
@@ -99,8 +101,10 @@ describe('what the privacy pages promise', () => {
     const text = textOf('terms');
 
     expect(text).not.toMatch(NOT_YET);
-    expect(text).toContain('[OPERATOR NAME]');
-    expect(text).toContain('In force from [EFFECTIVE DATE].');
+    expect(text).toContain(`is run by ${brand.operator}.`);
+    expect(text).not.toContain('[OPERATOR NAME]');
+    expect(text).toContain('In force from 21 October 2026.');
+    expect(text).not.toContain('[EFFECTIVE DATE]');
     expect(text).toContain('18 and over');
     expect(text).toContain('No ads. We do not sell your data');
     expect(text).toContain('12 months while you are in an active circle');
