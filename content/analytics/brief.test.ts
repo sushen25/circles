@@ -49,6 +49,8 @@ test('a reportable split still has to clear the lead or lag bar to be advice', (
   assert.doesNotMatch(renderBrief(split(1.05, 1)), /hook with a number/);
   assert.match(renderBrief(split(1.3, 0.9)).split('## Stop')[0], /- hook with a number: lift 1\.3 against 0\.9 without/);
   assert.match(renderBrief(split(0.7, 1.1)).split('## Stop')[1].split('## Too early')[0], /- hook with a number: lift 0\.7/);
+  // "without" leading is advice too: doing it is the thing to stop
+  assert.match(renderBrief(split(1, 1.6)).split('## Stop')[1].split('## Too early')[0], /- hook with a number: lift 1 against 1\.6 without/);
 });
 
 test('one ranked hour on a platform is nothing to compare, not a lead', () => {

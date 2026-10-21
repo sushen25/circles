@@ -10,7 +10,7 @@
  * Only what the scorecard ranked reaches "Do more of" and "Stop": a group
  * with n at MIN_N or more whose median lift is at least LEAD or at most LAG,
  * and a feature split whose gap is wider than the spread within its sides
- * and whose "yes" side clears the same bar.
+ * whose leading side clears the same bar (or trailing side the LAG one).
  * Everything under MIN_N is "Too early", which the skills read as no
  * information.
  */
@@ -42,12 +42,14 @@ export function renderBrief(c: Scorecard): string {
     if (g.median_lift! >= LEAD) more.push(line);
     else if (g.median_lift! <= LAG) stop.push(line);
   }
-  // A split is held to the same bar as a group: the "yes" side has to lead or lag by LEAD or LAG, not merely differ.
+  // A split is held to the same bar as a group, on whichever side leads: the leader at LEAD or more, or the trailer at
+  // LAG or less. When "yes" leads it is something to do more of; when "no" leads, doing it is something to stop.
   for (const s of c.splits.filter((x) => x.reportable)) {
     const yes = s.yes.median_lift ?? 1;
+    const no = s.no.median_lift ?? 1;
+    if (yes === no || (Math.max(yes, no) < LEAD && Math.min(yes, no) > LAG)) continue;
     const line = `- ${s.name}: lift ${num(s.yes.median_lift)} against ${num(s.no.median_lift)} without (n=${s.yes.n} vs ${s.no.n})`;
-    if (yes >= LEAD && yes > (s.no.median_lift ?? 0)) more.push(line);
-    else if (yes <= LAG && yes < (s.no.median_lift ?? 0)) stop.push(line);
+    (yes > no ? more : stop).push(line);
   }
   if (c.control?.ranked) {
     const { story_first: st, demo_first: d } = c.control;

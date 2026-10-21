@@ -607,7 +607,8 @@ minutes, every aggregate carries its n, and nothing under n=3 is ranked.
   within them. A split with no piece on one side is "no contrast yet", not
   "too early".
 - The brief's thresholds: "Do more of" at a median lift of 1.2 or more,
-  "Stop" at 0.8 or less, for a split's "yes" side as for a group; eight
+  "Stop" at 0.8 or less; a split goes in when its leading side clears 1.2
+  or its trailing side 0.8, under "Stop" when the side without leads; eight
   lines a section, sixty in all.
 - The scorecard and the brief are dated by the Melbourne day of the run.
 
