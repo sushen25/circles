@@ -6,6 +6,7 @@ import {
   Foot,
   Input,
   Label,
+  LegalLine,
   Notice,
   Screen,
   Small,
@@ -59,6 +60,9 @@ export type NameProps = {
    * a circle invite, and for an account naming itself, which is already in.
    */
   onHaveAccount?: (() => void) | undefined;
+  /** The terms and the privacy page, linked under the button (S4-05). */
+  onTerms?: (() => void) | undefined;
+  onPrivacy?: (() => void) | undefined;
 };
 
 function problemCopy(problem: NameProblem, circle: string, name: string): string {
@@ -93,6 +97,8 @@ export function NameScreen({
   onNext,
   onBack,
   onHaveAccount,
+  onTerms,
+  onPrivacy,
 }: NameProps) {
   return (
     <Screen>
@@ -153,6 +159,7 @@ export function NameScreen({
         {onHaveAccount === undefined ? null : (
           <Tertiary label={t('name', 'i_have_an_account')} onPress={onHaveAccount} />
         )}
+        <LegalLine onTerms={onTerms} onPrivacy={onPrivacy} />
       </Foot>
     </Screen>
   );

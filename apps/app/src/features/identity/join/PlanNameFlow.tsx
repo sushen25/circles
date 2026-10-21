@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 import { track } from '../../../analytics/track';
 import { joinPlan } from '../../../data/membership';
 import { NameScreen, type NameProblem } from '../NameScreen';
+import { useLegalLinks } from '../useLegalLinks';
 import { useHaveAccount } from './haveAccount';
 import { useNameStep } from './useNameStep';
 
@@ -43,6 +44,7 @@ export function PlanNameFlow({
 }: PlanNameFlowProps) {
   const joined = useJoinedFromPlan(code, onJoined, isHistoryEntry);
   const haveAccount = useHaveAccount();
+  const legal = useLegalLinks();
 
   const step = useNameStep<JoinPlanResponse>({
     join: (displayName, idempotencyKey) => joinPlan({ code, displayName, idempotencyKey }),
@@ -71,6 +73,8 @@ export function PlanNameFlow({
       onChangeText={step.onChangeText}
       onNext={() => void step.submit()}
       onBack={onBack}
+      onTerms={legal.onTerms}
+      onPrivacy={legal.onPrivacy}
       {...(forAccount ? {} : { onHaveAccount: haveAccount })}
     />
   );

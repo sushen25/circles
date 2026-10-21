@@ -12,6 +12,7 @@ export { CodeInput } from './CodeInput';
 export { DayGrid, type GridDay, type GridPaint } from './DayGrid';
 export { Icon, type IconName } from './Icon';
 export { Input } from './Input';
+export { LegalLine } from './LegalLine';
 export { ListRow } from './ListRow';
 export { LoadError, type LoadErrorExit } from './LoadError';
 export { Loading } from './Loading';

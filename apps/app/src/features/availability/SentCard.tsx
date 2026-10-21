@@ -3,8 +3,8 @@ import { CONSENT } from '@circles/config';
 import {
   Button,
   Card,
-  InlineLink,
   Input,
+  LegalLine,
   Notice,
   SettingRow,
   Small,
@@ -109,14 +109,8 @@ export function SentCard({
           />
         </SettingRow>
       )}
-      {/* Switch on: an account is made, so the policies are one tap away (SUS-190). */}
-      {savePlace !== true ? null : (
-        <Small>
-          {t('sent', 'for_people_18_and_over')}{' '}
-          <InlineLink onPress={onTerms}>{t('sent', 'terms')}</InlineLink> {t('sent', 'and')}{' '}
-          <InlineLink onPress={onPrivacy}>{t('sent', 'privacy')}</InlineLink>.
-        </Small>
-      )}
+      {/* Where an address is asked for, whatever the switch says: who it is for, and the policies (SUS-190, S4-05). */}
+      <LegalLine onTerms={onTerms} onPrivacy={onPrivacy} />
       {problem === undefined ? null : <Notice kind="warn">{problemCopy(problem)}</Notice>}
       {reference === undefined ? null : <Small>{t('sent', 'reference', { reference })}</Small>}
       <Button

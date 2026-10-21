@@ -21,7 +21,12 @@ export const copy = en;
 
 /** Values always available, so no caller has to remember to pass the brand. */
 function defaults(): Record<string, string> {
-  return { brand: brand.name, domain: brand.domain, support: brand.supportEmail };
+  return {
+    brand: brand.name,
+    operator: brand.operator,
+    domain: brand.domain,
+    support: brand.supportEmail,
+  };
 }
 
 /**

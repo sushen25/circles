@@ -8,6 +8,7 @@ export default function Route() {
 
   return (
     <PrivacyScreen
+      onFullPolicy={() => router.push('/privacy')}
       onBack={() => (router.canGoBack() ? router.back() : router.replace('/settings/account'))}
     />
   );
