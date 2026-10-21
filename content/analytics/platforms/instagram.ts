@@ -168,6 +168,18 @@ function iso(ts: string | undefined): string | undefined {
   return Number.isNaN(ms) ? ts : new Date(ms).toISOString();
 }
 
+/**
+ * The day a `values[].end_time` point describes. Meta labels a day bucket
+ * with the Pacific midnight that ends it (07:00 or 08:00 UTC the next
+ * morning), so the date in the label is one day late; twelve hours back
+ * lands inside the day the bucket covers, whichever offset is in force. A
+ * label that does not parse keeps its first ten characters.
+ */
+function bucketDay(endTime: string): string {
+  const ms = Date.parse(endTime);
+  return Number.isNaN(ms) ? endTime.slice(0, 10) : new Date(ms - 12 * 3_600_000).toISOString().slice(0, 10);
+}
+
 /** The platform's message for a refused call, token redacted, short enough for a raw.errors entry. */
 function describe(e: unknown): string {
   if (e instanceof HttpError) {
@@ -186,6 +198,14 @@ const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
 /* -------------------------------------------------------------- per media */
 
+/**
+ * The metrics every Reel and every feed post answers. `crossposted_views`
+ * and `facebook_views` are documented for Reels but refused outright (a
+ * fatal 400, error_subcode 2207086, "Insights are not available") for a
+ * Reel that is not crossposted to Facebook, which is every Reel here, and
+ * `profile_activity` is in the same family; asking for them would cost a
+ * refused call and a retry on every post, every night, so they stay out.
+ */
 const REEL_METRICS = [
   'views',
   'reach',
@@ -213,12 +233,18 @@ const MEDIA_MAP: Record<string, { to: Metric; scale?: (n: number) => number }> =
   reels_skip_rate: { to: 'skip_pct' },
 };
 
-/** The metric names a 400 names, out of the ones we asked for. */
+/**
+ * The metric names a 400 names, out of the ones we asked for. Meta puts the
+ * name in `error.message` for an unsupported metric and, for a metric that
+ * does not apply to this media, in `error_user_msg` beside a bare "Fatal",
+ * so both are read.
+ */
 function refused(e: unknown, asked: string[]): string[] {
   if (!(e instanceof HttpError) || e.status !== 400) return [];
   let message = e.body;
   try {
-    message = (JSON.parse(e.body) as GraphError).error?.message ?? e.body;
+    const err = (JSON.parse(e.body) as GraphError & { error?: { error_user_msg?: string } }).error;
+    message = [err?.message, err?.error_user_msg].filter(Boolean).join(' ') || e.body;
   } catch {
     /* keep the body as the message */
   }
@@ -403,10 +429,19 @@ async function account(day: string): Promise<AccountFetched> {
     }
   }
 
-  // 6: followers; empty under a hundred of them.
+  // 6: followers. The day's follower_count insight is the followers gained
+  // that day, not the total (and empty under a hundred of them); the total
+  // is a field on the user node, read beside it.
   {
     const res = await call('followers', { metric: 'follower_count', period: 'day', since, until });
-    for (const i of res?.data ?? []) if (i.name === 'follower_count') setMetric('followers', i);
+    for (const i of res?.data ?? []) if (i.name === 'follower_count') setMetric('new_followers', i);
+  }
+  try {
+    const profile = await get<{ id?: string; followers_count?: unknown }>(user, { fields: 'followers_count' });
+    raw.profile = profile;
+    if (isNumber(profile.followers_count)) metrics.followers = profile.followers_count;
+  } catch (e) {
+    raw.errors.profile = describe(e);
   }
 
   // 7: follows and unfollows, split.
@@ -440,32 +475,29 @@ async function account(day: string): Promise<AccountFetched> {
     }
   }
 
-  // 9: who follows, in buckets; empty under a hundred followers. A version
-  // that insists on a timeframe gets this month's.
+  // 9: who follows, in buckets; empty under a hundred followers. The metric
+  // takes a timeframe, and this month's describes the account as it stands.
   for (const bucket of ['age', 'city', 'country', 'gender'] as const) {
-    const name = `demographics_${bucket}`;
-    const params = { metric: 'follower_demographics', period: 'lifetime', metric_type: 'total_value', breakdown: bucket };
-    let res: Insights | undefined;
-    try {
-      res = await get<Insights>(`${user}/insights`, params);
-    } catch (e) {
-      if (/timeframe/i.test(describe(e))) res = await call(name, { ...params, timeframe: 'this_month' });
-      else raw.errors[name] = describe(e);
-    }
+    const res = await call(`demographics_${bucket}`, {
+      metric: 'follower_demographics',
+      period: 'lifetime',
+      metric_type: 'total_value',
+      breakdown: bucket,
+      timeframe: 'this_month',
+    });
     if (!res) continue;
-    raw[name] = res;
     const i = (res.data ?? []).find((d) => d.name === 'follower_demographics');
     breakdowns[`follower_${bucket}`] = i ? bucketsOf(i) : {};
   }
 
-  // 10: reach, day by day, for the last four weeks.
+  // 10: reach, day by day, for the last four weeks, each point keyed by the day its bucket covers.
   {
     const res = await call('reach_series', { metric: 'reach', period: 'day', since: since - 28 * DAY_S, until });
     for (const i of res?.data ?? []) {
       if (i.name !== 'reach') continue;
       const series: Record<string, number> = {};
       for (const v of i.values ?? []) {
-        if (v.end_time && isNumber(v.value)) series[v.end_time.slice(0, 10)] = v.value;
+        if (v.end_time && isNumber(v.value)) series[bucketDay(v.end_time)] = v.value;
       }
       breakdowns.reach_by_day = series;
     }

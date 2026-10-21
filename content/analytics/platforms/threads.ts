@@ -20,11 +20,15 @@
  *
  * Two rules shape the code more than the API does. The token only ever
  * travels through withQuery/getJson, never into a string that could be
- * logged, and THREADS_USER_ID (a repository secret, since the repository is
- * public) is scrubbed from any error that could reach account.jsonl. And no
- * person leaves this file: replies return { id, at, text } with the author
- * dropped and the account's own replies removed, and the account's
- * demographics are the bucketed counts Threads gives above 100 followers.
+ * logged, and it is blanked out of every response on the way in (Meta's
+ * paging links carry it, and raw is committed whole) and out of every
+ * error on the way out; THREADS_USER_ID is the account's id, which the
+ * workflows pass as a variable rather than a secret, and it is blanked
+ * from stored errors all the same, since an id in an error line helps
+ * nobody. And no person leaves this file: replies return { id, at, text }
+ * with the author dropped and the account's own replies removed, and the
+ * account's demographics are the bucketed counts Threads gives above 100
+ * followers.
  */
 import type { Metrics, Reply } from '../metrics.ts';
 import { daysUntil } from '../metrics.ts';
@@ -56,6 +60,8 @@ type Insight = {
   period?: string;
   values?: { value?: number; end_time?: string }[];
   total_value?: { value?: number; breakdowns?: Breakdown[] };
+  /** how `clicks` comes back: one entry per link on the account's profile and posts */
+  link_total_values?: { value?: number; link_url?: string }[];
 };
 type Insights = { data?: Insight[] };
 type ReplyItem = { id?: string; text?: string; timestamp?: string; username?: string; is_reply_owned_by_me?: boolean };
@@ -72,15 +78,45 @@ const userId = (): string => {
   return u;
 };
 
-/** One GET against the Graph host; the token goes in as a query parameter and is never interpolated. */
-function call<T>(path: string, params: Record<string, string | number | undefined> = {}): Promise<T> {
-  return getJson<T>(withQuery(`${BASE}/${path}`, { ...params, access_token: accessToken() }));
+/**
+ * The token's own value, blanked wherever it turns up. http.ts redacts the
+ * URL and the body of an error; this covers what it cannot know: Meta's
+ * `paging` links carry `access_token=` inside a response that goes whole
+ * into `raw`, and a refusal might echo the token in its message. The
+ * structure of a response is untouched; only the credential is blanked.
+ */
+function scrubText(s: string): string {
+  const token = env('THREADS_ACCESS_TOKEN');
+  let out = s.replace(/(access_token=)[^&\s"']+/gi, '$1…');
+  if (token) out = out.split(token).join('…');
+  return out;
+}
+
+function scrubDeep<T>(v: T): T {
+  if (typeof v === 'string') return scrubText(v) as T;
+  if (Array.isArray(v)) return v.map(scrubDeep) as T;
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, scrubDeep(x)])) as T;
+  return v;
+}
+
+function scrubError(e: unknown): Error {
+  if (e instanceof HttpError) return new HttpError(e.status, e.url, scrubText(e.body));
+  return new Error(scrubText(e instanceof Error ? e.message : String(e)));
+}
+
+/** One GET against the Graph host; the token goes in as a query parameter, never interpolated, and comes back out of nothing: every response and every error is scrubbed. */
+async function call<T>(path: string, params: Record<string, string | number | undefined> = {}): Promise<T> {
+  try {
+    return scrubDeep(await getJson<T>(withQuery(`${BASE}/${path}`, { ...params, access_token: accessToken() })));
+  } catch (e) {
+    throw scrubError(e);
+  }
 }
 
 /**
  * An error as it may be written to a file: the token is already blank
- * (http.ts), and the account id is blanked here, because it is a repository
- * secret and the repository is public.
+ * (http.ts and scrubError), and the account id is blanked here too; it is
+ * not a secret, but nothing in a stored error needs it.
  */
 function safeMessage(e: unknown): string {
   const msg = redact(e instanceof Error ? e.message : String(e));
@@ -98,6 +134,19 @@ function iso(ts: string | undefined): string {
   const fixed = ts.replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
   const ms = Date.parse(fixed);
   return Number.isNaN(ms) ? ts : new Date(ms).toISOString();
+}
+
+/**
+ * The day a `values[].end_time` point describes. Meta labels a day bucket
+ * with the Pacific midnight that ends it (07:00 or 08:00 UTC the next
+ * morning), so the date in the label is one day late; twelve hours back
+ * lands inside the day the bucket covers, whichever offset is in force. A
+ * label that does not parse keeps its first ten characters.
+ */
+function bucketDay(endTime: string | undefined): string {
+  const stamp = iso(endTime);
+  const ms = Date.parse(stamp);
+  return Number.isNaN(ms) ? stamp.slice(0, 10) : new Date(ms - 12 * 3_600_000).toISOString().slice(0, 10);
 }
 
 /** A metric's number, from either documented shape: `total_value.value`, or `values[]` summed (a lifetime value sums to itself, a day series to its total). */
@@ -208,13 +257,13 @@ async function account(day: string): Promise<AccountFetched> {
   const insights = await attempt('insights', { metric: ACCOUNT_METRICS, since, until });
   for (const d of insights?.data ?? []) {
     const v = valueOf(d);
-    if (v === undefined) continue;
     switch (d.name) {
       case 'views': {
+        if (v === undefined) break;
         m.views = v;
         const series: Record<string, number> = {};
         (d.values ?? []).forEach((point, i) => {
-          if (typeof point.value === 'number') series[iso(point.end_time).slice(0, 10) || `point_${i}`] = point.value;
+          if (typeof point.value === 'number') series[bucketDay(point.end_time) || `point_${i}`] = point.value;
         });
         if (Object.keys(series).length) breakdowns.views_by_day = series;
         break;
@@ -223,12 +272,29 @@ async function account(day: string): Promise<AccountFetched> {
       case 'replies':
       case 'reposts':
       case 'quotes':
-        m[d.name] = v;
+        if (v !== undefined) m[d.name] = v;
         break;
-      case 'clicks':
-        m.clicks = v;
-        m.link_taps = v;
+      case 'clicks': {
+        // Documented as link_total_values, one entry per link; the day's clicks is their sum, and the split is kept by link (the account's own).
+        const links = d.link_total_values;
+        if (Array.isArray(links)) {
+          const byLink: Record<string, number> = {};
+          let total = 0;
+          for (const l of links) {
+            if (typeof l.value !== 'number') continue;
+            total += l.value;
+            const key = l.link_url || 'unknown';
+            byLink[key] = (byLink[key] ?? 0) + l.value;
+          }
+          m.clicks = total;
+          m.link_taps = total;
+          if (Object.keys(byLink).length) breakdowns.clicks_by_link = byLink;
+        } else if (v !== undefined) {
+          m.clicks = v;
+          m.link_taps = v;
+        }
         break;
+      }
     }
   }
 

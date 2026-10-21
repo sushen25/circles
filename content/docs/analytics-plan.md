@@ -183,12 +183,12 @@ brief are regenerated from them and committed too.
 
 | File | What | Written by |
 |---|---|---|
-| `posts.jsonl` | one row per published post per platform per night: `date`, `slug`, `platform`, `id`, `from`, `age_days`, `metrics` in the common names from `metrics.ts` (`views`, `reach`, `likes`, `comments`, `shares`, `saves`, `reposts`, `quotes`, `watch_avg_s`, `watch_total_s`, `watch_pct`, `skip_pct`, `engaged_views`), plus `raw` as the platform returned it, every metric and breakdown included | `npm run analytics` |
-| `series.jsonl` | the same row shape, every two hours for a post's first 48 hours: the views-over-time curve, rebuilt from snapshots | `npm run analytics -- --series` |
-| `account.jsonl` | one row per platform per day for the account itself: followers, reach and views split by follower / non-follower and by surface, likes, comments, shares, saves by surface, profile link taps, accounts engaged, follows and unfollows, online-followers hours, and the demographic buckets once the platform returns them; `raw` beside the mapped names | `npm run analytics` |
+| `posts.jsonl` | one row per published post per platform per night: `date` and `at` (the pull's UTC day and time), `slug`, `family`, `platform`, `id`, `from`, `posted_at` (when the post went out), `age_days`, `metrics` in the common names from `metrics.ts` (`views`, `reach`, `likes`, `comments`, `replies`, `shares`, `saves`, `reposts`, `quotes`, `watch_avg_s`, `watch_total_s`, `watch_pct`, `skip_pct`, `engaged_views`), plus `raw` as the platform returned it, every metric and breakdown included | `npm run analytics` |
+| `series.jsonl` | the same row shape plus `age_hours`, every two hours for a post's first 48 hours: the views-over-time curve, rebuilt from snapshots | `npm run analytics -- --series` |
+| `account.jsonl` | one row per platform per day for the account itself. `date` is the UTC day the numbers describe: the day before the pull for a platform that reports by day, and the pull's own day for Bluesky and the YouTube channel totals, which are read as they stand; `at` is the pull time. Then followers, reach and views split by follower / non-follower and by surface, likes, comments, shares, saves by surface, profile link taps, accounts engaged, follows and unfollows, online-followers hours, and the demographic buckets once the platform returns them; `raw` beside the mapped names | `npm run analytics` |
 | `funnel.jsonl` | one row per tag per night from the Wenna export: `circles`, `plans_shared`, `answered`, `confirmed`; and one row per night for the `content` source's stalled first plans by state | `npm run analytics` (phase 3) |
-| `hand.jsonl` | hand-entered numbers: `date`, `slug`, `platform`, `metrics`, and for a transcribed screen `screen` (the screen's name) and `points` (a retention curve sampled at tenths, view sources as percentages, the follower split) | `npm run hand`, `/transcribe` |
-| `replies-seen.json` | ids of replies already written to `inbox/`, so each is written once | `npm run analytics` |
+| `hand.jsonl` | hand-entered numbers: `date`, `at`, `slug`, `platform`, `metrics`, `by` (`hand` for a typed number, `transcribed` for one read off a screen), and for a transcribed screen `screen` (the screen's name), `captured_at` (when the screenshot was taken) and `points` (a retention curve sampled at tenths, view sources as percentages, the follower split) | `npm run hand`, `/transcribe` |
+| `replies-seen.json` | a hash of `<platform>:<id>` for every reply already written to `inbox/`, so each is written once and a Bluesky reply's `at://` uri, which names the replier, never lands in the file | `npm run analytics` |
 | `features.jsonl` | one row per piece: what the piece is, measured from the file (below) | `npm run measure`, run by the pull for any piece without a row |
 | `scorecard.json`, `scorecard.md` | the joined, age-matched tables | `npm run scorecard` |
 | `../context/learned.md` | the brief: what to do more of, what to stop, too early, best windows; under sixty lines, dated, never hand-edited | `npm run brief` |
@@ -213,20 +213,25 @@ kept beside it so a renamed metric never loses history.
 - **Ages.** The row carries `age_days` from the ledger's `at` (the actual,
   jittered time the post went out), which is what the scorecard aligns on.
 - **Hand posts and auto-claim.** The publisher prints the hand text with the
-  tag already in it. A Short whose description carries `from=yt-<slug>` is
-  claimed by the pull without anyone typing: it scans the channel's recent
-  uploads, matches the tag, writes the id into the queue file's `published:`
-  map and a `by: hand` row into the ledger with the platform's own publish
-  time. TikTok captions rarely carry the link (it is not clickable there and
-  the caption is 150 characters), so TikTok is claimed by hand:
-  `npm run posted tiktok <slug> <url-or-id> [--at <iso>]`. A TikTok draft's
-  `publish_id`, which the publisher leaves in the `published:` map with a
-  `drafted` ledger row, is replaced by the video id when the founder claims
-  it, and a `posted` row is appended under the `drafted` one. The same
-  command works for youtube and reddit when auto-claim has nothing to match.
-- **Hand numbers.** `npm run hand tiktok <slug> views=1240 saves=18 shares=9`
-  appends to `hand.jsonl` with today's date; the scorecard treats a hand row
-  as a snapshot like any other. This replaces typing into `experiments.md`.
+  tag already in it. A hand post whose caption or description carries its
+  tag (`from=yt-<slug>` on a Short) is claimed by the pull without anyone
+  typing: it scans the recent feed of every platform whose module has one
+  (Bluesky, Instagram, Threads and YouTube), matches the tag, writes the id
+  into the queue file's `published:` map and a `by: hand` row into the
+  ledger with the platform's own publish time. TikTok captions rarely carry
+  the link (it is not clickable there and the caption is 150 characters),
+  so TikTok is claimed by hand: `npm run posted -- tiktok <slug> <url>
+  [--at <iso>]`, which takes the video id out of the pasted URL. A TikTok
+  draft's `publish_id`, which the publisher leaves in the `published:` map
+  with a `drafted` ledger row, is replaced by the video id when the founder
+  claims it, and a `posted` row is appended under the `drafted` one. The
+  same command works for any platform when auto-claim has nothing to match,
+  Reddit included, where the URL is the id.
+- **Hand numbers.** `npm run hand -- tiktok <slug> views=1240 saves=18
+  shares=9` appends to `hand.jsonl` with today's date; the scorecard treats
+  a hand row as a snapshot like any other. This replaces typing into
+  `experiments.md`. The `--` after the script name is what lets a flag reach
+  the script: npm swallows a bare `--flag` otherwise.
 - **Replies.** Each platform's `replies` returns `{ id, at, text }` and nothing
   else: the module drops the author before returning. The pull writes new ones
   (not in `replies-seen.json`) to `inbox/<date>-replies.md` under
@@ -240,8 +245,11 @@ kept beside it so a renamed metric never loses history.
   old and prints the `gh secret set` line to run; the Action cannot write its
   own secrets, and a token that can is a bigger secret than the one it would
   refresh. The pull reads `IG_TOKEN_EXPIRES` (an ISO date) and the Threads
-  equivalent and exits non-zero inside seven days of expiry, after
-  committing what it got.
+  equivalent and exits non-zero inside seven days of expiry, after writing
+  what it got; it exits non-zero the same way when a configured platform
+  failed on every post it had. A platform that cannot read with the
+  credentials it has (a private Short with an API key alone, an upload-only
+  YouTube token) is a skip, not a failure.
 - **Rate.** One piece a day on four platforms is a handful of calls a night.
   No retries beyond one; a platform that fails is printed and the others
   continue, as the publisher does.
@@ -264,6 +272,9 @@ and average time watched, impression sources. Every rate Instagram shows
 under "What affects your views" is a count divided by views, so
 `metrics.ts` derives skip, share, like, save, comment and repost rates from
 the stored counts; the like rate is stored and shown but never ranked.
+`raw` keeps the brand account's own identity, since its handle, id and
+channel title come back in every response, and strips other people's: a
+quoted or mentioned author on Bluesky never reaches the file.
 
 **Tier 2: per account per day, from the API.** `account.jsonl`. This is
 where the follower / non-follower split lives on Instagram (reach and views
@@ -416,7 +427,7 @@ Where it is read:
 
 Fortnightly, aligned to the rows of `experiments.md`.
 
-- `npm run retro [--fortnight 2026-10-20]` prints the filled table rows for
+- `npm run retro [-- --fortnight 2026-10-20]` prints the filled table rows for
   every live family in that fortnight (Pieces, Views, Saves+shares /1k,
   Circles made, Plans shared) from the scorecard, as markdown, keyed by the
   row's first two cells.
@@ -496,10 +507,14 @@ git add analytics inbox context/learned.md queue published publish
 
 Secrets added to the repository: `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`,
 `YOUTUBE_REFRESH_TOKEN` (already there for the publisher), `YOUTUBE_API_KEY`,
-`CONTENT_FUNNEL_SECRET`, `WENNA_FUNNEL_URL` (a variable), later `TIKTOK_*`.
-Threads and Instagram are already there. The job keeps `contents: write` and
-still touches only `content/**`, so ADR 0081's promise holds: these commits
-run nothing else.
+`CONTENT_FUNNEL_SECRET`, later `TIKTOK_*`; and two repository variables,
+`YOUTUBE_CHANNEL_ID` (needed for the account row and auto-claim while only
+the API key is set; open point 3) and `WENNA_FUNNEL_URL`. The Threads and
+Instagram tokens are already there. `IG_USER_ID`, `THREADS_USER_ID` and
+`BSKY_HANDLE` are repository variables, not secrets: each is an account
+identifier, public on every post and written into the committed raw rows.
+The job keeps `contents: write` and still touches only `content/**`, so
+ADR 0081's promise holds: these commits run nothing else.
 
 A second schedule, `content-series.yml`, runs `npm run analytics --
 --series` every two hours and commits only when it has rows, which is only
@@ -514,6 +529,11 @@ runs there and now writes `timing:`. The Routine that runs `/daily` sees
 `learned.md` and the inbox on its clone of `main`; it needs no token. The
 `/retro` Routine needs none either. `/transcribe` runs wherever the founder
 drops the screenshots, which is a laptop, and needs no token.
+
+**Checks.** `content-check.yml` runs `npm run typecheck` and `npm test` on
+Node 22 for any change under `content/`, on a pull request and on `main`;
+the folder is outside the pnpm gate (ADR 0081), so this is its one check,
+and it makes no network call and needs no secret.
 
 Failure modes, in order of likelihood: a token expires (the run fails loudly,
 `npm run tokens` fixes it in a minute); a platform renames a metric (the raw
@@ -585,8 +605,10 @@ than a text channel; Reddit read-only. Each is one module in
    present. The refresh keeps the scopes it was issued with.
 3. **YouTube** reads nothing today: the refresh token has `youtube.upload`
    only. Phase 1 ships with an API key for the public numbers and comment
-   text, and the retention metrics (watch percentage, traffic source) wait
-   for a re-consent that adds `youtube.readonly` and `yt-analytics.readonly`.
+   text, with `YOUTUBE_CHANNEL_ID` beside it (a key alone cannot say whose
+   channel it is, and the account row and auto-claim need to know), and
+   the retention metrics (watch percentage, traffic source) wait for a
+   re-consent that adds `youtube.readonly` and `yt-analytics.readonly`.
    The same sign-in carries all three scopes; the publisher's adapter keeps
    working with it.
 3a. **Threads** needs its OAuth sign-in before any Threads row exists. The

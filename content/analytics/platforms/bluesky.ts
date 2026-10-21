@@ -14,12 +14,18 @@
  * returns id, time and text and nothing else, drops the account's own
  * replies by did, and never returns the thread itself; `recent()` and
  * `account()` return counts and the account's own post text. The getPosts
- * answer stored as `raw` names only the account's own profile, as every
- * post view does, and raw is never trimmed. BSKY_APP_PASSWORD, which the
- * publisher needs, is never read here.
+ * answer stored as `raw` can name another person: a quote post carries the
+ * quoted author (did, handle, displayName, avatar) under `embed`, nested
+ * once more when the quote comes with media, and a mention facet carries
+ * a did. Before raw leaves metrics(), every author block below the post's
+ * own loses those four fields, and every did that is not the account's own
+ * is blanked wherever it appears (a quoted post's uri, a mention facet, a
+ * CDN link); the post's own author block stays, as every post view carries
+ * it, and nothing else is trimmed. BSKY_APP_PASSWORD, which the publisher
+ * needs, is never read here.
  */
-import type { Metrics, Reply } from '../metrics.ts';
-import { env, type AccountFetched, type Configured, type Fetched, type PlatformModule, type RecentPost, type TokenState } from './module.ts';
+import { dateOf, type Metrics, type Reply } from '../metrics.ts';
+import { env, NotConfigured, type AccountFetched, type Configured, type Fetched, type PlatformModule, type RecentPost, type TokenState } from './module.ts';
 import { getJson, HttpError, withQuery } from './http.ts';
 
 export const BSKY_API = 'https://public.api.bsky.app/xrpc';
@@ -34,6 +40,8 @@ type PostView = {
   repostCount?: number;
   replyCount?: number;
   quoteCount?: number;
+  /** a save */
+  bookmarkCount?: number;
 };
 type GetPosts = { posts?: PostView[] };
 /** A thread node: a post with its replies, or a blocked / not-found placeholder that carries no `post`. */
@@ -49,15 +57,41 @@ const POST_URL = /^(?:https?:\/\/)?(?:www\.)?bsky\.app\/profile\/([^/?#\s]+)\/po
 
 const xrpc = (method: string, params: Record<string, string | number | undefined>) => withQuery(`${BSKY_API}/${method}`, params);
 
-/** The account, for the calls that need one. Only `account()` and `recent()` do. */
+/** The account, for the calls that need one. Only `account()` and `recent()` do; without it they throw NotConfigured, which the pull logs as a skip. */
 function actor(): string {
   const h = env('BSKY_HANDLE');
-  if (!h) throw new Error('bluesky: BSKY_HANDLE unset; the account row and the recent feed need the account');
+  if (!h) throw new NotConfigured('bluesky: BSKY_HANDLE unset; the account row and the recent feed need the account');
   return h;
 }
 
 /** The post's own time: what the client wrote, or when the AppView saw it. */
 const timeOf = (p: PostView): string | undefined => p.record?.createdAt ?? p.indexedAt;
+
+/** A did wherever it sits in a string: did:plc:…, did:web:… */
+const DID = /did:[a-z]+:[A-Za-z0-9._%:-]*[A-Za-z0-9]/g;
+/** What a profile view carries that names its person. */
+const PERSON = new Set(['did', 'handle', 'displayName', 'avatar']);
+
+/**
+ * The post view with every person but the account blanked (see the header).
+ * An author block below the post's own loses its person fields, and a did
+ * other than the account's is blanked in any string, so a quoted post's uri
+ * and a mention facet go with the author block. The post's own author
+ * block is kept whole; its did is what "the account's own" means here.
+ */
+function scrubOthers(post: PostView): PostView {
+  const own = post.author?.did;
+  const walk = (v: unknown, inAuthor = false): unknown => {
+    if (typeof v === 'string') return v.replace(DID, (d) => (d === own ? d : '…'));
+    if (Array.isArray(v)) return v.map((x) => walk(x));
+    if (v && typeof v === 'object') {
+      return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, inAuthor && PERSON.has(k) ? '…' : walk(x, k === 'author')]));
+    }
+    return v;
+  };
+  const { author, ...rest } = post;
+  return { ...(walk(rest) as Omit<PostView, 'author'>), ...(author ? { author } : {}) };
+}
 
 async function getPost(uri: string): Promise<{ post: PostView | undefined; raw: GetPosts }> {
   const raw = await getJson<GetPosts>(xrpc('app.bsky.feed.getPosts', { uris: uri }));
@@ -80,7 +114,8 @@ export const bluesky: PlatformModule = {
     if (typeof post.repostCount === 'number') metrics.reposts = post.repostCount;
     if (typeof post.replyCount === 'number') metrics.replies = post.replyCount;
     if (typeof post.quoteCount === 'number') metrics.quotes = post.quoteCount;
-    return { metrics, raw };
+    if (typeof post.bookmarkCount === 'number') metrics.saves = post.bookmarkCount;
+    return { metrics, raw: { ...raw, posts: (raw.posts ?? []).map(scrubOthers) } };
   },
 
   /**
@@ -113,14 +148,18 @@ export const bluesky: PlatformModule = {
     return out;
   },
 
-  /** The profile's three counts. `day` is the caller's: Bluesky has no by-day endpoint, so the row is today's. */
+  /**
+   * The profile's three counts. Bluesky has no by-day endpoint: the counts
+   * are read as they stand at pull time, so the row is today's whatever
+   * day was asked for, and `day` says so.
+   */
   async account(_day: string): Promise<AccountFetched> {
     const profile = await getJson<Profile>(xrpc('app.bsky.actor.getProfile', { actor: actor() }));
     const metrics: Record<string, number> = {};
     if (typeof profile.followersCount === 'number') metrics.followers = profile.followersCount;
     if (typeof profile.followsCount === 'number') metrics.follows = profile.followsCount;
     if (typeof profile.postsCount === 'number') metrics.posts = profile.postsCount;
-    return { metrics, breakdowns: {}, raw: { profile } };
+    return { metrics, breakdowns: {}, raw: { profile }, day: dateOf(new Date()) };
   },
 
   /** The account's last fifty posts, replies and reposts left out, newest first. */

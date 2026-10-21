@@ -25,7 +25,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Platform } from '../lib/queue.ts';
 import { META, META_TOKEN_DAYS, canRenewInstagram, renew as realRenew, type MetaPlatform, type Renewal } from '../publish/meta-tokens.ts';
-import { TOKEN_WARN_DAYS, daysUntil } from './metrics.ts';
+import { daysUntil, expiring } from './metrics.ts';
 import { redact } from './platforms/http.ts';
 import { env as realEnv, type PlatformModule, type TokenState } from './platforms/module.ts';
 
@@ -152,13 +152,13 @@ export async function run(argv: string[], deps: Partial<Deps> = {}): Promise<num
     }
   }
 
-  // Loud when expiring: a Meta date from .env (renewed or not), or any date a module reported.
+  // Loud when expiring: a Meta date from .env (renewed or not), or any date a module reported, by the boundary the pull uses.
   const checked = new Set<string>();
   const warn = (platform: string, expires: string) => {
     if (checked.has(platform)) return;
     checked.add(platform);
     const days = daysUntil(expires, now);
-    if (days < TOKEN_WARN_DAYS) {
+    if (expiring(days)) {
       failed = true;
       d.error(`${platform}: token ${days < 0 ? 'expired' : `expires in ${days} days`} (${expires}); renew it now`);
     }

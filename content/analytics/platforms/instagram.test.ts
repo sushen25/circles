@@ -5,7 +5,7 @@
  * that should not happen (a POST, a stray host) cannot slip by.
  */
 import assert from 'node:assert/strict';
-import { afterEach, beforeEach, test } from 'node:test';
+import { after, afterEach, beforeEach, test } from 'node:test';
 import { clock } from './http.ts';
 import { instagram } from './instagram.ts';
 
@@ -17,6 +17,9 @@ let calls: Call[] = [];
 /** Route by path: the first route whose test matches answers. */
 let routes: { test: (u: URL, n: number) => boolean; reply: (u: URL) => Response }[] = [];
 const realFetch = globalThis.fetch;
+const realSleep = clock.sleep;
+/** Snapshotted before the first test and restored after the last, so nothing here leaks past the file. */
+const savedEnv = { ...process.env };
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 const graphError = (message: string, status = 400) => json({ error: { message, type: 'OAuthException', code: 100, fbtrace_id: 'x' } }, status);
@@ -53,6 +56,12 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.fetch = realFetch;
+});
+
+after(() => {
+  clock.sleep = realSleep;
+  for (const k of Object.keys(process.env)) if (!(k in savedEnv)) delete process.env[k];
+  Object.assign(process.env, savedEnv);
 });
 
 const urlsOf = (path: string | RegExp) =>
@@ -304,13 +313,15 @@ const total = (name: string, value: number, dimension?: string, results?: Record
   },
 });
 
-test('account: thirteen independent reads for the day, mapped into metrics and breakdowns, a refusal recorded and the rest kept', async () => {
+test('account: thirteen insight reads and the profile for the day, mapped into metrics and breakdowns, a refusal recorded and the rest kept', async () => {
   const day = '2026-10-21';
   const since = Date.UTC(2026, 9, 21) / 1000;
   const until = since + 86_400;
   const q = (u: URL, k: string) => u.searchParams.get(k);
   const insights = new RegExp(`/${USER}/insights$`);
 
+  // The user node carries the follower total; the day's follower_count insight is the followers gained that day.
+  on(new RegExp(`/${USER}$`), { id: USER, followers_count: 57 });
   on(insights, { data: [total('reach', 14, 'follow_type', { FOLLOWER: 4, NON_FOLLOWER: 10 }), total('views', 33, 'follow_type', { FOLLOWER: 9, NON_FOLLOWER: 24 })] }, (u) => q(u, 'breakdown') === 'follow_type' && q(u, 'metric') === 'reach,views');
   on(insights, { data: [total('reach', 14, 'media_product_type', { REEL: 14 }), total('views', 33, 'media_product_type', { REEL: 33 })] }, (u) => q(u, 'breakdown') === 'media_product_type' && q(u, 'metric') === 'reach,views');
   on(
@@ -351,10 +362,14 @@ test('account: thirteen independent reads for the day, mapped into metrics and b
   for (const u of urls.slice(8, 12)) {
     assert.equal(u.searchParams.get('period'), 'lifetime');
     assert.equal(u.searchParams.get('metric_type'), 'total_value');
+    assert.equal(u.searchParams.get('timeframe'), 'this_month');
     assert.equal(u.searchParams.has('since'), false, 'demographics are a snapshot');
   }
   assert.equal(urls[12].searchParams.get('since'), String(since - 28 * 86_400));
   assert.equal(urls[12].searchParams.get('until'), String(until));
+  const [profile] = urlsOf(new RegExp(`/${USER}$`));
+  assert.equal(profile.searchParams.get('fields'), 'followers_count');
+  assert.equal(profile.searchParams.get('access_token'), TOKEN);
 
   assert.deepEqual(metrics, {
     reach: 14,
@@ -368,7 +383,8 @@ test('account: thirteen independent reads for the day, mapped into metrics and b
     reposts: 1,
     accounts_engaged: 5,
     link_taps: 2,
-    followers: 42,
+    new_followers: 42,
+    followers: 57,
   });
   assert.equal(breakdowns.follows_by_type, undefined, 'a refused breakdown is absent, not empty');
   assert.deepEqual(breakdowns, {
@@ -387,7 +403,8 @@ test('account: thirteen independent reads for the day, mapped into metrics and b
     follower_city: {},
     follower_country: { AU: 15 },
     follower_gender: {},
-    reach_by_day: { '2026-10-20': 3, '2026-10-21': 14 },
+    // each point is labelled with the Pacific midnight that ends its day; the key is the day the bucket covers
+    reach_by_day: { '2026-10-19': 3, '2026-10-20': 14 },
   });
 
   const r = raw as Record<string, unknown> & { errors: Record<string, string> };
@@ -402,10 +419,12 @@ test('account: thirteen independent reads for the day, mapped into metrics and b
     'interactions_surface',
     'link_taps',
     'online',
+    'profile',
     'reach_series',
     'reach_views_follow',
     'reach_views_surface',
   ]);
+  assert.deepEqual(r.profile, { id: USER, followers_count: 57 });
   assert.deepEqual(Object.keys(r.errors), ['follows']);
   assert.match(r.errors.follows, /^400 .*under 100 followers/);
   assert.ok(!JSON.stringify(r).includes(TOKEN), 'no token anywhere in raw');
@@ -414,18 +433,33 @@ test('account: thirteen independent reads for the day, mapped into metrics and b
   assert.match(series.paging.previous, /access_token=…&/);
 });
 
-test('account: a version that insists on a timeframe for demographics gets this month, once per bucket', async () => {
+test('account: demographics ask for this month from the first request, once per bucket', async () => {
   const insights = new RegExp(`/${USER}/insights$`);
+  // A request without the timeframe would be refused; none is made.
   on(insights, () => graphError('(#100) timeframe parameter is required for follower_demographics'), (u) => u.searchParams.get('metric') === 'follower_demographics' && !u.searchParams.has('timeframe'));
   on(insights, { data: [total('follower_demographics', 0, 'age', { '18-24': 2 })] }, (u) => u.searchParams.get('metric') === 'follower_demographics' && u.searchParams.get('breakdown') === 'age');
-  on(insights, { data: [] }, (u) => u.searchParams.get('metric') === 'follower_demographics');
   on(insights, { data: [] });
+  on(new RegExp(`/${USER}$`), { id: USER, followers_count: 3 });
   const { breakdowns, raw } = await instagram.account!('2026-10-21');
   const demo = urlsOf(insights).filter((u) => u.searchParams.get('metric') === 'follower_demographics');
-  assert.equal(demo.length, 8, 'each bucket asked twice');
+  assert.equal(demo.length, 4, 'each bucket asked once');
+  for (const u of demo) assert.equal(u.searchParams.get('timeframe'), 'this_month');
   assert.deepEqual(breakdowns.follower_age, { '18-24': 2 });
   assert.deepEqual(breakdowns.follower_city, {});
   assert.deepEqual((raw as { errors: Record<string, string> }).errors, {});
+});
+
+test('account: a refused profile read lands in raw.errors.profile and the day\'s new followers stay', async () => {
+  const insights = new RegExp(`/${USER}/insights$`);
+  on(insights, { data: [{ name: 'follower_count', period: 'day', values: [{ value: 2, end_time: '2026-10-22T07:00:00+0000' }] }] }, (u) => u.searchParams.get('metric') === 'follower_count');
+  on(insights, { data: [] });
+  on(new RegExp(`/${USER}$`), () => graphError('(#10) Application does not have permission for this action', 403));
+  const { metrics, raw } = await instagram.account!('2026-10-21');
+  assert.deepEqual(metrics, { new_followers: 2 });
+  const r = raw as { errors: Record<string, string>; profile?: unknown };
+  assert.equal(r.profile, undefined);
+  assert.match(r.errors.profile, /^403 .*permission/);
+  assert.ok(!JSON.stringify(r).includes(TOKEN));
 });
 
 test('account: a day that is not a day is refused before any call', async () => {

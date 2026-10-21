@@ -15,12 +15,16 @@
  *   npm run analytics -- --dry           # make the calls, write nothing, say what would be written
  *   npm run analytics -- --no-replies --no-account --no-claim
  *
- * A platform with no module or no token is skipped and says so, once. A
+ * A platform with no module or no token is skipped and says so, once. So is
+ * a call a module declines because asking again would change nothing
+ * (module.ts: Unreadable, a private Short read with an API key alone;
+ * NotConfigured, an account or recent call that needs a setting the module
+ * does not require): a `skip` line, never a `FAIL`, outside the tally. A
  * platform that fails on every post it had, or a Meta token inside seven
  * days of expiry, makes the exit code 1 after everything has been written,
  * so the Action still commits what it got and somebody notices. Nothing
  * here posts, edits or deletes on any platform: every call is a read.
- * TikTok has no module yet; its numbers arrive by `npm run hand`.
+ * TikTok has no module yet; its numbers arrive by `npm run hand -- …`.
  */
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -28,20 +32,21 @@ import { fileURLToPath } from 'node:url';
 import { listQueue, type Platform, type QueueItem } from '../lib/queue.ts';
 import { PLATFORM_PREFIX, sourceRef } from '../lib/links.ts';
 import { readLedger, type Ledger } from '../publish/guards.ts';
+import { META, type MetaPlatform } from '../publish/meta-tokens.ts';
 import {
   SERIES_HOURS,
-  TOKEN_WARN_DAYS,
   ageDays,
   ageHours,
   appendJsonl,
   dateOf,
   daysUntil,
+  expiring,
   readJsonl,
   type AccountRow,
   type PostRow,
   type SeriesRow,
 } from './metrics.ts';
-import type { PlatformModule, RecentPost } from './platforms/module.ts';
+import { NotConfigured, Unreadable, env as realEnv, type PlatformModule, type RecentPost } from './platforms/module.ts';
 import { claim } from './claim.ts';
 import { writeReplies, type ReplyEntry } from './inbox.ts';
 
@@ -84,11 +89,8 @@ export const DEFAULT_DIRS: Dirs = {
   inbox: 'inbox',
 };
 
-/** The Meta tokens whose expiry the nightly run watches; `npm run tokens` renews them. */
-const TOKEN_EXPIRY = [
-  ['Instagram', 'IG_TOKEN_EXPIRES'],
-  ['Threads', 'THREADS_TOKEN_EXPIRES'],
-] as const;
+/** How the Meta platforms are named in the expiry lines; their token and expiry keys are publish/meta-tokens.ts's META. */
+const META_NAMES: Record<MetaPlatform, string> = { instagram: 'Instagram', threads: 'Threads' };
 
 export function parseFlags(argv: string[]): Flags {
   const flags: Flags = { series: false, dry: false, replies: true, account: true, claim: true };
@@ -154,15 +156,21 @@ export function carriesTag(text: string, tag: string): boolean {
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+/** A module saying it cannot, and that asking again would change nothing (module.ts): a skip line, outside the tally and the failure count. */
+const skippable = (e: unknown): boolean => e instanceof Unreadable || e instanceof NotConfigured;
+
 export async function runPull(opts: {
   now: Date;
   flags: Flags;
   dirs: Dirs;
   modules: Partial<Record<Platform, PlatformModule>>;
   log?: (line: string) => void;
+  /** one env var, trimmed, undefined when unset or blank; the tests hand in values instead of touching process.env */
+  env?: (k: string) => string | undefined;
 }): Promise<Summary> {
   const { now, flags, dirs, modules } = opts;
   const log = opts.log ?? console.log;
+  const env = opts.env ?? realEnv;
   const date = dateOf(now);
   const at = now.toISOString();
   // The account rows describe the UTC day before the pull, the last whole one the platforms can report on.
@@ -232,12 +240,24 @@ export async function runPull(opts: {
         raw: f.raw,
       };
     } catch (e) {
+      if (skippable(e)) {
+        log(`skip  ${p.item.fm.slug} ${p.platform}: ${message(e)}`);
+        return undefined;
+      }
       t.failed++;
       summary.failures++;
       log(`FAIL  ${p.item.fm.slug} ${p.platform}: ${message(e)}`);
       return undefined;
     }
   }
+
+  // An account or recent call a module declines is one skip line per platform and reason per run.
+  const skipped = new Set<string>();
+  const skipOnce = (line: string) => {
+    if (skipped.has(line)) return;
+    skipped.add(line);
+    log(`skip  ${line}`);
+  };
 
   const finish = (): Summary => {
     for (const [platform, t] of tally) {
@@ -246,15 +266,24 @@ export async function runPull(opts: {
         log(`FAIL  ${platform}: failed on every post it had`);
       }
     }
+    // A Meta expiry is checked only beside its token: an unset token is a platform that is off, not one expiring. A token
+    // whose expiry was never recorded gets a note, because `npm run tokens -- --github` is what records it.
     if (!flags.series) {
-      for (const [name, key] of TOKEN_EXPIRY) {
-        const value = process.env[key]?.trim();
-        if (!value) continue;
+      for (const platform of Object.keys(META) as MetaPlatform[]) {
+        if (flags.only && platform !== flags.only) continue;
+        const { tokenKey, expiresKey } = META[platform];
+        const name = META_NAMES[platform];
+        if (!env(tokenKey)) continue;
+        const value = env(expiresKey);
+        if (!value) {
+          log(`note  ${name} token: ${expiresKey} unset; run npm run tokens -- --github`);
+          continue;
+        }
         const days = daysUntil(value, now);
         if (Number.isNaN(days)) {
-          log(`EXPIRING ${name} token: ${key} is not a date (${value}); run npm run tokens`);
+          log(`EXPIRING ${name} token: ${expiresKey} is not a date (${value}); run npm run tokens`);
           summary.exitCode = 1;
-        } else if (days <= TOKEN_WARN_DAYS) {
+        } else if (expiring(days)) {
           log(`EXPIRING ${name} token: ${days} days (${value}); run npm run tokens`);
           summary.exitCode = 1;
         }
@@ -297,8 +326,11 @@ export async function runPull(opts: {
         try {
           list = await m.recent!();
         } catch (e) {
-          summary.failures++;
-          log(`FAIL  recent ${m.platform}: ${message(e)}`);
+          if (skippable(e)) skipOnce(`${m.platform}: ${message(e)}`);
+          else {
+            summary.failures++;
+            log(`FAIL  recent ${m.platform}: ${message(e)}`);
+          }
           list = [];
         }
         recentCache.set(m.platform, list);
@@ -349,15 +381,20 @@ export async function runPull(opts: {
         const replies = await m.replies(p.id);
         if (replies.length) entries.push({ slug: row.slug, platform: p.platform, replies });
       } catch (e) {
-        summary.failures++;
-        log(`FAIL  ${row.slug} ${p.platform} replies: ${message(e)}`);
+        if (skippable(e)) log(`skip  ${row.slug} ${p.platform}: ${message(e)}`);
+        else {
+          summary.failures++;
+          log(`FAIL  ${row.slug} ${p.platform} replies: ${message(e)}`);
+        }
       }
     }
   }
 
   // Tier 2: the account itself, one row per platform per day. The day asked for, written as the row's `date` and compared
   // with the rows already there, is yesterday (UTC), not the pull's own date: the nightly job runs at 16:15 UTC, so
-  // today's Instagram and YouTube day numbers would be partial. `at` is still the time of the pull.
+  // today's Instagram and YouTube day numbers would be partial. A module that reads the account as it stands (Bluesky,
+  // the YouTube channel totals) answers with its own day instead; the row is stamped with that, and the check for a row
+  // already there runs again against it, after the call, which is cheap for such a module. `at` is still the pull time.
   if (flags.account) {
     const have = readJsonl<AccountRow>(paths.account);
     for (const platform of Object.keys(modules) as Platform[]) {
@@ -369,13 +406,30 @@ export async function runPull(opts: {
       }
       try {
         const a = await m.account(accountDay);
-        const row: AccountRow = { date: accountDay, at, platform, metrics: a.metrics, breakdowns: a.breakdowns, raw: a.raw };
+        const day = a.day ?? accountDay;
+        if (day !== accountDay && have.some((r) => r.date === day && r.platform === platform)) {
+          log(`acct  ${platform}: already have ${day}`);
+          continue;
+        }
+        // Every call refused (a placeholder token, a revoked permission) leaves no number at all; a row
+        // of nothing but errors would be written every night and read as a day with nothing in it.
+        if (!Object.keys(a.metrics).length && !Object.keys(a.breakdowns).length) {
+          const errors = (a.raw as { errors?: Record<string, string> } | undefined)?.errors;
+          const first = errors && Object.values(errors)[0];
+          summary.failures++;
+          log(`FAIL  account ${platform}: nothing readable${first ? ` (${first})` : ''}`);
+          continue;
+        }
+        const row: AccountRow = { date: day, at, platform, metrics: a.metrics, breakdowns: a.breakdowns, raw: a.raw };
         write(paths.account, row, `account row ${platform}`);
         summary.accountRows++;
-        log(`acct  ${platform}: ${Object.keys(a.metrics).length} metrics, ${Object.keys(a.breakdowns).length} breakdowns`);
+        log(`acct  ${platform}: ${Object.keys(a.metrics).length} metrics, ${Object.keys(a.breakdowns).length} breakdowns${day !== accountDay ? ` for ${day}` : ''}`);
       } catch (e) {
-        summary.failures++;
-        log(`FAIL  account ${platform}: ${message(e)}`);
+        if (skippable(e)) skipOnce(`${platform}: ${message(e)}`);
+        else {
+          summary.failures++;
+          log(`FAIL  account ${platform}: ${message(e)}`);
+        }
       }
     }
   }

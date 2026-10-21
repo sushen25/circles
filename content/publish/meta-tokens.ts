@@ -13,7 +13,7 @@
  * write its own secrets, so this runs on a laptop).
  */
 import { execFileSync } from 'node:child_process';
-import { withQuery } from '../analytics/platforms/http.ts';
+import { redact, withQuery } from '../analytics/platforms/http.ts';
 import { setEnvLine } from './envfile.ts';
 
 export const META = {
@@ -77,7 +77,9 @@ export async function renew(platform: MetaPlatform, opts: RenewOptions = {}): Pr
   const res = await fetch(withQuery(url, { access_token: token }));
   const body = (await res.json().catch(() => ({}))) as Renewed;
   if (!res.ok || !body.access_token) {
-    console.error(`${platform}: renewal failed: ${res.status} ${body.error?.message ?? ''}`);
+    // Meta writes the token into its own message ("Error validating access token: <token> has expired"): blank it, then redact the rest.
+    const reason = redact((body.error?.message ?? '').replaceAll(token, '…'));
+    console.error(`${platform}: renewal failed: ${res.status} ${reason}`);
     return { ok: false };
   }
   const now = (opts.now ?? (() => new Date()))();

@@ -135,6 +135,9 @@ function parseScalar(v: string): unknown {
   return t.replace(/^["']|["']$/g, '');
 }
 
+/** A nested map's value, as text with its surrounding quotes removed: post ids, and an Instagram id is above 2^53, which Number() would round. */
+const unquote = (v: string): string => v.trim().replace(/^(["'])(.*)\1$/, '$2');
+
 export function parseFrontmatter(raw: string): { fm: Record<string, unknown>; body: string } {
   const m = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
   if (!m) throw new Error('queue file has no frontmatter');
@@ -144,7 +147,7 @@ export function parseFrontmatter(raw: string): { fm: Record<string, unknown>; bo
     if (!line.trim() || line.trim().startsWith('#')) continue;
     const nested = line.match(/^\s{2,}([\w-]+):\s*(.*)$/);
     if (nested && currentMap) {
-      currentMap[nested[1]] = String(parseScalar(nested[2]));
+      currentMap[nested[1]] = unquote(nested[2]);
       continue;
     }
     const kv = line.match(/^([\w-]+):\s*(.*)$/);
@@ -229,9 +232,13 @@ export function addPublishedIds(raw: string, ids: Record<string, string>): strin
  * founder's claim of the posted video replaces it (analytics/claim.ts).
  */
 export function setPublishedId(raw: string, platform: string, id: string): string {
-  const block = raw.match(/^published:[ \t]*\r?\n((?:[ \t]+\S.*(?:\r?\n|$))*)/m);
+  // The block runs to the next unindented line, blank lines included, as parseFrontmatter reads it; the blank lines at
+  // its end are given back before the splice, so only the entries are rewritten.
+  const block = raw.match(/^published:[ \t]*\r?\n((?:(?:[ \t]+\S.*|[ \t]*)(?:\r?\n|$))*)/m);
   const line = new RegExp(`^[ \\t]+${platform}:.*$`, 'm');
-  if (!block || !line.test(block[1])) return addPublishedIds(raw, { [platform]: id });
+  if (!block) return addPublishedIds(raw, { [platform]: id });
+  const entries = block[1].replace(/(\r?\n)(?:[ \t]*\r?\n)+$/, '$1');
+  if (!line.test(entries)) return addPublishedIds(raw, { [platform]: id });
   const start = block.index! + block[0].length - block[1].length;
-  return raw.slice(0, start) + block[1].replace(line, () => `  ${platform}: "${id}"`) + raw.slice(start + block[1].length);
+  return raw.slice(0, start) + entries.replace(line, () => `  ${platform}: "${id}"`) + raw.slice(start + entries.length);
 }

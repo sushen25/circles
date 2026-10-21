@@ -12,7 +12,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { parseQueueFile, setPublishedId } from '../lib/queue.ts';
+import { parseFrontmatter, parseQueueFile, setPublishedId } from '../lib/queue.ts';
 import { readLedger } from '../publish/guards.ts';
 import { claim, findItem } from './claim.ts';
 
@@ -209,6 +209,25 @@ test('setPublishedId rewrites the one line inside the published: block, adds it 
   assert.match(setPublishedId(raw, 'youtube', 'y'), /^published:\n  youtube: "y"\n  tiktok: "old"\n  bluesky: "b"\n---/m);
   // no block at all
   assert.match(setPublishedId(FM('tiktok'), 'tiktok', 'x'), /\npublished:\n  tiktok: "x"\n---\n/);
+});
+
+test('setPublishedId finds a line past a blank line inside the block, as parseFrontmatter reads past it, and keeps the blank lines', () => {
+  const raw = FM('tiktok, bluesky', 'published:\n  tiktok: "old"\n\n  bluesky: "b"\n\n');
+  assert.deepEqual(parseFrontmatter(raw).fm.published, { tiktok: 'old', bluesky: 'b' });
+  const out = setPublishedId(raw, 'bluesky', 'c');
+  assert.equal(out, raw.replace('bluesky: "b"', 'bluesky: "c"'), 'rewritten in place, nothing else moved');
+  assert.deepEqual(parseFrontmatter(out).fm.published, { tiktok: 'old', bluesky: 'c' });
+  assert.equal(out.split('bluesky:').length, 2, 'one bluesky line, not a second one above the old');
+  // the blank line before the --- stays where it was, and an absent platform is still added at the top of the block
+  assert.match(out, /  bluesky: "c"\n\n---\n/);
+  assert.match(setPublishedId(raw, 'youtube', 'y'), /^published:\n  youtube: "y"\n  tiktok: "old"\n\n  bluesky: "b"\n\n---/m);
+});
+
+test('parseFrontmatter keeps a nested map value as text, so an Instagram id above 2^53 is not rounded', () => {
+  const { fm } = parseFrontmatter(FM('instagram, bluesky', 'published:\n  instagram: 18395365036204751\n  bluesky: \'at://did:plc:x/app.bsky.feed.post/abc\'\n'));
+  assert.deepEqual(fm.published, { instagram: '18395365036204751', bluesky: 'at://did:plc:x/app.bsky.feed.post/abc' });
+  assert.equal(fm.publish_window_minutes, 90, 'a top-level number is still a number');
+  assert.deepEqual(fm.platforms, ['instagram', 'bluesky']);
 });
 
 test('findItem searches queue/ then published/, and copes with no published/ at all', () => {

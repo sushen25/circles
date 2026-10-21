@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { after, afterEach, beforeEach, test } from 'node:test';
 import { bluesky } from './bluesky.ts';
 import { clock } from './http.ts';
+import { NotConfigured } from './module.ts';
 
 type Call = { url: string; method: string };
 let calls: Call[] = [];
@@ -65,6 +66,7 @@ const postView = (over: Record<string, unknown> = {}) => ({
   repostCount: 3,
   replyCount: 4,
   quoteCount: 1,
+  bookmarkCount: 5,
   ...over,
 });
 
@@ -87,11 +89,11 @@ test('platform and configured: always ok, with or without BSKY_HANDLE', () => {
   assert.equal(calls.length, 0);
 });
 
-test('metrics: one getPosts call, four counts mapped, the whole response as raw', async () => {
+test('metrics: one getPosts call, five counts mapped (a bookmark is a save), the whole response as raw', async () => {
   const body = { posts: [postView()] };
   replies.push(ok(body));
   const got = await bluesky.metrics(OWN_URI);
-  assert.deepEqual(got.metrics, { likes: 12, reposts: 3, replies: 4, quotes: 1 });
+  assert.deepEqual(got.metrics, { likes: 12, reposts: 3, replies: 4, quotes: 1, saves: 5 });
   assert.deepEqual(got.raw, body);
   assert.equal(calls.length, 1);
   assert.equal(path(calls[0].url), 'https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts');
@@ -103,8 +105,57 @@ test('metrics: a count the platform leaves out is left out, the rest kept, raw u
   const body = { posts: [withoutQuotes] };
   replies.push(ok(body));
   const got = await bluesky.metrics(OWN_URI);
-  assert.deepEqual(got.metrics, { likes: 12, reposts: 3, replies: 4 });
+  assert.deepEqual(got.metrics, { likes: 12, reposts: 3, replies: 4, saves: 5 });
   assert.deepEqual(got.raw, body);
+});
+
+test('metrics: a quote post and a mention facet leave raw with no person but the account', async () => {
+  const OTHER = 'did:plc:otherperson00000000000000';
+  const MENTIONED = 'did:plc:mentioned0000000000000000';
+  const quoted = {
+    $type: 'app.bsky.embed.record#viewRecord',
+    uri: `at://${OTHER}/app.bsky.feed.post/3quoted000000`,
+    cid: 'bafyreiquoted',
+    author: { did: OTHER, handle: 'other.test', displayName: 'Other Person', avatar: `https://cdn.example/img/avatar/plain/${OTHER}/bafkother@jpeg`, labels: [] },
+    value: { $type: 'app.bsky.feed.post', text: 'their words', createdAt: '2026-10-20T01:00:00.000Z' },
+    labels: [],
+    likeCount: 2,
+    indexedAt: '2026-10-20T01:00:01.000Z',
+    embeds: [],
+  };
+  // The account's own post: a quote with its own video beside it, and a mention in the text.
+  const post = postView({
+    record: {
+      $type: 'app.bsky.feed.post',
+      text: 'what she said, exactly. wenna.app/?from=bs-quoted',
+      createdAt: '2026-10-21T06:40:03.537Z',
+      facets: [{ index: { byteStart: 5, byteEnd: 8 }, features: [{ $type: 'app.bsky.richtext.facet#mention', did: MENTIONED }] }],
+    },
+    embed: {
+      $type: 'app.bsky.embed.recordWithMedia#view',
+      record: { $type: 'app.bsky.embed.record#view', record: quoted },
+      media: { $type: 'app.bsky.embed.video#view', cid: 'bafyvideo', playlist: `https://video.example/hls/${OWN_DID}/bafyvideo/playlist.m3u8`, aspectRatio: { width: 9, height: 16 } },
+    },
+  });
+  replies.push(ok({ posts: [post] }));
+  const got = await bluesky.metrics(OWN_URI);
+  assert.deepEqual(got.metrics, { likes: 12, reposts: 3, replies: 4, quotes: 1, saves: 5 });
+
+  const s = JSON.stringify(got.raw);
+  // every handle and did left in raw is the account's own, or the blank
+  for (const [, v] of s.matchAll(/"(?:handle|did)":"([^"]*)"/g)) assert.ok(v === 'account.test' || v === OWN_DID || v === '…', v);
+  assert.doesNotMatch(s, /did:plc:(?!ownaccount)/, 'no did but the account\'s own, anywhere');
+  assert.doesNotMatch(s, /other\.test|Other Person|bafkother|mentioned0/);
+  assert.ok(s.split(OWN_DID).length > 2, 'the account\'s own did stays, in its author block and in its uri');
+
+  const r = (got.raw as { posts: any[] }).posts[0];
+  assert.deepEqual(r.author, { did: OWN_DID, handle: 'account.test', displayName: 'Account', avatar: 'https://cdn.example/a.jpg' }, 'the post\'s own author block is untouched');
+  assert.deepEqual(r.embed.record.record.author, { did: '…', handle: '…', displayName: '…', avatar: '…', labels: [] });
+  assert.equal(r.embed.record.record.uri, 'at://…/app.bsky.feed.post/3quoted000000');
+  assert.equal(r.embed.record.record.value.text, 'their words', 'the quoted words stay; only the person goes');
+  assert.deepEqual(r.record.facets[0].features, [{ $type: 'app.bsky.richtext.facet#mention', did: '…' }]);
+  assert.equal(r.record.text, 'what she said, exactly. wenna.app/?from=bs-quoted');
+  assert.match(r.embed.media.playlist, new RegExp(OWN_DID), 'the account\'s own media link keeps its did');
 });
 
 test('metrics: a deleted post throws by uri', async () => {
@@ -189,13 +240,17 @@ test('replies: an unreadable thread throws by uri', async () => {
   await assert.rejects(bluesky.replies(OWN_URI), (e: Error) => e.message.includes(OWN_URI) && /not readable/.test(e.message));
 });
 
-test('account: getProfile by BSKY_HANDLE, three counts, no breakdowns, the response whole under raw.profile', async () => {
+test('account: getProfile by BSKY_HANDLE, three counts, no breakdowns, the response whole under raw.profile, and the row is today\'s', async () => {
   const profile = { did: OWN_DID, handle: 'account.test', displayName: 'Account', followersCount: 41, followsCount: 12, postsCount: 7, indexedAt: '2026-10-21T00:00:00.000Z' };
   replies.push(ok(profile));
+  const first = new Date().toISOString().slice(0, 10);
   const got = await bluesky.account!('2026-10-21');
+  const last = new Date().toISOString().slice(0, 10);
   assert.deepEqual(got.metrics, { followers: 41, follows: 12, posts: 7 });
   assert.deepEqual(got.breakdowns, {});
   assert.deepEqual(got.raw, { profile });
+  // the counts are read as they stand at pull time, so the row says today, not the day asked for
+  assert.ok(got.day === first || got.day === last, `day ${got.day}`);
   assert.equal(path(calls[0].url), 'https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile');
   assert.deepEqual(query(calls[0].url), { actor: 'account.test' });
 });
@@ -208,9 +263,14 @@ test('account: a count the platform refuses is left out and the rest is kept', a
   assert.deepEqual(got.raw, { profile });
 });
 
-test('account: BSKY_HANDLE unset throws before any call', async () => {
+test('account: BSKY_HANDLE unset throws NotConfigured before any call, so the pull logs a skip', async () => {
   delete process.env.BSKY_HANDLE;
-  await assert.rejects(bluesky.account!('2026-10-21'), /BSKY_HANDLE unset/);
+  await assert.rejects(bluesky.account!('2026-10-21'), (e: Error) => {
+    assert.ok(e instanceof NotConfigured);
+    assert.equal(e.name, 'NotConfigured');
+    assert.match(e.message, /BSKY_HANDLE unset/);
+    return true;
+  });
   assert.equal(calls.length, 0);
 });
 
@@ -246,9 +306,9 @@ test('recent: the author feed without replies, reposts dropped, newest first, id
   assert.deepEqual(query(calls[0].url), { actor: 'account.test', limit: '50', filter: 'posts_no_replies' });
 });
 
-test('recent: BSKY_HANDLE unset throws before any call', async () => {
+test('recent: BSKY_HANDLE unset throws NotConfigured before any call', async () => {
   delete process.env.BSKY_HANDLE;
-  await assert.rejects(bluesky.recent!(), /BSKY_HANDLE unset/);
+  await assert.rejects(bluesky.recent!(), (e: Error) => e instanceof NotConfigured && /BSKY_HANDLE unset/.test(e.message));
   assert.equal(calls.length, 0);
 });
 

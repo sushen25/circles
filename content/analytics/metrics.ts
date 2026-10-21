@@ -100,6 +100,11 @@ export const SERIES_HOURS = 48;
 /** Days before a Meta token's expiry at which the nightly run fails loudly. */
 export const TOKEN_WARN_DAYS = 7;
 
+/** Whether a token `days` from expiry is close enough to fail loudly: the one boundary pull.ts and tokens.ts share. */
+export function expiring(days: number): boolean {
+  return days <= TOKEN_WARN_DAYS;
+}
+
 const round = (n: number, places: number) => Math.round(n * 10 ** places) / 10 ** places;
 
 export function ageDays(postedAt: string, at: Date): number {
@@ -117,7 +122,9 @@ export const dateOf = (at: Date): string => at.toISOString().slice(0, 10);
  * Instagram shows under "What affects your views" is a count over views.
  * `like_rate` is here so it can be shown, and it is in UNRANKED so it never
  * decides anything. Bluesky has no views, so its number is `engagement`
- * (replies + reposts + quotes), a per-post count.
+ * (replies + reposts + quotes), a per-post count; so is any post whose
+ * platform returned no views count at all. Zero views is a count: such a
+ * post gets no rate, and not Bluesky's number either.
  */
 export type Rates = {
   saves_shares_per_k?: number;
@@ -170,7 +177,7 @@ export function rates(m: Metrics, platform: Platform, lengthS?: number): Rates {
     if (has('likes')) r.like_rate = round((m.likes ?? 0) / views, 4);
     if (has('reposts')) r.repost_rate = round((m.reposts ?? 0) / views, 4);
   }
-  if (platform === 'bluesky' || !views) {
+  if (platform === 'bluesky' || views === undefined) {
     if (has('replies') || has('reposts') || has('quotes')) r.engagement = (m.replies ?? 0) + (m.reposts ?? 0) + (m.quotes ?? 0);
   }
   if (has('watch_pct')) r.watch_pct = m.watch_pct;
@@ -180,14 +187,20 @@ export function rates(m: Metrics, platform: Platform, lengthS?: number): Rates {
 }
 
 /**
- * Nothing that names a person leaves a module or reaches the repo: @handles,
- * u/names and links become a mark, in place, so the sentence still reads.
+ * Nothing that names a person leaves a module or reaches the repo: links
+ * (with a scheme, or a bare host with a path, which is how a profile gets
+ * pasted), email addresses, DIDs, @handles and u/names become a mark, in
+ * place, so the sentence still reads. A bare host on its own (wenna.app)
+ * and a sentence's full stop survive.
  */
 export function stripHandles(text: string): string {
   return text
     .replace(/https?:\/\/\S+/g, '[link]')
-    .replace(/(^|[^\w/])@[\w.-]+/g, '$1@…')
-    .replace(/(^|[^\w/])u\/[\w-]+/g, '$1u/…');
+    .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, '[email]')
+    .replace(/\b(?:[\w-]+\.)+[a-z]{2,}\/\S+/gi, '[link]')
+    .replace(/\bdid:(?:plc|web):[\w.%:-]+/g, 'did:…')
+    .replace(/(^|[^\w])@[\w.-]+/g, '$1@…')
+    .replace(/(^|[^\w])u\/[\w-]+/g, '$1u/…');
 }
 
 const words = (s: string) =>
@@ -198,20 +211,27 @@ const words = (s: string) =>
     .filter((w) => w.length > 1);
 
 /**
- * A reply that quotes the hook back, matched by words, case-insensitively:
- * every word of the hook (three or more of them, or the whole hook when it
- * is shorter) appears in the reply in order. Misses paraphrase, catches
- * coincidence; good enough for a count (plan, open point 5).
+ * A reply that quotes the hook back, matched by significant words (two or
+ * more letters, punctuation dropped), case-insensitively. The rule: a hook
+ * of three or fewer significant words must appear whole, in order, as
+ * consecutive words of the reply; a longer hook counts when any three
+ * consecutive significant words of it appear consecutively in the reply,
+ * so "never lead anywhere" quotes "Group chats never lead anywhere".
+ * Misses paraphrase, catches coincidence; good enough for a count (plan,
+ * open point 5).
  */
 export function quotesHook(reply: string, hook: string): boolean {
   const h = words(hook);
   const r = words(reply);
   if (!h.length || !r.length) return false;
-  const need = h.length <= 3 ? h : h;
-  for (let i = 0; i + need.length <= r.length; i++) {
-    if (need.every((w, k) => r[i + k] === w)) return true;
-  }
-  return false;
+  const runs = h.length <= 3 ? [h] : h.slice(0, -2).map((_, i) => h.slice(i, i + 3));
+  const found = (need: string[]): boolean => {
+    for (let i = 0; i + need.length <= r.length; i++) {
+      if (need.every((w, k) => r[i + k] === w)) return true;
+    }
+    return false;
+  };
+  return runs.some(found);
 }
 
 export function readJsonl<T>(path: string): T[] {

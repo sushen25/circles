@@ -46,17 +46,21 @@ jobs:
       - run: npm ci
       # A platform with nothing set is skipped and says so (analytics/platforms/
       # module.ts), so every name is passed and an empty one is the same as
-      # unset. The three expiry and id values are repository variables, not
-      # secrets: `npm run tokens -- --github` writes the dates.
+      # unset. Every `vars.*` is a repository variable, not a secret: the two
+      # expiry dates (`npm run tokens -- --github` writes them), the YouTube
+      # channel id, and BSKY_HANDLE, THREADS_USER_ID and IG_USER_ID, which
+      # are account identifiers rather than credentials: each is public on
+      # every post and is written into the committed raw rows. The tokens
+      # stay secrets.
       - id: pull
         run: npm run analytics
         continue-on-error: true
         env:
-          BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
-          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          BSKY_HANDLE: ${{ vars.BSKY_HANDLE }}
+          THREADS_USER_ID: ${{ vars.THREADS_USER_ID }}
           THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
           THREADS_TOKEN_EXPIRES: ${{ vars.THREADS_TOKEN_EXPIRES }}
-          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_USER_ID: ${{ vars.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           IG_TOKEN_EXPIRES: ${{ vars.IG_TOKEN_EXPIRES }}
           IG_API_VERSION: ${{ vars.IG_API_VERSION }} # optional; empty means the module's default
@@ -77,6 +81,11 @@ jobs:
           # inbox/screens/ is git-ignored, so a screenshot is never staged.
           git add -A -- analytics inbox queue published publish
           git diff --cached --quiet || git commit -m "content: analytics $(date -u +%Y-%m-%d)"
+          # content-publish.yml has its own concurrency group and may push to
+          # main while this job runs; a non-fast-forward push would lose this
+          # run's rows. Only this job's files are in the commit, so the
+          # rebase is clean.
+          git pull --rebase origin main
           git push
       - name: fail when the pull did
         # Red on the Actions page for an expiring token or a platform that

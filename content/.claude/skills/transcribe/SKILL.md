@@ -46,7 +46,7 @@ the nearest word and a line in your output saying what it was.
 
 | Screen | `--screen` | What it yields |
 |---|---|---|
-| The overview: views, likes, comments, shares, saves, total play time, average watch time, watched full video, new followers | `overview` | `views`, `likes`, `comments`, `shares`, `saves`, `watch_total_s`, `watch_avg_s`, `watch_pct` (watched full video), `followers_gained` |
+| The overview: views, likes, comments, shares, saves, total play time, average watch time, watched full video, new followers | `overview` | `views`, `likes`, `comments`, `shares`, `saves`, `watch_total_s`, `watch_avg_s`, `full_watch_pct` (watched full video; not `watch_pct`), `followers_gained` |
 | Retention | `retention` | `points.retention`: eleven percentages at tenths, as for Instagram |
 | Traffic sources (For You, Profile, Following, Search, Sound, Other, as the app names them) | `traffic` | `points.traffic`: percentages keyed by the source's name, lowercased, spaces to underscores |
 | Viewer types (new and returning; followers and non-followers) | `viewers` | `points.viewers`: percentages keyed as the app labels them, lowercased |
@@ -55,7 +55,11 @@ The metric names are the common ones from `analytics/metrics.ts`
 (`views`, `reach`, `likes`, `comments`, `shares`, `saves`, `watch_avg_s`,
 `watch_total_s`, `watch_pct`, `skip_pct`). A number the screen shows that
 has no common name keeps the app's own label, lowercased, spaces to
-underscores (`followers_gained`, `profile_visits`).
+underscores (`followers_gained`, `profile_visits`). `watch_pct` is never
+read off a screen: `metrics.ts` defines it as the average watch time over
+the piece's length and derives it from `watch_avg_s` when a screen gives
+the average, so TikTok's "watched full video" percentage is a different
+number and is recorded as `full_watch_pct`.
 
 ## Steps
 
@@ -88,17 +92,19 @@ For each folder, in name order, and for each image in it:
 5. Write the row, once per screen:
 
    ```
-   npm run hand <platform> <slug> <key=value ...> --by transcribed --screen <name> --captured-at <iso> --points '<json>'
+   npm run hand -- <platform> <slug> <key=value ...> --by transcribed --screen <name> --captured-at <iso> --points '<json>'
    ```
 
+   The `--` after `hand` is not optional: npm swallows a bare `--flag` that
+   comes before it, and `hand.ts` would never see `--by` or `--points`.
    `<key=value ...>` is the flat metrics; `--points` is a JSON object whose
    values are the maps above, each a name to a number. Leave `--points` out when the
    screen has none (an overview with no follower share), and leave the
    metrics out when the screen is only a curve. For example:
 
    ```
-   npm run hand instagram take-a-break views=1240 reach=911 watch_avg_s=11.3 skip_pct=22.6 shares=9 saves=18 --by transcribed --screen overview --captured-at 2026-10-28T09:12:00Z --points '{"followers":{"followers":38,"non_followers":62}}'
-   npm run hand instagram take-a-break --by transcribed --screen retention --captured-at 2026-10-28T09:12:00Z --points '{"retention":{"0.0":100,"0.1":84,"0.2":71,"0.3":66,"0.5":58,"0.6":55,"0.7":52,"0.8":49,"0.9":47,"1.0":44}}'
+   npm run hand -- instagram take-a-break views=1240 reach=911 watch_avg_s=11.3 skip_pct=22.6 shares=9 saves=18 --by transcribed --screen overview --captured-at 2026-10-28T09:12:00Z --points '{"followers":{"followers":38,"non_followers":62}}'
+   npm run hand -- instagram take-a-break --by transcribed --screen retention --captured-at 2026-10-28T09:12:00Z --points '{"retention":{"0.0":100,"0.1":84,"0.2":71,"0.3":66,"0.5":58,"0.6":55,"0.7":52,"0.8":49,"0.9":47,"1.0":44}}'
    ```
 
 6. When every image in the folder has its row, move the images out of the

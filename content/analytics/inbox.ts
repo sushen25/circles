@@ -2,13 +2,17 @@
  * New replies go to inbox/<date>-replies.md, one section per piece and
  * platform, one blockquote per reply, for /mine to lift phrases from
  * (docs/analytics-plan.md, "Replies"; the format is what
- * .claude/skills/mine/SKILL.md reads). Each reply is written once: its
- * `<platform>:<id>` goes into analytics/replies-seen.json and a reply
- * already there is skipped. Handles and links are stripped on the way in,
- * even though the modules already drop authors, so nothing that names a
- * person reaches the file. Nothing is written when nothing is new: no empty
- * file, no empty section, and the seen set is left alone.
+ * .claude/skills/mine/SKILL.md reads). Each reply is written once: the
+ * sha256 of its `<platform>:<id>` (hex, the first 32 characters) goes into
+ * analytics/replies-seen.json and a reply whose hash is there is skipped.
+ * The file holds hashes, never ids, because a Bluesky reply id is
+ * `at://<the replier's did>/…` and would name the person. Handles and
+ * links are stripped on the way in, even though the modules already drop
+ * authors, so nothing that names a person reaches the file. Nothing is
+ * written when nothing is new: no empty file, no empty section, and the
+ * seen set is left alone.
  */
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { Platform } from '../lib/queue.ts';
@@ -16,7 +20,8 @@ import { stripHandles, type Reply } from './metrics.ts';
 
 export type ReplyEntry = { slug: string; platform: Platform; replies: Reply[] };
 
-const seenKey = (platform: Platform, id: string) => `${platform}:${id}`;
+/** The seen set's entry for a reply: a hash of `<platform>:<id>`, so the file names no one. */
+export const seenKey = (platform: Platform, id: string): string => createHash('sha256').update(`${platform}:${id}`).digest('hex').slice(0, 32);
 
 function readSeen(path: string): Set<string> {
   if (!existsSync(path)) return new Set();

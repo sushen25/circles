@@ -35,8 +35,10 @@ npm run dry-run                      # dry-run publisher: prints the plan
    because `out/` is git-ignored and the publisher refuses a slideshow with
    no slides on disk; Bluesky and LinkedIn upload those PNGs directly.
    The two analytics workflows (`content-analytics.yml` nightly,
-   `content-series.yml` every two hours) read the same secrets plus
-   `YOUTUBE_API_KEY`, and three repository variables: `YOUTUBE_CHANNEL_ID`,
+   `content-series.yml` every two hours) read the publisher's tokens plus
+   `YOUTUBE_API_KEY`, and six repository variables: `BSKY_HANDLE`,
+   `IG_USER_ID` and `THREADS_USER_ID` (account ids, public on every post,
+   so variables rather than secrets), `YOUTUBE_CHANNEL_ID`, and
    `IG_TOKEN_EXPIRES` and `THREADS_TOKEN_EXPIRES` (the two dates are
    written by `npm run tokens -- --github`). A platform whose values are
    not set is skipped and says so; the only token that fails a run is one
@@ -114,11 +116,11 @@ what is yours.
   snapshots. With no young post it exits at once and commits nothing.
 - **When you post by hand**, a TikTok draft you finished in the app, a
   Short the tag did not catch, a Reddit post:
-  `npm run posted <platform> <slug> <url-or-id>` writes the id into the
+  `npm run posted -- <platform> <slug> <url-or-id>` writes the id into the
   queue file and the ledger so the nightly pull reads it from then on; add
   `--at <iso>` when the platform cannot say when it went out.
 - **Weekly, a minute per piece.** TikTok's numbers are read off the app:
-  `npm run hand tiktok <slug> views=1240 saves=18 shares=9`, which
+  `npm run hand -- tiktok <slug> views=1240 saves=18 shares=9`, which
   replaces typing them into `experiments.md`. For the pieces that will
   decide a fortnight, drop the Insights screenshots (Instagram or TikTok)
   into `inbox/screens/<slug>-<platform>/` and run `/transcribe`: one

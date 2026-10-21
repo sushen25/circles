@@ -1,9 +1,12 @@
 /**
  * A number somebody typed or read off a screen, appended to hand.jsonl.
  *
- *   npm run hand <platform> <slug> key=value ... [--date YYYY-MM-DD]
+ *   npm run hand -- <platform> <slug> key=value ... [--date YYYY-MM-DD]
  *       [--by hand|transcribed] [--screen <name>] [--captured-at <iso>]
  *       [--points '<json>']
+ *
+ * The `--` matters: npm keeps a flag typed before it for itself (argv.ts);
+ * the flags it swallowed are read back, with a note.
  *
  * This replaces typing into experiments.md: TikTok has no API the loop can
  * read yet, and three Instagram screens exist in no API at all (the plan,
@@ -17,19 +20,20 @@
  * not have yet; the names in metrics.ts are what the scorecard reads, so
  * the usage text lists them and an unlisted key gets a note, not a refusal.
  * A slug with no queue file is a warning, not an error: a TikTok post may
- * be claimed later with `npm run posted`, and the row waits for it.
+ * be claimed later with `npm run posted -- …`, and the row waits for it.
  */
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CAPTION_LIMIT, type Platform, type QueueItem } from '../lib/queue.ts';
+import { dashDashNote, restoreSwallowed, type Env, type SwallowedFlag } from './argv.ts';
 import { METRICS, appendJsonl, dateOf, type HandRow } from './metrics.ts';
 
 export const HAND_PATH = 'analytics/hand.jsonl';
 export const PLATFORMS = Object.keys(CAPTION_LIMIT) as Platform[];
 const BY = ['hand', 'transcribed'] as const;
 
-export const USAGE = `usage: npm run hand <platform> <slug> key=value ... [--date YYYY-MM-DD] [--by hand|transcribed]
-                    [--screen <name>] [--captured-at <iso>] [--points '<json>']
+export const USAGE = `usage: npm run hand -- <platform> <slug> key=value ... [--date YYYY-MM-DD] [--by hand|transcribed]
+                       [--screen <name>] [--captured-at <iso>] [--points '<json>']
 
   platform       one of ${PLATFORMS.join(', ')}
   slug           the piece, as in its queue file's frontmatter
@@ -41,7 +45,9 @@ export const USAGE = `usage: npm run hand <platform> <slug> key=value ... [--dat
   --captured-at  when the screenshot was taken (ISO)
   --points       JSON object of arrays or objects of numbers: a curve at tenths, sources as percentages
 
-  npm run hand tiktok never-lead-anywhere views=1240 saves=18 shares=9`;
+  npm run hand -- tiktok never-lead-anywhere views=1240 saves=18 shares=9
+
+  The -- after "hand" matters: npm keeps a flag typed before it for itself.`;
 
 export type Deps = {
   /** where the row goes; the tests point it at a temp file */
@@ -50,12 +56,26 @@ export type Deps = {
   now: () => Date;
   log: (line: string) => void;
   error: (line: string) => void;
+  /** where npm leaves the flags it swallowed (argv.ts); the tests hand in their own */
+  env: Env;
 };
 
 async function withDefaults(deps: Partial<Deps>): Promise<Deps> {
   const findItem = deps.findItem ?? (await import('./claim.ts')).findItem;
-  return { path: HAND_PATH, now: () => new Date(), log: console.log, error: console.error, ...deps, findItem };
+  return { path: HAND_PATH, now: () => new Date(), log: console.log, error: console.error, env: process.env, ...deps, findItem };
 }
+
+/**
+ * Every flag, so each is read back when npm swallowed it: `--captured-at` comes back from npm_config_captured_at, and
+ * `--by`, which npm (today) expands to its own --bypass-2fa and keeps as a boolean, from npm_config_bypass_2fa.
+ */
+const FLAGS: SwallowedFlag[] = [{ name: 'date' }, { name: 'by', alias: 'bypass-2fa' }, { name: 'screen' }, { name: 'captured-at' }, { name: 'points' }];
+
+/** A YYYY-MM-DD that exists: it survives the round trip through Date, which turns 2026-02-30 into March the 2nd. */
+const isCalendarDay = (d: string): boolean => {
+  const t = Date.parse(d);
+  return !Number.isNaN(t) && new Date(t).toISOString().slice(0, 10) === d;
+};
 
 export type Points = NonNullable<HandRow['points']>;
 
@@ -100,7 +120,7 @@ export function parseArgs(argv: string[]): Args | string {
     const a = argv[i];
     if (a.startsWith('--')) {
       const name = a.slice(2);
-      if (!['date', 'by', 'screen', 'captured-at', 'points'].includes(name)) return `unknown flag ${a}`;
+      if (!FLAGS.some((f) => f.name === name)) return `unknown flag ${a}`;
       const v = argv[++i];
       if (v === undefined) return `${a} needs a value`;
       flags[name] = v;
@@ -108,17 +128,18 @@ export function parseArgs(argv: string[]): Args | string {
       const eq = a.indexOf('=');
       const key = a.slice(0, eq).trim();
       const raw = a.slice(eq + 1).trim();
-      const n = raw === '' ? NaN : Number(raw.replace(/,/g, ''));
       if (!key) return `"${a}" has no key`;
-      if (!Number.isFinite(n)) return `${key}=${raw}: "${raw}" is not a number`;
-      metrics[key] = n;
+      // Digits, with thousands commas and a decimal point, as an app shows a count: no sign, no exponent, no hex.
+      const digits = raw.replace(/,/g, '');
+      if (!/^\d+(\.\d+)?$/.test(digits)) return `${key}=${raw}: "${raw}" is not a number`;
+      metrics[key] = Number(digits);
     } else positional.push(a);
   }
   if (positional.length !== 2) return 'expected <platform> <slug> then key=value pairs';
   const [platform, slug] = positional;
   if (!PLATFORMS.includes(platform as Platform)) return `"${platform}" is not a platform; one of ${PLATFORMS.join(', ')}`;
   if (flags.date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(flags.date)) return `--date "${flags.date}" is not YYYY-MM-DD`;
-  if (flags.date !== undefined && Number.isNaN(Date.parse(flags.date))) return `--date "${flags.date}" is not a date`;
+  if (flags.date !== undefined && !isCalendarDay(flags.date)) return `--date "${flags.date}" is not a date`;
   const by = (flags.by ?? 'hand') as HandRow['by'];
   if (!BY.includes(by)) return `--by "${flags.by}" is not one of ${BY.join(', ')}`;
   if (flags['captured-at'] !== undefined && Number.isNaN(Date.parse(flags['captured-at']))) return `--captured-at "${flags['captured-at']}" is not a date`;
@@ -143,8 +164,10 @@ export function parseArgs(argv: string[]): Args | string {
 
 /** Exit code: 0 appended, 2 a wrong call. */
 export async function run(argv: string[], deps: Partial<Deps> = {}): Promise<number> {
-  const parsed = parseArgs(argv);
   const d = await withDefaults(deps);
+  const { argv: full, restored } = restoreSwallowed(argv, FLAGS, d.env);
+  if (restored.length) d.log(dashDashNote(restored));
+  const parsed = parseArgs(full);
   if (typeof parsed === 'string') {
     d.error(`${parsed}\n\n${USAGE}`);
     return 2;
@@ -152,7 +175,9 @@ export async function run(argv: string[], deps: Partial<Deps> = {}): Promise<num
   const { platform, slug, metrics, by, screen, captured_at, points } = parsed;
 
   const item = d.findItem(slug);
-  if (!item) d.log(`warn  no queue or published file has slug "${slug}"; recording it anyway (claim the post with npm run posted when it exists)`);
+  if (!item) {
+    d.log(`warn  no queue or published file has slug "${slug}"; recording it anyway (claim the post with npm run posted -- ${platform} ${slug} <url-or-id> when it exists)`);
+  }
   const unlisted = Object.keys(metrics).filter((k) => !(METRICS as readonly string[]).includes(k));
   if (unlisted.length) d.log(`note  not a common name in metrics.ts, so the scorecard will not read it: ${unlisted.join(', ')}`);
 

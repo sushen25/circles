@@ -4,9 +4,12 @@
  * --series takes only the young post, an unconfigured platform is skipped
  * with its reason, a failing platform makes the exit code 1 while the other
  * platform's row still lands, auto-claim writes the id and the ledger row
- * from a recent() post carrying the tag, an expiring token fails the run
- * after the rows are written, and --dry writes nothing. fetch is stubbed to
- * throw, so nothing here can reach the network.
+ * from a recent() post carrying the tag, a module that declines a call
+ * (Unreadable, NotConfigured) is a skip and never a failure, an expiring
+ * token fails the run after the rows are written (the token's expiry only
+ * beside its token, by the boundary metrics.ts owns), and --dry writes
+ * nothing. fetch is stubbed to throw, so nothing here can reach the
+ * network, and the env the pull reads is handed in, never process.env.
  */
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -15,9 +18,10 @@ import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 import type { Platform } from '../lib/queue.ts';
 import { readLedger } from '../publish/guards.ts';
+import { seenKey } from './inbox.ts';
 import { readJsonl, type AccountRow, type PostRow, type SeriesRow } from './metrics.ts';
 import { clock } from './platforms/http.ts';
-import type { Configured, PlatformModule } from './platforms/module.ts';
+import { NotConfigured, Unreadable, type Configured, type PlatformModule } from './platforms/module.ts';
 import { DEFAULT_DIRS, carriesTag, parseFlags, runPull, type Dirs, type Flags } from './pull.ts';
 
 const realFetch = globalThis.fetch;
@@ -84,8 +88,9 @@ function setup(o: { platforms?: string[]; published?: Record<string, string>; le
     ledger.map((r) => JSON.stringify({ date: r.at.slice(0, 10), platform: r.platform, slug: r.slug ?? SLUG, id: r.id, at: r.at, from: `${r.platform.slice(0, 2)}-${SLUG}`, kind: 'posted' }) + '\n').join(''),
   );
   const log: string[] = [];
-  const run = (modules: Partial<Record<Platform, PlatformModule>>, flags: Partial<Flags> = {}) =>
-    runPull({ now: NOW, flags: { ...parseFlags([]), ...flags }, dirs, modules, log: (l) => log.push(l) });
+  // `env` is what the pull sees of the environment: nothing unless a test says so, whatever process.env holds.
+  const run = (modules: Partial<Record<Platform, PlatformModule>>, flags: Partial<Flags> = {}, env: Record<string, string> = {}) =>
+    runPull({ now: NOW, flags: { ...parseFlags([]), ...flags }, dirs, modules, log: (l) => log.push(l), env: (k) => env[k] });
   const paths = {
     posts: join(dirs.analytics, 'posts.jsonl'),
     series: join(dirs.analytics, 'series.jsonl'),
@@ -167,7 +172,7 @@ test('a nightly run: rows with age_days from the ledger, the account row for yes
   });
 
   assert.equal(readFileSync(t.paths.inbox, 'utf8'), `# Replies, 2026-10-21\n\n## ${SLUG} · bluesky\n\n> this is my group chat @… exactly\n`);
-  assert.deepEqual(JSON.parse(readFileSync(t.paths.seen, 'utf8')), ['bluesky:r1']);
+  assert.deepEqual(JSON.parse(readFileSync(t.paths.seen, 'utf8')), [seenKey('bluesky', 'r1')], 'a hash, not the id');
 
   assert.ok(t.log.includes(`row   ${SLUG} bluesky age 1.5d likes 4 reposts 1 replies 2 quotes 0`), t.log.join('\n'));
   assert.ok(t.log.includes(`row   ${SLUG} instagram age 3d views 100 reach 80 saves 3 shares 2`));
@@ -228,6 +233,21 @@ test('a platform that is not configured is skipped once, with the reason, and ne
   assert.equal(igCalls, 0);
   assert.equal(t.log.filter((l) => l === 'skip  instagram: not configured (IG_ACCESS_TOKEN unset)').length, 1);
   assert.deepEqual(readJsonl<PostRow>(t.paths.posts).map((r) => r.platform), ['bluesky']);
+});
+
+test('an account answer with no number in it is a failure, not a row', async () => {
+  const t = setup();
+  const s = await t.run({
+    bluesky: fake('bluesky', { account: async () => ({ metrics: { followers: 3 }, breakdowns: {}, raw: { profile: { followersCount: 3 } } }) }),
+    instagram: igFake({
+      account: async () => ({ metrics: {}, breakdowns: {}, raw: { errors: { reach_views_follow: '400 https://graph.instagram.com/v21.0/1/insights?access_token=…: Cannot parse access token' } } }),
+    }),
+  });
+  assert.equal(s.exitCode, 0, 'the posts were read; only the account row is missing');
+  assert.equal(s.accountRows, 1, "bluesky's row still lands");
+  assert.equal(s.failures, 1);
+  assert.ok(t.log.includes('FAIL  account instagram: nothing readable (400 https://graph.instagram.com/v21.0/1/insights?access_token=…: Cannot parse access token)'), t.log.join('\n'));
+  assert.deepEqual(readJsonl<AccountRow>(t.paths.account).map((r) => r.platform), ['bluesky']);
 });
 
 test('a platform that fails on every post makes the exit code 1; the other platform still lands; a partial failure does not', async () => {
@@ -350,29 +370,131 @@ test('--no-claim leaves a claimable post alone, and a failing recent() is printe
 
 test('an Instagram token inside seven days of expiry makes the exit code 1 after the rows are written', async () => {
   const t = setup();
-  const was = process.env.IG_TOKEN_EXPIRES;
-  process.env.IG_TOKEN_EXPIRES = '2026-10-22';
-  try {
-    const s = await t.run({ bluesky: fake('bluesky'), instagram: igFake() });
-    assert.equal(s.exitCode, 1);
-    assert.equal(s.rows, 2);
-    assert.equal(s.failures, 0);
-    assert.equal(readJsonl(t.paths.posts).length, 2);
-    assert.equal(readJsonl(t.paths.account).length, 1);
-    const expiring = t.log.indexOf('EXPIRING Instagram token: 0 days (2026-10-22); run npm run tokens');
-    assert.ok(expiring > -1, t.log.join('\n'));
-    assert.ok(expiring > t.log.findIndex((l) => l.startsWith('acct  ')), 'after everything else');
-    assert.equal(t.log.length - 1, expiring + 1, 'only the summary line follows it');
+  const ig = { IG_ACCESS_TOKEN: 'IGAAx', IG_TOKEN_EXPIRES: '2026-10-22' };
+  const s = await t.run({ bluesky: fake('bluesky'), instagram: igFake() }, {}, ig);
+  assert.equal(s.exitCode, 1);
+  assert.equal(s.rows, 2);
+  assert.equal(s.failures, 0);
+  assert.equal(readJsonl(t.paths.posts).length, 2);
+  assert.equal(readJsonl(t.paths.account).length, 1);
+  const expiring = t.log.indexOf('EXPIRING Instagram token: 0 days (2026-10-22); run npm run tokens');
+  assert.ok(expiring > -1, t.log.join('\n'));
+  assert.ok(expiring > t.log.findIndex((l) => l.startsWith('acct  ')), 'after everything else');
+  assert.equal(t.log.length - 1, expiring + 1, 'only the summary line follows it');
+  assert.ok(!t.log.some((l) => l.includes('IGAAx')), 'the token is never printed');
 
-    // the two-hourly run does not nag about it
-    const series = setup({ ledger: [{ platform: 'bluesky', id: BSKY_ID, at: hoursAgo(10) }] });
-    const s2 = await series.run({ bluesky: fake('bluesky') }, { series: true });
-    assert.equal(s2.exitCode, 0);
-    assert.ok(!series.log.some((l) => l.startsWith('EXPIRING')));
-  } finally {
-    if (was === undefined) delete process.env.IG_TOKEN_EXPIRES;
-    else process.env.IG_TOKEN_EXPIRES = was;
-  }
+  // the two-hourly run does not nag about it
+  const series = setup({ ledger: [{ platform: 'bluesky', id: BSKY_ID, at: hoursAgo(10) }] });
+  const s2 = await series.run({ bluesky: fake('bluesky') }, { series: true }, ig);
+  assert.equal(s2.exitCode, 0);
+  assert.ok(!series.log.some((l) => l.startsWith('EXPIRING')));
+
+  // the boundary is the one metrics.ts owns: seven days fails, eight does not (NOW is 02:00 UTC, so the times match it)
+  const seven = setup();
+  const s7 = await seven.run({ bluesky: fake('bluesky') }, {}, { THREADS_ACCESS_TOKEN: 'THx', THREADS_TOKEN_EXPIRES: '2026-10-28T02:00:00Z' });
+  assert.equal(s7.exitCode, 1);
+  assert.ok(seven.log.includes('EXPIRING Threads token: 7 days (2026-10-28T02:00:00Z); run npm run tokens'), seven.log.join('\n'));
+  const eight = setup();
+  const s8 = await eight.run({ bluesky: fake('bluesky') }, {}, { THREADS_ACCESS_TOKEN: 'THx', THREADS_TOKEN_EXPIRES: '2026-10-29T02:00:00Z' });
+  assert.equal(s8.exitCode, 0);
+  assert.ok(!eight.log.some((l) => l.startsWith('EXPIRING')));
+
+  // a value that is not a date fails too, naming the variable
+  const bad = setup();
+  const s9 = await bad.run({ bluesky: fake('bluesky') }, {}, { IG_ACCESS_TOKEN: 'IGAAx', IG_TOKEN_EXPIRES: 'soon' });
+  assert.equal(s9.exitCode, 1);
+  assert.ok(bad.log.includes('EXPIRING Instagram token: IG_TOKEN_EXPIRES is not a date (soon); run npm run tokens'));
+});
+
+test('the expiry is checked only beside its token: an expiry alone is ignored, a token alone is one note, and --only checks one platform', async () => {
+  // the expiry variable without the token: the platform is off, so there is nothing to warn about
+  const off = setup();
+  const s1 = await off.run({ bluesky: fake('bluesky') }, {}, { IG_TOKEN_EXPIRES: '2026-10-22', THREADS_TOKEN_EXPIRES: '2026-10-22' });
+  assert.equal(s1.exitCode, 0);
+  assert.ok(!off.log.some((l) => l.startsWith('EXPIRING') || l.startsWith('note  ')), off.log.join('\n'));
+
+  // the token without its expiry: one note, the exit code untouched
+  const unset = setup();
+  const s2 = await unset.run({ bluesky: fake('bluesky') }, {}, { IG_ACCESS_TOKEN: 'IGAAx', THREADS_ACCESS_TOKEN: 'THx', THREADS_TOKEN_EXPIRES: '2026-12-20' });
+  assert.equal(s2.exitCode, 0);
+  assert.equal(unset.log.filter((l) => l === 'note  Instagram token: IG_TOKEN_EXPIRES unset; run npm run tokens -- --github').length, 1);
+  assert.ok(!unset.log.some((l) => l.startsWith('note  Threads')));
+
+  // --only bluesky leaves the Meta tokens alone; --only instagram checks that one
+  const both = { IG_ACCESS_TOKEN: 'IGAAx', IG_TOKEN_EXPIRES: '2026-10-22', THREADS_ACCESS_TOKEN: 'THx', THREADS_TOKEN_EXPIRES: '2026-10-22' };
+  const only = setup();
+  const s3 = await only.run({ bluesky: fake('bluesky'), instagram: igFake() }, { only: 'bluesky' }, both);
+  assert.equal(s3.exitCode, 0);
+  assert.ok(!only.log.some((l) => l.startsWith('EXPIRING')));
+  const onlyIg = setup();
+  const s4 = await onlyIg.run({ bluesky: fake('bluesky'), instagram: igFake() }, { only: 'instagram' }, both);
+  assert.equal(s4.exitCode, 1);
+  assert.ok(onlyIg.log.some((l) => l.startsWith('EXPIRING Instagram')));
+  assert.ok(!onlyIg.log.some((l) => l.startsWith('EXPIRING Threads')));
+});
+
+test('a module that says Unreadable or NotConfigured is a skip line, not a failure: exit 0, the tally untouched, the other platform lands', async () => {
+  const t = setup({
+    platforms: ['bluesky', 'youtube', 'instagram'],
+    published: { bluesky: BSKY_ID, youtube: 'kHK05hfvqj4' },
+    ledger: [{ platform: 'bluesky', id: BSKY_ID, at: hoursAgo(36) }, { platform: 'youtube', id: 'kHK05hfvqj4', at: hoursAgo(20) }],
+  });
+  const bsky = fake('bluesky', {
+    replies: async () => { throw new NotConfigured("BSKY_HANDLE unset; the account's own replies cannot be told apart"); },
+    account: async () => { throw new NotConfigured('BSKY_HANDLE unset'); },
+  });
+  const yt = fake('youtube', { metrics: async () => { throw new Unreadable('private video; an API key reads public videos only'); } });
+  const ig = igFake({ recent: async () => { throw new NotConfigured('IG_USER_ID unset'); } });
+  const s = await t.run({ bluesky: bsky, youtube: yt, instagram: ig });
+  assert.deepEqual(s, { rows: 1, seriesRows: 0, accountRows: 1, repliesWritten: 0, claims: 0, failures: 0, exitCode: 0 });
+  assert.ok(!t.log.some((l) => l.startsWith('FAIL')), t.log.join('\n'));
+  assert.ok(t.log.includes(`skip  ${SLUG} youtube: private video; an API key reads public videos only`));
+  assert.ok(t.log.includes(`skip  ${SLUG} bluesky: BSKY_HANDLE unset; the account's own replies cannot be told apart`));
+  assert.equal(t.log.filter((l) => l === 'skip  bluesky: BSKY_HANDLE unset').length, 1);
+  assert.equal(t.log.filter((l) => l === 'skip  instagram: IG_USER_ID unset').length, 1);
+  assert.deepEqual(readJsonl<PostRow>(t.paths.posts).map((r) => r.platform), ['bluesky']);
+  assert.deepEqual(readJsonl<AccountRow>(t.paths.account).map((r) => r.platform), ['instagram']);
+  assert.ok(t.log.at(-1)?.startsWith('done  rows 1, series 0, account 1, replies 0, claims 0, failures 0'));
+  assert.ok(!t.log.at(-1)?.endsWith('exit 1'));
+
+  // the two-hourly run skips the same way
+  const u = setup({ platforms: ['youtube'], published: { youtube: 'kHK05hfvqj4' }, ledger: [{ platform: 'youtube', id: 'kHK05hfvqj4', at: hoursAgo(20) }] });
+  const s2 = await u.run({ youtube: yt }, { series: true });
+  assert.deepEqual(s2, { rows: 0, seriesRows: 0, accountRows: 0, repliesWritten: 0, claims: 0, failures: 0, exitCode: 0 });
+  assert.ok(u.log.includes(`skip  ${SLUG} youtube: private video; an API key reads public videos only`));
+  assert.ok(!existsSync(u.paths.series));
+
+  // an ordinary error on the same calls is still a failure
+  const v = setup({ platforms: ['bluesky', 'youtube'], published: { youtube: 'kHK05hfvqj4' }, ledger: [{ platform: 'youtube', id: 'kHK05hfvqj4', at: hoursAgo(20) }] });
+  const s3 = await v.run({ youtube: fake('youtube', { metrics: async () => { throw new Error('403 quota'); } }) });
+  assert.equal(s3.exitCode, 1);
+  assert.equal(s3.failures, 1);
+});
+
+test('an account answer that names its own day is stamped with it, and the check for a row already there runs against that day', async () => {
+  const t = setup();
+  let calls = 0;
+  const bsky = fake('bluesky', {
+    account: async () => {
+      calls++;
+      return { metrics: { followers: 12 }, breakdowns: {}, raw: { followersCount: 12 }, day: '2026-10-21' };
+    },
+  });
+  const s = await t.run({ bluesky: bsky });
+  assert.equal(s.accountRows, 1);
+  const [row] = readJsonl<AccountRow>(t.paths.account);
+  assert.equal(row.date, '2026-10-21', 'today, as the module said, not yesterday');
+  assert.equal(row.at, NOW.toISOString());
+  assert.deepEqual(row.metrics, { followers: 12 });
+  assert.ok(t.log.includes('acct  bluesky: 1 metrics, 0 breakdowns for 2026-10-21'), t.log.join('\n'));
+
+  // the same night again: the module is asked again (cheap for one that reads the account as it stands), then its day is recognised
+  t.log.length = 0;
+  const again = await t.run({ bluesky: bsky });
+  assert.equal(again.accountRows, 0);
+  assert.equal(calls, 2);
+  assert.ok(t.log.includes('acct  bluesky: already have 2026-10-21'));
+  assert.equal(readJsonl(t.paths.account).length, 1);
 });
 
 test('--dry makes the calls and writes nothing', async () => {

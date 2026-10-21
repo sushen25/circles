@@ -189,6 +189,21 @@ test("a non-Meta module's own expiry date is checked too", async () => {
   assert.match(h.err.join('\n'), /youtube: token expires in 3 days/);
 });
 
+test('the boundary is the one metrics.ts owns, the same as the pull: seven days fails, eight does not', async () => {
+  const seven = harness({ env: { IG_ACCESS_TOKEN: 'IGAAx', IG_TOKEN_EXPIRES: day(7) } });
+  assert.equal(await run(['--no-refresh'], seven.deps), 1);
+  assert.match(seven.err.join('\n'), /instagram: token expires in 7 days/);
+  const eight = harness({ env: { IG_ACCESS_TOKEN: 'IGAAx', IG_TOKEN_EXPIRES: day(8) } });
+  assert.equal(await run(['--no-refresh'], eight.deps), 0);
+  assert.equal(eight.err.length, 0);
+
+  const ytSeven = harness({ modules: { youtube: mod('youtube', { expires: day(7) }) } });
+  assert.equal(await run([], ytSeven.deps), 1);
+  assert.match(ytSeven.err.join('\n'), /youtube: token expires in 7 days/);
+  const ytEight = harness({ modules: { youtube: mod('youtube', { expires: day(8) }) } });
+  assert.equal(await run([], ytEight.deps), 0);
+});
+
 /* ---------------------------------------------------- publish/meta-tokens */
 
 test('canRenewInstagram: Instagram Login tokens and an unset token, not Facebook Login', () => {
@@ -250,7 +265,9 @@ test('renew: a refusal prints the status and the message, never the token, and i
   process.env.IG_ACCESS_TOKEN = 'IGAAsecret';
   try {
     assert.deepEqual(await renew('instagram', { envPath: join(mkdtempSync(join(tmpdir(), 'meta-tokens-')), '.env') }), { ok: false });
-    assert.deepEqual(logs, ['instagram: renewal failed: 400 Error validating access token: IGAAsecret has expired']);
+    assert.equal(logs.length, 1);
+    assert.match(logs[0], /^instagram: renewal failed: 400 Error validating access token: … has expired$/);
+    assert.doesNotMatch(logs.join('\n'), /IGAAsecret/);
     delete process.env.IG_ACCESS_TOKEN;
     logs.length = 0;
     assert.deepEqual(await renew('instagram'), { ok: true });

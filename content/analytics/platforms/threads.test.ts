@@ -111,6 +111,20 @@ test('metrics: media and insights, both documented value shapes, raw kept whole'
   assertRequestsClean();
 });
 
+test('metrics: a paging link in the stored answer keeps its shape and loses the token', async () => {
+  const insights = {
+    data: [{ name: 'views', period: 'lifetime', values: [{ value: 5 }] }],
+    paging: { cursors: { after: 'a1' }, next: `https://graph.threads.net/v1.0/${MEDIA.id}/insights?access_token=${TOKEN}&metric=views` },
+  };
+  handler = (u) => (u.pathname.endsWith('/insights') ? insights : MEDIA);
+  const got = await threads.metrics(MEDIA.id);
+  assert.deepEqual(got.metrics, { views: 5 });
+  const raw = got.raw as { insights: typeof insights };
+  assert.deepEqual(raw.insights.data, insights.data);
+  assert.equal(raw.insights.paging.next, `https://graph.threads.net/v1.0/${MEDIA.id}/insights?access_token=…&metric=views`, 'the link is kept, its token blanked');
+  assert.ok(!JSON.stringify(got.raw).includes(TOKEN), 'no token anywhere in raw');
+});
+
 test('metrics: a refused insights call rejects, and the message carries no token', async () => {
   handler = (u) => (u.pathname.endsWith('/insights') ? refused('(#10) Application does not have permission for this action') : MEDIA);
   await assert.rejects(threads.metrics(MEDIA.id), (e: Error) => {
@@ -209,8 +223,11 @@ const DAY_INSIGHTS = {
     { name: 'replies', period: 'day', total_value: { value: 3 } },
     { name: 'reposts', period: 'day', total_value: { value: 2 } },
     { name: 'quotes', period: 'day', total_value: { value: 1 } },
-    { name: 'clicks', period: 'day', total_value: { value: 6 } },
+    // clicks come back per link, as documented: neither total_value nor values[]
+    { name: 'clicks', period: 'day', link_total_values: [{ value: 4, link_url: 'https://wenna.app/?from=th-only-moves' }, { value: 2, link_url: 'https://wenna.app' }], title: 'clicks' },
   ],
+  // Meta's paging links carry the token; raw must hold the shape and not the secret.
+  paging: { cursors: { before: 'b1', after: 'a1' }, next: `https://graph.threads.net/v1.0/${USER}/threads_insights?access_token=${TOKEN}&metric=views&since=1&until=2` },
 };
 const FOLLOWERS = { data: [{ name: 'followers_count', period: 'day', total_value: { value: 212 } }] };
 const demographics = (dim: string, results: { dimension_values: string[]; value: number }[]) => ({
@@ -247,13 +264,18 @@ test('account: one day, six calls, a refused breakdown lands in raw.errors and t
   const got = await threads.account!('2026-10-20');
   assert.deepEqual(got.metrics, { views: 200, likes: 14, replies: 3, reposts: 2, quotes: 1, clicks: 6, link_taps: 6, followers: 212 });
   assert.deepEqual(got.breakdowns, {
-    views_by_day: { '2026-10-20': 120, '2026-10-21': 80 },
+    // each point is labelled with the Pacific midnight that ends its day; the key is the day the bucket covers
+    views_by_day: { '2026-10-19': 120, '2026-10-20': 80 },
+    clicks_by_link: { 'https://wenna.app/?from=th-only-moves': 4, 'https://wenna.app': 2 },
     follower_country: { AU: 150, NZ: 20 },
     follower_age: { '25-34': 90, '35-44': 60 },
   });
   const raw = got.raw as Record<string, unknown>;
   assert.deepEqual(Object.keys(raw).sort(), ['demographics_age', 'demographics_country', 'demographics_gender', 'errors', 'followers', 'insights']);
-  assert.deepEqual(raw.insights, DAY_INSIGHTS);
+  const stored = raw.insights as typeof DAY_INSIGHTS;
+  assert.deepEqual(stored.data, DAY_INSIGHTS.data);
+  assert.equal(stored.paging.next, `https://graph.threads.net/v1.0/${USER}/threads_insights?access_token=…&metric=views&since=1&until=2`, 'the paging link is kept, its token blanked');
+  assert.ok(!JSON.stringify(raw).includes(TOKEN), 'no token anywhere in raw');
   assert.deepEqual(raw.followers, FOLLOWERS);
   const errors = raw.errors as Record<string, string>;
   assert.deepEqual(Object.keys(errors), ['demographics_city']);
@@ -264,8 +286,8 @@ test('account: one day, six calls, a refused breakdown lands in raw.errors and t
   assertRequestsClean();
 });
 
-test('account: a placeholder token loses every call to raw.errors and still returns a row', async () => {
-  handler = () => refused('Invalid OAuth access token - Cannot parse access token', 400);
+test('account: a placeholder token loses every call to raw.errors and still returns a row, and a token echoed bare in a refusal is blanked', async () => {
+  handler = () => refused(`Invalid OAuth access token - Cannot parse access token ${TOKEN}`, 400);
   const got = await threads.account!('2026-10-20');
   assert.deepEqual(got.metrics, {});
   assert.deepEqual(got.breakdowns, {});

@@ -1,19 +1,24 @@
 /**
  * Claim a post the founder made by hand, so the pull can measure it.
  *
- *   npm run posted <platform> <slug> <url-or-id> [--at <iso>] [--dry]
+ *   npm run posted -- <platform> <slug> <url-or-id> [--at <iso>] [--dry]
+ *
+ * The `--` matters: npm keeps a flag typed before it for itself (argv.ts);
+ * the flags it swallowed are read back, with a note, and a time left behind
+ * as a stray argument is refused with the same hint.
  *
  * TikTok is always posted by hand (the script only drafts, ADR 0086), a
  * Short is claimed here when the pull's auto-claim found no tag in its
  * description, and Reddit has no module at all, so the URL is the id. The
  * platform module turns a pasted URL into the id the ledger holds
  * (`parseId`) and asks the platform when the post went out (`postedAt`);
- * without either, the argument is the id and the time is now, and the
- * command says so. The write itself is `claim()` in claim.ts, the same
- * function auto-claim uses: a `published:` entry in the queue file and a
- * ledger row marked `by: hand`. For a TikTok draft the publisher sent, the
- * entry holds the draft's publish_id until this command replaces it with
- * the video id, and the line printed says so.
+ * without a module, the argument is the id (for TikTok, the digits after
+ * /video/ in the app's share link, or the bare number) and the time is
+ * now, and the command says so. The write itself is `claim()` in claim.ts,
+ * the same function auto-claim uses: a `published:` entry in the queue file
+ * and a ledger row marked `by: hand`. For a TikTok draft the publisher
+ * sent, the entry holds the draft's publish_id until this command replaces
+ * it with the video id, and the line printed says so.
  *
  * `run(args, deps)` is exported with the real modules as defaults so the
  * test can hand it fakes; the defaults are loaded lazily, so this file
@@ -24,19 +29,22 @@ import { fileURLToPath } from 'node:url';
 import { sourceRef } from '../lib/links.ts';
 import { CAPTION_LIMIT, type Platform, type QueueItem } from '../lib/queue.ts';
 import { DRAFT_ONLY, SCRIPTABLE, type Ledger } from '../publish/guards.ts';
+import { dashDashNote, restoreSwallowed, type Env } from './argv.ts';
 // Type only, so claim.ts is still loaded lazily (see realDeps).
 import type { ClaimResult } from './claim.ts';
 import type { PlatformModule } from './platforms/module.ts';
 
 export const PLATFORMS = Object.keys(CAPTION_LIMIT) as Platform[];
 
-export const USAGE = `usage: npm run posted <platform> <slug> <url-or-id> [--at <iso>] [--dry]
+export const USAGE = `usage: npm run posted -- <platform> <slug> <url-or-id> [--at <iso>] [--dry]
 
   platform   one of ${PLATFORMS.join(', ')}
   slug       the piece, as in its queue file's frontmatter
   url-or-id  the post's URL as pasted from the app, or its id
   --at       when it went out (ISO); else the platform is asked, else now
-  --dry      print what would be written and write nothing`;
+  --dry      print what would be written and write nothing
+
+  The -- after "posted" matters: npm keeps a flag typed before it for itself.`;
 
 /** What claim.ts returns: whether the file moved to published/, where it is now, the tag, and the draft id it replaced, if any. */
 export type { ClaimResult };
@@ -48,6 +56,8 @@ export type Deps = {
   now: () => Date;
   log: (line: string) => void;
   error: (line: string) => void;
+  /** where npm leaves the flags it swallowed (argv.ts); the tests hand in their own */
+  env: Env;
 };
 
 async function realDeps(): Promise<Pick<Deps, 'moduleFor' | 'findItem' | 'claim'>> {
@@ -57,29 +67,40 @@ async function realDeps(): Promise<Pick<Deps, 'moduleFor' | 'findItem' | 'claim'
 
 async function withDefaults(deps: Partial<Deps>): Promise<Deps> {
   const real = deps.moduleFor && deps.findItem && deps.claim ? {} : await realDeps();
-  return { now: () => new Date(), log: console.log, error: console.error, ...real, ...deps } as Deps;
+  return { now: () => new Date(), log: console.log, error: console.error, env: process.env, ...real, ...deps } as Deps;
 }
 
 export type Args = { platform: Platform; slug: string; urlOrId: string; at?: string; dry: boolean };
+
+/** The flags npm swallows when the `--` is left out: `--dry` arrives as 'true' (npm spells it --dry-run, its own config), `--at=<iso>` as the time. */
+const SWALLOWED = [{ name: 'dry', boolean: true, alias: 'dry-run' }, { name: 'at' }];
+
+const isDate = (s: string): boolean => !Number.isNaN(Date.parse(s));
 
 /** Positional platform, slug, url-or-id; `--at <iso>`; `--dry`. Returns a string, the reason, when the call is wrong. */
 export function parseArgs(argv: string[]): Args | string {
   const positional: string[] = [];
   let at: string | undefined;
   let dry = false;
+  let missing: string | undefined;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--dry') dry = true;
     else if (a === '--at') {
       at = argv[++i];
-      if (!at) return '--at needs an ISO time';
+      if (!at) missing = '--at needs an ISO time';
     } else if (a.startsWith('--')) return `unknown flag ${a}`;
     else positional.push(a);
   }
+  // `npm run posted … --at <iso>` without the --: npm keeps --at for itself and passes the time on as a fourth argument.
+  if (positional.length === 4 && isDate(positional[3])) {
+    return `"${positional[3]}" is a time where nothing should be: npm swallowed --at; put -- after the script name (npm run posted -- …)`;
+  }
+  if (missing) return missing;
   if (positional.length !== 3) return 'expected <platform> <slug> <url-or-id>';
   const [platform, slug, urlOrId] = positional;
   if (!PLATFORMS.includes(platform as Platform)) return `"${platform}" is not a platform; one of ${PLATFORMS.join(', ')}`;
-  if (at !== undefined && Number.isNaN(Date.parse(at))) return `--at "${at}" is not a date`;
+  if (at !== undefined && !isDate(at)) return `--at "${at}" is not a date`;
   return { platform: platform as Platform, slug, urlOrId, at, dry };
 }
 
@@ -90,8 +111,10 @@ export function wouldMove(item: QueueItem, platform: Platform): boolean {
 
 /** Exit code: 0 claimed (or dry), 1 a failure, 2 a wrong call. */
 export async function run(argv: string[], deps: Partial<Deps> = {}): Promise<number> {
-  const parsed = parseArgs(argv);
   const d = await withDefaults(deps);
+  const { argv: full, restored } = restoreSwallowed(argv, SWALLOWED, d.env);
+  if (restored.length) d.log(dashDashNote(restored));
+  const parsed = parseArgs(full);
   if (typeof parsed === 'string') {
     d.error(`${parsed}\n\n${USAGE}`);
     return 2;
@@ -113,6 +136,16 @@ export async function run(argv: string[], deps: Partial<Deps> = {}): Promise<num
       d.error(`${platform}: cannot read an id from "${urlOrId}": ${(e as Error).message}`);
       return 1;
     }
+  } else if (platform === 'tiktok') {
+    // No TikTok module yet: the video id is the digits after /video/ in the app's share link, or the bare number.
+    const m = urlOrId.match(/\/video\/(\d{6,})/) ?? urlOrId.match(/^(\d+)$/);
+    if (!m) {
+      d.error(`tiktok: cannot read a video id from "${urlOrId}"; paste the video's link (…/video/<digits>) or its numeric id`);
+      return 1;
+    }
+    id = m[1];
+  } else {
+    d.log(`note  ${platform} has no module to read a URL; recording "${id}" as the id`);
   }
 
   let at = parsed.at ? new Date(parsed.at).toISOString() : undefined;

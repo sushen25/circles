@@ -23,14 +23,46 @@ import type { Metrics, Reply } from '../metrics.ts';
 
 export type Configured = { ok: true } | { ok: false; reason: string };
 
+/**
+ * "Cannot read this with these credentials": a private Short read with an
+ * API key alone, a refresh token with the upload scope only. The pull logs
+ * it as a skip, not a failure, because repeating the call changes nothing
+ * and a red job every two hours for a video that is private on purpose
+ * drowns the signal (an expiring token, a platform down) in noise.
+ */
+export class Unreadable extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'Unreadable';
+  }
+}
+
+/**
+ * A call that needs a setting the module's configured() does not require:
+ * Bluesky reads a post with nothing, but its account row and recent feed
+ * need BSKY_HANDLE. The pull logs it once as "skip … not configured".
+ */
+export class NotConfigured extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NotConfigured';
+  }
+}
+
 /** A post's numbers: the common names, and every response whole. */
 export type Fetched = { metrics: Metrics; raw: unknown };
 
-/** The account's numbers for one day: flat metrics, named breakdowns, every response whole. */
+/**
+ * The account's numbers for one day: flat metrics, named breakdowns, every
+ * response whole. `day` is the UTC day the numbers describe when it is not
+ * the day asked for: Bluesky and the YouTube channel totals are read as
+ * they stand at pull time, so they say today; a by-day answer leaves it out.
+ */
 export type AccountFetched = {
   metrics: Record<string, number>;
   breakdowns: Record<string, Record<string, number>>;
   raw: unknown;
+  day?: string;
 };
 
 /** A recent post on the account, for auto-claim: `text` holds whatever carries the link (caption, description). */

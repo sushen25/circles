@@ -9,26 +9,32 @@
  *   node --experimental-strip-types --test analytics/platforms/youtube.test.ts
  */
 import assert from 'node:assert/strict';
-import { afterEach, beforeEach, describe, test } from 'node:test';
-import { HttpError, clock } from './http.ts';
-import { reset, youtube } from './youtube.ts';
+import { after, afterEach, beforeEach, describe, test } from 'node:test';
+import { HttpError, clock as http } from './http.ts';
+import { Unreadable } from './module.ts';
+import { clock, reset, youtube } from './youtube.ts';
 
 type Call = { url: URL; method: string; headers: Record<string, string> };
 let calls: Call[] = [];
 const realFetch = globalThis.fetch;
-const realSleep = clock.sleep;
+const realSleep = http.sleep;
+const realToday = clock.today;
+/** Snapshotted before the first test and restored after the last, so nothing here leaks past the file. */
+const savedEnv = { ...process.env };
 
 const KEY = 'yt-key-SECRET';
 const ACCESS = 'yt-access-SECRET';
 const REFRESH = 'yt-refresh-SECRET';
 const VIDEO_ID = 'dQw4w9WgXcQ';
 const OWN = 'UC-own-channel';
-const TODAY = new Date().toISOString().slice(0, 10);
+/** The module's "today", pinned for every test: every endDate and the account row's `day` read it. */
+const TODAY = '2026-10-22';
 
 const TOKEN = 'oauth2.googleapis.com/token';
 const TOKENINFO = 'oauth2.googleapis.com/tokeninfo';
 const VIDEOS = 'www.googleapis.com/youtube/v3/videos';
 const THREADS = 'www.googleapis.com/youtube/v3/commentThreads';
+const COMMENTS = 'www.googleapis.com/youtube/v3/comments';
 const CHANNELS = 'www.googleapis.com/youtube/v3/channels';
 const PLAYLIST = 'www.googleapis.com/youtube/v3/playlistItems';
 const REPORTS = 'youtubeanalytics.googleapis.com/v2/reports';
@@ -144,13 +150,20 @@ const UPLOADS = {
 beforeEach(() => {
   calls = [];
   for (const k of Object.keys(process.env)) if (k.startsWith('YOUTUBE_')) delete process.env[k];
-  clock.sleep = async () => {};
+  http.sleep = async () => {};
+  clock.today = () => TODAY;
   reset();
 });
 
 afterEach(() => {
   globalThis.fetch = realFetch;
-  clock.sleep = realSleep;
+  clock.today = realToday;
+});
+
+after(() => {
+  http.sleep = realSleep;
+  for (const k of Object.keys(process.env)) if (!(k in savedEnv)) delete process.env[k];
+  Object.assign(process.env, savedEnv);
 });
 
 /* ------------------------------------------------------------ configured */
@@ -229,7 +242,8 @@ describe('metrics', () => {
       assert.equal(c.headers.Authorization, `Bearer ${ACCESS}`);
       assert.equal(q(c, 'ids'), 'channel==MINE');
       assert.equal(q(c, 'filters'), `video==${VIDEO_ID}`);
-      assert.equal(q(c, 'startDate'), '2026-10-20');
+      // the day before the UTC publish date: Analytics days are Pacific, and the video filter makes the early start harmless
+      assert.equal(q(c, 'startDate'), '2026-10-19');
       assert.equal(q(c, 'endDate'), TODAY);
     }
     assert.equal(q(rep[0], 'metrics'), 'views,engagedViews,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,shares,subscribersGained,likes,comments');
@@ -281,10 +295,12 @@ describe('metrics', () => {
     assert.equal(metrics.engaged_views, 900);
   });
 
-  test('upload-only OAuth and no key: a clear error, and no Data API call', async () => {
+  test('upload-only OAuth and no key: Unreadable, a skip for the pull, with a clear message and no Data API call', async () => {
     withOAuth();
     serve(...oauthRoutes('youtube.upload'));
     await assert.rejects(youtube.metrics(VIDEO_ID), (e: Error) => {
+      assert.ok(e instanceof Unreadable, 'repeating the call changes nothing, so the pull logs a skip');
+      assert.equal(e.name, 'Unreadable');
       assert.match(e.message, /youtube\.upload only/);
       assert.match(e.message, /not youtube\.readonly/);
       assert.match(e.message, /YOUTUBE_API_KEY is unset/);
@@ -317,10 +333,24 @@ describe('metrics', () => {
     assert.equal(made(TOKEN).length, 1);
   });
 
-  test('a video the key cannot see is an error, not an empty row', async () => {
+  test('a video the key cannot see is Unreadable, a skip for the pull, not an empty row', async () => {
     withKey();
     serve([VIDEOS, () => ({ kind: 'youtube#videoListResponse', items: [] })]);
-    await assert.rejects(youtube.metrics(VIDEO_ID), /not found; a private Short is readable only with youtube\.readonly/);
+    await assert.rejects(youtube.metrics(VIDEO_ID), (e: Error) => {
+      assert.ok(e instanceof Unreadable);
+      assert.match(e.message, /not found; a private Short is readable only with youtube\.readonly/);
+      return true;
+    });
+  });
+
+  test('with readonly, a video that is not listed is a failure, not a skip', async () => {
+    withOAuth();
+    serve(...oauthRoutes('youtube.readonly'), [VIDEOS, () => ({ kind: 'youtube#videoListResponse', items: [] })]);
+    await assert.rejects(youtube.metrics(VIDEO_ID), (e: Error) => {
+      assert.ok(!(e instanceof Unreadable), 'the bearer sees the channel\'s own private videos, so this one is gone');
+      assert.match(e.message, /not found \(deleted, or not this channel's\)/);
+      return true;
+    });
   });
 
   test('a Data API failure throws without the key in the message', async () => {
@@ -380,6 +410,43 @@ describe('replies', () => {
     assert.equal(q(t, 'maxResults'), '100');
     assert.equal(q(t, 'pageToken'), null);
     assert.equal(q(t, 'key'), KEY);
+    assert.equal(made(COMMENTS).length, 0, 'every reply was embedded: nothing to list');
+  });
+
+  test('a thread with more replies than it embeds lists them all by parent, paged, under the same filters', async () => {
+    withKey();
+    const more = [
+      comment('c1.r3', 'UC-fan-5', '2026-10-21T10:20:00Z', 'third'),
+      comment('c1.r4', OWN, '2026-10-21T10:25:00Z', 'the channel again'),
+      comment('c1.r5', 'UC-fan-6', '2026-10-21T10:30:00Z', 'fifth'),
+      comment('c1.r6', 'UC-fan-7', '2026-10-10T10:00:00Z', 'an old one'),
+      comment('c1.r7', 'UC-fan-8', '2026-10-21T10:40:00Z', 'seventh'),
+    ];
+    // commentThreads embeds two of the seven replies; the count says so.
+    const big = { ...thread(fan1, [ownReply, fan2]), snippet: { videoId: VIDEO_ID, topLevelComment: fan1, totalReplyCount: 7 } };
+    serve(
+      [VIDEOS, () => VIDEO],
+      [THREADS, () => page([big, thread(ownTop, [fan3])])],
+      [COMMENTS, (c) => (q(c, 'pageToken') === 'more' ? { items: [more[3], more[4]] } : { items: [ownReply, fan2, more[0], more[1], more[2]], nextPageToken: 'more' })],
+    );
+    const out = await youtube.replies(VIDEO_ID, '2026-10-15T00:00:00Z');
+    assert.deepEqual(
+      out.map((r) => r.id),
+      ['c1', 'c1.r2', 'c1.r3', 'c1.r5', 'c1.r7', 'c2.r1'],
+      'the listed replies replace the embedded subset; the channel\'s own and the old one are dropped as always',
+    );
+    assert.ok(!JSON.stringify(out).includes('UC-'));
+    const listed = made(COMMENTS);
+    assert.equal(listed.length, 2, 'two pages under the big thread, none under the thread that embeds all of its own');
+    for (const c of listed) {
+      assert.equal(q(c, 'parentId'), 'c1');
+      assert.equal(q(c, 'part'), 'snippet');
+      assert.equal(q(c, 'maxResults'), '100');
+      assert.equal(q(c, 'textFormat'), 'plainText');
+      assert.equal(q(c, 'key'), KEY);
+    }
+    assert.equal(q(listed[0], 'pageToken'), null);
+    assert.equal(q(listed[1], 'pageToken'), 'more');
   });
 
   test('since: older replies are skipped and paging stops at the first old thread', async () => {
@@ -440,18 +507,19 @@ describe('replies', () => {
 /* --------------------------------------------------------------- account */
 
 describe('account', () => {
-  test('with readonly and analytics: mine=true, the day report, both kept whole', async () => {
+  const BY_DAY = ['day', 'views', 'subscribersGained', 'subscribersLost', 'estimatedMinutesWatched'];
+
+  test('with readonly and analytics: mine=true, a trailing week by day, the day\'s row mapped, both kept whole', async () => {
     withOAuth();
-    serve(
-      ...oauthRoutes('youtube.readonly', 'yt-analytics.readonly'),
-      [CHANNELS, () => CHANNEL],
-      [REPORTS, () => report(['views', 'subscribersGained', 'subscribersLost', 'estimatedMinutesWatched'], [[310, 3, 1, 22.5]])],
-    );
-    const { metrics, breakdowns, raw } = await youtube.account!('2026-10-20');
+    const byDay = report(BY_DAY, [['2026-10-19', 100, 1, 0, 10], ['2026-10-20', 310, 3, 1, 22.5]]);
+    serve(...oauthRoutes('youtube.readonly', 'yt-analytics.readonly'), [CHANNELS, () => CHANNEL], [REPORTS, () => byDay]);
+    const { metrics, breakdowns, raw, day } = await youtube.account!('2026-10-20');
     assert.deepEqual(metrics, { subscribers: 42, views: 9876, videos: 3, views_day: 310, subscribers_gained: 3, subscribers_lost: 1, minutes_watched: 22.5 });
     assert.deepEqual(breakdowns, {});
-    assert.deepEqual(Object.keys(raw as object), ['channel', 'analytics']);
+    assert.equal(day, undefined, 'a by-day answer describes the day asked for');
+    assert.deepEqual(Object.keys(raw as object), ['channel', 'by_day']);
     assert.deepEqual((raw as { channel: unknown }).channel, CHANNEL);
+    assert.deepEqual((raw as { by_day: unknown }).by_day, byDay);
     const [ch] = made(CHANNELS);
     assert.equal(q(ch, 'mine'), 'true');
     assert.equal(q(ch, 'id'), null);
@@ -459,18 +527,43 @@ describe('account', () => {
     assert.equal(ch.headers.Authorization, `Bearer ${ACCESS}`);
     const [r] = made(REPORTS);
     assert.equal(q(r, 'ids'), 'channel==MINE');
-    assert.equal(q(r, 'startDate'), '2026-10-20');
+    assert.equal(q(r, 'startDate'), '2026-10-14');
     assert.equal(q(r, 'endDate'), '2026-10-20');
+    assert.equal(q(r, 'dimensions'), 'day');
     assert.equal(q(r, 'metrics'), 'views,subscribersGained,subscribersLost,estimatedMinutesWatched');
     assert.equal(q(r, 'filters'), null);
   });
 
-  test('with a key and YOUTUBE_CHANNEL_ID: id=, no report', async () => {
+  test('the day the Analytics API has not finished: the gap is recorded, the channel totals kept, no day claimed', async () => {
+    withOAuth();
+    serve(
+      ...oauthRoutes('youtube.readonly', 'yt-analytics.readonly'),
+      [CHANNELS, () => CHANNEL],
+      [REPORTS, () => report(BY_DAY, [['2026-10-18', 90, 0, 0, 8], ['2026-10-19', 100, 1, 0, 10]])],
+    );
+    const { metrics, raw, day } = await youtube.account!('2026-10-20');
+    assert.deepEqual(metrics, { subscribers: 42, views: 9876, videos: 3 });
+    const r = raw as { by_day: { rows: unknown[] }; errors: Record<string, string> };
+    assert.equal(r.by_day.rows.length, 2, 'what was read is kept whole');
+    assert.deepEqual(r.errors, { analytics_day: 'no analytics row for 2026-10-20 yet' });
+    assert.equal(day, undefined, 'something by-day was read, so the row stays the day asked for');
+  });
+
+  test('a day that is not YYYY-MM-DD is refused before any call', async () => {
+    withKey();
+    process.env.YOUTUBE_CHANNEL_ID = OWN;
+    serve();
+    await assert.rejects(youtube.account!('yesterday'), /not a YYYY-MM-DD day/);
+    assert.equal(calls.length, 0);
+  });
+
+  test('with a key and YOUTUBE_CHANNEL_ID: id=, no report, and the row is today\'s', async () => {
     withKey();
     process.env.YOUTUBE_CHANNEL_ID = OWN;
     serve([CHANNELS, () => CHANNEL]);
-    const { metrics, raw } = await youtube.account!('2026-10-20');
+    const { metrics, raw, day } = await youtube.account!('2026-10-20');
     assert.deepEqual(metrics, { subscribers: 42, views: 9876, videos: 3 });
+    assert.equal(day, TODAY, 'channel totals alone are read as they stand, so the row says today');
     assert.deepEqual(Object.keys(raw as object), ['channel']);
     const [ch] = made(CHANNELS);
     assert.equal(q(ch, 'id'), OWN);
@@ -491,18 +584,20 @@ describe('account', () => {
     serve(...oauthRoutes('youtube.readonly', 'yt-analytics.readonly'), [CHANNELS, () => CHANNEL], [REPORTS, () => json({ error: { message: 'quota' } }, 403)]);
     const a = await youtube.account!('2026-10-20');
     assert.deepEqual(a.metrics, { subscribers: 42, views: 9876, videos: 3 });
-    assert.match((a.raw as { errors: Record<string, string> }).errors.analytics, /quota/);
+    assert.match((a.raw as { errors: Record<string, string> }).errors.by_day, /quota/);
+    assert.equal(a.day, TODAY, 'nothing by-day was read: the totals are today\'s');
 
     reset();
     calls = [];
     serve(
       ...oauthRoutes('youtube.readonly', 'yt-analytics.readonly'),
       [CHANNELS, () => json({ error: { message: 'channel refused' } }, 403)],
-      [REPORTS, () => report(['views', 'subscribersGained', 'subscribersLost', 'estimatedMinutesWatched'], [[310, 3, 1, 22.5]])],
+      [REPORTS, () => report(BY_DAY, [['2026-10-20', 310, 3, 1, 22.5]])],
     );
     const b = await youtube.account!('2026-10-20');
     assert.deepEqual(b.metrics, { views_day: 310, subscribers_gained: 3, subscribers_lost: 1, minutes_watched: 22.5 });
     assert.match((b.raw as { errors: Record<string, string> }).errors.channel, /channel refused/);
+    assert.equal(b.day, undefined);
   });
 
   test('when every call fails the account call throws', async () => {

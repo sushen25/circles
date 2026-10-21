@@ -19,6 +19,11 @@
  * retention ...), and a report that is refused lands in `raw.errors` under
  * the same key while the rest carries on.
  *
+ * A read these credentials cannot make at all (a private Short with a key
+ * alone, a refresh token with the upload scope only) is thrown as
+ * Unreadable (module.ts), which the pull logs as a skip rather than a
+ * failure: repeating it changes nothing.
+ *
  * Nothing here posts, writes or changes anything: GET only. The author of a
  * comment is dropped before it leaves this file, and so is any comment by
  * the channel itself. The access token, its scopes and each video's record
@@ -27,7 +32,7 @@
 import { youtubeAccessToken, youtubeScopes } from '../../publish/youtube-token.ts';
 import type { Metric, Metrics, Reply } from '../metrics.ts';
 import { HttpError, getJson, redact, withQuery } from './http.ts';
-import { env, needs, type AccountFetched, type Configured, type Fetched, type PlatformModule, type RecentPost, type TokenState } from './module.ts';
+import { env, needs, Unreadable, type AccountFetched, type Configured, type Fetched, type PlatformModule, type RecentPost, type TokenState } from './module.ts';
 
 const DATA = 'https://www.googleapis.com/youtube/v3';
 const REPORTS = 'https://youtubeanalytics.googleapis.com/v2/reports';
@@ -64,7 +69,8 @@ type Comment = {
   id: string;
   snippet?: { publishedAt?: string; textOriginal?: string; textDisplay?: string; authorChannelId?: { value?: string } };
 };
-type Thread = { id: string; snippet?: { topLevelComment?: Comment }; replies?: { comments?: Comment[] } };
+/** `replies.comments` is a subset of the thread; `totalReplyCount` says whether there are more. */
+type Thread = { id: string; snippet?: { topLevelComment?: Comment; totalReplyCount?: number }; replies?: { comments?: Comment[] } };
 type PlaylistItem = {
   snippet?: { publishedAt?: string; title?: string; description?: string };
   contentDetails?: { videoId?: string; videoPublishedAt?: string };
@@ -72,7 +78,14 @@ type PlaylistItem = {
 /** The Analytics API's answer: a column list and rows of cells in that order. Kept whole in raw. */
 type Report = { columnHeaders?: { name: string }[]; rows?: (string | number)[][] };
 
-const today = () => new Date().toISOString().slice(0, 10);
+/** Today, YYYY-MM-DD UTC, the one way this module reads the date; the tests pin it. */
+export const clock = { today: () => new Date().toISOString().slice(0, 10) };
+
+/** YYYY-MM-DD, `n` days before a date or a date-time; undefined when it is neither. */
+const daysBefore = (date: string | undefined, n: number): string | undefined => {
+  const ms = date ? Date.parse(date) : Number.NaN;
+  return Number.isNaN(ms) ? undefined : new Date(ms - n * 86_400_000).toISOString().slice(0, 10);
+};
 const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const num = (v: unknown): number | undefined => {
   if (v === undefined || v === null || v === '') return undefined;
@@ -87,10 +100,16 @@ const put = (m: Record<string, number>, k: string, v: unknown) => {
   const n = num(v);
   if (n !== undefined) m[k] = n;
 };
-/** The first row's cell under a named column, or undefined when the report has neither. */
-const col = (r: Report, name: string): unknown => {
-  const i = r.columnHeaders?.findIndex((h) => h.name === name) ?? -1;
-  return i >= 0 ? r.rows?.[0]?.[i] : undefined;
+const colIndex = (r: Report, name: string): number => r.columnHeaders?.findIndex((h) => h.name === name) ?? -1;
+/** A cell under a named column, from the first row unless one is given, or undefined when the report has neither. */
+const col = (r: Report, name: string, row: (string | number)[] | undefined = r.rows?.[0]): unknown => {
+  const i = colIndex(r, name);
+  return i >= 0 ? row?.[i] : undefined;
+};
+/** The row whose cell under the dimension `dim` is `value`. */
+const rowWhere = (r: Report, dim: string, value: string): (string | number)[] | undefined => {
+  const i = colIndex(r, dim);
+  return i >= 0 ? r.rows?.find((row) => String(row[i]) === value) : undefined;
 };
 
 /* ------------------------------------------------------------------ auth */
@@ -128,7 +147,7 @@ async function auth(): Promise<Auth> {
   const key = env('YOUTUBE_API_KEY');
   if (key) return { data: { key }, analytics, read: false };
   if (o.token) {
-    throw new Error(
+    throw new Unreadable(
       `YouTube: the refresh token has ${short(o.scopes).join(', ') || 'no scopes'} only, not youtube.readonly, and YOUTUBE_API_KEY is unset; re-consent with npm run auth:youtube or set a key`,
     );
   }
@@ -189,6 +208,19 @@ export function reset(): void {
   videos.clear();
 }
 
+/** Every reply under a top-level comment, by page: commentThreads embeds only some of them. */
+async function repliesUnder(parentId: string): Promise<Comment[]> {
+  const out: Comment[] = [];
+  let pageToken: string | undefined;
+  for (let page = 0; page < 10; page++) {
+    const list = await data<List<Comment>>('comments', { part: 'snippet', parentId, maxResults: 100, textFormat: 'plainText', pageToken });
+    out.push(...(list.items ?? []));
+    pageToken = list.nextPageToken;
+    if (!pageToken) break;
+  }
+  return out;
+}
+
 /** The Analytics breakdowns per video, each a tolerant call keyed by name in raw. */
 const VIDEO_REPORTS: [name: string, params: Params][] = [
   ['retention', { metrics: 'audienceWatchRatio,relativeRetentionPerformance', dimensions: 'elapsedVideoTimeRatio' }],
@@ -221,23 +253,29 @@ export const youtube: PlatformModule = {
   },
 
   async metrics(id: string): Promise<Fetched> {
+    const a = await auth();
     const raw: Raw = {};
     const list = await video(id, true);
     raw.video = list;
     const v = list.items?.[0];
-    if (!v) throw new Error(`YouTube video ${id}: not found; a private Short is readable only with youtube.readonly`);
+    if (!v) {
+      // A key lists nothing for a private video: unreadable with these credentials, so the pull skips it.
+      // The bearer sees the channel's own private videos, so with it an empty list is a video that is gone.
+      if (!a.read) throw new Unreadable(`YouTube video ${id}: not found; a private Short is readable only with youtube.readonly`);
+      throw new Error(`YouTube video ${id}: not found (deleted, or not this channel's)`);
+    }
     const m: Metrics = {};
     set(m, 'views', v.statistics?.viewCount);
     set(m, 'likes', v.statistics?.likeCount);
     set(m, 'comments', v.statistics?.commentCount);
 
-    const a = await auth();
     if (a.analytics) {
       const token = a.analytics;
+      // Analytics days are Pacific, so the window opens the day before the UTC publish date; the video filter makes the early start harmless.
       const base: Params = {
         ids: 'channel==MINE',
-        startDate: v.snippet?.publishedAt?.slice(0, 10) || today(),
-        endDate: today(),
+        startDate: daysBefore(v.snippet?.publishedAt, 1) ?? clock.today(),
+        endDate: clock.today(),
         filters: `video==${id}`,
       };
       const r = await tolerant(raw, 'analytics', () =>
@@ -287,7 +325,10 @@ export const youtube: PlatformModule = {
       for (const t of threads.items ?? []) {
         const top = t.snippet?.topLevelComment;
         if (top && at(top) < floor) older = true;
-        for (const c of [top, ...(t.replies?.comments ?? [])]) {
+        // The thread embeds a subset of its replies; when the count says there are more, they are listed by parent instead.
+        const embedded = t.replies?.comments ?? [];
+        const replies = top && (num(t.snippet?.totalReplyCount) ?? 0) > embedded.length ? await repliesUnder(top.id) : embedded;
+        for (const c of [top, ...replies]) {
           if (!c?.snippet) continue;
           if (own && c.snippet.authorChannelId?.value === own) continue;
           if (at(c) < floor) continue;
@@ -300,7 +341,18 @@ export const youtube: PlatformModule = {
     return out;
   },
 
+  /**
+   * The channel as it stands (subscribers, views, videos: today's numbers)
+   * and, with the analytics scope, the day's row. The Analytics API has
+   * not usually finished `day` by the time the pull runs, so the ask is a
+   * trailing week by day, kept whole in raw.by_day; the metrics are filled
+   * from the row for `day` when it is there, and when it is not yet,
+   * raw.errors.analytics_day says so and the next night's row has it.
+   * `day` is returned, as today, only when nothing by-day was read.
+   */
   async account(day: string): Promise<AccountFetched> {
+    const start = /^\d{4}-\d{2}-\d{2}$/.test(day) ? daysBefore(day, 6) : undefined;
+    if (!start) throw new Error(`YouTube: "${day}" is not a YYYY-MM-DD day`);
     const a = await auth();
     const who = channelParams(a);
     if (!who) throw new Error('YouTube: YOUTUBE_CHANNEL_ID unset and no readonly scope');
@@ -313,20 +365,32 @@ export const youtube: PlatformModule = {
       put(metrics, 'views', st.viewCount);
       put(metrics, 'videos', st.videoCount);
     }
+    let byDay: Report | undefined;
     if (a.analytics) {
       const token = a.analytics;
-      const r = await tolerant(raw, 'analytics', () =>
-        report(token, { ids: 'channel==MINE', startDate: day, endDate: day, metrics: 'views,subscribersGained,subscribersLost,estimatedMinutesWatched' }),
+      byDay = await tolerant(raw, 'by_day', () =>
+        report(token, {
+          ids: 'channel==MINE',
+          startDate: start,
+          endDate: day,
+          dimensions: 'day',
+          metrics: 'views,subscribersGained,subscribersLost,estimatedMinutesWatched',
+        }),
       );
-      if (r) {
-        put(metrics, 'views_day', col(r, 'views'));
-        put(metrics, 'subscribers_gained', col(r, 'subscribersGained'));
-        put(metrics, 'subscribers_lost', col(r, 'subscribersLost'));
-        put(metrics, 'minutes_watched', col(r, 'estimatedMinutesWatched'));
+      if (byDay) {
+        const row = rowWhere(byDay, 'day', day);
+        if (row) {
+          put(metrics, 'views_day', col(byDay, 'views', row));
+          put(metrics, 'subscribers_gained', col(byDay, 'subscribersGained', row));
+          put(metrics, 'subscribers_lost', col(byDay, 'subscribersLost', row));
+          put(metrics, 'minutes_watched', col(byDay, 'estimatedMinutesWatched', row));
+        } else {
+          (raw.errors ??= {}).analytics_day = `no analytics row for ${day} yet`;
+        }
       }
     }
     if (raw.errors && Object.keys(raw).length === 1) throw new Error(`YouTube account: ${Object.values(raw.errors).join('; ')}`);
-    return { metrics, breakdowns: {}, raw };
+    return byDay ? { metrics, breakdowns: {}, raw } : { metrics, breakdowns: {}, raw, day: clock.today() };
   },
 
   /** The uploads playlist, newest first. A private Short is listed only through OAuth; a key sees the public ones. */

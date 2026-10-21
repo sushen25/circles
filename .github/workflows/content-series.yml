@@ -43,17 +43,20 @@ jobs:
       - run: npm ci
       # The same names as content-analytics.yml, every one of them, so a
       # platform the nightly pull reads is never silently missing from the
-      # curve. Allowed to fail for the same reason as there: the rows it got
-      # are committed first, and the last step makes the job red.
+      # curve. BSKY_HANDLE, THREADS_USER_ID and IG_USER_ID are `vars.*` there
+      # and here: account identifiers, public on every post and written into
+      # the committed raw rows, not credentials; the tokens stay secrets.
+      # Allowed to fail for the same reason as there: the rows it got are
+      # committed first, and the last step makes the job red.
       - id: series
         run: npm run analytics -- --series
         continue-on-error: true
         env:
-          BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
-          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          BSKY_HANDLE: ${{ vars.BSKY_HANDLE }}
+          THREADS_USER_ID: ${{ vars.THREADS_USER_ID }}
           THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
           THREADS_TOKEN_EXPIRES: ${{ vars.THREADS_TOKEN_EXPIRES }}
-          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_USER_ID: ${{ vars.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           IG_TOKEN_EXPIRES: ${{ vars.IG_TOKEN_EXPIRES }}
           IG_API_VERSION: ${{ vars.IG_API_VERSION }} # optional; empty means the module's default
@@ -71,6 +74,11 @@ jobs:
           # nothing fails `git add`.
           if [ -f analytics/series.jsonl ]; then git add -- analytics/series.jsonl; fi
           git diff --cached --quiet || git commit -m "content: series $(date -u +%Y-%m-%dT%H:%M)"
+          # content-publish.yml has its own concurrency group and may push to
+          # main while this job runs; a non-fast-forward push would lose this
+          # run's rows. Only series.jsonl is in the commit, so the rebase is
+          # clean.
+          git pull --rebase origin main
           git push
       - name: fail when the pull did
         if: steps.series.outcome == 'failure'

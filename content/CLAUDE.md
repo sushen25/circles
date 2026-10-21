@@ -31,6 +31,13 @@ writing anything a person will read. They are short and they are the law.
    by day into `account.jsonl`, and new replies into `inbox/<date>-replies.md`
    with the handles stripped, which is step 1's input the next morning. It
    reads only; nothing it does posts.
+7. `npm run posted -- …`, `npm run hand -- …` and `/transcribe` — the
+   founder's weekly minute, on a laptop: `npm run posted -- <platform>
+   <slug> <url-or-id>` records a hand post's id (a TikTok draft once posted,
+   a Short uploaded by hand), `npm run hand -- tiktok <slug> views=1240
+   saves=18 shares=9` records the TikTok numbers, and `/transcribe` reads
+   the Insights screens dropped into `inbox/screens/<slug>-<platform>/`.
+   Nothing in it posts.
 
 Merging the PR is approval. `npm run publish` (or the GitHub Action on merge)
 publishes anything in `queue/` with `status: approved` and moves it to
@@ -93,23 +100,23 @@ publishes anything in `queue/` with `status: approved` and moves it to
 ## Commands
 
 ```
-npm run render queue/2026-10-14-unpaid-project-manager.md   # PNGs to out/
-npm run video  queue/2026-10-14-unpaid-project-manager.md   # MP4 to out/ (ffmpeg)
-npm run check  queue/2026-10-14-unpaid-project-manager.md   # schema, seconds per slide, product mentions
-npm run gallery [type...]                                  # every component's fixture to out/gallery/
-npm run upload queue/2026-10-14-unpaid-project-manager.md   # renders to media.wenna.app (AWS CLI)
-npm run publish                                            # approved items only
-npm run dry-run                                            # prints what publish would do
-npm test                                                   # adapter request shapes, nothing sent
-npm run auth:youtube                                       # once: prints YOUTUBE_REFRESH_TOKEN
-npm run auth:tiktok                                        # once: prints TIKTOK_REFRESH_TOKEN
-npm run refresh:tokens -- --github                         # monthly: renews the Threads and Instagram tokens
-npm run analytics                                          # pull metrics for published items
-npm run analytics -- --series                              # every two hours: posts under 48 hours old, to series.jsonl
-npm run posted tiktok unpaid-project-manager <url-or-id>   # record a hand post's id; --at <iso> when the platform cannot say
-npm run hand tiktok unpaid-project-manager views=1240      # weekly TikTok numbers (saves=18 shares=9 ...), to hand.jsonl
-npm run tokens -- --github                                 # monthly: every token's state; renews and writes the Meta ones
-npm run typecheck                                          # tsc over analytics/, nothing emitted
+npm run render queue/2026-10-14-unpaid-project-manager.md     # PNGs to out/
+npm run video  queue/2026-10-14-unpaid-project-manager.md     # MP4 to out/ (ffmpeg)
+npm run check  queue/2026-10-14-unpaid-project-manager.md     # schema, seconds per slide, product mentions
+npm run gallery [type...]                                     # every component's fixture to out/gallery/
+npm run upload queue/2026-10-14-unpaid-project-manager.md     # renders to media.wenna.app (AWS CLI)
+npm run publish                                               # approved items only
+npm run dry-run                                               # prints what publish would do
+npm test                                                      # adapter request shapes, nothing sent
+npm run auth:youtube                                          # once: prints YOUTUBE_REFRESH_TOKEN
+npm run auth:tiktok                                           # once: prints TIKTOK_REFRESH_TOKEN
+npm run refresh:tokens -- --github                            # monthly: renews the Threads and Instagram tokens
+npm run analytics                                             # pull metrics for published items
+npm run analytics -- --series                                 # every two hours: posts under 48 hours old, to series.jsonl
+npm run posted -- tiktok unpaid-project-manager <url-or-id>   # record a hand post's id; --at <iso> when the platform cannot say
+npm run hand -- tiktok unpaid-project-manager views=1240      # weekly TikTok numbers (saves=18 shares=9 ...), to hand.jsonl
+npm run tokens -- --github                                    # monthly: every token's state; renews and writes the Meta ones
+npm run typecheck                                             # tsc over analytics/, nothing emitted
 ```
 
 Node 22, no build step: scripts run with `node --experimental-strip-types`.

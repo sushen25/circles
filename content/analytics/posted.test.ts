@@ -34,7 +34,9 @@ function item(published: Record<string, string> = {}): QueueItem {
 
 type Harness = { deps: Partial<Deps>; out: string[]; err: string[]; claims: unknown[][] };
 
-function harness(opts: { modules?: Partial<Record<string, Partial<PlatformModule>>>; item?: QueueItem | undefined; claim?: Deps['claim'] } = {}): Harness {
+function harness(
+  opts: { modules?: Partial<Record<string, Partial<PlatformModule>>>; item?: QueueItem | undefined; claim?: Deps['claim']; env?: Deps['env'] } = {},
+): Harness {
   const out: string[] = [];
   const err: string[] = [];
   const claims: unknown[][] = [];
@@ -51,6 +53,8 @@ function harness(opts: { modules?: Partial<Record<string, Partial<PlatformModule
     now: () => NOW,
     log: (l) => out.push(l),
     error: (l) => err.push(l),
+    // what npm left behind: nothing, unless a test says so, whatever process.env holds
+    env: opts.env ?? {},
   };
   return { deps, out, err, claims };
 }
@@ -69,6 +73,62 @@ test('parseArgs: positional, --at, --dry; a wrong call is a reason', () => {
   assert.match(parseArgs(['tiktok', 'slug', 'id', '--at']) as string, /--at needs/);
   assert.match(parseArgs(['tiktok', 'slug', 'id', '--at', 'yesterday']) as string, /not a date/);
   assert.match(parseArgs(['tiktok', 'slug', 'id', '--force']) as string, /unknown flag/);
+  // a time left behind as a fourth argument is what `npm run posted … --at <iso>` does without the --
+  const stray = parseArgs(['tiktok', 'slug', 'id', '2026-10-21T08:00:00Z']) as string;
+  assert.match(stray, /npm swallowed --at/);
+  assert.match(stray, /put -- after the script name/);
+  assert.match(parseArgs(['tiktok', 'slug', 'id', '2026-10-21T08:00:00Z', '--at']) as string, /npm swallowed --at/, 'before the bare --at is judged');
+  assert.match(parseArgs(['tiktok', 'slug', 'id', 'extra']) as string, /expected <platform>/);
+});
+
+test('a flag npm swallowed is read back from its environment, with one note', async () => {
+  // `npm run posted tiktok slug 7312 --dry`: npm (today) rewrites --dry to its own --dry-run, so npm_config_dry_run=true
+  const dry = harness({ item: item({ instagram: '1', bluesky: '2', youtube: '3' }), env: { npm_config_dry_run: 'true' } });
+  assert.equal(await run(['tiktok', 'never-lead-anywhere', '7312'], dry.deps), 0);
+  assert.equal(dry.claims.length, 0, 'a dry run');
+  assert.equal(dry.out.filter((l) => l === 'note  put -- after the script name; read --dry from npm').length, 1);
+  assert.match(dry.out.join('\n'), /nothing written/);
+  // and an npm that keeps --dry as itself, as it says it will one day
+  const dry2 = harness({ item: item({ instagram: '1', bluesky: '2', youtube: '3' }), env: { npm_config_dry: 'true' } });
+  assert.equal(await run(['tiktok', 'never-lead-anywhere', '7312'], dry2.deps), 0);
+  assert.equal(dry2.claims.length, 0);
+  assert.equal(dry2.out.filter((l) => l === 'note  put -- after the script name; read --dry from npm').length, 1);
+
+  // `--at=<iso>` arrives with its value
+  const at = harness({ env: { npm_config_at: '2026-10-21T18:30:00+11:00', npm_config_dry: 'true' } });
+  assert.equal(await run(['tiktok', 'never-lead-anywhere', '7312'], at.deps), 0);
+  assert.ok(at.out.includes('note  put -- after the script name; read --dry, --at from npm'), at.out.join('\n'));
+  assert.match(at.out.join('\n'), /"at":"2026-10-21T07:30:00.000Z"/);
+
+  // `--at <iso>` arrives as npm_config_at=true with the time pushed into the arguments: refused with the hint, exit 2
+  const stray = harness({ env: { npm_config_at: 'true' } });
+  assert.equal(await run(['tiktok', 'never-lead-anywhere', '7312', '2026-10-21T08:00:00Z'], stray.deps), 2);
+  assert.equal(stray.claims.length, 0);
+  assert.match(stray.err.join('\n'), /npm swallowed --at; put -- after the script name/);
+  assert.ok(stray.out.includes('note  put -- after the script name; read --at from npm'));
+
+  // npm's own 'false' for a boolean, and an empty value, are nothing
+  const none = harness({ env: { npm_config_dry: 'false', npm_config_at: '' } });
+  assert.equal(await run(['tiktok', 'never-lead-anywhere', '7312'], none.deps), 0);
+  assert.equal(none.claims.length, 1);
+  assert.ok(!none.out.some((l) => l.startsWith('note  put --')));
+});
+
+test('a TikTok post with no module: the id is the digits after /video/ in the share link, or the bare number; anything else is refused', async () => {
+  const url = harness();
+  assert.equal(await run(['tiktok', 'never-lead-anywhere', 'https://www.tiktok.com/@wenna/video/7312345678901234567?is_from_webapp=1'], url.deps), 0);
+  assert.equal((url.claims[0] as string[])[2], '7312345678901234567');
+  assert.match(url.out.join('\n'), /^claim tiktok never-lead-anywhere → 7312345678901234567/m);
+  assert.ok(!url.out.some((l) => l.includes('has no module to read a URL')));
+
+  const bare = harness();
+  assert.equal(await run(['tiktok', 'never-lead-anywhere', '7312345678901234567'], bare.deps), 0);
+  assert.equal((bare.claims[0] as string[])[2], '7312345678901234567');
+
+  const profile = harness();
+  assert.equal(await run(['tiktok', 'never-lead-anywhere', 'https://www.tiktok.com/@wenna'], profile.deps), 1);
+  assert.equal(profile.claims.length, 0);
+  assert.match(profile.err.join('\n'), /tiktok: cannot read a video id from "https:\/\/www.tiktok.com\/@wenna"; paste the video's link \(…\/video\/<digits>\) or its numeric id/);
 });
 
 test('a wrong call prints the usage and exits 2 without touching the deps', async () => {
@@ -128,7 +188,9 @@ test('no --at and no module: the id is the argument, the time is now, and it say
   assert.equal(platform, 'reddit');
   assert.equal(id, 'https://reddit.com/r/x/comments/abc/');
   assert.equal(at, NOW.toISOString());
+  assert.ok(h.out.includes('note  reddit has no module to read a URL; recording "https://reddit.com/r/x/comments/abc/" as the id'), h.out.join('\n'));
   assert.match(h.out.join('\n'), /no --at and reddit cannot say when it was posted; recording now/);
+  assert.ok(h.out.indexOf('note  reddit has no module to read a URL; recording "https://reddit.com/r/x/comments/abc/" as the id') < h.out.findIndex((l) => l.startsWith('claim ')), 'before the claim');
 });
 
 test('a module whose postedAt comes back empty falls through to now', async () => {
