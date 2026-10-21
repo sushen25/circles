@@ -43,9 +43,12 @@ The rule for which platforms a script may touch lives in one place,
 - **YouTube is scriptable.** Merging the queue file approves it like the
   other four. The publisher uploads `out/<slug>/<slug>.mp4` as a Short with
   the caption's `title:` as the title and the tagged text as the description.
-  Its privacy comes from `YOUTUBE_PRIVACY` and defaults to `private`, so
-  nothing goes public until the API project is audited and the founder
-  changes the variable.
+  Its privacy comes from `YOUTUBE_PRIVACY` and defaults to `private`. The
+  lock on an unaudited project binds only the API: on 21 October 2026 the
+  first Short, uploaded private, was set to Public in YouTube Studio and
+  played signed out. So until (and unless) the project is audited, the
+  founder publishes each Short with that click, and the audit is optional:
+  it only removes the click.
 - **TikTok is scripted as far as a draft, and a human posts it.** The
   publisher uses upload mode only, never Direct Post: the JPEG stills (by
   URL from the verified `MEDIA_BASE_URL` domain) or the MP4 land in the

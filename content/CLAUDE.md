@@ -37,7 +37,7 @@ publishes anything in `queue/` with `status: approved` and moves it to
 | Platform | The script | The founder |
 |---|---|---|
 | Bluesky, Threads, Instagram, LinkedIn | posts | merges |
-| YouTube | uploads the MP4 as a Short; private until the API audit, then `YOUTUBE_PRIVACY` | merges |
+| YouTube | uploads the MP4 as a Short, private, and prints its Studio link | merges, then sets it Public (or schedules it) in Studio; once the API project is audited, `YOUTUBE_PRIVACY=public` drops that step |
 | TikTok | sends a draft to the TikTok inbox, never posts; logged `drafted` | reads it, picks a sound, taps Post |
 | Reddit | nothing | writes and posts it by hand |
 

@@ -208,6 +208,9 @@ async function run() {
           if (!tiktokPhotos) console.log(`      caption to paste: "${text}"`);
         } else {
           console.log(`post  ${tag} → ${platform}: ${id}`);
+          if (platform === 'youtube' && youtubePrivacy() !== 'public') {
+            console.log(`      ${youtubePrivacy()} on YouTube; set it to Public (or schedule it) in Studio: https://studio.youtube.com/video/${id}/edit`);
+          }
         }
       } catch (e) {
         console.error(`FAIL  ${tag} → ${platform}: ${(e as Error).message}`);
