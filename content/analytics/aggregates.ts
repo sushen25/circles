@@ -5,7 +5,8 @@
  * lift of 1 every time, so there is none); the feature
  * splits; and the control arm. Splits, not regressions (docs/analytics-plan.md,
  * "Content features"). Every aggregate carries its n, the count of distinct
- * pieces in it, and nothing with n under MIN_N is ranked: it is listed under
+ * pieces in it, and each piece counts once, as the median of its
+ * platform lifts; nothing with n under MIN_N is ranked: it is listed under
  * "too early" and nowhere else. Medians, never means.
  */
 import type { Platform } from '../lib/queue.ts';
@@ -44,7 +45,7 @@ export type Aggregates = {
   too_early: string[];
 };
 
-type Entry = { piece: PieceScore; f?: FeatureRow; lift: number };
+export type Entry = { piece: PieceScore; f?: FeatureRow; lift: number };
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -62,7 +63,17 @@ function mad(xs: number[]): number | null {
 
 const distinct = (es: Entry[]) => new Set(es.map((e) => e.piece.slug)).size;
 
-const side = (label: string, es: Entry[]): Side => ({ label, n: distinct(es), median_lift: med(es.map((e) => e.lift)) });
+/**
+ * One lift per piece: the median of its platform lifts. n counts pieces, so the median and the spread are over pieces
+ * too; otherwise one piece on four platforms would supply four of the values behind an "n=3".
+ */
+export function pieceLifts(es: Entry[]): number[] {
+  const by = new Map<string, number[]>();
+  for (const e of es) by.set(e.piece.slug, [...(by.get(e.piece.slug) ?? []), e.lift]);
+  return [...by.values()].map((xs) => med(xs)!);
+}
+
+const side = (label: string, es: Entry[]): Side => ({ label, n: distinct(es), median_lift: med(pieceLifts(es)) });
 
 /** The Melbourne time the post went out on its platform, or the piece's planned time when the ledger has none. */
 const when = (e: Entry) => e.f?.posted[e.piece.platform] ?? e.f?.publish_at;
@@ -121,7 +132,7 @@ export function aggregate(pieces: PieceScore[], features: Map<string, FeatureRow
         const on = es.filter((e) => e.piece.platform === p);
         by_platform[p] = { n: distinct(on), median_lift: med(on.map((e) => e.lift)), ranked: distinct(on) >= MIN_N };
       }
-      groups.push({ dimension, value, n, median_lift: med(es.map((e) => e.lift)), ranked: n >= MIN_N, by_platform });
+      groups.push({ dimension, value, n, median_lift: med(pieceLifts(es)), ranked: n >= MIN_N, by_platform });
       if (n < MIN_N) too_early.push(`${dimension} ${value} (n=${n})`);
     }
   }
@@ -134,7 +145,7 @@ export function aggregate(pieces: PieceScore[], features: Map<string, FeatureRow
     if (!yes.length && !no.length) continue;
     const a = side('yes', yes);
     const b = side('no', no);
-    const spreads = [mad(yes.map((e) => e.lift)), mad(no.map((e) => e.lift))].filter((x): x is number => x !== null);
+    const spreads = [mad(pieceLifts(yes)), mad(pieceLifts(no))].filter((x): x is number => x !== null);
     const spread = spreads.length ? Math.max(...spreads) : null;
     const gap = a.median_lift !== null && b.median_lift !== null ? Math.abs(a.median_lift - b.median_lift) : null;
     const reportable = a.n >= MIN_N && b.n >= MIN_N && gap !== null && spread !== null && gap > spread;

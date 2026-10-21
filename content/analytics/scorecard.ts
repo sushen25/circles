@@ -35,7 +35,7 @@ import {
   type SeriesRow,
 } from './metrics.ts';
 import { latestFeatures } from './features.ts';
-import { aggregate, type Aggregates } from './aggregates.ts';
+import { MIN_N, aggregate, type Aggregates } from './aggregates.ts';
 import { renderScorecard } from './scorecard-md.ts';
 
 export type Snapshot = { age_days: number; source: 'pull' | 'hand' | 'transcribed'; metrics: Metrics; rates: Rates };
@@ -53,7 +53,7 @@ export type PieceScore = {
   /** the rate this platform is ranked on (metrics.ts HEADLINE) */
   headline: keyof Rates;
   day7?: number;
-  /** day7 over the platform's median at day 7 */
+  /** day7 over the platform's median at day 7; none until the platform has MIN_N pieces at day 7 */
   lift?: number;
   /** views at 2, 6, 12, 24 and 48 hours from series.jsonl, and the hour the curve bent */
   first48?: { views: Partial<Record<string, number>>; bent_at_h?: number };
@@ -98,25 +98,40 @@ export function median(xs: number[]): number {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
 
-/** The first snapshot at or after `age` and before the next age compared (day 14's window runs a week). */
-export function atAge<T extends { age_days: number }>(rows: T[], age: Age): T | undefined {
+/**
+ * The first snapshot at or after `age` and before the next age compared (day 14's window runs a week). With `has`, the
+ * first in the window that carries the number wanted, and the first at all only when none does: a transcribed screen
+ * with a watch time and nothing else never hides the typed views row beside it.
+ */
+export function atAge<T extends { age_days: number }>(rows: T[], age: Age, has?: (r: T) => boolean): T | undefined {
   const i = AGES.indexOf(age);
   const until = AGES[i + 1] ?? age + 7;
-  return [...rows].sort((a, b) => a.age_days - b.age_days).find((r) => r.age_days >= age && r.age_days < until);
+  const window = [...rows].sort((a, b) => a.age_days - b.age_days).filter((r) => r.age_days >= age && r.age_days < until);
+  return (has && window.find(has)) || window[0];
 }
 
-const HOURS = [2, 6, 12, 24, 48];
+/**
+ * Each point's window, [from, until). The pull writes series rows only while a post is under 48 hours old, so "48 h"
+ * is the last row from 42 hours on, not the first at or after 48, which never exists.
+ */
+const HOURS: { h: number; from: number; until: number; last?: boolean }[] = [
+  { h: 2, from: 2, until: 6 },
+  { h: 6, from: 6, until: 12 },
+  { h: 12, from: 12, until: 24 },
+  { h: 24, from: 24, until: 42 },
+  { h: 48, from: 42, until: 49, last: true },
+];
 
 /** Views at the fixed hours, and the first hour after the steepest stretch at which views came at under half that pace. */
 export function first48(rows: SeriesRow[]): PieceScore['first48'] {
   const s = rows.filter((r) => typeof r.metrics.views === 'number').sort((a, b) => a.age_hours - b.age_hours);
   if (!s.length) return undefined;
   const views: Record<string, number> = {};
-  HOURS.forEach((h, i) => {
-    const until = HOURS[i + 1] ?? h + 6;
-    const hit = s.find((r) => r.age_hours >= h && r.age_hours < until);
-    if (hit) views[`h${h}`] = hit.metrics.views!;
-  });
+  for (const w of HOURS) {
+    const inWindow = s.filter((r) => r.age_hours >= w.from && r.age_hours < w.until);
+    const hit = w.last ? inWindow.at(-1) : inWindow[0];
+    if (hit) views[`h${w.h}`] = hit.metrics.views!;
+  }
   const pace = s.slice(1).map((r, i) => ({ at: r.age_hours, v: (r.metrics.views! - s[i].metrics.views!) / Math.max(r.age_hours - s[i].age_hours, 0.01) }));
   let bent_at_h: number | undefined;
   if (pace.length >= 3) {
@@ -165,12 +180,12 @@ export function buildScorecard(input: Inputs, now: Date): Scorecard {
         : [];
     }
     const ages: PieceScore['ages'] = {};
+    const headline = HEADLINE[platform];
     for (const a of AGES) {
-      const s = atAge(snaps, a);
+      const s = atAge(snaps, a, (x) => x.rates[headline] !== undefined);
       if (s) ages[`${a}`] = s;
     }
     const latest = snaps.length ? snaps.reduce((a, b) => (b.age_days > a.age_days ? b : a)) : undefined;
-    const headline = HEADLINE[platform];
     const day7 = ages['7']?.rates[headline];
     const screens = handRows
       .filter((r) => r.points)
@@ -212,14 +227,17 @@ export function buildScorecard(input: Inputs, now: Date): Scorecard {
   }
   pieces.sort((a, b) => a.slug.localeCompare(b.slug) || a.platform.localeCompare(b.platform));
 
+  // A lift needs a median worth dividing by: with fewer than MIN_N pieces at day 7 a platform's median is one or two
+  // pieces, and a lone piece would read as exactly 1.0 and count in every group it belongs to. The median is kept
+  // unrounded for the division and rounded only where it is shown.
   const medians: Scorecard['medians'] = {};
   for (const platform of new Set(pieces.map((p) => p.platform))) {
     const xs = pieces.filter((p) => p.platform === platform && p.day7 !== undefined).map((p) => p.day7!);
-    if (xs.length) medians[platform] = { rate: HEADLINE[platform], median: r2(median(xs)), n: xs.length };
-  }
-  for (const p of pieces) {
-    const m = medians[p.platform]?.median;
-    if (p.day7 !== undefined && m && m > 0) p.lift = r2(p.day7 / m);
+    if (!xs.length) continue;
+    const m = median(xs);
+    medians[platform] = { rate: HEADLINE[platform], median: r2(m), n: xs.length };
+    if (xs.length < MIN_N || !(m > 0)) continue;
+    for (const p of pieces) if (p.platform === platform && p.day7 !== undefined) p.lift = r2(p.day7 / m);
   }
 
   return {

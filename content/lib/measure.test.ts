@@ -148,3 +148,11 @@ test('sameFeatures ignores when the row was measured', () => {
   assert.equal(sameFeatures(a, b), true);
   assert.equal(sameFeatures(a, measure(item(), [], new Date())), false);
 });
+
+test('setTiming touches the frontmatter only, never a body line that starts the same way', () => {
+  const withBody = FILE + '\ntiming: a line in the piece\n';
+  const out = setTiming(withBody, { total: 27, before: 16, after: 9, slides: [27] });
+  assert.match(out, /\ntiming: a line in the piece\n$/);
+  assert.equal(out.match(/^timing:/gm)?.length, 2);
+  assert.match(out, /slides: 27\.00\n---\n/);
+});

@@ -68,9 +68,13 @@ export function readTiming(fm: Record<string, unknown>): Timing | undefined {
 /** Write (or replace) the `timing:` block in a queue file's raw text, leaving everything else as it was. */
 export function setTiming(raw: string, t: Timing): string {
   const block = `timing:\n  total: ${t.total.toFixed(2)}\n  before: ${t.before.toFixed(2)}\n  after: ${t.after.toFixed(2)}\n  slides: ${t.slides.map((s) => s.toFixed(2)).join(' ')}\n`;
+  // Only the frontmatter is touched: a body line that happens to start `timing:` is the piece's text, not this block.
+  const fm = raw.match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/);
+  if (!fm) throw new Error('queue file has no frontmatter');
+  const head = fm[0];
   const existing = /^timing:[ \t]*\r?\n(?:[ \t]+\S.*(?:\r?\n|$))*/m;
-  if (existing.test(raw)) return raw.replace(existing, () => block);
-  return raw.replace(/\r?\n---\r?\n/, (m) => `\n${block}${m.replace(/^\r?\n/, '')}`);
+  const next = existing.test(head) ? head.replace(existing, () => block) : head.replace(/\r?\n---(\r?\n|$)$/, (m) => `\n${block}${m.replace(/^\r?\n/, '')}`);
+  return next + raw.slice(head.length);
 }
 
 const MELBOURNE = 'Australia/Melbourne';

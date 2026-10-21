@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MAX_LINES, renderBrief } from './brief.ts';
-import { buildScorecard } from './scorecard.ts';
+import { buildScorecard, type Scorecard } from './scorecard.ts';
 import { NOW, inputs } from './scorecard.fixture.ts';
 
 const brief = () => renderBrief(buildScorecard(inputs(), NOW));
@@ -38,4 +38,21 @@ test('with nothing ranked the brief says so rather than guessing', () => {
   const md = renderBrief(buildScorecard({ ...inputs(), posts: [], hand: [], series: [] }, NOW));
   assert.match(md, /## Do more of\n- nothing yet/);
   assert.match(md, /## Windows\n- too early/);
+});
+
+const split = (yes: number, no: number): Scorecard => ({
+  ...buildScorecard({ ...inputs(), posts: [], hand: [], series: [] }, NOW),
+  splits: [{ name: 'hook with a number', yes: { label: 'yes', n: 3, median_lift: yes }, no: { label: 'no', n: 3, median_lift: no }, spread: 0, reportable: true }],
+});
+
+test('a reportable split still has to clear the lead or lag bar to be advice', () => {
+  assert.doesNotMatch(renderBrief(split(1.05, 1)), /hook with a number/);
+  assert.match(renderBrief(split(1.3, 0.9)).split('## Stop')[0], /- hook with a number: lift 1\.3 against 0\.9 without/);
+  assert.match(renderBrief(split(0.7, 1.1)).split('## Stop')[1].split('## Too early')[0], /- hook with a number: lift 0\.7/);
+});
+
+test('one ranked hour on a platform is nothing to compare, not a lead', () => {
+  const c = buildScorecard(inputs(), NOW);
+  c.groups = c.groups.filter((g) => !(g.dimension === 'hour' && g.value.startsWith('20')));
+  assert.match(renderBrief(c), /- instagram: only 18:00–19:00 has 3 pieces, nothing to compare it with \(n=3\)/);
 });

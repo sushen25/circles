@@ -584,7 +584,14 @@ minutes, every aggregate carries its n, and nothing under n=3 is ranked.
 
 - A snapshot "at day N" is the first at or after N and before the next age
   compared (day 14's window is a week), so a day-1 number is never read off
-  day 9.
+  day 9; within the window, the first that carries the platform's headline
+  rate, so a transcribed screen never hides the typed views beside it.
+- "48 h" in the first 48 hours is the last series row from 42 hours on:
+  the pull stops polling at 48, so no row is ever at or after it.
+- No lift until a platform has three pieces at day 7. A median of one is
+  the piece itself, a lift of exactly 1 that would count in every group.
+- Each piece counts once in an aggregate, as the median of its platform
+  lifts; n, the median and the spread are all over pieces.
 - Hand numbers stand in for a platform only where the pull has no row
   (TikTok), aged from the ledger's `posted` row; a transcribed screen on a
   platform the pull reads is shown beside it, never scored.
@@ -600,7 +607,8 @@ minutes, every aggregate carries its n, and nothing under n=3 is ranked.
   within them. A split with no piece on one side is "no contrast yet", not
   "too early".
 - The brief's thresholds: "Do more of" at a median lift of 1.2 or more,
-  "Stop" at 0.8 or less, eight lines a section, sixty in all.
+  "Stop" at 0.8 or less, for a split's "yes" side as for a group; eight
+  lines a section, sixty in all.
 - The scorecard and the brief are dated by the Melbourne day of the run.
 
 **Phase 3: the Wenna export** (main repo, one ticket: SUS-244). ADR 0087, the SQL

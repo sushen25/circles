@@ -9,7 +9,8 @@
  *
  * Only what the scorecard ranked reaches "Do more of" and "Stop": a group
  * with n at MIN_N or more whose median lift is at least LEAD or at most LAG,
- * and a feature split whose gap is wider than the spread within its sides.
+ * and a feature split whose gap is wider than the spread within its sides
+ * and whose "yes" side clears the same bar.
  * Everything under MIN_N is "Too early", which the skills read as no
  * information.
  */
@@ -41,10 +42,12 @@ export function renderBrief(c: Scorecard): string {
     if (g.median_lift! >= LEAD) more.push(line);
     else if (g.median_lift! <= LAG) stop.push(line);
   }
+  // A split is held to the same bar as a group: the "yes" side has to lead or lag by LEAD or LAG, not merely differ.
   for (const s of c.splits.filter((x) => x.reportable)) {
-    const yesWins = (s.yes.median_lift ?? 0) > (s.no.median_lift ?? 0);
+    const yes = s.yes.median_lift ?? 1;
     const line = `- ${s.name}: lift ${num(s.yes.median_lift)} against ${num(s.no.median_lift)} without (n=${s.yes.n} vs ${s.no.n})`;
-    (yesWins ? more : stop).push(line);
+    if (yes >= LEAD && yes > (s.no.median_lift ?? 0)) more.push(line);
+    else if (yes <= LAG && yes < (s.no.median_lift ?? 0)) stop.push(line);
   }
   if (c.control?.ranked) {
     const { story_first: st, demo_first: d } = c.control;
@@ -59,8 +62,9 @@ export function renderBrief(c: Scorecard): string {
       .map((g) => ({ value: g.value, ...g.by_platform[platform as keyof typeof g.by_platform]! }))
       .sort((a, b) => (b.median_lift ?? 0) - (a.median_lift ?? 0));
     if (!hours.length) windows.push(`- ${platform}: too early, no hour has ${MIN_N} pieces (n=${m!.n})`);
+    else if (hours.length === 1) windows.push(`- ${platform}: only ${hours[0].value} has ${MIN_N} pieces, nothing to compare it with (n=${hours[0].n})`);
     else if ((hours[0].median_lift ?? 0) >= LEAD) windows.push(`- ${platform}: ${hours[0].value} Melbourne posts lead, lift ${num(hours[0].median_lift)} (n=${hours[0].n})`);
-    else windows.push(`- ${platform}: no difference seen across ${hours.length} hour${hours.length === 1 ? '' : 's'} (n=${hours.reduce((a, h) => a + h.n, 0)})`);
+    else windows.push(`- ${platform}: no difference seen across ${hours.length} hours (n=${hours.reduce((a, h) => a + h.n, 0)})`);
   }
 
   const quoted = new Map<string, number>();

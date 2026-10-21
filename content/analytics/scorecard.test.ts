@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { atAge, buildScorecard, first48, readReplies } from './scorecard.ts';
 import { renderScorecard } from './scorecard-md.ts';
-import { MIN_N, controlLive } from './aggregates.ts';
+import { MIN_N, aggregate, controlLive } from './aggregates.ts';
+import type { PieceScore } from './scorecard.ts';
 import { NOW, inputs } from './scorecard.fixture.ts';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -115,9 +116,9 @@ test('scorecard.md: dated in Melbourne, ranked rows with n, the like rate never 
   assert.match(early, /- family skit \(n=2\)/);
   assert.match(early, /- hook is a quote \(n=2 vs 4\)/);
   assert.doesNotMatch(early, /vs 0|n=0 vs/);
-  assert.match(md, /\| a skip slide \| – \(n=0\) \| 1 \(n=6\) \| no contrast yet \|/);
+  assert.match(md, /\| a skip slide \| – \(n=0\) \| [\d.]+ \(n=6\) \| no contrast yet \|/);
   assert.doesNotMatch(ranked, /\| platform \|/);
-  assert.match(md, /pm-one \| tiktok \| saves\+shares \/1k views \| – \| – \| 15† \| – \| 15† at 7\.5 d \| 1 \| – \| – \|/);
+  assert.match(md, /pm-one \| tiktok \| saves\+shares \/1k views \| – \| – \| 15† \| – \| 15† at 7\.5 d \| – \| – \| – \|/);
   assert.match(md, /instagram, 2026-11-17: followers 42 · reach 300 · reach by follow type: follower 60, non_follower 240/);
   assert.ok(md.split('\n').length < 120, `${md.split('\n').length} lines`);
 });
@@ -126,4 +127,37 @@ test('an empty repo still renders a scorecard that says so', () => {
   const md = renderScorecard(buildScorecard({ ...inputs(), posts: [], series: [], hand: [], account: [], features: [], replies: [], experiments: '' }, NOW));
   assert.match(md, /No piece is seven days old/);
   assert.match(md, /No published piece has a row yet/);
+});
+
+test('a platform with fewer than three pieces at day 7 gives no lift, and its lone piece counts in no group', () => {
+  const c = card();
+  assert.deepEqual(c.medians.tiktok, { rate: 'saves_shares_per_k', median: 15, n: 1 });
+  assert.equal(piece('pm-one', 'tiktok').lift, undefined);
+  assert.equal(c.groups.find((g) => g.dimension === 'family' && g.value === 'pm')!.by_platform.tiktok, undefined);
+});
+
+test('a transcribed screen in the same window never hides the typed row that carries the rate', () => {
+  const i = inputs();
+  const typed = i.hand[0];
+  i.hand.push({ ...typed, at: new Date(Date.parse(typed.at) - 0.4 * 86_400_000).toISOString(), metrics: { watch_avg_s: 9 }, by: 'transcribed', screen: 'overview' });
+  const t = buildScorecard(i, NOW).pieces.find((p) => p.slug === 'pm-one' && p.platform === 'tiktok')!;
+  assert.equal(t.ages['7']?.source, 'hand');
+  assert.equal(t.day7, 15);
+});
+
+test('each piece counts once in a group: one piece on many platforms cannot carry its median', () => {
+  const p = (slug: string, platform: string, lift: number) => ({ slug, platform, family: 'pm', ages: {}, headline: 'saves_shares_per_k', lift, screens: [], replies: 0, hook_quotes: 0 }) as unknown as PieceScore;
+  const a = aggregate([p('a', 'instagram', 2), p('a', 'bluesky', 2), p('a', 'threads', 2), p('a', 'youtube', 2), p('b', 'instagram', 0.5), p('c', 'instagram', 0.5)], new Map(), '');
+  const pm = a.groups.find((g) => g.dimension === 'family')!;
+  assert.equal(pm.n, 3);
+  assert.equal(pm.median_lift, 0.5);
+});
+
+test('"48 h" is the last series row before the pull stops at 48 hours', () => {
+  const i = inputs();
+  i.series = i.series.filter((r) => r.age_hours < 48);
+  i.series.push({ ...i.series[0], age_hours: 47.5, metrics: { views: 505 } });
+  const f = buildScorecard(i, NOW).pieces.find((p) => p.slug === 'rhythm-one' && p.platform === 'instagram')!.first48!;
+  assert.equal(f.views.h48, 505);
+  assert.equal(f.views.h24, 390);
 });

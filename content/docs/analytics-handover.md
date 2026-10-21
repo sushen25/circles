@@ -154,7 +154,9 @@ secret each.
   `queue/` until every scriptable platform has an id.
 - **TikTok has two ledger rows per piece once posted**: `drafted` and
   `posted`; the posted one is the time it went out, and the one features
-  and the scorecard age from.
+  and the scorecard age from. A claim made days after posting needs
+  `--at <iso>` (`npm run posted -- tiktok <slug> <id> --at …`), or the
+  claim's own time is taken as the post time and every age reads low.
 - **Every number has one definition**, in `analytics/metrics.ts`; every
   threshold the scorecard and brief use (`MIN_N`, `LEAD`, `LAG`) is a named
   constant in `aggregates.ts` and `brief.ts`.
