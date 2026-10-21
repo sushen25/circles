@@ -3,10 +3,11 @@ adr: 81
 title: "The content loop lives in the monorepo under content/, outside the gate"
 status: accepted
 date: 2026-10-20
+amended_by: [86]
 ---
 # ADR 0081: The content loop lives in the monorepo under content/, outside the gate
 
-_Status: accepted · 20 October 2026_
+_Status: accepted · 20 October 2026 · which platforms a script may touch is amended by [ADR 0086](0086-youtube-is-scripted-and-tiktok-is-scripted-as-far-as-a-draft.md)_
 
 ## Context
 

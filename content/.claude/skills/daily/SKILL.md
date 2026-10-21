@@ -42,9 +42,9 @@ Produce one piece for today. Do not post anything. Do not touch
    Push. Open a PR titled `content: <date> <family> — <hook>` with the body:
    - the hook and archetype
    - the shape, and the check's total seconds (and before / after sums)
-   - the TikTok caption and the YouTube title + line (for hand posting)
+   - the TikTok caption (pasted onto the TikTok draft) and the YouTube title + line
    - the review result
-   - `[ ] merge = approve for Bluesky/Threads/Instagram` as a checkbox line
+   - `[ ] merge = approve for Bluesky/Threads/Instagram/LinkedIn/YouTube, and a TikTok draft` as a checkbox line
 
 ## Never
 

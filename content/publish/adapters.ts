@@ -7,12 +7,23 @@
  * Instagram and Threads need the images at a public URL (they fetch them
  * server-side). Set MEDIA_BASE_URL to the bucket (R2/S3) that serves `out/`;
  * renders are git-ignored in the monorepo, so the repo is never the host.
- * Bluesky and LinkedIn take uploads directly.
+ * Bluesky and LinkedIn take uploads directly. YouTube takes the MP4 as a
+ * resumable upload; TikTok takes it (or JPEG stills by URL) as a draft in
+ * the founder's inbox, never as a post (ADR 0086).
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import type { Caption } from '../lib/queue.ts';
 
-export type Media = { localPaths: string[]; publicUrls: string[]; /** the piece's MP4 at a public URL, when rendered and MEDIA_BASE_URL is set */ videoUrl?: string };
+export type Media = {
+  localPaths: string[];
+  publicUrls: string[];
+  /** the piece's MP4 at a public URL, when rendered and MEDIA_BASE_URL is set */
+  videoUrl?: string;
+  /** the piece's MP4 on disk, when rendered (`npm run video`) */
+  videoPath?: string;
+  /** the JPEG stills at a public URL, when rendered and MEDIA_BASE_URL is set; TikTok photo posts take JPEG or WebP, not PNG */
+  photoUrls?: string[];
+};
 export type Adapter = (caption: Caption, media: Media) => Promise<string>;
 
 const env = (k: string): string => {
@@ -204,4 +215,201 @@ export const linkedin: Adapter = async (caption, media) => {
   return id;
 };
 
-export const adapters: Record<string, Adapter> = { bluesky, threads, instagram, linkedin };
+/* ---------------------------------------------------------------- shared */
+
+/** Swapped out by the tests so polling does not wait. */
+export const clock = { sleep: (ms: number) => new Promise<void>((r) => setTimeout(r, ms)) };
+
+/* ---------------------------------------------------------------- YouTube */
+
+export const YOUTUBE_PRIVACY = ['private', 'unlisted', 'public'] as const;
+
+/**
+ * Uploads from an API project Google has not audited are locked to private
+ * whatever is asked for, so private is the default until the audit passes;
+ * then set YOUTUBE_PRIVACY=public.
+ */
+export function youtubePrivacy(): (typeof YOUTUBE_PRIVACY)[number] {
+  const v = (process.env.YOUTUBE_PRIVACY || 'private').trim();
+  if (!(YOUTUBE_PRIVACY as readonly string[]).includes(v)) throw new Error(`YOUTUBE_PRIVACY "${v}" is not one of ${YOUTUBE_PRIVACY.join(', ')}`);
+  return v as (typeof YOUTUBE_PRIVACY)[number];
+}
+
+async function youtubeAccessToken(): Promise<string> {
+  const tok = await json<{ access_token: string }>(
+    await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      body: new URLSearchParams({
+        client_id: env('YOUTUBE_CLIENT_ID'),
+        client_secret: env('YOUTUBE_CLIENT_SECRET'),
+        refresh_token: env('YOUTUBE_REFRESH_TOKEN'),
+        grant_type: 'refresh_token',
+      }),
+    }),
+  );
+  return tok.access_token;
+}
+
+/**
+ * The MP4 as a Short: vertical and under three minutes is all YouTube asks.
+ * The caption's `title:` line is the title, the tagged text the description.
+ * One resumable session, one PUT: the file is a few MB.
+ */
+export const youtube: Adapter = async (caption, media) => {
+  if (!media.videoPath) throw new Error('YouTube needs the MP4; run npm run video');
+  if (!caption.title) throw new Error('the ## youtube caption has no title: line');
+  const token = await youtubeAccessToken();
+  const bytes = readFileSync(media.videoPath);
+
+  const init = await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json; charset=UTF-8',
+      'X-Upload-Content-Length': String(bytes.byteLength),
+      'X-Upload-Content-Type': 'video/mp4',
+    },
+    body: JSON.stringify({
+      snippet: { title: caption.title, description: withTags(caption), categoryId: '22', defaultLanguage: 'en-AU' },
+      status: { privacyStatus: youtubePrivacy(), selfDeclaredMadeForKids: false },
+    }),
+  });
+  if (!init.ok) throw new Error(`YouTube upload session failed: ${init.status} ${(await init.text()).slice(0, 400)}`);
+  const session = init.headers.get('location');
+  if (!session) throw new Error('YouTube returned no upload session URL');
+
+  const done = await json<{ id: string }>(
+    await fetch(session, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'video/mp4', 'Content-Length': String(bytes.byteLength) },
+      body: bytes,
+    }),
+  );
+  return done.id;
+};
+
+/* ----------------------------------------------------------------- TikTok */
+
+/**
+ * Upload mode only (scope video.upload, post_mode MEDIA_UPLOAD): the piece
+ * lands in the founder's TikTok inbox as a draft, and the founder adds a
+ * sound and taps Post. Direct Post is never used (ADR 0086). Returns the
+ * publish_id, which the ledger records as "drafted".
+ */
+const TIKTOK = 'https://open.tiktokapis.com/v2';
+
+type TikTokEnvelope<T> = { data: T; error: { code: string; message?: string; log_id?: string } };
+
+async function tiktokCall<T>(path: string, token: string, body: unknown): Promise<T> {
+  const res = await fetch(`${TIKTOK}${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json; charset=UTF-8' },
+    body: JSON.stringify(body),
+  });
+  const out = await json<TikTokEnvelope<T>>(res);
+  if (out.error?.code !== 'ok') throw new Error(`TikTok ${path}: ${out.error?.code} ${out.error?.message ?? ''}`);
+  return out.data;
+}
+
+export type TikTokToken = { access_token: string; refresh_token: string; expires_in: number; refresh_expires_in: number; open_id: string; scope: string };
+
+export async function tiktokToken(params: Record<string, string>): Promise<TikTokToken> {
+  const res = await fetch(`${TIKTOK}/oauth/token/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ client_key: env('TIKTOK_CLIENT_KEY'), client_secret: env('TIKTOK_CLIENT_SECRET'), ...params }),
+  });
+  const tok = await json<TikTokToken & { error?: string; error_description?: string }>(res);
+  if (!tok.access_token) throw new Error(`TikTok token: ${tok.error ?? 'no access_token'} ${tok.error_description ?? ''}`);
+  return tok;
+}
+
+/**
+ * Access tokens last a day, so every run trades the refresh token (a year)
+ * for a fresh one. TikTok may rotate the refresh token as it does; a rotated
+ * one is written back to a local .env, or flagged for the CI secret.
+ */
+async function tiktokAccessToken(): Promise<string> {
+  const current = env('TIKTOK_REFRESH_TOKEN');
+  const tok = await tiktokToken({ grant_type: 'refresh_token', refresh_token: current });
+  if (tok.refresh_token && tok.refresh_token !== current) {
+    process.env.TIKTOK_REFRESH_TOKEN = tok.refresh_token;
+    let saved = false;
+    try {
+      const envFile = readFileSync('.env', 'utf8');
+      if (/^TIKTOK_REFRESH_TOKEN=.*$/m.test(envFile)) {
+        writeFileSync('.env', envFile.replace(/^TIKTOK_REFRESH_TOKEN=.*$/m, `TIKTOK_REFRESH_TOKEN=${tok.refresh_token}`));
+        saved = true;
+      }
+    } catch {
+      /* no local .env: CI */
+    }
+    console.warn(
+      saved
+        ? 'TikTok rotated the refresh token; .env updated'
+        : 'TikTok rotated the refresh token; run npm run auth:tiktok and update the TIKTOK_REFRESH_TOKEN secret',
+    );
+  }
+  return tok.access_token;
+}
+
+/** TikTok's chunk rules: 5–64 MB chunks, the remainder folded into the last; anything up to 64 MB goes whole. */
+export function tiktokChunks(size: number): { chunkSize: number; count: number } {
+  const MB = 1024 * 1024;
+  if (size <= 64 * MB) return { chunkSize: size, count: 1 };
+  const chunkSize = 10 * MB;
+  return { chunkSize, count: Math.floor(size / chunkSize) };
+}
+
+/** Polls until TikTok has handed the draft to the inbox. A slow one is left to finish on its own. */
+async function tiktokSettle(token: string, publishId: string): Promise<void> {
+  for (let i = 0; i < 24; i++) {
+    const st = await tiktokCall<{ status: string; fail_reason?: string }>('/post/publish/status/fetch/', token, { publish_id: publishId });
+    if (st.status === 'SEND_TO_USER_INBOX' || st.status === 'PUBLISH_COMPLETE') return;
+    if (st.status === 'FAILED') throw new Error(`TikTok draft ${publishId} failed: ${st.fail_reason ?? 'no reason given'}`);
+    await clock.sleep(5_000);
+  }
+  console.warn(`TikTok draft ${publishId} still processing; it lands in the inbox when done`);
+}
+
+export const tiktok: Adapter = async (caption, media) => {
+  const token = await tiktokAccessToken();
+  let publishId: string;
+
+  if (media.photoUrls?.length) {
+    // Photo mode: TikTok pulls the stills from the verified MEDIA_BASE_URL domain.
+    const d = await tiktokCall<{ publish_id: string }>('/post/publish/content/init/', token, {
+      post_info: { description: withTags(caption).slice(0, 4000) },
+      source_info: { source: 'PULL_FROM_URL', photo_images: media.photoUrls.slice(0, 35), photo_cover_index: 0 },
+      post_mode: 'MEDIA_UPLOAD',
+      media_type: 'PHOTO',
+    });
+    publishId = d.publish_id;
+  } else if (media.videoPath) {
+    // Video: an inbox upload carries no caption; publish.ts prints it for pasting.
+    const bytes = readFileSync(media.videoPath);
+    const size = bytes.byteLength;
+    const { chunkSize, count } = tiktokChunks(size);
+    const d = await tiktokCall<{ publish_id: string; upload_url: string }>('/post/publish/inbox/video/init/', token, {
+      source_info: { source: 'FILE_UPLOAD', video_size: size, chunk_size: chunkSize, total_chunk_count: count },
+    });
+    for (let i = 0; i < count; i++) {
+      const first = i * chunkSize;
+      const last = i === count - 1 ? size - 1 : first + chunkSize - 1;
+      const put = await fetch(d.upload_url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'video/mp4', 'Content-Length': String(last - first + 1), 'Content-Range': `bytes ${first}-${last}/${size}` },
+        body: bytes.subarray(first, last + 1),
+      });
+      if (!put.ok) throw new Error(`TikTok chunk ${i + 1}/${count} failed: ${put.status} ${(await put.text()).slice(0, 400)}`);
+    }
+    publishId = d.publish_id;
+  } else {
+    throw new Error('TikTok needs the MP4 (npm run video) or JPEG stills at MEDIA_BASE_URL');
+  }
+
+  await tiktokSettle(token, publishId);
+  return publishId;
+};
+
+export const adapters: Record<string, Adapter> = { bluesky, threads, instagram, linkedin, youtube, tiktok };

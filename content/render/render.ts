@@ -2,7 +2,8 @@
  * Render a queue file's slideshow to 1080x1920 PNGs.
  *
  *   npm run render queue/2026-10-14-unpaid-project-manager.md
- *   → out/unpaid-project-manager/01.png … 0N.png
+ *   → out/unpaid-project-manager/01.png … 0N.png, and 01.jpg … 0N.jpg
+ *     (TikTok photo posts take JPEG or WebP, never PNG)
  *
  * Each still is the poster frame of the same scene the video plays: the
  * page builds the whole skit on one timeline (render/stage.js), seeks to a
@@ -37,11 +38,12 @@ async function main() {
     await page.evaluate((k) => (window as any).still(k), i);
     const out = join(outDir, `${String(i + 1).padStart(2, '0')}.png`);
     await page.screenshot({ path: out, type: 'png', fullPage: false });
+    await page.screenshot({ path: out.replace(/\.png$/, '.jpg'), type: 'jpeg', quality: 92, fullPage: false });
     written.push(out);
   }
   await browser.close();
 
-  // A caption sheet beside the PNGs, for hand-posting to TikTok.
+  // A caption sheet beside the PNGs, for pasting the TikTok caption onto the draft.
   const sheet = Object.entries(item.captions)
     .map(([p, c]) => `## ${p}\n${c.title ? `title: ${c.title}\n\n` : ''}${c.text}${c.hashtags.length ? `\n\n${c.hashtags.join(' ')}` : ''}`)
     .join('\n\n');
