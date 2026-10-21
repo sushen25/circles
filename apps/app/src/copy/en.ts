@@ -1142,7 +1142,7 @@ export const en = {
     funnel_source_other: 'Somewhere else',
     funnel_source_skipped: 'Skipped',
     funnel_source_content: 'A post',
-    funnel_source_unknown: 'Not asked',
+    funnel_source_unknown: 'Not answered',
     // The funnel by the campaign tag on a link (SUS-240).
     posts: 'By post',
     posts_detail:

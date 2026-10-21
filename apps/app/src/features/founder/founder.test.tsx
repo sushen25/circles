@@ -195,7 +195,7 @@ describe('the screen, from a fixture', () => {
     expect(screen.queryByText('29 · 71% of the step before')).toBeNull();
     expect(screen.getByText(/counted under the answer of the circle's organiser/)).toBeTruthy();
 
-    fireEvent.click(chip('Not asked'));
+    fireEvent.click(chip('Not answered'));
     expect(screen.getByText('8 · 67% of the step before')).toBeTruthy();
 
     fireEvent.click(chip('All'));

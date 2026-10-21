@@ -9,8 +9,12 @@ import { useNudge } from '../growth/useNudge';
 import { OrganiserSourceScreen } from './OrganiserSourceScreen';
 
 /**
- * The question after the organiser's code is accepted (SUS-171), shown once per
- * account and never in the way.
+ * The last question of the first run (SUS-171): after the account, the circle
+ * and the plan exist, and just before the person lands in the circle. Moved
+ * here from straight after the code on 21 October, so it is never the first
+ * thing a stranger meets. Shown once per account and never in the way; a
+ * person who leaves before it has simply not answered (the funnel counts them
+ * as "not answered", a bucket and never a value).
  *
  * "Once per account" is `record-nudge`'s `organiser_source` row, which says the
  * account was asked and holds no answer. The answer goes only to the analytics
@@ -22,8 +26,9 @@ import { OrganiserSourceScreen } from './OrganiserSourceScreen';
  *
  * An organiser who arrived on a tagged link (`?from=`, SUS-240) is not asked:
  * the post is the answer, recorded as `content`, and skipping the question
- * counts as asking it. The tag itself goes to the circle's cohort row when the
- * circle is made, and is not in this event.
+ * counts as asking it. The tag itself went to the circle's cohort row when the
+ * circle was made, and is not in this event; the first run keeps it on the
+ * device until this step is done so it can be recognised here.
  */
 /** How long the question may take to be asked before the person is sent on without it. */
 const WAIT_MS = 4000;

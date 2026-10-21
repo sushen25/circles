@@ -29,9 +29,10 @@ the circle's organiser never sees it.
 2. The app keeps the first tag of a visit on the device for 24 hours.
 3. When the organiser passes the gate, the circle is made and the tag is written
    to that circle's founder-only cohort row (`private.circle_cohorts.source_ref`),
-   once. The tag is then forgotten on the device.
-4. An organiser who arrived on a tagged link is not asked "How did you hear?" and
-   is counted as `content`.
+   once.
+4. "How did you hear?" is the last step of the first run, after the circle exists.
+   An organiser who arrived on a tagged link is not asked it and is counted as
+   `content`. The tag is then forgotten on the device.
 
 The tag is in no analytics event, log line or letter. Someone who opens the link
 and never passes the gate leaves nothing.

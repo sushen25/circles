@@ -659,7 +659,7 @@ select pg_temp.act_as_postgres();
 select is(
   (select source from analytics.circle_source where circle_id = (select circle_id from t)),
   'unknown',
-  'a circle whose owner was never asked is unknown'
+  'a circle whose owner has not answered (never asked, or left before the last step) is unknown'
 );
 
 insert into analytics.events (event_id, event_name, schema_version, user_id, properties, occurred_at)

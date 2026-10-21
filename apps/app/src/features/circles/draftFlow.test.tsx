@@ -56,6 +56,13 @@ vi.mock('../../data/planning', async (original) => ({
   createPlan: (...a: unknown[]) => createPlan(...a),
 }));
 
+// The last step of the first run asks "How did you hear?" (sourceQuestion.test.tsx);
+// these tests are about what is made, so the account has been asked already.
+vi.mock('../../data/growth', () => ({
+  askToShow: () => Promise.resolve({ suppressed: true, reason: 'already_shown' }),
+  recordAnswer: () => Promise.resolve(undefined),
+}));
+
 const { FirstCircleFlow } = await import('./FirstCircleFlow');
 const { FinishDraftFlow } = await import('./FinishDraftFlow');
 const { FirstPlanDraftFlow } = await import('../planning/FirstPlanDraftFlow');
