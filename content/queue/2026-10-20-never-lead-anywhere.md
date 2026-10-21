@@ -11,6 +11,7 @@ publish_at: 2026-10-20T18:00:00+11:00
 publish_window_minutes: 90
 media: slideshow
 published:
+  bluesky: "at://did:plc:w6zbh5wca2czjpchhvku34mg/app.bsky.feed.post/3myek4s7xew2v"
   instagram: "18395365036204751"
 ---
 
