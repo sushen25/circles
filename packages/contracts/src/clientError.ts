@@ -74,6 +74,7 @@ export const CLIENT_ERROR_ROUTE_WORDS = [
   'continue',
   'create',
   'deadline',
+  'deleted',
   'denied',
   'diagnostics',
   'e',
