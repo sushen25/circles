@@ -26,11 +26,16 @@ npm run video  queue/<file>.md   # <slug>.mp4
 npm run upload queue/<file>.md   # to s3://wenna-media/<slug>/
 ```
 
-`npm run upload` needs the AWS CLI signed in to the account (`AWS_PROFILE`
-picks the profile; `MEDIA_BUCKET` overrides the bucket name). It sends the
+`npm run upload` (the AWS SDK, `content/publish/upload.ts`) reads
+`S3_BUCKET=wenna-media` and `S3_REGION=ap-southeast-2` from `content/.env`, and
+its credentials from the AWS CLI's profile on this machine (`AWS_PROFILE`
+picks it) or from `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`. It sends the
 stills, the JPEGs and the MP4 with `Cache-Control: public, max-age=300`, so a
-re-render under the same names reaches the platforms within five minutes. The
-video's `frames/`, the contact sheet and the caption sheet stay local.
+re-render under the same names reaches the platforms within five minutes,
+skips any file whose MD5 already matches the object, and then checks every
+public URL. `-- --dry-run` lists without sending; `-- --approved` does every
+approved piece that is due. The video's `frames/`, the contact sheet and the
+caption sheet stay local.
 
 ## Checking it
 

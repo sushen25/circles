@@ -84,7 +84,7 @@ npm run render queue/2026-10-14-unpaid-project-manager.md   # PNGs to out/
 npm run video  queue/2026-10-14-unpaid-project-manager.md   # MP4 to out/ (ffmpeg)
 npm run check  queue/2026-10-14-unpaid-project-manager.md   # schema, seconds per slide, product mentions
 npm run gallery [type...]                                  # every component's fixture to out/gallery/
-npm run upload queue/2026-10-14-unpaid-project-manager.md   # renders to media.wenna.app (AWS CLI)
+npm run upload queue/2026-10-14-unpaid-project-manager.md   # renders to media.wenna.app (AWS SDK)
 npm run publish                                            # approved items only
 npm run dry-run                                            # prints what publish would do
 npm test                                                   # adapter request shapes, nothing sent
