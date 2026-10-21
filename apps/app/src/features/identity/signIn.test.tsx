@@ -472,7 +472,7 @@ describe('signing in by email', () => {
 
     expect(
       await screen.findByText(
-        "That code didn't work. Check it, or send a new one. If you deleted your account, that address can't be used to sign in again.",
+        "That code didn't work. Check it, or send a new one. If you deleted your account, that address can't sign in again for 30 days.",
       ),
     ).toBeVisible();
   });

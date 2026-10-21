@@ -1565,7 +1565,7 @@ export const en = {
     continue: 'Continue',
     checking: 'Checking',
     wrong_code:
-      "That code didn't work. Check it, or send a new one. If you deleted your account, that address can't be used to sign in again.",
+      "That code didn't work. Check it, or send a new one. If you deleted your account, that address can't sign in again for 30 days.",
     send_a_new_code: 'Send a new code',
     new_code_sent: 'A new code is on its way.',
     couldnt_save: "Something went wrong, so your place wasn't saved. Please try again.",
@@ -1574,7 +1574,7 @@ export const en = {
     didnt_get_it: "Didn't get it? Check spam, or send another.",
     send_another_in: 'Send another in {count}s',
     expired:
-      "That code has expired. Send a new one. If you deleted your account, that address can't be used to sign in again.",
+      "That code has expired. Send a new one. If you deleted your account, that address can't sign in again for 30 days.",
     too_many_tries: "That's a lot of tries. Wait a few minutes, then send a new code.",
     couldnt_sign_in: "Something went wrong, so you're not signed in yet. Please try again.",
     couldnt_send: "We couldn't send the code. Try again in a moment.",

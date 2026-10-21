@@ -303,7 +303,9 @@ data" (`DeleteAccountSheet`, two steps, `delete-account`; the first names the
 circles the person owns and where each goes, from `account_deletion_preview`).
 The sheet's two steps are the `DeleteAccount` and `DeleteAccountSure`
 artboards. Circle settings has "Leave this circle" for a member who is not the
-owner (`leave-circle`), and tells the owner why they cannot.
+owner (`leave-circle`), and tells the owner why they cannot. After deleting, the
+person lands on `/deleted` (`DeletedScreen`): it needs no session and has no
+artboard, like `/terms`.
 
 ### planning
 
