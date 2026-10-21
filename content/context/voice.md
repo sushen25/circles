@@ -33,8 +33,9 @@ without performing it.
 - Tidy triads ("faster, easier, better").
 - Rhetorical question then one-word answer ("The result? Chaos.").
 - Em-dash cascades. One per paragraph at most.
-- Hashtag walls. Bluesky and Threads: none. Instagram: at most five, in the
-  first comment, never in the caption. LinkedIn: none.
+- Hashtag walls. Bluesky and Threads: none. Instagram: at most five, on
+  their own line at the end of the caption (the publisher adds them from
+  `hashtags:`). LinkedIn: none.
 - Closing CTAs that beg ("Follow for more", "Link in bio" as the whole last
   line).
 - Any sentence that could appear unchanged in a work scheduling tool's

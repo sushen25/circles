@@ -255,7 +255,7 @@ Under 150 characters. No hashtags, no link. Lowercase texting register is fine. 
 > priya tried not initiating for a month. you can guess
 
 ## instagram
-1–3 short lines, under 300 characters. Up to five hashtags under `hashtags:`; they go in the first comment, never in the caption.
+1–3 short lines, under 300 characters. Up to five hashtags under `hashtags:`; the publisher puts them on their own line at the end of the caption, never inside the sentence.
 
 > Every group has one organiser. Priya took a month off and the chat took one too.
 
