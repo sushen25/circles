@@ -1,7 +1,7 @@
 import { GetInviteLinkRequest, type GetInviteLinkResponse } from '@circles/contracts';
 
 import { optional } from '../_shared/env.ts';
-import { sha256Hex } from '../_shared/hash.ts';
+import { inviteDigests } from '../_shared/digest.ts';
 import { jsonHandler } from '../_shared/http.ts';
 import { log } from '../_shared/logging.ts';
 import { derivedInviteSecret } from '../_shared/secret.ts';
@@ -9,7 +9,8 @@ import { derivedInviteSecret } from '../_shared/secret.ts';
 /**
  * The owner's invite link, again (S1-23, ADR 0028).
  *
- * The database has only the live invite's digest; the secret is *derived* from
+ * The database has only the live invite's digest (an HMAC under
+ * `INVITE_DIGEST_KEY`, or for an older link a plain SHA-256: ADR 0082); the secret is *derived* from
  * the invite's id under `INVITE_LINK_KEY`. So this asks the database which
  * invite is live — `live_invite`, the service role's, which answers the owner alone and refuses anybody
  * else with `not_the_owner` — derives the secret for it, and hands it back only
@@ -46,7 +47,12 @@ Deno.serve(
       }
 
       const secret = await derivedInviteSecret(key, live.invite_id);
-      return { invite_secret: (await sha256Hex(secret)) === live.secret_hash ? secret : null };
+      // The digest the invite was stored under: an HMAC for a link made since
+      // SUS-214 (ADR 0082), the plain SHA-256 for an older one. Each is compared
+      // with the kind the row says it is and never the other.
+      const digests = await inviteDigests(secret);
+      const expected = live.digest_kind === 'hmac' ? digests.current : digests.legacy;
+      return { invite_secret: expected === live.secret_hash ? secret : null };
     },
   }),
 );

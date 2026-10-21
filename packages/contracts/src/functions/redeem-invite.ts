@@ -1,7 +1,7 @@
 import { isValidDisplayName, normaliseDisplayName } from '@circles/domain';
 import { z } from 'zod';
 
-import { CircleDto } from '../dtos.js';
+import { CircleDto, InvitePreview } from '../dtos.js';
 import { UserId } from '../ids.js';
 import { Mutation } from './shared.js';
 
@@ -51,3 +51,22 @@ export const RedeemInviteResponse = z.object({
   member_user_id: UserId,
 });
 export type RedeemInviteResponse = z.infer<typeof RedeemInviteResponse>;
+
+/**
+ * `invite-preview` — what the Join page shows before anybody has joined.
+ *
+ * A function and not a database call since SUS-214 (ADR 0082): the invite's
+ * digest is an HMAC under a key only the Edge Functions hold, so a browser
+ * cannot compute it. The caller has no session, as before; the `secret` is the
+ * link's fragment and is hashed on the server. `preview` is null for a link
+ * that is not live, whatever the reason, because the caller is not entitled to
+ * know which (a revoked link, an unknown one and an archived circle look alike).
+ */
+export const InvitePreviewRequest = z.object({
+  /** The same secret `redeem-invite` takes: ≥256 bits, base64url. Never logged. */
+  secret: z.string().min(32).max(256),
+});
+export type InvitePreviewRequest = z.infer<typeof InvitePreviewRequest>;
+
+export const InvitePreviewResponse = z.object({ preview: InvitePreview.nullable() });
+export type InvitePreviewResponse = z.infer<typeof InvitePreviewResponse>;

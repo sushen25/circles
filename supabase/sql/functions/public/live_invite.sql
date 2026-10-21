@@ -19,12 +19,16 @@
 -- server. (The owner check is `auth_is_owner`'s, restated for a caller who is
 -- an argument rather than `auth.uid()`.)
 --
+-- **Which kind of digest it is** (SUS-214, ADR 0082): an invite made after the
+-- change is an HMAC under `INVITE_DIGEST_KEY`, one made before is a plain
+-- SHA-256, and `get-invite-link` compares the one that matches.
+--
 -- No row when the circle has no live invite: a circle made without one (the
 -- fixtures do that) has nothing to show until the owner resets it.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.live_invite(p_circle_id uuid, p_user_id uuid)
-returns table (invite_id uuid, secret_hash bytea)
+returns table (invite_id uuid, secret_hash bytea, digest_kind text)
 language plpgsql
 stable
 security definer
@@ -49,14 +53,14 @@ begin
   end if;
 
   return query
-    select i.id, i.secret_hash
+    select i.id, i.secret_hash, i.digest_kind
     from public.circle_invites i
     where i.circle_id = p_circle_id and i.revoked_at is null;
 end;
 $$;
 
 comment on function public.live_invite(uuid, uuid) is
-  'The id and digest of a circle''s live invite, if p_user_id owns the circle, so get-invite-link can re-derive the secret (ADR 0028). Never the secret: the database does not have it. Service role only: the digest does not reach a client (SUS-114).';
+  'The id, digest and digest kind of a circle''s live invite, if p_user_id owns the circle, so get-invite-link can re-derive the secret (ADR 0028). Never the secret: the database does not have it. Service role only: the digest does not reach a client (SUS-114).';
 
 revoke all on function public.live_invite(uuid, uuid) from public;
 revoke all on function public.live_invite(uuid, uuid) from anon, authenticated;

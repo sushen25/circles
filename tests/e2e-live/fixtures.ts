@@ -26,7 +26,7 @@ export type { Browser, Download, Page } from '@playwright/test';
  *    test's own and any browser it opens with `browser.newContext()` — is read
  *    for them, as it goes and again at the end. A secret in a URL or a header
  *    fails the test wherever it appears; in a body, everywhere but the one call
- *    that exists to receive it, `redeem-invite`. The emailed tokens are held to
+ *    that exist to receive it, `redeem-invite` and `invite-preview`. The emailed tokens are held to
  *    the URL and header half (ADR 0023): their bodies go to the function that
  *    spends them. Not guarded: the test's own `request` fixture, which is the
  *    test speaking, not the page.
@@ -61,7 +61,9 @@ function seen(request: Request): Seen {
 function leaksIn(request: Seen): Leak[] {
   const leaks: Leak[] = [];
   const { url, body, headers } = request;
-  const toRedeem = request.method === 'POST' && new URL(url).pathname.endsWith('/redeem-invite');
+  // The two functions that exist to receive the fragment and hash it (ADR 0082).
+  const toRedeem =
+    request.method === 'POST' && /\/(redeem-invite|invite-preview)$/.test(new URL(url).pathname);
   for (const { value, kind } of mintedSecrets()) {
     if (url.includes(value) || url.includes(encodeURIComponent(value))) {
       leaks.push({ url, where: 'url' });

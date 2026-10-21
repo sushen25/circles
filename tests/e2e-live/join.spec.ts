@@ -73,6 +73,24 @@ test('with no plan asking, a new member lands on the circle, and is let in', asy
   ).toHaveCount(0);
 });
 
+test('a link made before the HMAC still previews and joins (ADR 0082)', async ({ page }) => {
+  // Links already in group chats are stored as the plain SHA-256 and marked so.
+  // They keep working through the legacy digest until the window in ADR 0082 ends.
+  const crew = sundayCrew({ withPlan: false });
+  sql(`update public.circle_invites
+       set secret_hash = extensions.digest('${crew.secret}', 'sha256'), digest_kind = 'sha256'
+       where circle_id = '${crew.circleId}'`);
+
+  await page.goto(`/join#${crew.secret}`);
+  await expect(page.getByText('Sunday Crew is finding a time to catch up.')).toBeVisible();
+  await page.getByRole('button', { name: 'Choose my times' }).click();
+  await page.getByLabel('Your name').fill('Rae');
+  await page.getByRole('button', { name: 'Continue' }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/circles/${crew.circleId}$`));
+  expect(memberNamed(crew.circleId, 'Rae')?.anonymous).toBe(true);
+});
+
 test('a revoked invite says so and asks nothing', async ({ page }) => {
   const crew = sundayCrew();
   sql(`update public.circle_invites set revoked_at = now() where circle_id = '${crew.circleId}'`);

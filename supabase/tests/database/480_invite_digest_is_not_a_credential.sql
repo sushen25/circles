@@ -77,7 +77,7 @@ select pg_temp.make_user('48000000-0000-0000-0000-0000000000a4', 'Hal', false);
 
 select pg_temp.act_as('48000000-0000-0000-0000-0000000000a1');
 select public.create_circle('Digest Crew 480', 'sky', 'Australia/Melbourne', 'key-480-a', 'none',
-  extensions.digest('sunday-secret', 'sha256'));
+  extensions.digest('sunday-secret', 'sha256'), digest_kind => 'hmac');
 select pg_temp.act_as('48000000-0000-0000-0000-0000000000a2');
 select public.create_circle('Look-alike', 'plum', 'Australia/Melbourne', 'key-480-b');
 
@@ -86,15 +86,15 @@ select public.create_circle('Look-alike', 'plum', 'Australia/Melbourne', 'key-48
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as_postgres();
 select ok(
-  not has_function_privilege('authenticated', 'public.redeem_invite(uuid, bytea, text)', 'execute')
-  and not has_function_privilege('anon', 'public.redeem_invite(uuid, bytea, text)', 'execute')
-  and has_function_privilege('service_role', 'public.redeem_invite(uuid, bytea, text)', 'execute'),
+  not has_function_privilege('authenticated', 'public.redeem_invite(uuid, bytea, text, bytea)', 'execute')
+  and not has_function_privilege('anon', 'public.redeem_invite(uuid, bytea, text, bytea)', 'execute')
+  and has_function_privilege('service_role', 'public.redeem_invite(uuid, bytea, text, bytea)', 'execute'),
   'redeem_invite: the service role only'
 );
 select ok(
-  not has_function_privilege('authenticated', 'public.reattach_with_token(uuid, bytea)', 'execute')
-  and not has_function_privilege('anon', 'public.reattach_with_token(uuid, bytea)', 'execute')
-  and has_function_privilege('service_role', 'public.reattach_with_token(uuid, bytea)', 'execute'),
+  not has_function_privilege('authenticated', 'public.reattach_with_token(uuid, bytea, bytea)', 'execute')
+  and not has_function_privilege('anon', 'public.reattach_with_token(uuid, bytea, bytea)', 'execute')
+  and has_function_privilege('service_role', 'public.reattach_with_token(uuid, bytea, bytea)', 'execute'),
   'the token form of reattach_member: the service role only'
 );
 select ok(
@@ -103,8 +103,8 @@ select ok(
   'and the Continue-as list form stays the signed-in caller''s'
 );
 select ok(
-  not has_function_privilege('authenticated', 'private.reattach_member_core(uuid, uuid, uuid, bytea)', 'execute')
-  and not has_function_privilege('service_role', 'private.reattach_member_core(uuid, uuid, uuid, bytea)', 'execute'),
+  not has_function_privilege('authenticated', 'private.reattach_member_core(uuid, uuid, uuid, bytea, bytea)', 'execute')
+  and not has_function_privilege('service_role', 'private.reattach_member_core(uuid, uuid, uuid, bytea, bytea)', 'execute'),
   'the body they share is nobody''s to call'
 );
 select is(

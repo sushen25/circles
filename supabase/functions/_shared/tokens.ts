@@ -1,5 +1,6 @@
 import type { StopFamily } from '@circles/contracts';
 import type { Db } from './db.ts';
+import { reentryDigests } from './digest.ts';
 import { sha256Hex } from './hash.ts';
 
 /**
@@ -89,7 +90,11 @@ export async function issueReentryToken(
   const { data, error } = await service.rpc('issue_reentry_token', {
     p_circle_id: circleId,
     p_contact_id: contactId,
-    p_token_hash: await tokenHash(token),
+    // An HMAC under `INVITE_DIGEST_KEY`, not the plain SHA-256 the other
+    // purposes use (SUS-214, ADR 0082): the key is required, so a function
+    // without it answers 503 and issues nothing rather than a weaker digest.
+    p_token_hash: (await reentryDigests(token)).current,
+    p_digest_kind: 'hmac',
   });
   if (error !== null) throw error;
   return data === null ? null : token;

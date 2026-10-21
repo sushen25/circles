@@ -24,7 +24,7 @@ begin
   -- The service role's own JWT, as in production: no `sub`, so `auth.uid()` is null.
   perform set_config('role', 'service_role', true);
   perform set_config('request.jwt.claims', '', true);
-  select * into r from public.reattach_with_token(me, h);
+  select * into r from public.reattach_with_token(me, h, h);
   perform set_config('role', prev, true);
   perform set_config('request.jwt.claims', coalesce(claims, ''), true);
   return r;
@@ -367,9 +367,9 @@ insert into private.email_contacts (user_id, email_normalized)
 values ('95000000-0000-0000-0000-0000000000e1', 'nina@example.com');
 
 insert into private.email_action_tokens (
-  contact_id, purpose, token_hash, expires_at, membership_circle_id, membership_user_id
+  contact_id, purpose, token_hash, digest_kind, expires_at, membership_circle_id, membership_user_id
 )
-select ec.id, 'reentry', extensions.digest('reentry-secret', 'sha256'),
+select ec.id, 'reentry', extensions.digest('reentry-secret', 'sha256'), 'hmac',
        now() + interval '7 days', pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000e1'
 from private.email_contacts ec where ec.email_normalized = 'nina@example.com';
 
@@ -1409,9 +1409,9 @@ insert into private.email_contacts (user_id, email_normalized)
 values ('95000000-0000-0000-0000-0000000b7101', 'mo@example.com');
 
 insert into private.email_action_tokens (
-  contact_id, purpose, token_hash, expires_at, membership_circle_id, membership_user_id
+  contact_id, purpose, token_hash, digest_kind, expires_at, membership_circle_id, membership_user_id
 )
-select ec.id, 'reentry', extensions.digest('mo-reentry', 'sha256'),
+select ec.id, 'reentry', extensions.digest('mo-reentry', 'sha256'), 'hmac',
        now() + interval '7 days', pg_temp.circle_id(), '95000000-0000-0000-0000-0000000b7101'
 from private.email_contacts ec where ec.email_normalized = 'mo@example.com';
 
@@ -1567,9 +1567,9 @@ insert into private.email_contacts (user_id, email_normalized)
 values ('95000000-0000-0000-0000-0000000c2101', 'ira@example.com');
 
 insert into private.email_action_tokens (
-  contact_id, purpose, token_hash, expires_at, membership_circle_id, membership_user_id
+  contact_id, purpose, token_hash, digest_kind, expires_at, membership_circle_id, membership_user_id
 )
-select ec.id, 'reentry', extensions.digest('ira-reentry', 'sha256'),
+select ec.id, 'reentry', extensions.digest('ira-reentry', 'sha256'), 'hmac',
        now() + interval '7 days', pg_temp.circle_id(), '95000000-0000-0000-0000-0000000c2101'
 from private.email_contacts ec where ec.email_normalized = 'ira@example.com';
 
@@ -1818,9 +1818,9 @@ values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000d3101', 'Ros');
 insert into private.email_contacts (user_id, email_normalized)
 values ('95000000-0000-0000-0000-0000000d3101', 'ros@example.com');
 insert into private.email_action_tokens (
-  contact_id, purpose, token_hash, expires_at, membership_circle_id, membership_user_id
+  contact_id, purpose, token_hash, digest_kind, expires_at, membership_circle_id, membership_user_id
 )
-select ec.id, 'reentry', extensions.digest('ros-reentry', 'sha256'),
+select ec.id, 'reentry', extensions.digest('ros-reentry', 'sha256'), 'hmac',
        now() + interval '7 days', pg_temp.circle_id(), '95000000-0000-0000-0000-0000000d3101'
 from private.email_contacts ec where ec.email_normalized = 'ros@example.com';
 

@@ -1,11 +1,11 @@
 import {
-  InvitePreview,
+  type InvitePreview,
+  InvitePreviewResponse,
   JoinLink,
   RedeemInviteResponse,
   type IdempotencyKey,
 } from '@circles/contracts';
 
-import { authClient } from '../auth/client';
 import { ensureGuestSession } from '../auth/guest';
 import { getTurnstileToken } from '../auth/turnstile';
 import { invokeFunction } from '../functions';
@@ -16,8 +16,8 @@ import { invokeFunction } from '../functions';
  * The secret is the capability — whoever holds it can join — and the fragment
  * is where it lives precisely because a fragment never reaches a server. Every
  * function here is written to keep it that way: it is read from the hash, held
- * in memory for the length of the join, hashed before the only database call
- * that needs to find it, and sent in a request *body* once, to `redeem-invite`.
+ * in memory for the length of the join, and sent in a request *body* to the two
+ * functions that hash it (`invite-preview`, then `redeem-invite`).
  * It is never put in a URL, a query key, storage, a log or an analytics payload.
  */
 
@@ -40,35 +40,22 @@ export function inviteSecretFromHash(hash: string): string | null {
 }
 
 /**
- * SHA-256 of the secret, in the form PostgREST takes a `bytea` in.
- *
- * Hashed in the browser so the secret is never a statement parameter, which is
- * the same care `redeem-invite` takes server-side (§14). Web Crypto only exists
- * in a secure context; `localhost` counts, so development and the e2e suite are
- * unaffected. Native has no `crypto.subtle` — invite links open in the app from
- * Slice 3 (S3-01), which will need a digest from `expo-crypto`.
- */
-export async function secretDigest(secret: string): Promise<string> {
-  const subtle = globalThis.crypto?.subtle;
-  if (subtle === undefined) throw new Error('no Web Crypto available to hash the invite');
-  const digest = await subtle.digest('SHA-256', new TextEncoder().encode(secret));
-  const hex = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0'));
-  return `\\x${hex.join('')}`;
-}
-
-/**
  * What the Join page shows before joining, or null when the link is not live.
  *
- * Null covers revoked, unknown and archived alike — the database will not say
+ * Null covers revoked, unknown and archived alike — the server will not say
  * which, and neither will the screen.
+ *
+ * **The hashing is the server's** (SUS-214, ADR 0082). An invite is stored as an
+ * HMAC under a key only the Edge Functions hold, so a browser cannot compute the
+ * digest and must not be given the key. The fragment goes in the body of
+ * `invite-preview`, once, like `redeem-invite`'s; it is never put in a URL, a
+ * query key or storage. (This used to hash in the browser and call the database
+ * with the SHA-256, which also needed Web Crypto and would have needed
+ * `expo-crypto` on native; neither is needed now.)
  */
 export async function fetchInvitePreview(secret: string): Promise<InvitePreview | null> {
-  const { data, error } = await authClient().rpc('invite_preview', {
-    p_secret_hash: await secretDigest(secret),
-  });
-  if (error !== null) throw new Error('invite preview failed');
-  const row = (data ?? [])[0];
-  return row === undefined ? null : InvitePreview.parse(row);
+  const { preview } = await invokeFunction('invite-preview', { secret }, InvitePreviewResponse);
+  return preview;
 }
 
 export interface RedeemOptions {

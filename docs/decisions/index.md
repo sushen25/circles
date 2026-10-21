@@ -33,7 +33,7 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0025](./0025-the-preferences-link-is-minted-with-each-email.md) | The preferences link is minted with each email, and both footer links open it | accepted (amended by 0029, 0067, 0069) |
 | [0026](./0026-first-run-shares-a-plan-and-a-defaulted-quorum-follows-the-circle.md) | First run shares a plan, not an invite, and a defaulted quorum follows the circle | accepted |
 | [0027](./0027-the-organisers-auth-address-is-an-email-contact.md) | The organiser's auth address is an email contact, verified by auth | accepted (amended by 0050, 0067) |
-| [0028](./0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md) | An invite secret is derived, so its owner can see it again | accepted |
+| [0028](./0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md) | An invite secret is derived, so its owner can see it again | accepted (amended by 0082) |
 | [0029](./0029-an-organiser-turns-organiser-email-off-in-the-app.md) | An organiser turns organiser email off in the app, not by a link | accepted (amended by 0069) |
 | [0030](./0030-a-plan-may-ask-about-up-to-thirty-days.md) | A plan may ask about up to thirty days | accepted (amended by 0047) |
 | [0031](./0031-a-meetup-may-last-up-to-five-hours.md) | A meetup may last up to five hours | accepted |
@@ -77,7 +77,7 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0070](./0070-a-member-changes-the-name-a-circle-calls-them-from-circle-settings.md) | A member changes the name a circle calls them from circle settings, and the new name shows everywhere, plans already locked in included | accepted (amends 0065) |
 | [0071](./0071-the-functions-a-client-can-call-carry-their-own-rate-limits.md) | The functions a client can call carry their own rate limits, and an address is sent one verification letter an hour | accepted (amended by 0073) |
 | [0072](./0072-the-analytics-ingest-records-only-what-a-caller-can-know.md) | The analytics ingest records only what a caller can know | accepted |
-| [0073](./0073-an-invite-digest-and-a-re-entry-digest-are-not-a-way-in.md) | A stored invite or re-entry digest is not a way in: the functions that take one are the service role's | accepted (amends 0071) |
+| [0073](./0073-an-invite-digest-and-a-re-entry-digest-are-not-a-way-in.md) | A stored invite or re-entry digest is not a way in: the functions that take one are the service role's | accepted (amended by 0082; amends 0071) |
 | [0074](./0074-a-suppressed-contact-keeps-a-hash-and-the-sign-in-log-and-events-are-bounded.md) | A suppressed contact keeps a hash and not the address; the sign-in log is pruned; an event follows its user | accepted |
 | [0075](./0075-edge-function-dependencies-are-exact-and-locked.md) | Edge Function dependencies are exact and locked | accepted (amends 0007) |
 | [0076](./0076-day-based-deadline-defaults-round-up-to-the-hour.md) | Day-based deadline defaults round up to the next whole hour | accepted |
@@ -86,3 +86,4 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0079](./0079-the-time-of-day-is-on-the-first-screen-and-a-time-for-each-day-opens-in-place.md) | The time of day is on the first screen as pills, and a time for each day opens in place | accepted (amends 0068) |
 | [0080](./0080-the-reattach-and-verified-gates-count-product-rows-not-events.md) | The reattach and verified gates count product rows, not events | accepted |
 | [0081](./0081-the-content-loop-lives-in-the-monorepo-outside-the-gate.md) | The content loop lives in the monorepo under content/, outside the gate | accepted |
+| [0082](./0082-invite-and-re-entry-digests-are-an-hmac-under-a-key-only-the-functions-hold.md) | Invite and re-entry digests are an HMAC under a key only the Edge Functions hold | proposed (amends 0028, 0073) |

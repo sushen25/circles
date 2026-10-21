@@ -3,10 +3,11 @@ adr: 28
 title: "An invite secret is derived, so its owner can see it again"
 status: accepted
 date: 2026-09-23
+amended_by: [82]
 ---
 # ADR 0028: An invite secret is derived, so its owner can see it again
 
-_Status: accepted · 23 September 2026_
+_Status: accepted (the stored digest is an HMAC under `INVITE_DIGEST_KEY`, not a plain SHA-256: [ADR 0082](0082-invite-and-re-entry-digests-are-an-hmac-under-a-key-only-the-functions-hold.md)) · 23 September 2026_
 
 ## Context
 

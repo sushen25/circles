@@ -1,3 +1,5 @@
+import { createHash, createHmac } from 'node:crypto';
+
 import { CONSENT, CONSENT_VERSIONS, consentTextFor } from '@circles/config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -166,6 +168,17 @@ const CIRCLE_ROW = {
   default_quorum: 3,
 };
 
+// Built at run time: a secret-shaped literal is what a scanner looks for.
+const DIGEST_KEY = `digest-${globalThis.crypto.randomUUID()}`;
+
+/** What `_shared/digest.ts` should make, computed independently of it (SUS-214, ADR 0082). */
+function hmacOf(purpose: 'invite' | 'reentry', value: string): string {
+  return `\\x${createHmac('sha256', DIGEST_KEY).update(`circles.digest.v1:${purpose}:${value}`).digest('hex')}`;
+}
+function sha256Of(value: string): string {
+  return `\\x${createHash('sha256').update(value).digest('hex')}`;
+}
+
 const CALLER = '00000000-0000-4000-8000-00000000000c';
 const PREVIOUS = '00000000-0000-4000-8000-00000000000p';
 const KEY = '00000000-0000-4000-8000-000000000001';
@@ -194,6 +207,7 @@ async function serveOf(name: string): Promise<(request: Request) => Promise<Resp
 const handlers = {
   'claim-identity': await serveOf('claim-identity'),
   'redeem-invite': await serveOf('redeem-invite'),
+  'invite-preview': await serveOf('invite-preview'),
   'join-plan': await serveOf('join-plan'),
   'reattach-member': await serveOf('reattach-member'),
   'create-circle': await serveOf('create-circle'),
@@ -291,6 +305,7 @@ beforeEach(() => {
   process.env.CIRCLES_ENV = 'local';
   process.env.SUPABASE_ANON_KEY = 'anon';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service';
+  process.env.INVITE_DIGEST_KEY = DIGEST_KEY;
   delete process.env.TURNSTILE_SECRET_KEY;
   delete process.env.CRON_SECRET;
   delete process.env.EMAIL_CAPTURE_URL;
@@ -420,10 +435,34 @@ describe('redeem-invite', () => {
 
     const sent = called('redeem_invite')[0]?.args['p_secret_hash'];
     expect(sent).toMatch(/^\\x[0-9a-f]{64}$/);
+    // An HMAC under the server key: a database copy cannot recompute it.
+    expect(sent).toBe(hmacOf('invite', body.secret));
+    expect(sent).not.toBe(sha256Of(body.secret));
+    // And the plain SHA-256 beside it, only so a link made before the key still opens.
+    expect(called('redeem_invite')[0]?.args['p_legacy_hash']).toBe(sha256Of(body.secret));
     // And names the person it verified, because the database function is the
     // service role's and has no session of its own to read (SUS-114).
     expect(called('redeem_invite')[0]?.args['p_user_id']).toBe(CALLER);
     expect(JSON.stringify(state.rpcs)).not.toContain(body.secret);
+  });
+
+  it('fails closed without the digest key: 503, nothing looked up, nothing joined', async () => {
+    delete process.env.INVITE_DIGEST_KEY;
+    const response = await load('redeem-invite')(post(body));
+
+    expect(response.status).toBe(503);
+    expect(called('redeem_invite')).toHaveLength(0);
+    expect(called('take_rate_token')).toHaveLength(0);
+    // Not even on a laptop, and never with a SHA-256 in its place.
+    expect(state.reads).not.toContain('circle_invites');
+  });
+
+  it('does not spend the caller’s Turnstile token on a deployment that cannot join anyone', async () => {
+    delete process.env.INVITE_DIGEST_KEY;
+    process.env.TURNSTILE_SECRET_KEY = 'turnstile';
+    await load('redeem-invite')(post({ ...body, turnstile_token: 'single-use' }));
+
+    expect(state.fetched).toHaveLength(0);
   });
 
   it('counts a stranger against the link and caller, the caller and the address, before doing anything', async () => {
@@ -512,6 +551,69 @@ describe('redeem-invite', () => {
         200,
       );
     });
+  });
+});
+
+describe('invite-preview (SUS-214, ADR 0082)', () => {
+  const secret = 'x'.repeat(43);
+  const ROW = { circle_name: 'Sunday Crew', inviter_name: 'Maya', member_initials: ['M', 'N'] };
+
+  it('hashes the fragment on the server and asks the database with the HMAC and the legacy digest', async () => {
+    state.answer = (fn) =>
+      fn === 'invite_preview' ? { data: [ROW], error: null } : { data: true, error: null };
+
+    const response = await load('invite-preview')(postWithoutSession({ secret }));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ preview: ROW });
+    expect(called('invite_preview')[0]?.args).toEqual({
+      p_secret_hash: hmacOf('invite', secret),
+      p_legacy_hash: sha256Of(secret),
+    });
+    expect(JSON.stringify(state.rpcs)).not.toContain(secret);
+  });
+
+  it('needs no session: the visitor has not been asked to sign in yet', async () => {
+    expect((await load('invite-preview')(postWithoutSession({ secret }))).status).toBe(200);
+    expect(state.tokens).toHaveLength(0);
+  });
+
+  it('answers preview null for every link that is not live, alike', async () => {
+    state.answer = (fn) =>
+      fn === 'invite_preview' ? { data: [], error: null } : { data: true, error: null };
+
+    const response = await load('invite-preview')(postWithoutSession({ secret }));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ preview: null });
+  });
+
+  it('fails closed without the key: 503, and no lookup', async () => {
+    delete process.env.INVITE_DIGEST_KEY;
+
+    const response = await load('invite-preview')(postWithoutSession({ secret }));
+
+    expect(response.status).toBe(503);
+    expect(called('invite_preview')).toHaveLength(0);
+  });
+
+  it('limits an address, and refuses a link too short to be one', async () => {
+    withRealCounters();
+    let refused = 0;
+    for (let n = 0; n < 130; n += 1) {
+      const response = await load('invite-preview')(
+        new Request('https://example.test/fn', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'cf-connecting-ip': '198.51.100.9' },
+          body: JSON.stringify({ secret }),
+        }),
+      );
+      if (response.status === 429) refused += 1;
+    }
+    expect(refused).toBe(10);
+    expect((await load('invite-preview')(postWithoutSession({ secret: 'short' }))).status).toBe(
+      400,
+    );
   });
 });
 
@@ -829,6 +931,10 @@ describe('reattach-member', () => {
     expect(called('reattach_member')).toHaveLength(0);
     const args = called('reattach_with_token')[0]?.args ?? {};
     expect(args['p_reentry_token_hash']).toMatch(/^\\x[0-9a-f]{64}$/);
+    // An HMAC under the server key; the plain SHA-256 rides beside it for a link
+    // emailed before the key existed (SUS-214, ADR 0082).
+    expect(args['p_reentry_token_hash']).toBe(hmacOf('reentry', token));
+    expect(args['p_legacy_token_hash']).toBe(sha256Of(token));
     expect(args['p_user_id']).toBe(CALLER);
     expect(JSON.stringify(state.rpcs)).not.toContain(token);
 
@@ -837,6 +943,29 @@ describe('reattach-member', () => {
     // No circle to count against: it is inside the token, where only the database
     // can read it.
     expect(scopes).not.toContain('reattach_circle');
+  });
+
+  it('fails closed without the digest key: 503 and no membership moves', async () => {
+    delete process.env.INVITE_DIGEST_KEY;
+    const response = await load('reattach-member')(
+      post({ idempotency_key: KEY, reentry_token: 'y'.repeat(43) }),
+    );
+
+    expect(response.status).toBe(503);
+    expect(called('reattach_with_token')).toHaveLength(0);
+  });
+
+  it('needs no key for the Continue-as list, which takes no digest', async () => {
+    delete process.env.INVITE_DIGEST_KEY;
+    const response = await load('reattach-member')(
+      post({
+        idempotency_key: KEY,
+        circle_id: '00000000-0000-4000-8000-0000000000c1',
+        target_member_user_id: '00000000-0000-4000-8000-0000000000a1',
+      }),
+    );
+
+    expect(response.status).toBe(200);
   });
 
   it("does not let somebody outside a circle use up its members' allowance", async () => {
@@ -968,6 +1097,24 @@ describe('create-circle', () => {
     expect(called('issue_invite')).toHaveLength(0);
     expect(called('create_circle')[0]?.args['invite_secret_hash']).toMatch(/^\\x[0-9a-f]{64}$/);
     expect(answered.circle).not.toHaveProperty('creation_key');
+  });
+
+  it('stores the first link as an HMAC under the server key, and fails closed without it', async () => {
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    const { invite_secret: secret } = (await (await load('create-circle')(post(body))).json()) as {
+      invite_secret: string;
+    };
+    expect(called('create_circle')[0]?.args['invite_secret_hash']).toBe(hmacOf('invite', secret));
+    expect(called('create_circle')[0]?.args['digest_kind']).toBe('hmac');
+
+    delete process.env.INVITE_DIGEST_KEY;
+    state.rpcs = [];
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    const refused = await load('create-circle')(post(body));
+    expect(refused.status).toBe(503);
+    expect(called('create_circle')).toHaveLength(0);
+    // And before any allowance is spent.
+    expect(called('take_rate_token')).toHaveLength(0);
   });
 
   it('gives the database the digest and never the secret', async () => {
@@ -4508,6 +4655,20 @@ describe('process-scheduled-jobs', () => {
       state.fetched.push(String(url));
       return Promise.resolve(new Response(JSON.stringify({ success: true })));
     };
+  });
+
+  it('tries a letter again when the digest key is missing, instead of failing it for good', async () => {
+    // A guest's letter carries a re-entry link, whose digest needs the key. Without
+    // it nothing has been sent and nothing is lost, so the job is retried like a
+    // provider having a bad minute (SUS-214, ADR 0082).
+    delete process.env.INVITE_DIGEST_KEY;
+    capturing();
+    withDue(dueJob());
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    expect(called('dispatch_job_result')[0]?.args).toMatchObject({ p_outcome: 'retry' });
+    expect(state.fetched.filter((url) => url.includes('capture.test'))).toHaveLength(0);
   });
 
   it('does not send a letter to somebody who has since said stop', async () => {

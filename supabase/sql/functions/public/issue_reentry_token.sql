@@ -24,6 +24,12 @@
 -- contact it is writing to — the job names it — so it says so, and the user is
 -- the contact's owner.
 --
+-- **The digest is an HMAC under a key only the Edge Function holds** (SUS-214,
+-- ADR 0082), and the caller says so with `p_digest_kind = 'hmac'`; the default,
+-- `sha256`, is the truth for an older function that sends a plain SHA-256, so a
+-- deploy that migrates before it replaces the functions mislabels nothing. Every
+-- token made before the change is `sha256` and opens its link until it expires.
+--
 -- Service role only. It mints nothing itself — the Edge Function generates the
 -- token and passes the digest, so the readable form is never a statement
 -- parameter and never reaches a query log (§14).
@@ -32,7 +38,8 @@
 create or replace function public.issue_reentry_token(
   p_circle_id uuid,
   p_contact_id uuid,
-  p_token_hash bytea
+  p_token_hash bytea,
+  p_digest_kind text default 'sha256'
 )
 returns uuid
 language plpgsql
@@ -72,12 +79,12 @@ begin
   end if;
 
   insert into private.email_action_tokens (
-    contact_id, purpose, token_hash, expires_at, membership_circle_id, membership_user_id,
-    minted_for_user_id
+    contact_id, purpose, token_hash, digest_kind, expires_at, membership_circle_id,
+    membership_user_id, minted_for_user_id
   )
   values (
-    contact.id, 'reentry', p_token_hash, now() + interval '7 days', p_circle_id, contact.user_id,
-    contact.user_id
+    contact.id, 'reentry', p_token_hash, p_digest_kind, now() + interval '7 days', p_circle_id,
+    contact.user_id, contact.user_id
   )
   returning id into token_id;
 
@@ -85,9 +92,9 @@ begin
 end;
 $$;
 
-comment on function public.issue_reentry_token(uuid, uuid, bytea) is
+comment on function public.issue_reentry_token(uuid, uuid, bytea, text) is
   'Stores the digest of a seven-day single-use re-entry token for the guest membership of one verified contact''s owner, and returns null for a saved-place identity, which needs no link. The token itself is minted in the Edge Function and never reaches the database. Service role only.';
 
-revoke all on function public.issue_reentry_token(uuid, uuid, bytea) from public;
-revoke all on function public.issue_reentry_token(uuid, uuid, bytea) from anon, authenticated;
-grant execute on function public.issue_reentry_token(uuid, uuid, bytea) to service_role;
+revoke all on function public.issue_reentry_token(uuid, uuid, bytea, text) from public;
+revoke all on function public.issue_reentry_token(uuid, uuid, bytea, text) from anon, authenticated;
+grant execute on function public.issue_reentry_token(uuid, uuid, bytea, text) to service_role;

@@ -15,6 +15,13 @@
 --
 -- Not granted to any client role.
 --
+-- **Two digests, one token** (SUS-214, ADR 0082). A token made after the change
+-- is stored as an HMAC under a key the database never holds (`p_reentry_token_hash`,
+-- kind `hmac`); one made before it is a plain SHA-256 (`p_legacy_token_hash`,
+-- kind `sha256`). the lookup takes whichever the stored row's kind
+-- says it is, and never the other: an HMAC row is not found by a SHA-256 and the
+-- reverse. The legacy digest goes when the last such token has expired.
+--
 -- The story, the safeguards and the reasons are the ones this function has
 -- always carried; they are repeated nowhere else.
 --
@@ -29,7 +36,8 @@ create or replace function private.reattach_member_core(
   p_caller uuid,
   p_circle_id uuid,
   p_target_user_id uuid,
-  p_reentry_token_hash bytea
+  p_reentry_token_hash bytea,
+  p_legacy_token_hash bytea
 )
 returns public.circles
 language plpgsql
@@ -86,7 +94,11 @@ begin
       join public.circle_members m
         on m.circle_id = t.membership_circle_id and m.user_id = t.membership_user_id
       join public.circles c on c.id = t.membership_circle_id
-      where t.token_hash = p_reentry_token_hash
+      where (
+        (t.token_hash = p_reentry_token_hash and t.digest_kind = 'hmac')
+        or (p_legacy_token_hash is not null and t.token_hash = p_legacy_token_hash
+            and t.digest_kind = 'sha256')
+      )
         and t.purpose = 'reentry'
         and t.membership_user_id = caller
         and m.status = 'active';
@@ -109,7 +121,11 @@ begin
     -- transaction, so a later failure rolls the spend back.
     select * into token
     from private.email_action_tokens t
-    where t.token_hash = p_reentry_token_hash
+    where (
+        (t.token_hash = p_reentry_token_hash and t.digest_kind = 'hmac')
+        or (p_legacy_token_hash is not null and t.token_hash = p_legacy_token_hash
+            and t.digest_kind = 'sha256')
+      )
       and t.purpose = 'reentry'
       -- Unspent; or spent by `retire_reentry_links` when the place became a saved
       -- account's, which is the link still being the member's to use (never a link
@@ -125,7 +141,12 @@ begin
         select 1
         from private.email_action_tokens t
         join public.profiles p on p.user_id = t.membership_user_id
-        where t.token_hash = p_reentry_token_hash and t.purpose = 'reentry' and p.is_permanent
+        where (
+        (t.token_hash = p_reentry_token_hash and t.digest_kind = 'hmac')
+        or (p_legacy_token_hash is not null and t.token_hash = p_legacy_token_hash
+            and t.digest_kind = 'sha256')
+      )
+          and t.purpose = 'reentry' and p.is_permanent
       ) then
         raise exception 'target_is_permanent' using errcode = 'insufficient_privilege';
       end if;
@@ -310,8 +331,8 @@ begin
 end;
 $$;
 
-comment on function private.reattach_member_core(uuid, uuid, uuid, bytea) is
+comment on function private.reattach_member_core(uuid, uuid, uuid, bytea, bytea) is
   'Moves a guest membership and everything scoped to it onto p_caller, from the Continue-as list (a circle and a member) or an emailed re-entry token digest (ADR 0006): only in an active circle, and on the list path only while one of its plans is live (ADR 0059); a per-circle hourly limit on the list path; no cap on how often one membership moves (ADR 0078); never onto a saved-place member, but a valid token takes a place back from a saved account whose own address is not the link''s (ADR 0049, decision 6). Called only by reattach_member and reattach_with_token, which say who p_caller is.';
 
-revoke all on function private.reattach_member_core(uuid, uuid, uuid, bytea) from public;
-revoke all on function private.reattach_member_core(uuid, uuid, uuid, bytea) from anon, authenticated;
+revoke all on function private.reattach_member_core(uuid, uuid, uuid, bytea, bytea) from public;
+revoke all on function private.reattach_member_core(uuid, uuid, uuid, bytea, bytea) from anon, authenticated;

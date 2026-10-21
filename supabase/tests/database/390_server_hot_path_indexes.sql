@@ -8,7 +8,7 @@
 begin;
 select plan(9);
 
--- invite_preview (anon, the Join page) and redeem_invite
+-- invite_preview (the Join page, through the invite-preview function) and redeem_invite
 select has_index('public', 'circle_invites', 'circle_invites_secret_hash_key', 'secret_hash',
   'an invite is found by the digest of its secret without reading every invite');
 select is(

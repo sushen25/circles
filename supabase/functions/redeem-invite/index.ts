@@ -1,7 +1,7 @@
 import { RedeemInviteRequest, type RedeemInviteResponse } from '@circles/contracts';
 
 import { circleDto } from '../_shared/circle.ts';
-import { sha256Hex } from '../_shared/hash.ts';
+import { inviteDigests } from '../_shared/digest.ts';
 import { jsonHandler } from '../_shared/http.ts';
 import { enforce, isActiveMember, joinLimits } from '../_shared/rate.ts';
 import { verifyTurnstile } from '../_shared/turnstile.ts';
@@ -18,6 +18,12 @@ import { verifyTurnstile } from '../_shared/turnstile.ts';
  * the body), so the membership lands on that person. It is not callable by a
  * client because the digest it takes is what the database stores: if it were,
  * a copy of `circle_invites` would be a set of working links (SUS-114).
+ *
+ * **The digest is an HMAC under `INVITE_DIGEST_KEY`** (SUS-214, ADR 0082), so a
+ * copy of the table cannot reproduce one either. The plain SHA-256 goes beside
+ * it for a link made before that change; the database matches each only against
+ * the kind the row was stored as. Without the key this answers 503 and does
+ * nothing.
  *
  * **What it costs to call (SUS-113).** Limits are spent by whoever makes the
  * attempts and by nobody else, so one person cannot use up a link's allowance
@@ -37,15 +43,16 @@ Deno.serve(
     // honest retry with a new token an `idempotency_mismatch`.
     fingerprintExcludes: ['turnstile_token'],
     guard: async ({ body, actor, service, request }) => {
+      // Before Turnstile, whose token is single-use: a missing key is ours to
+      // fix and must not spend the caller's challenge.
+      const { current: digest, legacy } = await inviteDigests(body.secret);
       await verifyTurnstile(request, body.turnstile_token);
-
-      const digest = await sha256Hex(body.secret);
 
       // Somebody already in the circle costs nothing (see `joinLimits`).
       const { data: invite } = await service
         .from('circle_invites')
         .select('circle_id')
-        .eq('secret_hash', digest)
+        .in('secret_hash', [digest, legacy])
         .maybeSingle();
       const circleId = (invite as { circle_id?: string } | null)?.circle_id ?? null;
       if (await isActiveMember(service, circleId, actor.userId)) return;
@@ -64,9 +71,11 @@ Deno.serve(
       // The service role's, with the verified caller named (SUS-114): the digest
       // the database stores is not a way in on its own, so no client can call
       // `redeem_invite`. `actor.userId` is the JWT's, never the body's.
+      const digests = await inviteDigests(body.secret);
       const { data, error } = await service.rpc('redeem_invite', {
         p_user_id: actor.userId,
-        p_secret_hash: await sha256Hex(body.secret),
+        p_secret_hash: digests.current,
+        p_legacy_hash: digests.legacy,
         p_display_name: body.display_name,
       });
       if (error !== null) throw error;

@@ -1,7 +1,7 @@
 import { RotateInviteRequest, type RotateInviteResponse } from '@circles/contracts';
 
 import { optional } from '../_shared/env.ts';
-import { sha256Hex } from '../_shared/hash.ts';
+import { assertDigestKey, inviteDigests } from '../_shared/digest.ts';
 import { jsonHandler } from '../_shared/http.ts';
 import { enforce } from '../_shared/rate.ts';
 import { newInvite } from '../_shared/secret.ts';
@@ -26,6 +26,8 @@ Deno.serve(
     name: 'rotate-invite',
     schema: RotateInviteRequest,
     guard: async ({ actor, service }) => {
+      // Before any allowance is spent: a deployment without the digest key makes no link.
+      assertDigestKey();
       // Volume, not permission: an owner resetting in a loop is not a thing a
       // person does, and each reset writes an audit row and an event.
       await enforce(service, [
@@ -36,7 +38,8 @@ Deno.serve(
       const { inviteId, secret } = await newInvite(optional('INVITE_LINK_KEY'));
       const { error } = await caller.rpc('issue_invite', {
         p_circle_id: body.circle_id,
-        p_secret_hash: await sha256Hex(secret),
+        p_secret_hash: (await inviteDigests(secret)).current,
+        p_digest_kind: 'hmac',
         ...(inviteId === undefined ? {} : { p_invite_id: inviteId }),
       });
       if (error !== null) throw error;

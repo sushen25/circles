@@ -2,7 +2,7 @@ import { CreateCircleRequest, type CreateCircleResponse } from '@circles/contrac
 
 import { circleDto } from '../_shared/circle.ts';
 import { optional } from '../_shared/env.ts';
-import { sha256Hex } from '../_shared/hash.ts';
+import { assertDigestKey, inviteDigests } from '../_shared/digest.ts';
 import { jsonHandler } from '../_shared/http.ts';
 import { Refusal } from '../_shared/problem.ts';
 import { callerAddress, enforce } from '../_shared/rate.ts';
@@ -45,6 +45,8 @@ Deno.serve(
     name: 'create-circle',
     schema: CreateCircleRequest,
     guard: async ({ actor, service, request }) => {
+      // Before any allowance is spent: a deployment without the digest key makes no link.
+      assertDigestKey();
       if (actor.isAnonymous) {
         // The database refuses this too, and that is the enforcement. Saying it
         // here first means the client gets `requires_saved_place` — its cue to
@@ -66,7 +68,8 @@ Deno.serve(
         time_zone: body.time_zone,
         idempotency_key: body.idempotency_key,
         cadence: body.cadence,
-        invite_secret_hash: await sha256Hex(secret),
+        invite_secret_hash: (await inviteDigests(secret)).current,
+        digest_kind: 'hmac',
         ...(inviteId === undefined ? {} : { invite_id: inviteId }),
         ...(body.default_area === undefined ? {} : { default_area: body.default_area }),
       });
