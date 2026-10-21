@@ -5,6 +5,7 @@
  *   npm run publish              # post what is due
  *   npm run publish -- --dry-run # print the plan, post nothing
  *   npm run publish -- --now     # ignore publish_at (still needs approved)
+ *   npm run publish -- --only youtube  # one platform; the rest wait for the next run
  *
  * After a platform succeeds the post id is written into the queue file's
  * `published:` map and appended to publish/ledger.jsonl. Once every
@@ -23,6 +24,9 @@ import { DRAFT_ONLY, SCRIPTABLE, guardItem, guardPlatform, jitterMinutes, readLe
 const args = new Set(process.argv.slice(2));
 const DRY = args.has('--dry-run');
 const NOW = args.has('--now');
+const argv = process.argv.slice(2);
+const ONLY = argv.includes('--only') ? (argv[argv.indexOf('--only') + 1] as Platform | undefined) : undefined;
+if (argv.includes('--only') && !ONLY) throw new Error('--only needs a platform, e.g. --only youtube');
 const LEDGER = 'publish/ledger.jsonl';
 const now = new Date();
 
@@ -104,6 +108,10 @@ async function run() {
     let allDone = true;
 
     for (const platform of item.fm.platforms as Platform[]) {
+      if (ONLY && platform !== ONLY) {
+        allDone = false;
+        continue;
+      }
       if (!SCRIPTABLE.has(platform)) {
         const c = item.captions[platform];
         const handText = c ? tagLinks(c.text, platform, item.fm.slug) : '';
