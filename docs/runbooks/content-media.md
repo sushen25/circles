@@ -45,8 +45,12 @@ bucket, so it cannot tell "missing" from "forbidden".
 ## TikTok
 
 TikTok pulls photo drafts only from a domain verified in its developer
-portal. Verify `media.wenna.app` (or `wenna.app`) there with the TXT record it
-gives, added to the same Route 53 zone.
+portal. `wenna.app` is verified there (21 October 2026), which covers
+`media.wenna.app`, by a TXT value at the apex:
+`tiktok-developers-site-verification=…`. It shares the apex TXT record with
+ImprovMX's SPF line (`v=spf1 include:spf.improvmx.com ~all`), so edit that
+record with both values (UPSERT), never replace it with one. Removing the
+TikTok value un-verifies the domain and photo drafts stop.
 
 ## Cost
 
