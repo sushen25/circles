@@ -1,6 +1,7 @@
 /**
  * The nightly pull: one row per published post per platform into
- * analytics/posts.jsonl, the account's own numbers into account.jsonl, new
+ * analytics/posts.jsonl, the account's own numbers for the day before into
+ * account.jsonl (the row's `date` is that day; `at` is the pull time), new
  * replies into inbox/, and a claim for any hand post whose tag turns up in
  * the account's recent uploads. A small orchestrator over one module per
  * platform in analytics/platforms/, the way publish/publish.ts is a loop
@@ -124,9 +125,13 @@ export function parseFlags(argv: string[]): Flags {
 
 type Post = { item: QueueItem; platform: Platform; id: string; posted_at: string };
 
-/** The ledger's `at` (the real, jittered time), else the item's publish_at, else its date at midnight UTC. */
+/**
+ * The ledger's `at` (the real, jittered time), else the item's publish_at, else its date at midnight UTC. A TikTok
+ * draft the founder then posted has two rows, "drafted" and "posted" (claim.ts); the posted one is the time it went out.
+ */
 function postedAt(item: QueueItem, platform: Platform, ledger: Ledger): string {
-  const row = ledger.find((r) => r.slug === item.fm.slug && r.platform === platform);
+  const rows = ledger.filter((r) => r.slug === item.fm.slug && r.platform === platform);
+  const row = rows.find((r) => r.kind !== 'drafted') ?? rows[0];
   for (const candidate of [row?.at, item.fm.publish_at, `${item.fm.date}T00:00:00Z`]) {
     if (candidate && !Number.isNaN(Date.parse(candidate))) return new Date(candidate).toISOString();
   }
@@ -160,6 +165,8 @@ export async function runPull(opts: {
   const log = opts.log ?? console.log;
   const date = dateOf(now);
   const at = now.toISOString();
+  // The account rows describe the UTC day before the pull, the last whole one the platforms can report on.
+  const accountDay = dateOf(new Date(now.getTime() - 86_400_000));
   const summary: Summary = { rows: 0, seriesRows: 0, accountRows: 0, repliesWritten: 0, claims: 0, failures: 0, exitCode: 0 };
   const paths = {
     posts: join(dirs.analytics, 'posts.jsonl'),
@@ -348,19 +355,21 @@ export async function runPull(opts: {
     }
   }
 
-  // Tier 2: the account itself, one row per platform per date.
+  // Tier 2: the account itself, one row per platform per day. The day asked for, written as the row's `date` and compared
+  // with the rows already there, is yesterday (UTC), not the pull's own date: the nightly job runs at 16:15 UTC, so
+  // today's Instagram and YouTube day numbers would be partial. `at` is still the time of the pull.
   if (flags.account) {
     const have = readJsonl<AccountRow>(paths.account);
     for (const platform of Object.keys(modules) as Platform[]) {
       const m = moduleFor(platform);
       if (!m?.account) continue;
-      if (have.some((r) => r.date === date && r.platform === platform)) {
-        log(`acct  ${platform}: already have ${date}`);
+      if (have.some((r) => r.date === accountDay && r.platform === platform)) {
+        log(`acct  ${platform}: already have ${accountDay}`);
         continue;
       }
       try {
-        const a = await m.account(date);
-        const row: AccountRow = { date, at, platform, metrics: a.metrics, breakdowns: a.breakdowns, raw: a.raw };
+        const a = await m.account(accountDay);
+        const row: AccountRow = { date: accountDay, at, platform, metrics: a.metrics, breakdowns: a.breakdowns, raw: a.raw };
         write(paths.account, row, `account row ${platform}`);
         summary.accountRows++;
         log(`acct  ${platform}: ${Object.keys(a.metrics).length} metrics, ${Object.keys(a.breakdowns).length} breakdowns`);

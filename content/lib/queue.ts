@@ -222,3 +222,16 @@ export function addPublishedIds(raw: string, ids: Record<string, string>): strin
   }
   return raw.replace(/\r?\n---\r?\n/, `\npublished:\n${lines.join('\n')}\n---\n`);
 }
+
+/**
+ * Rewrite one platform's line inside the `published:` block, or add it when
+ * there is none. The publisher leaves a TikTok draft's publish_id here; the
+ * founder's claim of the posted video replaces it (analytics/claim.ts).
+ */
+export function setPublishedId(raw: string, platform: string, id: string): string {
+  const block = raw.match(/^published:[ \t]*\r?\n((?:[ \t]+\S.*(?:\r?\n|$))*)/m);
+  const line = new RegExp(`^[ \\t]+${platform}:.*$`, 'm');
+  if (!block || !line.test(block[1])) return addPublishedIds(raw, { [platform]: id });
+  const start = block.index! + block[0].length - block[1].length;
+  return raw.slice(0, start) + block[1].replace(line, () => `  ${platform}: "${id}"`) + raw.slice(start + block[1].length);
+}

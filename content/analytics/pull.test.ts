@@ -119,10 +119,17 @@ const igFake = (extra: Fake = {}) =>
     ...extra,
   });
 
-test('a nightly run: rows with age_days from the ledger, the account row, replies to the inbox, one skip line per platform', async () => {
+test('a nightly run: rows with age_days from the ledger, the account row for yesterday, replies to the inbox, one skip line per platform', async () => {
   const t = setup();
   const bsky = fake('bluesky', { replies: async () => [{ id: 'r1', at: hoursAgo(5), text: 'this is my group chat @someone.bsky.social exactly' }] });
-  const s = await t.run({ bluesky: bsky, instagram: igFake() });
+  const askedFor: string[] = [];
+  const ig = igFake({
+    account: async (day) => {
+      askedFor.push(day);
+      return { metrics: { followers: 42, reach: 40 }, breakdowns: { reach_by_follow_type: { follower: 10, non_follower: 30 } }, raw: { day, data: [] } };
+    },
+  });
+  const s = await t.run({ bluesky: bsky, instagram: ig });
 
   assert.deepEqual(s, { rows: 2, seriesRows: 0, accountRows: 1, repliesWritten: 1, claims: 0, failures: 0, exitCode: 0 });
 
@@ -147,14 +154,16 @@ test('a nightly run: rows with age_days from the ledger, the account row, replie
   assert.equal(i.from, 'ig-never-lead-anywhere');
   assert.deepEqual(i.raw, { data: [{ name: 'views', values: [{ value: 100 }] }], id: IG_ID });
 
+  // the account row describes yesterday (UTC): the module is asked for that day, and the row is stamped with it; `at` is the pull time
+  assert.deepEqual(askedFor, ['2026-10-20']);
   const [acct] = readJsonl<AccountRow>(t.paths.account);
   assert.deepEqual(acct, {
-    date: '2026-10-21',
+    date: '2026-10-20',
     at: NOW.toISOString(),
     platform: 'instagram',
     metrics: { followers: 42, reach: 40 },
     breakdowns: { reach_by_follow_type: { follower: 10, non_follower: 30 } },
-    raw: { day: '2026-10-21', data: [] },
+    raw: { day: '2026-10-20', data: [] },
   });
 
   assert.equal(readFileSync(t.paths.inbox, 'utf8'), `# Replies, 2026-10-21\n\n## ${SLUG} · bluesky\n\n> this is my group chat @… exactly\n`);
@@ -170,9 +179,10 @@ test('a nightly run: rows with age_days from the ledger, the account row, replie
 
   // the same night again: the account row is not repeated, the reply is not rewritten, the post rows are (a snapshot each run)
   t.log.length = 0;
-  const again = await t.run({ bluesky: bsky, instagram: igFake() });
+  const again = await t.run({ bluesky: bsky, instagram: ig });
   assert.deepEqual(again, { rows: 2, seriesRows: 0, accountRows: 0, repliesWritten: 0, claims: 0, failures: 0, exitCode: 0 });
-  assert.ok(t.log.includes('acct  instagram: already have 2026-10-21'));
+  assert.ok(t.log.includes('acct  instagram: already have 2026-10-20'));
+  assert.deepEqual(askedFor, ['2026-10-20'], 'not asked again');
   assert.ok(t.log.includes('inbox nothing new'));
   assert.equal(readJsonl(t.paths.posts).length, 4);
   assert.equal(readJsonl(t.paths.account).length, 1);
@@ -294,6 +304,30 @@ test('auto-claim writes the id and a by-hand ledger row from the recent() post c
   assert.equal(night2.claims, 0);
   assert.equal(night2.rows, 3);
   assert.equal(recentCalls, 1);
+});
+
+test('a TikTok draft the founder then posted has two ledger rows; the post is aged from the posted one', async () => {
+  const draftAt = hoursAgo(50);
+  const postedAt = hoursAgo(10);
+  const t = setup({
+    platforms: ['tiktok', 'bluesky'],
+    published: { tiktok: '7312345678901234567', bluesky: BSKY_ID },
+    ledger: [{ platform: 'bluesky', id: BSKY_ID, at: hoursAgo(36) }, { platform: 'tiktok', id: 'v_pub_url~v2.1', at: draftAt }, { platform: 'tiktok', id: '7312345678901234567', at: postedAt }],
+  });
+  // the seed writes every row as posted; make the draft's row what publish.ts writes
+  const rows = readFileSync(t.dirs.ledger, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+  rows[1].kind = 'drafted';
+  rows[2].by = 'hand';
+  writeFileSync(t.dirs.ledger, rows.map((r) => JSON.stringify(r) + '\n').join(''));
+
+  const tiktok = fake('tiktok', { metrics: async (id) => ({ metrics: { views: 9 }, raw: { id } }) });
+  const s = await t.run({ bluesky: fake('bluesky'), tiktok });
+  assert.equal(s.rows, 2);
+  const tt = readJsonl<PostRow>(t.paths.posts).find((r) => r.platform === 'tiktok');
+  assert.ok(tt);
+  assert.equal(tt.id, '7312345678901234567');
+  assert.equal(tt.posted_at, postedAt);
+  assert.equal(tt.age_days, 0.42);
 });
 
 test('--no-claim leaves a claimable post alone, and a failing recent() is printed without stopping the run', async () => {

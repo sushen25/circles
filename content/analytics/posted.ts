@@ -11,7 +11,9 @@
  * without either, the argument is the id and the time is now, and the
  * command says so. The write itself is `claim()` in claim.ts, the same
  * function auto-claim uses: a `published:` entry in the queue file and a
- * ledger row marked `by: hand`.
+ * ledger row marked `by: hand`. For a TikTok draft the publisher sent, the
+ * entry holds the draft's publish_id until this command replaces it with
+ * the video id, and the line printed says so.
  *
  * `run(args, deps)` is exported with the real modules as defaults so the
  * test can hand it fakes; the defaults are loaded lazily, so this file
@@ -21,7 +23,9 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sourceRef } from '../lib/links.ts';
 import { CAPTION_LIMIT, type Platform, type QueueItem } from '../lib/queue.ts';
-import { SCRIPTABLE, type Ledger } from '../publish/guards.ts';
+import { DRAFT_ONLY, SCRIPTABLE, type Ledger } from '../publish/guards.ts';
+// Type only, so claim.ts is still loaded lazily (see realDeps).
+import type { ClaimResult } from './claim.ts';
 import type { PlatformModule } from './platforms/module.ts';
 
 export const PLATFORMS = Object.keys(CAPTION_LIMIT) as Platform[];
@@ -34,8 +38,8 @@ export const USAGE = `usage: npm run posted <platform> <slug> <url-or-id> [--at 
   --at       when it went out (ISO); else the platform is asked, else now
   --dry      print what would be written and write nothing`;
 
-/** What claim.ts returns: whether the file moved to published/, where it is now, and the tag. */
-export type ClaimResult = { moved: boolean; path: string; from: string };
+/** What claim.ts returns: whether the file moved to published/, where it is now, the tag, and the draft id it replaced, if any. */
+export type { ClaimResult };
 
 export type Deps = {
   moduleFor: (platform: Platform) => PlatformModule | undefined;
@@ -128,7 +132,13 @@ export async function run(argv: string[], deps: Partial<Deps> = {}): Promise<num
   const from = sourceRef(platform, item.fm.slug);
   const row: Ledger[number] = { date: at.slice(0, 10), platform, slug: item.fm.slug, id, at, from, kind: 'posted', by: 'hand' };
   const already = item.fm.published?.[platform];
-  if (already) d.log(`note  ${item.path} already has ${platform}: "${already}"; a claim refuses a second id`);
+  if (already) {
+    d.log(
+      DRAFT_ONLY.has(platform)
+        ? `note  ${item.path} already has ${platform}: "${already}"; the publisher's draft is replaced, anything else refuses a second id`
+        : `note  ${item.path} already has ${platform}: "${already}"; a claim refuses a second id`,
+    );
+  }
 
   if (dry) {
     d.log(`dry   ${platform} ${item.fm.slug} → ${id}`);
@@ -146,7 +156,7 @@ export async function run(argv: string[], deps: Partial<Deps> = {}): Promise<num
     d.error(`FAIL  ${platform} ${item.fm.slug}: ${(e as Error).message}`);
     return 1;
   }
-  d.log(`claim ${platform} ${item.fm.slug} → ${id}`);
+  d.log(`claim ${platform} ${item.fm.slug} → ${id}${result.replaced ? ` (the draft ${result.replaced} is replaced; its row stays in the ledger)` : ''}`);
   d.log(`      ledger: ${JSON.stringify({ ...row, from: result.from })}`);
   d.log(`      tag:    ${result.from}`);
   d.log(`      file:   ${result.path}${result.moved ? ' (moved to published/)' : ' (stays until every platform is done)'}`);

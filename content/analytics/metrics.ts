@@ -59,7 +59,9 @@ export type SeriesRow = PostRow & { age_hours: number };
 
 /** One line of analytics/account.jsonl: the account itself, one row per platform per day. */
 export type AccountRow = {
+  /** YYYY-MM-DD (UTC) the numbers describe: the day before the pull, the last whole one */
   date: string;
+  /** ISO time of the pull */
   at: string;
   platform: Platform;
   /** flat numbers: followers, reach, views, likes, comments, shares, saves, link_taps, accounts_engaged, follows, unfollows … */

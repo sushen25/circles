@@ -219,8 +219,11 @@ kept beside it so a renamed metric never loses history.
   map and a `by: hand` row into the ledger with the platform's own publish
   time. TikTok captions rarely carry the link (it is not clickable there and
   the caption is 150 characters), so TikTok is claimed by hand:
-  `npm run posted tiktok <slug> <url-or-id> [--at <iso>]`. The same command
-  works for youtube and reddit when auto-claim has nothing to match.
+  `npm run posted tiktok <slug> <url-or-id> [--at <iso>]`. A TikTok draft's
+  `publish_id`, which the publisher leaves in the `published:` map with a
+  `drafted` ledger row, is replaced by the video id when the founder claims
+  it, and a `posted` row is appended under the `drafted` one. The same
+  command works for youtube and reddit when auto-claim has nothing to match.
 - **Hand numbers.** `npm run hand tiktok <slug> views=1240 saves=18 shares=9`
   appends to `hand.jsonl` with today's date; the scorecard treats a hand row
   as a snapshot like any other. This replaces typing into `experiments.md`.
@@ -554,7 +557,7 @@ of it, the video build's `timing:` write, `features.jsonl`, `scorecard.ts`,
 fixture set of six pieces produces a `scorecard.md` a person can read in two
 minutes, every aggregate carries its n, and nothing under n=3 is ranked.
 
-**Phase 3: the Wenna export** (main repo, one ticket). ADR 0087, the SQL
+**Phase 3: the Wenna export** (main repo, one ticket: SUS-244). ADR 0087, the SQL
 function and migration, `content-funnel`, tests, runbook; then `wenna.ts`
 and `funnel.jsonl` here. Done when the nightly run writes circles made and
 plans shared by tag into `funnel.jsonl` and the scorecard shows them.

@@ -175,13 +175,27 @@ test('--dry says the file stays when another scriptable platform is still open',
 
 test('an existing id on the platform is noted, and the claim result is what is printed', async () => {
   const h = harness({
-    item: item({ tiktok: 'old' }),
-    claim: () => ({ moved: true, path: 'published/2026-10-20-never-lead-anywhere.md', from: 'tt-never-lead-anywhere' }),
+    item: item({ youtube: 'old' }),
+    claim: () => ({ moved: true, path: 'published/2026-10-20-never-lead-anywhere.md', from: 'yt-never-lead-anywhere' }),
   });
-  assert.equal(await run(['tiktok', 'never-lead-anywhere', '7312'], h.deps), 0);
+  assert.equal(await run(['youtube', 'never-lead-anywhere', 'abc'], h.deps), 0);
   const text = h.out.join('\n');
-  assert.match(text, /already has tiktok: "old"; a claim refuses/);
+  assert.match(text, /already has youtube: "old"; a claim refuses a second id/);
   assert.match(text, /published\/2026-10-20-never-lead-anywhere.md \(moved to published\/\)/);
+  assert.doesNotMatch(text, /is replaced/);
+});
+
+test('a TikTok draft the founder posted: the note says a draft is replaced, and the claim line says which one was', async () => {
+  const h = harness({
+    item: item({ tiktok: 'v_pub_url~v2.123', instagram: '1', bluesky: '2', youtube: '3' }),
+    claim: () => ({ moved: false, path: 'published/2026-10-20-never-lead-anywhere.md', from: 'tt-never-lead-anywhere', replaced: 'v_pub_url~v2.123' }),
+  });
+  assert.equal(await run(['tiktok', 'never-lead-anywhere', '7312', '--at', '2026-10-21T08:00:00Z'], h.deps), 0);
+  const text = h.out.join('\n');
+  assert.match(text, /note {2}queue\/2026-10-20-never-lead-anywhere.md already has tiktok: "v_pub_url~v2.123"; the publisher's draft is replaced, anything else refuses a second id/);
+  assert.match(text, /^claim tiktok never-lead-anywhere → 7312 \(the draft v_pub_url~v2.123 is replaced; its row stays in the ledger\)$/m);
+  assert.match(text, /"kind":"posted"/);
+  assert.match(text, /stays until every platform is done/);
 });
 
 test('a claim that throws is a FAIL line and exit 1', async () => {

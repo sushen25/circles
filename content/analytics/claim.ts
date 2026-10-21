@@ -7,17 +7,22 @@
  * on a recent upload; `npm run posted` calls it for a pasted URL.
  *
  * It refuses a second claim of the same (slug, platform) the way the
- * publisher's guards do, by the file's map and by the ledger, and it moves
- * the file to published/ once every scriptable platform has an id,
- * mirroring publish.ts. The item passed in is updated in place (raw, map,
- * status, path), so two claims on one item in one run build on each other
- * instead of the second overwriting the first.
+ * publisher's guards do, by the file's map and by the ledger, with one
+ * exception: a TikTok draft. The publisher sends the draft to the founder's
+ * inbox, writes its publish_id into the map and a "drafted" ledger row
+ * (publish/publish.ts); when the founder posts it in the app, the claim
+ * replaces the publish_id with the video id and appends a "posted" row, the
+ * "drafted" row staying as history. A "posted" row, or any other platform's
+ * id, still refuses. The file moves to published/ once every scriptable
+ * platform has an id, mirroring publish.ts. The item passed in is updated
+ * in place (raw, map, status, path), so two claims on one item in one run
+ * build on each other instead of the second overwriting the first.
  */
 import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
-import { addPublishedIds, listQueue, setFrontmatterKey, type Platform, type QueueItem } from '../lib/queue.ts';
+import { listQueue, setFrontmatterKey, setPublishedId, type Platform, type QueueItem } from '../lib/queue.ts';
 import { sourceRef } from '../lib/links.ts';
-import { SCRIPTABLE, readLedger, type Ledger } from '../publish/guards.ts';
+import { DRAFT_ONLY, SCRIPTABLE, readLedger, type Ledger } from '../publish/guards.ts';
 import { appendJsonl } from './metrics.ts';
 
 /**
@@ -36,19 +41,24 @@ export function findItem(slug: string, dirs = { queue: 'queue', published: 'publ
   return undefined;
 }
 
+/** What a claim did: whether the file moved to published/, where it is now, the tag, and the draft id it replaced, if any. */
+export type ClaimResult = { moved: boolean; path: string; from: string; replaced?: string };
+
 export function claim(
   item: QueueItem,
   platform: Platform,
   id: string,
   at: string,
   opts = { ledgerPath: 'publish/ledger.jsonl', publishedDir: 'published' },
-): { moved: boolean; path: string; from: string } {
+): ClaimResult {
   const slug = item.fm.slug;
   const have = item.fm.published?.[platform];
-  if (have) throw new Error(`${slug} is already published on ${platform} (${have})`);
-  if (readLedger(opts.ledgerPath).some((r) => r.slug === slug && r.platform === platform)) {
-    throw new Error(`${slug} already has a ${platform} row in ${opts.ledgerPath}`);
-  }
+  const rows = readLedger(opts.ledgerPath).filter((r) => r.slug === slug && r.platform === platform);
+  // The publisher's draft, not yet posted: every row for the pair is "drafted" (a row without a kind was posted).
+  const draftOnly = DRAFT_ONLY.has(platform) && rows.length > 0 && rows.every((r) => r.kind === 'drafted');
+  if (have && !draftOnly) throw new Error(`${slug} is already published on ${platform} (${have})`);
+  if (rows.length && !draftOnly) throw new Error(`${slug} already has a ${platform} row in ${opts.ledgerPath}`);
+  const replaced = draftOnly && have ? have : undefined;
   const when = new Date(at);
   if (Number.isNaN(when.getTime())) throw new Error(`"${at}" is not a time`);
   const atIso = when.toISOString();
@@ -56,7 +66,8 @@ export function claim(
 
   const published = { ...(item.fm.published ?? {}), [platform]: id };
   const allDone = item.fm.platforms.filter((p) => SCRIPTABLE.has(p)).every((p) => published[p]);
-  let raw = addPublishedIds(item.raw, { [platform]: id });
+  // setPublishedId rewrites the draft's line when there is one, and adds the line when there is not.
+  let raw = setPublishedId(item.raw, platform, id);
   if (allDone) raw = setFrontmatterKey(raw, 'status', 'published');
   writeFileSync(item.path, raw);
 
@@ -67,7 +78,8 @@ export function claim(
     id,
     at: atIso,
     from,
-    // A claim records a post somebody made, TikTok included; "drafted" is the publisher's, for a draft whose id is a publish_id.
+    // A claim records a post somebody made, TikTok included; "drafted" is the publisher's, for a draft whose id is a publish_id,
+    // and that row stays above this one as history when a draft is being claimed.
     kind: 'posted',
     by: 'hand',
   };
@@ -86,5 +98,5 @@ export function claim(
   item.fm.published = published;
   if (allDone) item.fm.status = 'published';
   item.path = path;
-  return { moved, path, from };
+  return { moved, path, from, ...(replaced ? { replaced } : {}) };
 }
