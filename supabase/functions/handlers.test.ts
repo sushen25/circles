@@ -998,6 +998,51 @@ describe('create-circle', () => {
     expect(JSON.stringify(called('finish_request'))).toContain(secret);
   });
 
+  it('tags the circle with the campaign tag the organiser arrived on (SUS-240)', async () => {
+    state.users = [{ id: CALLER, is_anonymous: false }];
+
+    const response = await load('create-circle')(
+      post({ ...body, source_ref: 'tt-always-the-one-3' }),
+    );
+    const answered = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(called('tag_circle_source')).toHaveLength(1);
+    expect(called('tag_circle_source')[0]?.args).toEqual({
+      p_circle_id: CIRCLE_ROW.id,
+      p_source_ref: 'tt-always-the-one-3',
+    });
+    // The tag is for the founder's row only: not in what the organiser is told,
+    // and not in the circle the database is asked to make.
+    expect(answered).not.toContain('tt-always-the-one-3');
+    expect(JSON.stringify(called('create_circle'))).not.toContain('tt-always-the-one-3');
+  });
+
+  it('fingerprints the request without the tag, so a retry that no longer has it is the same request', async () => {
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    await load('create-circle')(post({ ...body, source_ref: 'tt-always-the-one-3' }));
+    const first = called('begin_request')[0]?.args['p_fingerprint'];
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    await load('create-circle')(post(body));
+    const second = called('begin_request')[1]?.args['p_fingerprint'];
+    expect(first).toBeDefined();
+    expect(second).toBe(first);
+  });
+
+  it('makes the circle without a tag, and drops one that is not a slug rather than refuse', async () => {
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    expect((await load('create-circle')(post(body))).status).toBe(200);
+    expect(called('tag_circle_source')).toHaveLength(0);
+
+    for (const bad of ['Not A Slug', 'maya@example.com', 'a'.repeat(41), '', 7]) {
+      state.users = [{ id: CALLER, is_anonymous: false }];
+      const response = await load('create-circle')(post({ ...body, source_ref: bad }));
+      expect(response.status).toBe(200);
+    }
+    expect(called('tag_circle_source')).toHaveLength(0);
+    expect(called('create_circle')).toHaveLength(6);
+  });
+
   it('gives a different secret every time', async () => {
     state.users = [{ id: CALLER, is_anonymous: false }];
     const first = (await (await load('create-circle')(post(body))).json()) as {

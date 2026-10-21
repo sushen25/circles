@@ -32,7 +32,7 @@ import { type Instant, compare } from '../shared/instant.js';
  * - `organiser_gate` — a guest about to organise: save your place first. A
  *   gate rather than a nudge; recorded so the conversion map can be read.
  * - `organiser_source` — "How did you hear about {brand}?", asked once per
- *   account right after the gate's code is accepted (SUS-171). The row says
+ *   account as the last step of the first run, once the circle exists (SUS-171). The row says
  *   the question was asked and nothing about the answer: that is an analytics
  *   event, never a column that joins a source to a person.
  * - `reattached_twice_app`, `locked_in_app`, `email_given_app`,

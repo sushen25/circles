@@ -85,18 +85,84 @@ export const founderAnalyticsFixture: FounderAnalytics = {
   // owner who was never asked.
   by_source: {
     friend_group: {
-      counters: { circles_created: 3, circles_activated: 2, answers: 12, plans_created: 4 },
+      counters: { circles_created: 2, circles_activated: 2, answers: 12, plans_created: 4 },
       events: { circle_join_opened: 20, circle_joined: 15, availability_submitted: 26 },
     },
     reddit: {
       counters: { circles_created: 2, circles_activated: 1, answers: 5, plans_created: 3 },
       events: { circle_join_opened: 9, circle_joined: 6, availability_submitted: 10 },
     },
+    // Arrived on a tagged link (SUS-240): not asked, recorded as `content`.
+    content: {
+      counters: { circles_created: 1, circles_activated: 0, answers: 2, plans_created: 1 },
+      events: { circle_join_opened: 4, circle_joined: 3, availability_submitted: 4 },
+    },
     unknown: {
       counters: { circles_created: 1, circles_activated: 1, answers: 7, plans_created: 2 },
       events: { circle_join_opened: 12, circle_joined: 8, availability_submitted: 14 },
     },
   },
+  // The same funnel by the campaign tag a link carried (SUS-240): a label for a
+  // post, never for a person.
+  by_source_ref: {
+    'tt-always-the-one-3': {
+      counters: {
+        circles_created: 3,
+        plans_created: 3,
+        answers: 5,
+        plans_confirmed: 1,
+        reported_happened: 1,
+      },
+      events: { plan_shared: 3, availability_submitted: 6, meetup_confirmed: 1 },
+    },
+    'rd-rpg-scheduling-boss': {
+      counters: { circles_created: 1, plans_created: 1, answers: 0 },
+      events: { plan_shared: 1 },
+    },
+    'cmp-doodle': {
+      counters: { circles_created: 1, plans_created: 0 },
+      events: {},
+    },
+  },
+  // First plans that have stopped, by the week the circle began (SUS-240).
+  stalled: [
+    {
+      week: '2026-10-12',
+      cohort: 'external',
+      source: 'content',
+      state: 'not_shared',
+      circles: 2,
+      oldest_hours: 52,
+      median_hours: 30,
+    },
+    {
+      week: '2026-10-12',
+      cohort: 'external',
+      source: 'content',
+      state: 'shared_quiet',
+      circles: 1,
+      oldest_hours: 71,
+      median_hours: 71,
+    },
+    {
+      week: '2026-10-12',
+      cohort: 'founder',
+      source: 'friend_group',
+      state: 'answered_short',
+      circles: 1,
+      oldest_hours: 20,
+      median_hours: 20,
+    },
+    {
+      week: '2026-10-05',
+      cohort: 'external',
+      source: 'reddit',
+      state: 'shared_quiet',
+      circles: 1,
+      oldest_hours: 190,
+      median_hours: 190,
+    },
+  ],
   events: [
     total('organiser_source', '2026-09-07', 5),
     split('organiser_source', '2026-09-07', 'source', 'friend_group', 3),
@@ -132,5 +198,7 @@ export const emptyFounderAnalytics: FounderAnalytics = {
   cohort_circles: {},
   counters: {},
   by_source: {},
+  by_source_ref: {},
+  stalled: [],
   events: [],
 };

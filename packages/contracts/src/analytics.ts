@@ -92,9 +92,18 @@ export type ClaimMoment = (typeof CLAIM_MOMENTS)[number];
 /**
  * Where an organiser says they heard of the product (`organiser_source`,
  * SUS-171). `skipped` is a person who passed the question by; a person who was
- * never asked has no event at all.
+ * never asked has no event at all. `content` is not an answer: it is recorded,
+ * without asking, for an organiser who arrived on a tagged link (`?from=`,
+ * SUS-240), and the question is skipped for them.
  */
-export const ORGANISER_SOURCES = ['friend_group', 'reddit', 'meetup', 'other', 'skipped'] as const;
+export const ORGANISER_SOURCES = [
+  'friend_group',
+  'reddit',
+  'meetup',
+  'other',
+  'skipped',
+  'content',
+] as const;
 export type OrganiserSource = (typeof ORGANISER_SOURCES)[number];
 
 export const catalogue = {
@@ -112,8 +121,8 @@ export const catalogue = {
   organiser_gate_shown: event(1),
   organiser_gate_passed: event(1),
   app_first_open_linked: event(1),
-  // "How did you hear about {brand}?", once per account, after the gate's code is
-  // accepted (SUS-171). One of five words and nothing else: no free text, and
+  // "How did you hear about {brand}?", once per account, as the last step of the first
+  // run once the circle exists (SUS-171). One of six words and nothing else: no free text, and
   // the founder views read it by the account it came from without ever
   // returning that account (non-negotiable 8).
   organiser_source: event(1, { source: z.enum(ORGANISER_SOURCES) }),

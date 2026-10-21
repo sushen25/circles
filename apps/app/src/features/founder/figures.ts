@@ -57,3 +57,12 @@ export function monthOf(iso: string): string {
 export function perCircle(reported: number, circles: number): string | undefined {
   return circles === 0 ? undefined : (reported / circles).toFixed(1);
 }
+
+/** `5 h`, `2 d 4 h`: how long a plan has been stopped, from whole hours. */
+export function ageOf(hours: number): string {
+  if (hours < 24) return t('founderAnalytics', 'age_hours', { hours });
+  return t('founderAnalytics', 'age_days_hours', {
+    days: Math.floor(hours / 24),
+    hours: hours % 24,
+  });
+}

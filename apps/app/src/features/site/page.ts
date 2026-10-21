@@ -1,9 +1,10 @@
 import { PERMISSIONS_POLICY, STATIC_PAGE_POLICY, brand } from '@circles/config';
+import { parseSourceRef } from '@circles/domain';
 import { color } from '@circles/tokens';
 
 import { t } from '../../copy';
 import { escapeHtml } from '../../data/preview';
-import { close, free, header, hero, how, organisers, privacy } from './sections';
+import { close, free, header, hero, how, organisers, privacy, startHref } from './sections';
 import { siteCss, type SiteFonts } from './styles';
 
 /**
@@ -21,7 +22,8 @@ import { siteCss, type SiteFonts } from './styles';
  * records is sent by the app when it opens from the button
  * (`useSiteArrival`).
  */
-export function sitePage(origin: string, fonts: SiteFonts): string {
+export function sitePage(origin: string, fonts: SiteFonts, tag?: string): string {
+  const href = startHref(parseSourceRef(tag));
   const title = `${brand.name} — ${brand.descriptor}`;
   const description = t('site', 'meta_description');
   const image = `${origin}/og-card.png`;
@@ -50,9 +52,9 @@ ${preload}
 </head>
 <body>
 <a class="skip" href="#top">${escapeHtml(t('site', 'skip'))}</a>
-${header()}
-<main id="top">${hero()}${how()}${privacy()}${organisers()}${free()}</main>
-${close()}
+${header(href)}
+<main id="top">${hero(href)}${how()}${privacy()}${organisers(href)}${free()}</main>
+${close(href)}
 </body>
 </html>
 `;

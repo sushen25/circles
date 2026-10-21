@@ -61,7 +61,7 @@ export type EventRow = z.infer<typeof EventRow>;
 /**
  * The funnel's counts for one answer to "How did you hear about {brand}?"
  * (SUS-171): the row counters and every event's total, attributed through the
- * circle's owner. `unknown` is an owner who was never asked.
+ * circle's owner. `unknown` is an owner who has not answered (never asked, or left before the last step).
  */
 export const SourceNumbers = z.object({
   counters: z.record(z.string(), Count),
@@ -72,6 +72,39 @@ export type SourceNumbers = z.infer<typeof SourceNumbers>;
 /** The sources the funnel can be read by, in the order the screen offers them. */
 export const FUNNEL_SOURCES = [...ORGANISER_SOURCES, 'unknown'] as const;
 export type FunnelSourceFilter = (typeof FUNNEL_SOURCES)[number];
+
+/**
+ * The funnel's counts for one campaign tag (`?from=`, SUS-240): the circle row
+ * counters and a few events' totals, attributed through the circle the tag is
+ * on. The tag is a label for a post and never for a person.
+ */
+export const SourceRefNumbers = SourceNumbers;
+export type SourceRefNumbers = SourceNumbers;
+
+/**
+ * The three ways a circle's first plan can have stopped (SUS-240), in the order
+ * a plan meets them: made and not shared after 24 hours; shared, with nobody
+ * else answering after 48; answered, but short of the quorum at the deadline.
+ */
+export const STALL_STATES = ['not_shared', 'shared_quiet', 'answered_short'] as const;
+export type StallState = (typeof STALL_STATES)[number];
+
+/**
+ * First plans that have stopped, counted: the Monday of the week the circle
+ * began, its cohort and source, one state, how many circles, and how long the
+ * oldest and the middle one have been stopped (hours, floored). Counts and ages
+ * only; no circle, plan, code or person.
+ */
+export const StalledRow = z.object({
+  week: z.string(),
+  cohort: z.enum(['founder', 'external']),
+  source: z.string(),
+  state: z.enum(STALL_STATES),
+  circles: Count,
+  oldest_hours: Count,
+  median_hours: Count,
+});
+export type StalledRow = z.infer<typeof StalledRow>;
 
 export const FounderAnalytics = z.object({
   /** The Monday the period starts on. */
@@ -87,6 +120,10 @@ export const FounderAnalytics = z.object({
   counters: z.record(z.string(), Count),
   /** The funnel split by the organiser's answer; never which organiser. */
   by_source: z.record(z.string(), SourceNumbers).default({}),
+  /** The funnel split by the campaign tag on the circle (SUS-240); never which organiser. */
+  by_source_ref: z.record(z.string(), SourceRefNumbers).default({}),
+  /** First plans that have stopped, by week, cohort, source and state (SUS-240). */
+  stalled: z.array(StalledRow).default([]),
   events: z.array(EventRow),
 });
 export type FounderAnalytics = z.infer<typeof FounderAnalytics>;

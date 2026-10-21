@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { catalogue, isUnattributed } from './analytics';
+import { ORGANISER_SOURCES, catalogue, isUnattributed } from './analytics';
 import {
   FOUNDER_PERIODS,
   FUNNEL,
@@ -16,6 +16,7 @@ import {
   ratesOf,
   sinceFor,
 } from './founderAnalytics';
+import { postsOf, stalledOf, stalledTotal } from './founderStalled';
 import { emptyFounderAnalytics, founderAnalyticsFixture } from './founderAnalytics.fixture';
 
 const gate = (id: string) => {
@@ -330,5 +331,113 @@ describe('the period', () => {
   it('knows an empty database', () => {
     expect(isEmpty(emptyFounderAnalytics)).toBe(true);
     expect(isEmpty(founderAnalyticsFixture)).toBe(false);
+  });
+});
+
+describe('by campaign tag (SUS-240)', () => {
+  it('lists the posts busiest first, with the figures a post is read by', () => {
+    const posts = postsOf(founderAnalyticsFixture);
+    expect(posts.map((p) => p.tag)).toEqual([
+      'tt-always-the-one-3',
+      'cmp-doodle',
+      'rd-rpg-scheduling-boss',
+    ]);
+    expect(posts[0]).toEqual({
+      tag: 'tt-always-the-one-3',
+      circles: 3,
+      plansShared: 3,
+      answered: 5,
+      confirmed: 1,
+      happened: 1,
+    });
+    expect(posts[1]?.plansShared).toBe(0);
+  });
+
+  it('is empty for a result that predates the tag, and parses it', () => {
+    const old = FounderAnalytics.parse({
+      ...founderAnalyticsFixture,
+      by_source_ref: undefined,
+      stalled: undefined,
+    });
+    expect(old.by_source_ref).toEqual({});
+    expect(old.stalled).toEqual([]);
+    expect(postsOf(old)).toEqual([]);
+  });
+
+  it('adds content to the sources an organiser can be counted under, and reads the funnel for it', () => {
+    expect(ORGANISER_SOURCES).toContain('content');
+    expect(FUNNEL_SOURCES).toContain('content');
+    const content = funnelOf(founderAnalyticsFixture, 'content');
+    expect(content.find((s) => s.id === 'acquisition')?.steps[0]?.count).toBe(1);
+  });
+});
+
+describe('stalled first plans (SUS-240)', () => {
+  it('lays them out by week, newest first, then source, with all three states', () => {
+    const weeks = stalledOf(founderAnalyticsFixture);
+    expect(weeks.map((w) => w.week)).toEqual(['2026-10-12', '2026-10-05']);
+    const newest = weeks[0];
+    expect(newest?.sources.map((s) => s.source)).toEqual(['content', 'friend_group']);
+    expect(newest?.sources[0]?.states).toEqual({
+      not_shared: { circles: 2, oldestHours: 52, medianHours: 30 },
+      shared_quiet: { circles: 1, oldestHours: 71, medianHours: 71 },
+      answered_short: { circles: 0, oldestHours: 0, medianHours: 0 },
+    });
+  });
+
+  it('reads one cohort on its own, and counts what is shown', () => {
+    const external = stalledOf(founderAnalyticsFixture, 'external');
+    expect(external[0]?.sources.map((s) => s.source)).toEqual(['content']);
+    expect(stalledTotal(founderAnalyticsFixture)).toBe(5);
+    expect(stalledTotal(founderAnalyticsFixture, 'founder')).toBe(1);
+    expect(stalledTotal(founderAnalyticsFixture, 'external')).toBe(4);
+    expect(stalledOf(emptyFounderAnalytics)).toEqual([]);
+  });
+
+  it('folds two cohorts into one line: the older oldest, and no middle (it cannot be combined)', () => {
+    const merged = stalledOf({
+      ...emptyFounderAnalytics,
+      stalled: [
+        {
+          week: '2026-10-12',
+          cohort: 'external',
+          source: 'reddit',
+          state: 'not_shared',
+          circles: 3,
+          oldest_hours: 40,
+          median_hours: 30,
+        },
+        {
+          week: '2026-10-12',
+          cohort: 'founder',
+          source: 'reddit',
+          state: 'not_shared',
+          circles: 1,
+          oldest_hours: 60,
+          median_hours: 50,
+        },
+      ],
+    });
+    expect(merged[0]?.sources[0]?.states.not_shared).toEqual({
+      circles: 4,
+      oldestHours: 60,
+      medianHours: null,
+    });
+  });
+
+  it('has no field a circle, plan or person could ride in', () => {
+    const parsed = FounderAnalytics.parse({
+      ...founderAnalyticsFixture,
+      stalled: [{ ...(founderAnalyticsFixture.stalled[0] ?? {}), circle_id: 'c', plan_id: 'p' }],
+    });
+    expect(Object.keys(parsed.stalled[0] ?? {}).sort()).toEqual([
+      'circles',
+      'cohort',
+      'median_hours',
+      'oldest_hours',
+      'source',
+      'state',
+      'week',
+    ]);
   });
 });

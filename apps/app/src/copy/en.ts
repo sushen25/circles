@@ -1141,7 +1141,33 @@ export const en = {
     funnel_source_meetup: 'A meetup or club',
     funnel_source_other: 'Somewhere else',
     funnel_source_skipped: 'Skipped',
-    funnel_source_unknown: 'Not asked',
+    funnel_source_content: 'A post',
+    funnel_source_unknown: 'Not answered',
+    // The funnel by the campaign tag on a link (SUS-240).
+    posts: 'By post',
+    posts_detail:
+      'Circles made by organisers who arrived on a tagged link, by the tag. A tag is a label for a post and never for a person. The forty busiest in the period.',
+    posts_empty: 'No circle in this period came from a tagged link.',
+    post_figure: '{circles} made · {shared} shared · {answered} answered · {confirmed} confirmed',
+    // First plans that have stopped (SUS-240).
+    stalled: 'Stalled first plans',
+    stalled_detail:
+      "A circle's first plan that has stopped, by the week the circle began. Counts and ages only: no names, circles or codes.",
+    stalled_caveat:
+      'Whether a plan was shared is when the share sheet opened, a floor: anyone who joined or answered shows it was shared.',
+    stalled_empty: 'No first plan has stopped in this period.',
+    stalled_cohort_all: 'Both cohorts',
+    stalled_cohort_founder: 'Founder cohort',
+    stalled_cohort_external: 'External cohort',
+    stalled_week: 'Circles begun the week of {date}',
+    stalled_state_not_shared: 'Made, not shared after 24 h',
+    stalled_state_shared_quiet: 'Shared, no answers after 48 h',
+    stalled_state_answered_short: 'Answered, short of the quorum at the deadline',
+    stalled_figure: '{count} · oldest {oldest} · middle {median}',
+    stalled_figure_oldest: '{count} · oldest {oldest}',
+    stalled_none: '0',
+    age_hours: '{hours} h',
+    age_days_hours: '{days} d {hours} h',
     // Neutral on purpose: it is on screen while the allowlist is still being asked,
     // and must not tell anybody else the route exists.
     loading: 'Getting things ready',
@@ -2758,8 +2784,8 @@ export const en = {
     youre_offline: "You're offline. Connect, then try again.",
   },
   /**
-   * "How did you hear about {brand}?", asked once, right after the organiser's
-   * code is accepted (SUS-171). Four answers and a way past; no typing.
+   * "How did you hear about {brand}?", asked once, as the last step of the
+   * first run once the circle exists (SUS-171). Four answers and a way past; no typing.
    */
   organiserSource: {
     heading: 'How did you hear about {brand}?',

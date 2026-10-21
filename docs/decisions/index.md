@@ -87,3 +87,4 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0080](./0080-the-reattach-and-verified-gates-count-product-rows-not-events.md) | The reattach and verified gates count product rows, not events | accepted |
 | [0081](./0081-the-content-loop-lives-in-the-monorepo-outside-the-gate.md) | The content loop lives in the monorepo under content/, outside the gate | accepted |
 | [0083](./0083-an-account-is-deleted-at-once-and-purged-after-thirty-days-a-member-can-leave-and-everyone-can-export.md) | An account is deleted at once and purged after thirty days, a member can leave, and everyone can export their own data | accepted |
+| [0084](./0084-a-campaign-tag-labels-a-circles-cohort-row-never-a-person.md) | A campaign tag labels a circle's cohort row, never a person | accepted |

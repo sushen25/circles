@@ -14,7 +14,7 @@ import {
 import { t } from '../../copy';
 import { escapeHtml } from '../../data/preview';
 import { sitePage } from './page';
-import { START_HREF } from './sections';
+import { START_HREF, startHref } from './sections';
 import { siteFontsFrom } from './styles';
 import { useSiteArrival } from './useSiteArrival';
 
@@ -89,6 +89,18 @@ describe('the page', () => {
     expect(buttons).toHaveLength(5);
     for (const href of buttons) expect(href).toBe(START_HREF);
     expect(START_HREF).toBe('/start?via=site');
+  });
+
+  it('hands a campaign tag on to the app’s front door, on every button, and drops one that is not a slug', () => {
+    const tagged = sitePage(ORIGIN, FONTS, 'tt-always-the-one-3');
+    const hrefs = [...tagged.matchAll(/<a class="btn[^"]*" href="([^"]+)"/g)].map((m) => m[1]);
+    expect(hrefs).toHaveLength(5);
+    for (const href of hrefs) expect(href).toBe('/start?via=site&from=tt-always-the-one-3');
+    expect(startHref('rd-profile')).toBe('/start?via=site&from=rd-profile');
+    for (const bad of ['"><script>', 'Has Caps', 'a'.repeat(41), '', 'maya@example.com']) {
+      expect(sitePage(ORIGIN, FONTS, bad)).toBe(html);
+    }
+    expect(tagged).not.toMatch(/<script/i);
   });
 
   it('has no script, no third-party host and no Google Fonts', () => {

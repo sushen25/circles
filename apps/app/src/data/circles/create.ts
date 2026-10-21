@@ -33,6 +33,8 @@ export interface CreateCircleOptions {
   color?: string | undefined;
   /** "Where, roughly". Blank is no answer. */
   area?: string | undefined;
+  /** The campaign tag the organiser arrived on (`?from=`, SUS-240): a slug, or nothing. */
+  sourceRef?: string | undefined;
 }
 
 export async function createCircle(options: CreateCircleOptions): Promise<CreateCircleResponse> {
@@ -47,6 +49,7 @@ export async function createCircle(options: CreateCircleOptions): Promise<Create
       ...(options.area === undefined || options.area.trim() === ''
         ? {}
         : { default_area: options.area.trim() }),
+      ...(options.sourceRef === undefined ? {} : { source_ref: options.sourceRef }),
     },
     CreateCircleResponse,
   );
