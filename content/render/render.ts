@@ -4,6 +4,12 @@
  *   npm run render queue/2026-10-14-unpaid-project-manager.md
  *   → out/unpaid-project-manager/01.png … 0N.png
  *
+ *   npm run render -- --approved
+ *   → every queue file with `status: approved` and `media: slideshow`, which
+ *     is what the publisher will try to post. The GitHub Action runs this
+ *     before `npm run publish`, because out/ is never committed (ADR 0081)
+ *     and the slideshow guard refuses an item with no slides on disk.
+ *
  * Each still is the poster frame of the same scene the video plays: the
  * page builds the whole skit on one timeline (render/stage.js), seeks to a
  * slide's poster, adds the carousel chrome and screenshots. A component's
@@ -13,21 +19,44 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { parseQueueFile } from '../lib/queue.ts';
+import { listQueue, parseQueueFile, type QueueItem } from '../lib/queue.ts';
+import type { Browser } from 'playwright';
 import { build, launch, openStage } from './browser.ts';
 
-async function main() {
-  const file = process.argv[2];
-  if (!file) {
-    console.error('usage: npm run render queue/<file>.md');
-    process.exit(2);
+function usage(): never {
+  console.error('usage: npm run render queue/<file>.md [queue/<file>.md …] | npm run render -- --approved');
+  process.exit(2);
+}
+
+/** The files to render: the ones named, or every approved slideshow. */
+function pick(args: string[]): QueueItem[] {
+  if (args.includes('--approved')) {
+    if (args.length > 1) usage();
+    return listQueue('queue').filter((i) => i.fm.status === 'approved' && i.fm.media === 'slideshow');
   }
-  const item = parseQueueFile(file);
-  if (!item.skit) throw new Error(`${file}: no \`\`\`json slideshow block`);
+  if (!args.length) usage();
+  return args.map((f) => parseQueueFile(f));
+}
+
+async function main() {
+  const items = pick(process.argv.slice(2));
+  if (!items.length) {
+    console.log('nothing to render: no approved slideshow in queue/');
+    return;
+  }
+  const browser = await launch();
+  try {
+    for (const item of items) await renderOne(browser, item);
+  } finally {
+    await browser.close();
+  }
+}
+
+async function renderOne(browser: Browser, item: QueueItem) {
+  if (!item.skit) throw new Error(`${item.path}: no \`\`\`json slideshow block`);
   const outDir = resolve('out', item.fm.slug);
   mkdirSync(outDir, { recursive: true });
 
-  const browser = await launch();
   const page = await openStage(browser, 'still');
   await build(page, item.skit);
 
@@ -39,7 +68,7 @@ async function main() {
     await page.screenshot({ path: out, type: 'png', fullPage: false });
     written.push(out);
   }
-  await browser.close();
+  await page.close();
 
   // A caption sheet beside the PNGs, for hand-posting to TikTok.
   const sheet = Object.entries(item.captions)

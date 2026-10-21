@@ -61,7 +61,7 @@ carries the text, the founder posts it by hand.
 |---|---|
 | `context/` | positioning, voice, allowed facts, hook phrases. Edit by hand or via `/mine`. |
 | `queue/` | one markdown file per piece. `status: draft` → `approved` (by merge) → moved to `published/`. |
-| `render/` | `npm run render queue/<file>.md` writes 1080x1920 PNGs and a `contact.png` strip to `out/<slug>/`; `npm run video queue/<file>.md` writes the same skit as a 9:16 MP4 (needs ffmpeg). |
+| `render/` | `npm run render queue/<file>.md` writes 1080x1920 PNGs and a `contact.png` strip to `out/<slug>/`; `npm run render -- --approved` does every approved slideshow (what the Action runs before publishing); `npm run video queue/<file>.md` writes the same skit as a 9:16 MP4 (needs ffmpeg). |
 | `publish/` | `npm run publish` posts approved queue items; `npm run dry-run` prints what it would post. Guards live in code, not prompts. |
 | `lib/links.ts` | the link tag: `wenna.app/?from=<platform>-<slug>`. The publisher applies it; Wenna reads it on the circle's founder-only cohort row (circles SUS-240). |
 | `analytics/` | `npm run analytics` appends a row per post per day to `posts.jsonl`. |
