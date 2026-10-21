@@ -30,7 +30,10 @@ writing anything a person will read. They are short and they are the law.
    every published post's numbers into `analytics/posts.jsonl`, the account
    by day into `account.jsonl`, and new replies into `inbox/<date>-replies.md`
    with the handles stripped, which is step 1's input the next morning. It
-   reads only; nothing it does posts.
+   reads only; nothing it does posts. After it, `npm run scorecard` builds
+   `analytics/scorecard.md` (the dashboard) from every row, and
+   `npm run brief` rewrites `context/learned.md` from that, which `/hooks`
+   and `/skit` read the next morning.
 7. `npm run posted -- …`, `npm run hand -- …` and `/transcribe` — the
    founder's weekly minute, on a laptop: `npm run posted -- <platform>
    <slug> <url-or-id>` records a hand post's id (a TikTok draft once posted,
@@ -87,12 +90,13 @@ publishes anything in `queue/` with `status: approved` and moves it to
 
 | Path | What |
 |---|---|
-| `context/` | positioning, voice, allowed facts, hook phrases. Edit by hand or via `/mine`. |
+| `context/` | positioning, voice, allowed facts, hook phrases. Edit by hand or via `/mine`. `learned.md` is the exception: the brief `npm run brief` writes nightly from the scorecard, never edited by hand and never a source for a claim. |
 | `queue/` | one markdown file per piece. `status: draft` → `approved` (by merge) → moved to `published/`. |
 | `render/` | `npm run render queue/<file>.md` writes 1080x1920 PNGs (and a JPEG of each, for TikTok) and a `contact.png` strip to `out/<slug>/`; `npm run video queue/<file>.md` writes the same skit as a 9:16 MP4 (needs ffmpeg). `-- --approved` does every approved slideshow, for either: what the Action runs before publishing. |
 | `publish/` | `npm run publish` posts approved queue items (TikTok as a draft), the MP4 wherever one is rendered (LinkedIn excepted); `npm run dry-run` prints what it would do; `npm test` checks the adapters' request shapes. Guards live in code, not prompts. `npm run auth:youtube` / `auth:tiktok` are the one-time sign-ins. |
 | `lib/links.ts` | the link tag: `wenna.app/?from=<platform>-<slug>`. The publisher applies it; Wenna reads it on the circle's founder-only cohort row (circles SUS-240). |
-| `analytics/` | `platforms/` is one read-only module per platform, the way `publish/adapters.ts` is one function per platform. `npm run analytics` appends to `posts.jsonl` (a row per post per platform per night, the platform's answer whole in `raw`), `account.jsonl` (the account by day) and, with `--series`, `series.jsonl` (every two hours for a post's first 48 hours); `replies-seen.json` is which replies have already gone to `inbox/`. `hand.jsonl` is what a person typed or read off a screen. `npm run posted` records a hand post's id; `npm run hand` records its numbers; `npm run tokens` reports and renews the tokens. |
+| `analytics/` | `platforms/` is one read-only module per platform, the way `publish/adapters.ts` is one function per platform. `npm run analytics` appends to `posts.jsonl` (a row per post per platform per night, the platform's answer whole in `raw`), `account.jsonl` (the account by day) and, with `--series`, `series.jsonl` (every two hours for a post's first 48 hours); `replies-seen.json` is which replies have already gone to `inbox/`. `hand.jsonl` is what a person typed or read off a screen. `npm run posted` records a hand post's id; `npm run hand` records its numbers; `npm run tokens` reports and renews the tokens. The pull also appends `features.jsonl` (what each published piece is, `lib/measure.ts`) for any piece whose measure is new. `npm run scorecard` writes `scorecard.json` and `scorecard.md` (age-matched rates, lift against the platform median, aggregates with their n; `aggregates.ts`), `npm run brief` writes `../context/learned.md`; one definition per rate, in `metrics.ts`. |
+| `lib/measure.ts` | a queue file's features (hook, slides, chats before the beat, captions per platform, Melbourne post hour) and its timing; `npm run check` and `npm run video` measure with it, and the video build writes `timing:` into the frontmatter. |
 | `inbox/` | what the loop reads next: `<date>-replies.md` from the nightly pull (handles stripped) for `/mine`; `screens/<slug>-<platform>/` for `/transcribe`, git-ignored; `done/` is where both go once read. |
 | `docs/analytics-plan.md` | why the analytics are shaped as they are: the principles, the data model, what each platform can give, the phases. Read it before changing anything under `analytics/`. |
 | `experiments.md` | hypothesis · format · hook family · result · next. One row per fortnight per family. |
@@ -116,7 +120,10 @@ npm run analytics -- --series                                 # every two hours:
 npm run posted -- tiktok unpaid-project-manager <url-or-id>   # record a hand post's id; --at <iso> when the platform cannot say
 npm run hand -- tiktok unpaid-project-manager views=1240      # weekly TikTok numbers (saves=18 shares=9 ...), to hand.jsonl
 npm run tokens -- --github                                    # monthly: every token's state; renews and writes the Meta ones
-npm run typecheck                                             # tsc over analytics/, nothing emitted
+npm run measure queue/2026-10-20-never-lead-anywhere.md       # a piece's feature row; -- --timing builds it and writes timing:
+npm run scorecard                                             # analytics/scorecard.json and scorecard.md from every row
+npm run brief                                                 # context/learned.md from the scorecard
+npm run typecheck                                             # tsc over analytics/ and lib/measure.ts, nothing emitted
 ```
 
 Node 22, no build step: scripts run with `node --experimental-strip-types`.

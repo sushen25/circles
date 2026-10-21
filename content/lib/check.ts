@@ -15,6 +15,7 @@ import { resolve } from '../render/components/index.js';
 import { captionErrors } from '../render/components/_kit.js';
 import { quoteIsVerbatim } from '../render/components/quote.js';
 import { build, launch, openStage } from '../render/browser.ts';
+import { token, timingOf } from './measure.ts';
 
 const PRODUCT = /\bwenna(?:\.app)?\b/gi;
 
@@ -44,12 +45,6 @@ const SHAPE_ORDER: Record<string, string> = {
   tetris: 'count · calendar · chat · beat · [chat+link] · availability · locked · end',
   'demo-first': 'cover · chat+link · availability · locked · compare · end',
 };
-
-type AnySlide = { type: string; screen?: string; messages?: { link?: unknown }[]; [k: string]: unknown };
-const token = (s: AnySlide) =>
-  s.type === 'screen' ? String(s.screen) : s.type === 'chat' && s.messages?.some((m) => m.link) ? 'chatlink' : s.type;
-/** The "after": the product on screen. Everything else is the "before". */
-const AFTER = new Set(['chatlink', 'availability', 'locked', 'grid', 'compare', 'end']);
 
 /** Every string inside a value, depth first. A chat link's `url` is skipped:
  *  the same URL is already in the message text, so it would count twice. */
@@ -102,7 +97,7 @@ async function main() {
 
   // shape: the order must match the frontmatter's shape
   const shape = item.fm.shape;
-  const tokens = slides.map((x) => token(x as AnySlide));
+  const tokens = slides.map((x) => token(x));
   if (!shape || !SHAPES[shape]) {
     console.log(`  ✗ shape: ${shape ? `"${shape}" is not a shape` : 'none in frontmatter'}; one of ${Object.keys(SHAPES).join(', ')}`);
     process.exitCode = 1;
@@ -126,8 +121,7 @@ async function main() {
     console.log(`  total${' '.repeat(24)}${total.toFixed(2).padStart(7)}   (${events.length} sound cues)${bad}`);
     if (bad) process.exitCode = 1;
     // the after must take less screen time than the before, or the piece becomes an ad
-    let before = 0, after = 0;
-    scenes.forEach((sc, i) => { if (AFTER.has(tokens[i]) && tokens[i] !== 'end') after += sc.end - sc.start; else if (tokens[i] !== 'end') before += sc.end - sc.start; });
+    const { before, after } = timingOf(scenes, tokens, total);
     const adish = after >= before && shape !== 'demo-first' ? '  ✗ the after is not shorter than the before' : '';
     console.log(`  before ${before.toFixed(2)} s · after ${after.toFixed(2)} s (end excluded)${adish}`);
     if (adish) process.exitCode = 1;

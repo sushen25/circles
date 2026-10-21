@@ -8,6 +8,12 @@ description: Write one Wenna group-chat skit as a queue file — frontmatter, sl
 Write one queue file: `queue/YYYY-MM-DD-<slug>.md`. Read `context/voice.md`,
 `context/facts.md`, `context/hooks.md` and `experiments.md` first, every time.
 
+After those, read `context/learned.md`, the brief the nightly run writes
+from the numbers. Prefer what "Do more of" names for this family and shape,
+avoid what "Stop" names, and treat "Too early" as no information at all. It
+never overrides a rule in voice.md, facts.md or hooks.md, and it is never a
+source for a claim: a number from it does not go into a slide or a caption.
+
 ## Inputs
 
 - A hook family id from `context/hooks.md` (default: the first live family in

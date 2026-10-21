@@ -1,0 +1,98 @@
+{
+  "generated": "2026-10-21T23:14:26.227Z",
+  "day": "2026-10-22",
+  "pieces": [
+    {
+      "slug": "never-lead-anywhere",
+      "platform": "bluesky",
+      "family": "skit",
+      "shape": "side-chat",
+      "archetype": "quote",
+      "ages": {},
+      "latest": {
+        "age_days": 0.65,
+        "source": "pull",
+        "metrics": {
+          "likes": 0,
+          "reposts": 0,
+          "replies": 0,
+          "quotes": 0,
+          "saves": 0
+        },
+        "rates": {
+          "engagement": 0
+        }
+      },
+      "headline": "engagement",
+      "screens": [],
+      "replies": 0,
+      "hook_quotes": 0
+    },
+    {
+      "slug": "never-lead-anywhere",
+      "platform": "instagram",
+      "family": "skit",
+      "shape": "side-chat",
+      "archetype": "quote",
+      "ages": {},
+      "latest": {
+        "age_days": 0.65,
+        "source": "pull",
+        "metrics": {
+          "views": 129,
+          "reach": 109,
+          "saves": 2,
+          "shares": 0,
+          "likes": 1,
+          "comments": 0,
+          "watch_avg_s": 6.864,
+          "watch_total_s": 796.286,
+          "skip_pct": 70
+        },
+        "rates": {
+          "saves_shares_per_k": 15.5,
+          "comments_per_k": 0,
+          "share_rate": 0,
+          "save_rate": 0.0155,
+          "comment_rate": 0,
+          "like_rate": 0.0078,
+          "watch_pct": 24.4,
+          "skip_pct": 70
+        }
+      },
+      "headline": "saves_shares_per_k",
+      "screens": [],
+      "replies": 0,
+      "hook_quotes": 0
+    }
+  ],
+  "medians": {},
+  "account": [
+    {
+      "platform": "bluesky",
+      "date": "2026-10-21",
+      "text": "followers 10"
+    },
+    {
+      "platform": "instagram",
+      "date": "2026-10-20",
+      "text": "followers 2 · reach 2 · views 3 · link taps 0 · accounts engaged 1 · reach by follow type: non_follower 2 · views by surface: reel 3"
+    }
+  ],
+  "groups": [],
+  "splits": [],
+  "control": {
+    "story_first": {
+      "label": "story-first",
+      "n": 0,
+      "median_lift": null
+    },
+    "demo_first": {
+      "label": "demo-first",
+      "n": 0,
+      "median_lift": null
+    },
+    "ranked": false
+  },
+  "too_early": []
+}

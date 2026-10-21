@@ -13,5 +13,5 @@
     "skipLibCheck": true,
     "noUncheckedIndexedAccess": false
   },
-  "include": ["analytics/**/*.ts"]
+  "include": ["analytics/**/*.ts", "lib/measure.ts", "lib/measure.test.ts"]
 }

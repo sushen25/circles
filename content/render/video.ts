@@ -15,12 +15,17 @@
  * Sound cues (message pops, ticks, thuds) are synthesised by FFmpeg, so
  * there are no audio assets to license. Drop a royalty-free track at
  * render/audio/bed.mp3 to add a music bed under them.
+ *
+ * The build is also the piece's measurement: its seconds (total, before,
+ * after, per slide) are written into the queue file's frontmatter as
+ * `timing:` (lib/measure.ts), so the nightly pull reads them with no browser.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { listQueue, parseQueueFile, type QueueItem } from '../lib/queue.ts';
 import { guardItem } from '../publish/guards.ts';
+import { setTiming, timingOf, token } from '../lib/measure.ts';
 import type { Browser } from 'playwright';
 import { build, launch, openStage, type Cue } from './browser.ts';
 
@@ -87,7 +92,8 @@ async function videoOne(browser: Browser, item: QueueItem) {
   mkdirSync(frames, { recursive: true });
 
   const page = await openStage(browser, 'video');
-  const { total, events } = await build(page, item.skit);
+  const { total, events, scenes } = await build(page, item.skit);
+  writeTiming(item, scenes, total);
   const nFrames = Math.ceil(total * FPS);
   for (let f = 0; f < nFrames; f++) {
     await page.evaluate((t) => (window as any).seek(t), f / FPS);
@@ -130,6 +136,14 @@ async function videoOne(browser: Browser, item: QueueItem) {
   ffmpeg(args);
 
   console.log(`${total.toFixed(1)} s, ${cues.length} sound cues → ${mp4}`);
+}
+
+/** Record the build's seconds in the queue file, only when they changed, so a re-render of the same piece is no diff. */
+function writeTiming(item: QueueItem, scenes: { start: number; end: number }[], total: number) {
+  const tokens = item.skit!.slides.map((s) => token(s as unknown as Parameters<typeof token>[0]));
+  const raw = readFileSync(item.path, 'utf8');
+  const next = setTiming(raw, timingOf(scenes, tokens, total));
+  if (next !== raw) writeFileSync(item.path, next);
 }
 
 main().catch((e) => {

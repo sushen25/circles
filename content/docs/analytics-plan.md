@@ -11,7 +11,10 @@ nothing here posts on its own, and nothing here adds a claim to facts.md.
 ## Status
 
 Proposed 21 October 2026, with the decisions below taken the same day.
-Phase 1 is being built the same evening (branch `claude/analytics-phase-1`).
+Phase 1 (the pull) merged on 22 October (PR #253). Phase 2 (measure,
+scorecard, brief) is built on `claude/analytics-phase-2`, stacked on it; what
+it decided where this plan left a choice is under "Phase 2, as built" in
+"Phases". Phases 3 to 5 are not started.
 
 Before phase 1, nothing was built. A read-only probe of what the tokens in
 `.env` can see was run the same evening from a session scratchpad; it is not
@@ -576,6 +579,29 @@ of it, the video build's `timing:` write, `features.jsonl`, `scorecard.ts`,
 `experiments.md`'s columns revised. Done when `npm run scorecard` on a
 fixture set of six pieces produces a `scorecard.md` a person can read in two
 minutes, every aggregate carries its n, and nothing under n=3 is ranked.
+
+*Phase 2, as built.* Where the text above left a choice:
+
+- A snapshot "at day N" is the first at or after N and before the next age
+  compared (day 14's window is a week), so a day-1 number is never read off
+  day 9.
+- Hand numbers stand in for a platform only where the pull has no row
+  (TikTok), aged from the ledger's `posted` row; a transcribed screen on a
+  platform the pull reads is shown beside it, never scored.
+- `features.jsonl` gains a row when a piece's measure changes (its
+  `timing:` arrives, a platform's post time lands in the ledger), not only
+  when it has none; the scorecard reads the last row per slug.
+- Lift is by platform; there is no group "by platform", which would be each
+  platform's median over itself. Groups are family, shape, archetype,
+  posting hour (one-hour windows in Melbourne, from the ledger's post time)
+  and weekday, each with its per-platform medians.
+- A split is reported when both sides have three pieces and the gap between
+  their median lifts is wider than the larger median absolute deviation
+  within them. A split with no piece on one side is "no contrast yet", not
+  "too early".
+- The brief's thresholds: "Do more of" at a median lift of 1.2 or more,
+  "Stop" at 0.8 or less, eight lines a section, sixty in all.
+- The scorecard and the brief are dated by the Melbourne day of the run.
 
 **Phase 3: the Wenna export** (main repo, one ticket: SUS-244). ADR 0087, the SQL
 function and migration, `content-funnel`, tests, runbook; then `wenna.ts`

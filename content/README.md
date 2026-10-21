@@ -110,6 +110,14 @@ what is yours.
   like a scripted post. The job goes red, after committing, when a Meta
   token is within seven days of expiry or a configured platform failed on
   every post; `npm run tokens` is the fix for the first.
+- **Nightly, after the pull**, the same job runs `npm run scorecard` and
+  `npm run brief`: `analytics/scorecard.md` is the dashboard (each piece's
+  rate at days 1, 3, 7 and 14, its lift against the platform's median at
+  day 7, and family, shape, hour and feature comparisons, each with its n
+  and nothing ranked under three pieces), and `context/learned.md` is the
+  short brief `/hooks` and `/skit` read. Neither is edited by hand. A piece
+  published before its video build recorded `timing:` gets it with
+  `npm run measure -- --timing queue/<file>.md`.
 - **Every two hours**, `content-series.yml` runs `npm run analytics --
   --series` for any post under 48 hours old and commits
   `analytics/series.jsonl`, the views-over-time curve rebuilt from

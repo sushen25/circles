@@ -14,6 +14,11 @@ published:
   youtube: "kHK05hfvqj4"
   bluesky: "at://did:plc:w6zbh5wca2czjpchhvku34mg/app.bsky.feed.post/3myek4s7xew2v"
   instagram: "18395365036204751"
+timing:
+  total: 28.17
+  before: 14.87
+  after: 8.63
+  slides: 2.90 10.42 1.55 6.03 2.60 4.67
 ---
 
 ```json

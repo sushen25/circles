@@ -15,12 +15,15 @@
     "gallery": "node --env-file-if-exists=.env --experimental-strip-types render/gallery.ts",
     "auth:youtube": "node --env-file-if-exists=.env --experimental-strip-types publish/auth-youtube.ts",
     "auth:tiktok": "node --env-file-if-exists=.env --experimental-strip-types publish/auth-tiktok.ts",
-    "test": "node --experimental-strip-types --test 'publish/*.test.ts' 'analytics/*.test.ts' 'analytics/platforms/*.test.ts'",
+    "test": "node --experimental-strip-types --test 'publish/*.test.ts' 'analytics/*.test.ts' 'analytics/platforms/*.test.ts' 'lib/*.test.ts'",
     "upload": "node --env-file-if-exists=.env --experimental-strip-types publish/upload.ts",
     "refresh:tokens": "node --env-file-if-exists=.env --experimental-strip-types publish/refresh-tokens.ts",
     "posted": "node --env-file-if-exists=.env --experimental-strip-types analytics/posted.ts",
     "hand": "node --env-file-if-exists=.env --experimental-strip-types analytics/hand.ts",
     "tokens": "node --env-file-if-exists=.env --experimental-strip-types analytics/tokens.ts",
+    "measure": "node --env-file-if-exists=.env --experimental-strip-types lib/measure-cli.ts",
+    "scorecard": "node --experimental-strip-types analytics/scorecard.ts",
+    "brief": "node --experimental-strip-types analytics/brief.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
