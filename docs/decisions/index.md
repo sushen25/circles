@@ -86,5 +86,4 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0079](./0079-the-time-of-day-is-on-the-first-screen-and-a-time-for-each-day-opens-in-place.md) | The time of day is on the first screen as pills, and a time for each day opens in place | accepted (amends 0068) |
 | [0080](./0080-the-reattach-and-verified-gates-count-product-rows-not-events.md) | The reattach and verified gates count product rows, not events | accepted |
 | [0081](./0081-the-content-loop-lives-in-the-monorepo-outside-the-gate.md) | The content loop lives in the monorepo under content/, outside the gate | accepted |
-| [0081](./0081-invite-and-re-entry-digests-are-an-hmac-under-a-key-only-the-functions-hold.md) | Invite and re-entry digests are an HMAC under a key only the Edge Functions hold | proposed (amends 0028, 0073) |
 | [0082](./0082-invite-and-re-entry-digests-are-an-hmac-under-a-key-only-the-functions-hold.md) | Invite and re-entry digests are an HMAC under a key only the Edge Functions hold | proposed (amends 0028, 0073) |
