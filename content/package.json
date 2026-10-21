@@ -15,7 +15,8 @@
     "gallery": "node --env-file-if-exists=.env --experimental-strip-types render/gallery.ts",
     "auth:youtube": "node --env-file-if-exists=.env --experimental-strip-types publish/auth-youtube.ts",
     "auth:tiktok": "node --env-file-if-exists=.env --experimental-strip-types publish/auth-tiktok.ts",
-    "test": "node --experimental-strip-types --test publish/*.test.ts"
+    "test": "node --experimental-strip-types --test publish/*.test.ts",
+    "upload": "node --env-file-if-exists=.env --experimental-strip-types publish/upload.ts"
   },
   "dependencies": {
     "@atproto/api": "^0.14.0",

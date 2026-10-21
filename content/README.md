@@ -31,8 +31,9 @@ npm run dry-run                      # dry-run publisher: prints the plan
    item's window and commits the ledger back, touching only `content/`.
 3. **Threads and Instagram** need a Meta app and a bucket (R2 or S3) that
    serves `out/` by URL. Renders are not committed here (`content/out/` is
-   git-ignored), so the bucket is the host: upload `out/<slug>/` for a piece
-   before approving it. Until `MEDIA_BASE_URL` is set the publisher skips
+   git-ignored), so the bucket is the host: `https://media.wenna.app`
+   (`docs/runbooks/content-media.md`). Run `npm run upload queue/<file>.md`
+   for a piece before approving it. Until `MEDIA_BASE_URL` is set the publisher skips
    those two platforms and says so.
 4. **Daily Routine** (Claude Code → Routines): clone the Circles repo, work
    in `content/`, run `/daily`. It opens one PR a day on a `claude/` branch.
