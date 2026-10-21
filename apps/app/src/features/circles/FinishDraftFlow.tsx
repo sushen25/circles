@@ -90,6 +90,10 @@ export function FinishDraftFlow() {
         router.replace('/circles/new/save');
         return;
       }
+      // Through the gate the draft already says the organiser may proceed; from
+      // the plan card of someone already signed in it does not, and that person
+      // is not asked how they heard (spec 5.1).
+      const throughTheGate = draft.proceed;
       if (!draft.proceed) await saveDraft({ proceed: true });
 
       const profile = await ownProfile();
@@ -109,6 +113,8 @@ export function FinishDraftFlow() {
         sourceRef: tag,
       });
       const tagged = tag !== undefined;
+      const goOn = (to: NonNullable<typeof onward>['to']) =>
+        throughTheGate ? setOnward({ to, tagged }) : router.replace(to);
       await clearArrivalTag();
       keepInviteSecret(made.circle.id, made.invite_secret);
       if (!draft.circleCounted) {
@@ -118,10 +124,7 @@ export function FinishDraftFlow() {
 
       if (draft.way === 'invite') {
         await clearDraft();
-        setOnward({
-          to: { pathname: '/circles/[id]/invite', params: { id: made.circle.id } },
-          tagged,
-        });
+        goOn({ pathname: '/circles/[id]/invite', params: { id: made.circle.id } });
         return;
       }
 
@@ -154,12 +157,9 @@ export function FinishDraftFlow() {
       });
       void queryClient.invalidateQueries({ queryKey: ['circle-home', circleId] });
       await clearDraft();
-      setOnward({
-        to: {
-          pathname: '/circles/[id]/plan/[planId]/shared',
-          params: { id: circleId, planId: plan.plan_id },
-        },
-        tagged,
+      goOn({
+        pathname: '/circles/[id]/plan/[planId]/shared',
+        params: { id: circleId, planId: plan.plan_id },
       });
     };
 

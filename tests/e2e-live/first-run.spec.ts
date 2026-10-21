@@ -571,5 +571,7 @@ test('on a desktop window the "Setting up" wait sits in the same centred column 
   );
   expect(sideways).toBeLessThanOrEqual(0);
 
-  await expect(page.getByText('Ask Sunday Crew.')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('How did you hear about Wenna?')).toBeVisible({ timeout: 20_000 });
+  await answerSource(page, 'Skip');
+  await expect(page.getByText('Ask Sunday Crew.')).toBeVisible();
 });
