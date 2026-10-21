@@ -465,6 +465,9 @@ test('walking away at the last question leaves the source unanswered, with the c
         where e.event_name = 'organiser_source' and u.email = '${email}'`,
     ),
   ).toEqual([['0']]);
+  // And no draft is left behind to make a second circle from.
+  await page.goto('/circles/new');
+  await expect(page.getByLabel('Circle name')).toHaveValue('');
 });
 
 test('abandoning at the gate creates nothing, and a reload keeps the draft', async ({ page }) => {

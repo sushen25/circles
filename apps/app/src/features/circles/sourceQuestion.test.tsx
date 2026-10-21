@@ -111,9 +111,8 @@ describe('"How did you hear about {brand}?" as the last step of the first run', 
     expect(createCircle).toHaveBeenCalledTimes(1);
     expect(createPlan).toHaveBeenCalledTimes(1);
     expect(replace).not.toHaveBeenCalled();
-    // The draft is kept until the question is out of the way, so a reload here
-    // runs the finish again (it makes nothing twice) and lands in the circle.
-    expect(await readDraft()).not.toBeNull();
+    // Made, so the draft is gone: leaving here leaves nothing to make a second circle from.
+    expect(await readDraft()).toBeNull();
     expect(asked()).toEqual([{ moment: 'organiser_source', planId: undefined }]);
     for (const name of ["A friend's group", 'Reddit', 'A meetup or club', 'Somewhere else']) {
       expect(screen.getByRole('checkbox', { name })).toBeVisible();
@@ -134,7 +133,6 @@ describe('"How did you hear about {brand}?" as the last step of the first run', 
       planId: undefined,
     });
     expect(recordAnswer.mock.calls[0]?.[1]).toBe('tapped');
-    expect(await readDraft()).toBeNull();
   });
 
   it('records a skip as skipped and lands in the circle', async () => {
@@ -202,7 +200,8 @@ describe('"How did you hear about {brand}?" as the last step of the first run', 
     cleanup();
     expect(sourceEvents()).toEqual([]);
     expect(recordAnswer).not.toHaveBeenCalled();
-    expect(track).not.toHaveBeenCalledWith('error', expect.anything());
+    expect(await readDraft()).toBeNull();
+    expect(track.mock.calls.filter(([name]) => name === 'plan_created')).toHaveLength(1);
   });
 
   describe('arriving on a tagged link (SUS-240)', () => {

@@ -1,9 +1,8 @@
 import { type OrganiserSource } from '@circles/contracts';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { track } from '../../analytics/track';
 import { useSession } from '../../data/auth';
-import { readArrivalTag } from '../../data/draft';
 import { WelcomeScreen } from './WelcomeScreen';
 import { useNudge } from '../growth/useNudge';
 import { OrganiserSourceScreen } from './OrganiserSourceScreen';
@@ -27,28 +26,17 @@ import { OrganiserSourceScreen } from './OrganiserSourceScreen';
  * An organiser who arrived on a tagged link (`?from=`, SUS-240) is not asked:
  * the post is the answer, recorded as `content`, and skipping the question
  * counts as asking it. The tag itself went to the circle's cohort row when the
- * circle was made, and is not in this event; the first run keeps it on the
- * device until this step is done so it can be recognised here.
+ * circle was made, and is not in this event; the first run tells this step the
+ * arrival was tagged (`tagged`), and nothing else about it.
  */
 /** How long the question may take to be asked before the person is sent on without it. */
 const WAIT_MS = 4000;
 
-export function OrganiserSourceStep({ onDone }: { onDone: () => void }) {
+export function OrganiserSourceStep({ tagged, onDone }: { tagged: boolean; onDone: () => void }) {
   const session = useSession();
   const nudge = useNudge('organiser_source');
   const left = useRef(false);
   const answered = useRef(false);
-  // `null` while the device is being asked whether a tagged link brought them.
-  const [tag, setTag] = useState<string | undefined | null>(null);
-  useEffect(() => {
-    let current = true;
-    void readArrivalTag().then((kept) => {
-      if (current) setTag(kept);
-    });
-    return () => {
-      current = false;
-    };
-  }, []);
   const leave = () => {
     if (left.current) return;
     left.current = true;
@@ -61,7 +49,7 @@ export function OrganiserSourceStep({ onDone }: { onDone: () => void }) {
   // Also the session not yet being the new organiser's: on a device that
   // publishes the signed-in session late, the person is still `none` for a moment
   // and a skip said then is not the answer for them.
-  const pending = nudge.showing === 'pending' || session.userId === undefined || tag === null;
+  const pending = nudge.showing === 'pending' || session.userId === undefined;
   useEffect(() => {
     if (!pending) return;
     const timer = setTimeout(leave, WAIT_MS);
@@ -79,7 +67,7 @@ export function OrganiserSourceStep({ onDone }: { onDone: () => void }) {
   // Arrived on a tagged link: the post is the answer, and nobody is asked.
   useEffect(() => {
     if (answered.current || left.current) return;
-    if (nudge.showing !== 'show' || typeof tag !== 'string') return;
+    if (nudge.showing !== 'show' || !tagged) return;
     if (session.isLoading || session.userId === undefined) return;
     answered.current = true;
     track('organiser_source', { source: 'content' });
@@ -87,9 +75,9 @@ export function OrganiserSourceStep({ onDone }: { onDone: () => void }) {
     leave();
     // `leave` only reads a ref and the parent's callback.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nudge.showing, tag, session.isLoading, session.userId]);
+  }, [nudge.showing, tagged, session.isLoading, session.userId]);
 
-  if (nudge.showing !== 'show' || tag === null || typeof tag === 'string') {
+  if (nudge.showing !== 'show' || tagged) {
     return <WelcomeScreen state="loading" />;
   }
 

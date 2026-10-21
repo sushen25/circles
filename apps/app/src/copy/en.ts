@@ -2711,8 +2711,8 @@ export const en = {
     youre_offline: "You're offline. Connect, then try again.",
   },
   /**
-   * "How did you hear about {brand}?", asked once, right after the organiser's
-   * code is accepted (SUS-171). Four answers and a way past; no typing.
+   * "How did you hear about {brand}?", asked once, as the last step of the
+   * first run once the circle exists (SUS-171). Four answers and a way past; no typing.
    */
   organiserSource: {
     heading: 'How did you hear about {brand}?',

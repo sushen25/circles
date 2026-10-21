@@ -83,7 +83,7 @@ hours; it names no circle, plan or person.
   section for each of the two readings.
 - `content` joins the five sources; an organiser who arrived on a tagged link and
   is later asked nothing is counted under it for every circle they own.
-- A first tag outlives nothing: after the first run's last step, or 24 hours, it is
+- A first tag outlives nothing: after the circle is made, or 24 hours, it is
   gone from the device, and a second organiser on the same browser starts clean.
 - The tag is a free-form slug the founder chooses. The runbook lists the content
   loop's, and `cmp-*` for the standing campaign ones.
@@ -98,8 +98,8 @@ straight after the code now comes **last in the first run**, after the account,
 the circle and the plan exist, and just before the person lands in the circle
 (`FinishDraftFlow`). Everything else stands: optional, one tap and Skip (ADR
 0061), asked once per account, never gating anything, and skipped for a tagged
-arrival, which records `organiser_source(content)` there. The tag is therefore
-kept on the device until that step is done, not cleared when the circle is made.
+arrival, which records `organiser_source(content)` there. The tag is cleared when the circle is made, as before, and the first run tells
+that step only that the arrival was tagged.
 Attribution is unchanged: a circle is counted under its owner's latest answer,
 read when the founder looks (`analytics.circle_source`), so a circle made before
 the answer moves from "not answered" to the answer when it arrives. An organiser

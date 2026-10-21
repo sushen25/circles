@@ -61,7 +61,7 @@ export type EventRow = z.infer<typeof EventRow>;
 /**
  * The funnel's counts for one answer to "How did you hear about {brand}?"
  * (SUS-171): the row counters and every event's total, attributed through the
- * circle's owner. `unknown` is an owner who was never asked.
+ * circle's owner. `unknown` is an owner who has not answered (never asked, or left before the last step).
  */
 export const SourceNumbers = z.object({
   counters: z.record(z.string(), Count),
