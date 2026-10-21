@@ -53,6 +53,24 @@ const NEEDS_ENV: Partial<Record<Platform, string[]>> = {
 };
 const missingEnv = (p: Platform) => (NEEDS_ENV[p] ?? []).filter((k) => !process.env[k]);
 
+/** The dry-run's account of what a platform would get. */
+function describe(item: QueueItem, platform: Platform, media: Media, tiktokPhotos: boolean): string {
+  switch (platform) {
+    case 'instagram':
+      return media.videoUrl ? `reel ${media.videoUrl}` : `${media.publicUrls.length} images`;
+    case 'threads':
+      return media.videoUrl ? `video ${media.videoUrl}` : `${media.publicUrls.length} images`;
+    case 'bluesky':
+      return media.videoPath ? `video ${media.videoPath}` : `${Math.min(media.localPaths.length, 4)} images`;
+    case 'youtube':
+      return `short ${media.videoPath} (${youtubePrivacy()}), title "${item.captions.youtube!.title}"`;
+    case 'tiktok':
+      return tiktokPhotos ? `photo draft, ${media.photoUrls!.length} JPEGs by URL` : `video draft ${media.videoPath} (caption pasted by hand)`;
+    default:
+      return `${media.localPaths.length} images`;
+  }
+}
+
 async function urlsReachable(urls: string[]): Promise<string | null> {
   for (const u of urls) {
     try {
@@ -125,16 +143,7 @@ async function run() {
       }
 
       if (DRY) {
-        const what =
-          platform === 'instagram' && media.videoUrl
-            ? `reel ${media.videoUrl}`
-            : platform === 'youtube'
-              ? `short ${media.videoPath} (${youtubePrivacy()}), title "${item.captions.youtube!.title}"`
-              : platform === 'tiktok'
-                ? tiktokPhotos
-                  ? `photo draft, ${media.photoUrls!.length} JPEGs by URL`
-                  : `video draft ${media.videoPath} (caption pasted by hand)`
-                : `${media.localPaths.length} images`;
+        const what = describe(item, platform, media, tiktokPhotos);
         const verb = DRAFT_ONLY.has(platform) ? 'would draft' : 'would';
         const unset = missingEnv(platform);
         console.log(
@@ -153,7 +162,7 @@ async function run() {
 
       if (needsUrls || tiktokPhotos) {
         const bad = await urlsReachable(
-          tiktokPhotos ? media.photoUrls! : platform === 'instagram' && media.videoUrl ? [media.videoUrl] : media.publicUrls,
+          tiktokPhotos ? media.photoUrls! : (platform === 'instagram' || platform === 'threads') && media.videoUrl ? [media.videoUrl] : media.publicUrls,
         );
         if (bad) {
           console.log(`skip  ${tag} → ${platform}: media not reachable: ${bad}`);

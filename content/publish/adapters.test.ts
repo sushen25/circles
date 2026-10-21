@@ -7,7 +7,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
-import { clock, tiktok, tiktokChunks, youtube, youtubePrivacy } from './adapters.ts';
+import { bskyVideoBlob, clock, threads, tiktok, tiktokChunks, youtube, youtubePrivacy } from './adapters.ts';
 import { challengeHex, listen } from './loopback.ts';
 
 type Call = { url: string; method: string; headers: Record<string, string>; body: unknown };
@@ -40,6 +40,8 @@ beforeEach(() => {
     TIKTOK_CLIENT_KEY: 'tt-key',
     TIKTOK_CLIENT_SECRET: 'tt-secret',
     TIKTOK_REFRESH_TOKEN: 'tt-refresh',
+    THREADS_ACCESS_TOKEN: 'th-token',
+    THREADS_USER_ID: 'th-user',
   });
   delete process.env.YOUTUBE_PRIVACY;
 });
@@ -162,6 +164,70 @@ test('tiktok: chunk plan follows the media transfer rules', () => {
   assert.deepEqual(tiktokChunks(3 * MB), { chunkSize: 3 * MB, count: 1 });
   assert.deepEqual(tiktokChunks(64 * MB), { chunkSize: 64 * MB, count: 1 });
   assert.deepEqual(tiktokChunks(100 * MB + 5), { chunkSize: 10 * MB, count: 10 });
+});
+
+test('threads: a video is a VIDEO container by URL, polled to FINISHED, then published', async () => {
+  replies.push(ok({ id: 'c1' }), ok({ status: 'IN_PROGRESS' }), ok({ status: 'FINISHED' }), ok({ id: 'post1' }));
+  const videoUrl = 'https://media.example/x/x.mp4';
+  const id = await threads({ text: 'a real question', hashtags: [] }, { localPaths: ['01.png'], publicUrls: ['https://media.example/x/01.png'], videoUrl });
+  assert.equal(id, 'post1');
+  assert.equal(calls[0].url, 'https://graph.threads.net/v1.0/th-user/threads');
+  assert.deepEqual(calls[0].body, { media_type: 'VIDEO', video_url: videoUrl, text: 'a real question', access_token: 'th-token' });
+  assert.equal(calls[1].url, 'https://graph.threads.net/v1.0/c1?fields=status,error_message&access_token=th-token');
+  assert.equal(calls[3].url, 'https://graph.threads.net/v1.0/th-user/threads_publish');
+  assert.deepEqual(calls[3].body, { creation_id: 'c1', access_token: 'th-token' });
+});
+
+test('threads: a video container in ERROR throws and never publishes', async () => {
+  replies.push(ok({ id: 'c2' }), ok({ status: 'ERROR', error_message: 'bad codec' }));
+  await assert.rejects(
+    threads({ text: 'x', hashtags: [] }, { localPaths: [], publicUrls: [], videoUrl: 'https://media.example/x.mp4' }),
+    /ERROR: bad codec/,
+  );
+  assert.equal(calls.length, 2);
+});
+
+const blobJson = { $type: 'blob', ref: { $link: 'bafkrei' }, mimeType: 'video/mp4', size: 1234 };
+const bskySession = (seen: string[][]) => ({
+  did: 'did:plc:wenna',
+  pdsHost: 'puffball.us-east.host.bsky.network',
+  serviceToken: async (aud: string, lxm: string) => (seen.push([aud, lxm]), 'svc-token'),
+});
+
+test('bluesky: a video goes to the video service with a PDS service token, and the processed blob comes back', async () => {
+  const seen: string[][] = [];
+  replies.push(
+    ok({ jobStatus: { jobId: 'j1', did: 'did:plc:wenna', state: 'JOB_STATE_CREATED' } }),
+    ok({ jobStatus: { jobId: 'j1', did: 'did:plc:wenna', state: 'JOB_STATE_ENCODING', progress: 50 } }),
+    ok({ jobStatus: { jobId: 'j1', did: 'did:plc:wenna', state: 'JOB_STATE_COMPLETED', blob: blobJson } }),
+  );
+  const blob = await bskyVideoBlob(bskySession(seen), mp4(1234));
+  assert.deepEqual(blob, blobJson);
+  assert.deepEqual(seen, [['did:web:puffball.us-east.host.bsky.network', 'com.atproto.repo.uploadBlob']]);
+  assert.match(calls[0].url, /^https:\/\/video\.bsky\.app\/xrpc\/app\.bsky\.video\.uploadVideo\?did=did%3Aplc%3Awenna&name=x\.mp4$/);
+  assert.equal(calls[0].headers.Authorization, 'Bearer svc-token');
+  assert.equal(calls[0].headers['Content-Type'], 'video/mp4');
+  assert.equal(calls[0].body, 1234);
+  assert.equal(calls[1].url, 'https://video.bsky.app/xrpc/app.bsky.video.getJobStatus?jobId=j1');
+});
+
+test('bluesky: an already-processed video returns its blob from the error body', async () => {
+  replies.push(() => new Response(JSON.stringify({ error: 'already_exists', jobId: 'j2', state: 'JOB_STATE_COMPLETED', blob: blobJson }), { status: 409 }));
+  assert.deepEqual(await bskyVideoBlob(bskySession([]), mp4()), blobJson);
+  assert.equal(calls.length, 1);
+});
+
+test('bluesky: a refused upload (say, an unverified email) throws with the reason', async () => {
+  replies.push(() => new Response(JSON.stringify({ error: 'Unauthorized', message: 'email not verified' }), { status: 401 }));
+  await assert.rejects(bskyVideoBlob(bskySession([]), mp4()), /401 Unauthorized email not verified/);
+});
+
+test('bluesky: a failed processing job throws', async () => {
+  replies.push(
+    ok({ jobStatus: { jobId: 'j3', state: 'JOB_STATE_CREATED' } }),
+    ok({ jobStatus: { jobId: 'j3', state: 'JOB_STATE_FAILED', error: 'unsupported codec' } }),
+  );
+  await assert.rejects(bskyVideoBlob(bskySession([]), mp4()), /unsupported codec/);
 });
 
 test('loopback: hands over the code only when state matches', async () => {

@@ -64,10 +64,13 @@ page. Keep the list in `context/facts.md` so nobody invents a second scheme.
 `npm run video` turns the same skit JSON into an animated 9:16 MP4 with
 sound: kinetic hook, messages springing in behind typing bubbles, full-screen
 time skips, a beat line, the grid ticking in, end card. Sound cues are
-synthesised by FFmpeg, so there is nothing to license. The publisher posts
-it as the Reel and the Short, and sends it as the TikTok draft when the
-JPEG stills are not at `MEDIA_BASE_URL` (the stills are the slideshow
-version of the same piece; one or the other per platform, not both). Drop a royalty-free track at
+synthesised by FFmpeg, so there is nothing to license. Wherever a piece
+has its MP4, the publisher posts the video, not the stills: the Reel, the
+Short, the Threads and Bluesky posts, and the TikTok draft when the JPEG
+stills are not at `MEDIA_BASE_URL` (the stills are the slideshow version of
+the same piece; one or the other per platform, not both). LinkedIn stays
+text-first with one still. Threads and Instagram fetch the MP4 from
+`MEDIA_BASE_URL`; Bluesky uploads it. Drop a royalty-free track at
 `render/audio/bed.mp3` and it is mixed in quietly with a fade. Timings live
 at the top of `render/video.ts`.
 
