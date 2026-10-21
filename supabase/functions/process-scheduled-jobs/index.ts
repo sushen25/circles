@@ -121,6 +121,8 @@ Deno.serve(
           counts['reminders_queued'] = timed.remindersQueued;
           counts['cadence_prompted'] = timed.cadencePrompted;
           counts['nudges_queued'] = timed.nudgesQueued;
+          counts['first_plan_quiet_queued'] = timed.firstPlanQuietQueued;
+          counts['first_plan_quiet_queued'] = timed.firstPlanQuietQueued;
           counts['quiet_expired'] = timed.quietExpired;
           counts['quiet_opened'] = timed.quietOpened;
         }

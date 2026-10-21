@@ -44,6 +44,8 @@ describe('the kind table', () => {
       'verify_email',
       'quiet_expired',
       'asked_again',
+      // The founder's one-off "want a hand?" (ADR 0085).
+      'first_plan_quiet',
     ]);
   });
 
@@ -136,11 +138,16 @@ describe('the kind table', () => {
     }
   });
 
-  it('lets the organiser-email switch stop exactly the three letters about a plan they run', () => {
+  it('lets the organiser-email switch stop exactly the letters about a plan they run', () => {
     // ADR 0029, and ADR 0069 for `replies_closed`, which a stop link under the
     // letter has to stop. `about_time` has its own switch, per circle.
     const stopped = NOTIFICATION_KINDS.filter((s) => s.organiserEmailSwitch).map((s) => s.kind);
-    expect(stopped).toEqual(['options_ready', 'replies_closed', 'did_it_happen']);
+    expect(stopped).toEqual([
+      'options_ready',
+      'replies_closed',
+      'did_it_happen',
+      'first_plan_quiet',
+    ]);
     // A switch over a kind a subscription governs would be a second stop link
     // for consent that already has one, and one over a push-only kind would be
     // a switch that stops nothing.
@@ -158,6 +165,8 @@ describe('the kind table', () => {
       ['did_it_happen', false, false],
       ['replies_closed', true, true],
       ['replies_closed', false, false],
+      ['first_plan_quiet', true, true],
+      ['first_plan_quiet', false, false],
       ['threshold_initiator', true, false],
       ['quiet_expired', true, false],
       ['about_time', true, false],

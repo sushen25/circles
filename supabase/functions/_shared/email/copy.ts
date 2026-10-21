@@ -50,7 +50,8 @@ export type EmailCopy = {
   /** A date shown large, in the display face. Only the locked-in email has one. */
   readonly headline?: string | undefined;
   readonly paragraphs: Paragraphs;
-  readonly button: Button;
+  /** Absent for a letter whose answer is a reply (`first_plan_quiet`). */
+  readonly button?: Button | undefined;
 };
 
 const quoted = (note: string, by: string | undefined) =>
@@ -259,6 +260,24 @@ export const EN_EMAIL = {
   }),
 
   /**
+   * The founder's one "want a hand?" letter (SUS-240, ADR 0085), to the
+   * organiser of a circle's first plan 48 hours in and still unanswered. Plain
+   * and short, in the first person: a person writing to a person, so there is
+   * no button — the answer is a reply, and replies reach the support address.
+   * Names the circle and nothing else: no plan code, no name, no count, and
+   * nothing about activity.
+   */
+  firstPlanQuiet: ({ circleName }: { circleName: string }): EmailCopy => ({
+    subject: `Nothing's come in on your ${circleName} plan yet`,
+    preview: "If something's in the way, reply and I'll help.",
+    paragraphs: [
+      `Nothing's come in on your ${circleName} plan yet. ` +
+        "If something's in the way, reply to this and I'll help you sort it.",
+      `${brand.founderName}`,
+    ],
+  }),
+
+  /**
    * "about a month" — how long since a circle last met, in the push's words.
    * A weekly circle is asked five days on, which is no whole weeks at all:
    * "a couple of weeks" would be wrong by more than a week (review round 1).
@@ -279,6 +298,9 @@ export const EN_EMAIL = {
     reentryLabel: 'Get back in',
     organiser: (circleName: string) =>
       `You're getting this because you're organising a catch-up for ${circleName}.`,
+    /** The founder's one-off letter (ADR 0085): why it came, and that it comes once. */
+    firstPlan: (circleName: string) =>
+      `You're getting this once, because you started a plan for ${circleName}.`,
     /**
      * The no-sign-in stop under an account-holder letter, above the settings
      * line (ADR 0067 for the nudge, ADR 0069 for the others). Each says what it

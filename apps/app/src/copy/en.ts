@@ -3121,6 +3121,14 @@ export const en = {
     link_copied: 'Copied. Paste it in the group chat.',
     link_couldnt_copy: "Couldn't copy the message. Try again.",
     edit_the_plan: 'Edit the plan',
+    /** The one optional question after 48 hours with nobody else in (SUS-240). */
+    nothing_yet_question: "Nothing in yet. What's happened?",
+    stalled_not_posted: "I haven't posted the link yet",
+    stalled_posted_no_replies: "I posted it, no one's replied",
+    stalled_wrong_group: "This isn't the right group for it",
+    stalled_hint:
+      "Optional. It tells us where a first plan gets stuck. It doesn't change the plan.",
+    stalled_skip: 'Skip',
     set_title: 'Set the time yourself',
     set_body: "Pick any day and time. You'll see who it works for before you lock it in.",
     loading: 'Getting the plan',

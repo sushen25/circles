@@ -17,6 +17,7 @@ import { NoQuorumScreen } from './NoQuorumScreen';
 import { reviewLabel, waitingWords, widerWarning } from './lines';
 import { blockedBy, unlocksOf } from './unlock';
 import { useShareReminder } from './shareReminder';
+import { useStalledQuestion } from './useStalledQuestion';
 import { useCandidates } from './useCandidates';
 import { useDeadlinePassed } from './useDeadlinePassed';
 import { useResolution } from './useResolution';
@@ -63,6 +64,9 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
   // (S2-05). The replies-closed screen has its own; this is the same hook.
   const closed = useDeadlinePassed({ planId, circleId: id });
   const [clock] = usePlanClock(clockNow, true);
+  // One optional question, on the organiser's waiting screen, once a first plan
+  // has had nothing from anyone for 48 hours (SUS-240).
+  const stalled = useStalledQuestion(data, id, instant(clock));
   const [chosen, setChosen] = useState<string>();
 
   // Once per plan, when there is something to have seen (spec §11's catalogue).
@@ -178,6 +182,8 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
         onChangeMyTimes={data.repliesOpen ? toChangeMine : undefined}
         repliesClosed={!data.repliesOpen}
         onSetTime={() => toSetTime()}
+        onStalledAnswer={stalled?.onChoose}
+        onStalledSkip={stalled?.onSkip}
         onBack={back}
       />
     );

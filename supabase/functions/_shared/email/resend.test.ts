@@ -1,3 +1,4 @@
+import { brand } from '@circles/config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EmailSendError, sendEmail } from './resend.ts';
@@ -162,6 +163,33 @@ describe('sendEmail', () => {
     expect(failure.retryable).toBe(retryable);
     // The provider's body quoted the address. None of it came through.
     expect(JSON.stringify({ ...failure, message: failure.message })).not.toContain(ADDRESS);
+  });
+
+  it('puts a person’s name on the From line over the product’s address, and replies to support (ADR 0085)', async () => {
+    process.env['RESEND_API_KEY'] = fakeKey();
+    const resend = provider(() => json(200, { id: 'msg_1' }));
+    await sendEmail({ ...MESSAGE, fromName: brand.founderName }, CONTEXT, resend.http);
+    const sent = JSON.parse(String(resend.calls[0]?.init.body)) as Record<string, unknown>;
+    expect(sent['from']).toBe(`${brand.founderName} <${/<([^>]+)>/.exec(brand.sender)?.[1]}>`);
+    expect(sent['reply_to']).toBe(brand.supportEmail);
+
+    delete process.env['RESEND_API_KEY'];
+    process.env['EMAIL_CAPTURE_URL'] = 'http://127.0.0.1:54324';
+    const capture = provider(() => json(200, { ID: 'cap_1' }));
+    await sendEmail({ ...MESSAGE, fromName: brand.founderName }, CONTEXT, capture.http);
+    const caught = JSON.parse(String(capture.calls[0]?.init.body)) as {
+      From: { Name: string; Email: string };
+      ReplyTo: { Email: string }[];
+    };
+    expect(caught.From.Name).toBe(brand.founderName);
+    expect(caught.From.Email).toBe(/<([^>]+)>/.exec(brand.sender)?.[1]);
+    expect(caught.ReplyTo).toEqual([{ Email: brand.supportEmail }]);
+
+    // Every other letter still comes from the product.
+    const plain = provider(() => json(200, { ID: 'cap_2' }));
+    await sendEmail(MESSAGE, CONTEXT, plain.http);
+    const unnamed = JSON.parse(String(plain.calls[0]?.init.body)) as { From: { Name: string } };
+    expect(unnamed.From.Name).toBe(brand.name);
   });
 
   it('turns a network failure into email_unavailable without passing its message on', async () => {

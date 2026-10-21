@@ -106,6 +106,18 @@ export const ORGANISER_SOURCES = [
 ] as const;
 export type OrganiserSource = (typeof ORGANISER_SOURCES)[number];
 
+/**
+ * What an organiser says has happened, asked once on a first plan's waiting
+ * screen after 48 hours with no answer from anyone else (`first_plan_stalled`,
+ * SUS-240). Three words and nothing else: no free text. Skip records no event.
+ */
+export const FIRST_PLAN_STALLED_ANSWERS = [
+  'not_posted',
+  'posted_no_replies',
+  'wrong_group',
+] as const;
+export type FirstPlanStalledAnswer = (typeof FIRST_PLAN_STALLED_ANSWERS)[number];
+
 export const catalogue = {
   // --- identity -----------------------------------------------------------
   account_started: event(1),
@@ -277,6 +289,11 @@ export const catalogue = {
    * the place and the note are exactly what an event may not carry.
    */
   confirmation_edited: event(1),
+  // "Nothing in yet. What's happened?" (SUS-240, spec §11.3): the organiser's
+  // one tap on a first plan nobody has answered in 48 hours. The enum and
+  // nothing else; the plan and circle are the event's own columns, as for
+  // `organiser_chased`.
+  first_plan_stalled: event(1, { answer: z.enum(FIRST_PLAN_STALLED_ANSWERS) }),
   /**
    * "Did you have to chase anyone outside the app?" (spec §5.10) — the three
    * answers the review screen offers and `meetup_confirmations.chased_answer`

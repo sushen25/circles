@@ -88,7 +88,12 @@ export type LayoutProps = {
   readonly copy: EmailCopy;
   readonly buttonUrl: string;
   readonly footer: Footer;
-  readonly variant?: 'standard' | 'confirmed' | undefined;
+  /**
+   * `plain` is a letter from a person: no lockup, no card, no button, the words
+   * on the page's own ground. `buttonUrl` still says where the links point (the
+   * legal pages are built from its origin).
+   */
+  readonly variant?: 'standard' | 'confirmed' | 'plain' | undefined;
   /**
    * The verification letter's sender block: who sent it and the contact
    * address as plain text, with no link of any kind. That letter carries
@@ -166,6 +171,7 @@ export function Layout({
   minimal = false,
 }: LayoutProps): ReactNode {
   const confirmed = variant === 'confirmed';
+  const plain = variant === 'plain';
   const muted = confirmed ? palette.invertInk2 : palette.ink2;
   const senderLine = { ...small, color: muted, margin: '16px 0 0', textAlign: 'center' } as const;
   const senderLink = { color: muted, textDecoration: 'underline' };
@@ -179,28 +185,34 @@ export function Layout({
       <Preview>{copy.preview}</Preview>
       <Body style={{ backgroundColor: confirmed ? palette.invert : palette.ground, margin: 0 }}>
         <Container style={{ maxWidth: '480px', margin: '0 auto', padding: '24px 16px' }}>
-          <img
-            src={lockupUrl(buttonUrl, confirmed)}
-            width={LOCKUP.width}
-            height={LOCKUP.height}
-            alt={EN_EMAIL.footer.sender}
-            style={{
-              display: 'block',
-              border: 0,
-              margin: '0 0 16px',
-              fontFamily: displayFont,
-              fontSize: '22px',
-              lineHeight: '28px',
-              color: confirmed ? palette.invertInk2 : palette.ink,
-            }}
-          />
+          {plain ? null : (
+            <img
+              src={lockupUrl(buttonUrl, confirmed)}
+              width={LOCKUP.width}
+              height={LOCKUP.height}
+              alt={EN_EMAIL.footer.sender}
+              style={{
+                display: 'block',
+                border: 0,
+                margin: '0 0 16px',
+                fontFamily: displayFont,
+                fontSize: '22px',
+                lineHeight: '28px',
+                color: confirmed ? palette.invertInk2 : palette.ink,
+              }}
+            />
+          )}
           <Section
-            style={{
-              backgroundColor: palette.surface,
-              border: `1px solid ${palette.line}`,
-              borderRadius: '16px',
-              padding: '24px',
-            }}
+            style={
+              plain
+                ? { padding: '8px 0' }
+                : {
+                    backgroundColor: palette.surface,
+                    border: `1px solid ${palette.line}`,
+                    borderRadius: '16px',
+                    padding: '24px',
+                  }
+            }
           >
             {copy.headline === undefined ? null : (
               <Heading
@@ -222,22 +234,24 @@ export function Layout({
                 {paragraph}
               </Text>
             ))}
-            <Button
-              href={buttonUrl}
-              style={{
-                backgroundColor: palette.accent,
-                color: palette.surface,
-                fontFamily: interfaceFont,
-                fontSize: '16px',
-                fontWeight: 600,
-                borderRadius: '12px',
-                padding: '12px 20px',
-                margin: '8px 0 4px',
-                textDecoration: 'none',
-              }}
-            >
-              {copy.button.label}
-            </Button>
+            {plain || copy.button === undefined ? null : (
+              <Button
+                href={buttonUrl}
+                style={{
+                  backgroundColor: palette.accent,
+                  color: palette.surface,
+                  fontFamily: interfaceFont,
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  borderRadius: '12px',
+                  padding: '12px 20px',
+                  margin: '8px 0 4px',
+                  textDecoration: 'none',
+                }}
+              >
+                {copy.button.label}
+              </Button>
+            )}
             <FooterBlock footer={footer} />
           </Section>
           <Text style={senderLine}>{EN_EMAIL.footer.sentBy}</Text>
