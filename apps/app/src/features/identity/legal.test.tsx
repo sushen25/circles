@@ -97,6 +97,28 @@ describe('what the privacy pages promise', () => {
     expect(text).toContain('Office of the Australian Information Commissioner');
   });
 
+  it('/privacy discloses the YouTube API use the API audit asks for, and links its terms', () => {
+    const text = textOf('privacy');
+
+    expect(text).toContain('YouTube API Services');
+    expect(text).toContain('youtube.upload permission and no other');
+    expect(text).toContain(
+      `only to upload ${brand.name}'s own videos to ${brand.name}'s own channel`,
+    );
+    expect(text).toContain("does not access, collect, store or share any YouTube user's data");
+    expect(text).toContain('never asks you to connect a YouTube or Google account');
+
+    // Each address is a link, and the sentence's full stop is not part of it.
+    render(<LegalScreen kind="privacy" />);
+    for (const url of [
+      'https://www.youtube.com/t/terms',
+      'https://policies.google.com/privacy',
+      'https://security.google.com/settings/security/permissions',
+    ]) {
+      expect(screen.getByRole('link', { name: url })).toBeVisible();
+    }
+  });
+
   it('/terms states who runs it, 18+, no ads, no selling data and the 12-month windows', () => {
     const text = textOf('terms');
 
