@@ -1,4 +1,15 @@
-import { Body, BodyText, DisplayL, Screen, Small, Title, TopBar } from '../../components';
+import { Linking } from 'react-native';
+
+import {
+  Body,
+  BodyText,
+  DisplayL,
+  InlineLink,
+  Screen,
+  Small,
+  Title,
+  TopBar,
+} from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 
@@ -61,6 +72,13 @@ const SECTIONS: Record<LegalKind, readonly Section[]> = {
       t('legal', 'privacy_retain_open'),
     ],
     [
+      t('legal', 'privacy_youtube_heading'),
+      t('legal', 'privacy_youtube_body'),
+      t('legal', 'privacy_youtube_data'),
+      t('legal', 'privacy_youtube_terms'),
+      t('legal', 'privacy_youtube_revoke'),
+    ],
+    [
       t('legal', 'privacy_rights_heading'),
       t('legal', 'privacy_rights_access'),
       t('legal', 'privacy_rights_correct'),
@@ -69,6 +87,31 @@ const SECTIONS: Record<LegalKind, readonly Section[]> = {
     ],
   ],
 };
+
+/**
+ * A paragraph with each `https://` address in it made a link, so the addresses
+ * the YouTube section has to give open from the page. The full stop or comma
+ * after an address is the sentence's, not the address's.
+ */
+const URL = /(https:\/\/\S+?)(?=[.,]?(?:\s|$))/;
+
+function Paragraph({ text }: { text: string }) {
+  const parts = text.split(URL);
+  if (parts.length === 1) return <BodyText>{text}</BodyText>;
+  return (
+    <BodyText>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <InlineLink key={part} onPress={() => void Linking.openURL(part)}>
+            {part}
+          </InlineLink>
+        ) : (
+          part
+        ),
+      )}
+    </BodyText>
+  );
+}
 
 export function LegalScreen({ kind, onBack }: { kind: LegalKind; onBack?: () => void }) {
   return (
@@ -83,7 +126,7 @@ export function LegalScreen({ kind, onBack }: { kind: LegalKind; onBack?: () => 
           <Stack key={heading}>
             <Title>{heading}</Title>
             {paragraphs.map((text) => (
-              <BodyText key={text}>{text}</BodyText>
+              <Paragraph key={text} text={text} />
             ))}
           </Stack>
         ))}

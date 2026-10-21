@@ -1859,6 +1859,15 @@ export const en = {
       'When you delete your account you are signed out everywhere and taken out of every circle at once, and 30 days later we delete your profile and the private details linked to it; the sign-in log runs on its own 90 days. A circle you own with nobody to hand it to is deleted with your account. Notes and place names you added to a circle that carries on stay with it, and so do analytics events, no longer linked to your account; what you typed is not edited.',
     privacy_retain_open:
       'Still being decided: how long we keep notes and place names on plans that have ended, analytics events including the browser id, other circles that have been archived, guests who have left, and plan history such as responses, confirmations, attendance and outcome reports. Until we decide, they are kept, and this page will change when we do.',
+    privacy_youtube_heading: 'Our videos on YouTube',
+    privacy_youtube_body:
+      "{brand} puts short videos about itself on its own YouTube channel. The tool that publishes them uses YouTube API Services (the YouTube Data API, with the youtube.upload permission and no other) only to upload {brand}'s own videos to {brand}'s own channel.",
+    privacy_youtube_data:
+      "It does not access, collect, store or share any YouTube user's data, and {brand} never asks you to connect a YouTube or Google account.",
+    privacy_youtube_terms:
+      'If you watch our videos on YouTube, you are subject to the YouTube Terms of Service at https://www.youtube.com/t/terms and the Google Privacy Policy at https://policies.google.com/privacy.',
+    privacy_youtube_revoke:
+      "{brand}'s access to YouTube can be revoked at https://security.google.com/settings/security/permissions.",
     privacy_rights_heading: 'Seeing, correcting and deleting your details, and complaints',
     privacy_rights_access:
       "To see what we hold about you, choose Download my data in Account on the web. You get a file of your own details and nobody else's, once a day. Elsewhere, or if that does not work, write to {support}.",
