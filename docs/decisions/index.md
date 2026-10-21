@@ -86,8 +86,7 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0079](./0079-the-time-of-day-is-on-the-first-screen-and-a-time-for-each-day-opens-in-place.md) | The time of day is on the first screen as pills, and a time for each day opens in place | accepted (amends 0068) |
 | [0080](./0080-the-reattach-and-verified-gates-count-product-rows-not-events.md) | The reattach and verified gates count product rows, not events | accepted |
 | [0081](./0081-the-content-loop-lives-in-the-monorepo-outside-the-gate.md) | The content loop lives in the monorepo under content/, outside the gate | accepted (amended by 0086) |
-| [0086](./0086-youtube-is-scripted-and-tiktok-is-scripted-as-far-as-a-draft.md) | YouTube is published by script, and TikTok is scripted only as far as a draft | accepted (amends 0081) |
-| [0081](./0081-the-content-loop-lives-in-the-monorepo-outside-the-gate.md) | The content loop lives in the monorepo under content/, outside the gate | accepted |
 | [0083](./0083-an-account-is-deleted-at-once-and-purged-after-thirty-days-a-member-can-leave-and-everyone-can-export.md) | An account is deleted at once and purged after thirty days, a member can leave, and everyone can export their own data | accepted |
 | [0084](./0084-a-campaign-tag-labels-a-circles-cohort-row-never-a-person.md) | A campaign tag labels a circle's cohort row, never a person | accepted |
 | [0085](./0085-a-first-plan-nobody-answers-gets-one-question-and-one-letter-from-the-founder.md) | A first plan nobody answers gets one question and one letter from the founder, a support letter capped at one per circle | accepted |
+| [0086](./0086-youtube-is-scripted-and-tiktok-is-scripted-as-far-as-a-draft.md) | YouTube is published by script, and TikTok is scripted only as far as a draft | accepted (amends 0081) |

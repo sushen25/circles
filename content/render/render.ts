@@ -6,8 +6,8 @@
  *     (TikTok photo posts take JPEG or WebP, never PNG)
  *
  *   npm run render -- --approved
- *   → every queue file with `status: approved` and `media: slideshow`, which
- *     is what the publisher will try to post. The GitHub Action runs this
+ *   → every `media: slideshow` queue file that passes the publisher's item
+ *     guard (approved, due, not stale): what the publisher will try to post. The GitHub Action runs this
  *     before `npm run publish`, because out/ is never committed (ADR 0081)
  *     and the slideshow guard refuses an item with no slides on disk.
  *
@@ -21,6 +21,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { listQueue, parseQueueFile, type QueueItem } from '../lib/queue.ts';
+import { guardItem } from '../publish/guards.ts';
 import type { Browser } from 'playwright';
 import { build, launch, openStage } from './browser.ts';
 
@@ -33,7 +34,9 @@ function usage(): never {
 function pick(args: string[]): QueueItem[] {
   if (args.includes('--approved')) {
     if (args.length > 1) usage();
-    return listQueue('queue').filter((i) => i.fm.status === 'approved' && i.fm.media === 'slideshow');
+    // The publisher's own item guard: approved, due, not stale, no [VERIFY]. A stale
+    // approved file would otherwise be rendered on every scheduled run for nothing.
+    return listQueue('queue').filter((i) => i.fm.media === 'slideshow' && guardItem(i, new Date()).ok);
   }
   if (!args.length) usage();
   return args.map((f) => parseQueueFile(f));
@@ -42,7 +45,7 @@ function pick(args: string[]): QueueItem[] {
 async function main() {
   const items = pick(process.argv.slice(2));
   if (!items.length) {
-    console.log('nothing to render: no approved slideshow in queue/');
+    console.log('nothing to render: no approved slideshow is due in queue/');
     return;
   }
   const browser = await launch();

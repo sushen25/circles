@@ -143,7 +143,7 @@ async function run() {
       }
 
       // TikTok takes JPEG stills by URL as a photo draft, or else the MP4 as a file.
-      const tiktokPhotos = platform === 'tiktok' && !!media.photoUrls?.length;
+      let tiktokPhotos = platform === 'tiktok' && !!media.photoUrls?.length;
       if (platform === 'tiktok' && !tiktokPhotos && !media.videoPath) {
         console.log(`skip  ${tag} → tiktok: no MP4, and no JPEG stills at MEDIA_BASE_URL; run npm run video`);
         allDone = false;
@@ -172,7 +172,11 @@ async function run() {
         const bad = await urlsReachable(
           tiktokPhotos ? media.photoUrls! : (platform === 'instagram' || platform === 'threads') && media.videoUrl ? [media.videoUrl] : media.publicUrls,
         );
-        if (bad) {
+        if (bad && tiktokPhotos && media.videoPath) {
+          // The stills were never uploaded (the runner renders but cannot upload): send the MP4 instead.
+          console.log(`note  ${tag} → tiktok: stills not reachable (${bad}); sending the MP4 as a video draft`);
+          tiktokPhotos = false;
+        } else if (bad) {
           console.log(`skip  ${tag} → ${platform}: media not reachable: ${bad}`);
           allDone = false;
           continue;
@@ -183,7 +187,7 @@ async function run() {
         const caption = item.captions[platform]!;
         const from = sourceRef(platform, item.fm.slug);
         const text = tagLinks(caption.text, platform, item.fm.slug);
-        const id = await adapters[platform]({ ...caption, text }, media);
+        const id = await adapters[platform]({ ...caption, text }, platform === 'tiktok' && !tiktokPhotos ? { ...media, photoUrls: undefined } : media);
         results[platform] = id;
         const kind = DRAFT_ONLY.has(platform) ? 'drafted' : 'posted';
         ledger.push({ date: now.toISOString().slice(0, 10), platform, slug: item.fm.slug, id, at: now.toISOString(), from, kind });

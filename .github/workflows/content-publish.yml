@@ -26,7 +26,8 @@ defaults:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # A video renders frame by frame (a few minutes a piece on the runner).
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:
@@ -36,11 +37,16 @@ jobs:
       - run: npm ci
       # The slideshow guard (publish/guards.ts) refuses an item whose slides are
       # not in out/<slug>/, and out/ is never committed, so the runner renders
-      # the approved items itself. Bluesky and LinkedIn upload these PNGs;
-      # Threads and Instagram fetch by URL from MEDIA_BASE_URL, which this job
-      # does not fill (content/README.md, "Going live", step 3).
+      # the due approved items itself: the stills, and the MP4 that Bluesky,
+      # YouTube and TikTok upload (ADR 0086). Threads and Instagram fetch by URL
+      # from MEDIA_BASE_URL, which this job does not fill (content/README.md,
+      # "Going live", step 3); TikTok falls back to the MP4 when the stills
+      # are not there.
       - run: npx playwright install --with-deps chromium
+      - name: install ffmpeg
+        run: command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg)
       - run: npm run render -- --approved
+      - run: npm run video -- --approved
       - run: npm run publish
         env:
           BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
