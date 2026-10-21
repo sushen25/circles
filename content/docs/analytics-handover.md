@@ -62,10 +62,9 @@ platforms, a reply in `inbox/`, a transcribed screen) waits on them.
 6. **GitGuardian** flagged a "bearer token" in
    `analytics/platforms/http.test.ts`: the fixture `ya29.abc-def_ghi/jk=` in
    the redaction test. Dismiss it as a false positive.
-7. **Open point 3b**: claim the pre-loop Bluesky post of 16 October with
-   `npm run posted -- bluesky <slug> <url>` so the first scorecard has two
-   Bluesky posts, or leave it out as pre-loop. Undecided; until somebody
-   says otherwise it stays out.
+7. **Open point 3b is decided**: the pre-loop Bluesky post of 16 October
+   stays out of the scorecard (22 October). Nobody runs `npm run posted`
+   for it.
 
 ## Phase 2: measure, score, brief
 

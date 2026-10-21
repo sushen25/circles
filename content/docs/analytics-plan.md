@@ -642,7 +642,7 @@ than a text channel; Reddit read-only. Each is one module in
 3b. **The one pre-loop hand post** (Bluesky, 16 October) carries no tag and
    no ledger row. `npm run posted` can claim it against its queue file so
    the first scorecard is not empty, or it stays out as a pre-loop post.
-   Either is fine; decided in phase 1 (dashboard question).
+   Decided 22 October: it stays out, as a pre-loop post.
 4. **`experiments.md` columns.** Replace "Link taps" with "Circles made";
    keep "Plans shared"; add "Happened" later when the north star can be read
    by tag. The metric sentence at the top changes with it.
