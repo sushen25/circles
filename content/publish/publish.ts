@@ -75,6 +75,13 @@ function describe(item: QueueItem, platform: Platform, media: Media, tiktokPhoto
   }
 }
 
+/** The line for a post the founder makes by hand: the tag to carry, the title and the tagged text, so the pull can claim it by the tag. */
+function handLine(item: QueueItem, platform: Platform, tag: string): string {
+  const c = item.captions[platform];
+  const handText = c ? tagLinks(c.text, platform, item.fm.slug) : '';
+  return `hand  ${tag} → ${platform}: post by hand (link tag ${sourceRef(platform, item.fm.slug)})${c?.title ? `\n      title: ${c.title}` : ''}${c ? `\n      "${handText}"` : ''}`;
+}
+
 async function urlsReachable(urls: string[]): Promise<string | null> {
   for (const u of urls) {
     try {
@@ -124,11 +131,7 @@ async function run() {
         continue;
       }
       if (!SCRIPTABLE.has(platform)) {
-        const c = item.captions[platform];
-        const handText = c ? tagLinks(c.text, platform, item.fm.slug) : '';
-        console.log(
-          `hand  ${tag} → ${platform}: post by hand (link tag ${sourceRef(platform, item.fm.slug)})${c?.title ? `\n      title: ${c.title}` : ''}${c ? `\n      "${handText}"` : ''}`,
-        );
+        console.log(handLine(item, platform, tag));
         continue;
       }
       const pg = guardPlatform(item, platform, ledger, now);
@@ -175,6 +178,8 @@ async function run() {
       const unset = missingEnv(platform);
       if (unset.length) {
         console.log(`skip  ${tag} → ${platform}: not configured (${unset.join(', ')} unset; see .env.example, then npm run auth:${platform})`);
+        // The hand line the human-only platforms get, so a Short uploaded by hand carries from=yt-<slug> and the pull claims it.
+        console.log(handLine(item, platform, tag));
         allDone = false;
         continue;
       }

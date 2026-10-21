@@ -1,6 +1,6 @@
 /**
  * One-time: sign in as the Wenna YouTube channel and print the refresh token
- * the publisher uses.
+ * the publisher uploads with and the nightly pull reads with.
  *
  *   npm run auth:youtube
  *
@@ -12,7 +12,18 @@
 import { randomBytes } from 'node:crypto';
 import { challengeBase64url, listen, need, verifier } from './loopback.ts';
 
-const SCOPE = 'https://www.googleapis.com/auth/youtube.upload';
+/**
+ * Upload for the publisher; readonly and yt-analytics.readonly for the pull,
+ * which is where retention and traffic sources live (docs/analytics-plan.md,
+ * "What each platform can give"). One sign-in carries all three. A token
+ * issued before the read scopes were here has youtube.upload alone and reads
+ * nothing; run this again and replace it.
+ */
+const SCOPE = [
+  'https://www.googleapis.com/auth/youtube.upload',
+  'https://www.googleapis.com/auth/youtube.readonly',
+  'https://www.googleapis.com/auth/yt-analytics.readonly',
+].join(' ');
 
 async function main() {
   const clientId = need('YOUTUBE_CLIENT_ID');

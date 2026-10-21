@@ -7,7 +7,11 @@ description: Lift verbatim phrases from Reddit threads, replies, DMs or comments
 
 Input: anything people wrote — a listening log from the Reddit
 listen/answer/ask loop, a pasted thread, comments on a post, DMs, or a file
-under `inbox/`.
+under `inbox/`. The nightly pull writes `inbox/<date>-replies.md`: one
+`## <slug> · <platform>` section per piece, one blockquote per reply, the
+handles already stripped (`@…`, `u/…`, `[link]`). Its date is the file's,
+its source label is `<platform> reply`, and once mined it moves to
+`inbox/done/`.
 
 1. Read `context/hooks.md`.
 2. For each sentence or fragment where a real person describes the problem

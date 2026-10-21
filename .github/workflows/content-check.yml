@@ -1,0 +1,40 @@
+# The content folder's own check. content/ is outside the pnpm gate (ADR
+# 0081: it is its own npm project, and check.yml treats a change under it as
+# prose), so until this file nothing ran its typecheck or its tests on a pull
+# request. It runs `npm run typecheck` and `npm test` on Node 22, the Node
+# the other content workflows run on. It makes no network call and needs no
+# secret: the tests check request shapes against fixtures and send nothing.
+# It is not a required check (branch protection asks for `check`), so the
+# path filter cannot leave a required status pending.
+name: content-check
+on:
+  pull_request:
+    paths: ['content/**', '.github/workflows/content-check.yml']
+  push:
+    branches: [main]
+    paths: ['content/**', '.github/workflows/content-check.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  # One run per branch; a newer push makes an older run irrelevant, except on
+  # main, where every commit keeps its run.
+  group: content-check-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+defaults:
+  run:
+    working-directory: content
+
+jobs:
+  typecheck-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test

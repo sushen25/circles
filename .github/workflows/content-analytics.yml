@@ -1,5 +1,19 @@
-# Nightly metrics for published content (content/analytics/pull.ts). Appends
-# to content/analytics/posts.jsonl and commits it. Writes only under content/.
+# The nightly pull for the content loop (content/analytics/pull.ts; the why is
+# content/docs/analytics-plan.md). GET only, against every platform that has
+# a token. It appends what it gets under content/analytics/: posts.jsonl (one
+# row per post per platform, the platform's answer kept whole), account.jsonl
+# (the account by day), and new replies into content/inbox/<date>-replies.md
+# with the handles already stripped, for the next /daily to mine. It may also
+# claim a hand-posted Short by its link tag, which writes the id into the
+# piece's queue file and a row into publish/ledger.jsonl, and may move the
+# piece to published/ once every platform has an id. Everything it writes is
+# under content/, so the commit runs nothing else (ADR 0081). Nothing here
+# posts.
+#
+# The pull step is allowed to fail so the commit step still runs: a Meta token
+# inside seven days of expiry, or a configured platform that failed on every
+# post, exits 1 after writing, and the last step turns that into a red job on
+# the Actions page while the rows it did get are already on main.
 name: content-analytics
 on:
   schedule:
@@ -10,6 +24,8 @@ permissions:
   contents: read
 
 concurrency:
+  # Shared with content-series.yml: both append to analytics/ and push to
+  # main, so they take turns and never run beside each other.
   group: content-analytics
   cancel-in-progress: false
 
@@ -28,13 +44,51 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: 22 }
       - run: npm ci
-      - run: npm run analytics
+      # A platform with nothing set is skipped and says so (analytics/platforms/
+      # module.ts), so every name is passed and an empty one is the same as
+      # unset. Every `vars.*` is a repository variable, not a secret: the two
+      # expiry dates (`npm run tokens -- --github` writes them), the YouTube
+      # channel id, and BSKY_HANDLE, THREADS_USER_ID and IG_USER_ID, which
+      # are account identifiers rather than credentials: each is public on
+      # every post and is written into the committed raw rows. The tokens
+      # stay secrets.
+      - id: pull
+        run: npm run analytics
+        continue-on-error: true
         env:
+          BSKY_HANDLE: ${{ vars.BSKY_HANDLE }}
+          THREADS_USER_ID: ${{ vars.THREADS_USER_ID }}
           THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          THREADS_TOKEN_EXPIRES: ${{ vars.THREADS_TOKEN_EXPIRES }}
+          IG_USER_ID: ${{ vars.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
-      - run: |
+          IG_TOKEN_EXPIRES: ${{ vars.IG_TOKEN_EXPIRES }}
+          IG_API_VERSION: ${{ vars.IG_API_VERSION }} # optional; empty means the module's default
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          YOUTUBE_CHANNEL_ID: ${{ vars.YOUTUBE_CHANNEL_ID }}
+      - name: commit rows, replies, claims and moves
+        run: |
           git config user.name "wenna-content bot"
           git config user.email "bot@wenna.app"
-          git add analytics/posts.jsonl
+          # The pull appends under analytics/ and inbox/; a claim writes the id
+          # into a queue file and a row into publish/ledger.jsonl, and the move
+          # that follows deletes from queue/ and adds to published/. `-A` with
+          # the pathspec stages the deletion as well as the addition, and a
+          # directory pathspec never fails on a file that does not exist yet.
+          # inbox/screens/ is git-ignored, so a screenshot is never staged.
+          git add -A -- analytics inbox queue published publish
           git diff --cached --quiet || git commit -m "content: analytics $(date -u +%Y-%m-%d)"
+          # content-publish.yml has its own concurrency group and may push to
+          # main while this job runs; a non-fast-forward push would lose this
+          # run's rows. Only this job's files are in the commit, so the
+          # rebase is clean.
+          git pull --rebase origin main
           git push
+      - name: fail when the pull did
+        # Red on the Actions page for an expiring token or a platform that
+        # failed on every post, after the rows are committed, never instead.
+        if: steps.pull.outcome == 'failure'
+        run: exit 1
