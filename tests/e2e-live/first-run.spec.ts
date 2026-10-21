@@ -539,6 +539,8 @@ test('a signed-in organiser goes circle, plan, share with no gate', async ({ pag
   await page.getByRole('button', { name: `Create ${name}` }).click();
   await page.getByRole('button', { name: 'Ask the group' }).click();
 
+  // No gate, but an account never asked is asked once, last (SUS-171).
+  await answerSource(page, 'Skip');
   await expect(page.getByText(`Ask ${name}.`)).toBeVisible();
   await expect(page.getByText('Save your place')).toHaveCount(0);
   expect(circleCountNamed(name)).toBe(1);

@@ -121,6 +121,14 @@ describe('"How did you hear about {brand}?" as the last step of the first run', 
     expect(screen.queryByRole('textbox')).toBeNull();
   });
 
+  it('is asked of an already signed-in account that has never been asked, once, when it makes a circle with no gate', async () => {
+    await saveDraft({ circleName: 'Again Crew', cadence: 'weekly', way: 'ask' });
+    wrap(<FinishDraftFlow />);
+    expect(await screen.findByText(QUESTION)).toBeVisible();
+    await tap(screen.findByRole('button', { name: 'Skip' }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(SHARED));
+  });
+
   it('records one tap on an answer and lands in the circle', async () => {
     await firstRun();
     fireEvent.click(await screen.findByRole('checkbox', { name: 'Reddit' }));
