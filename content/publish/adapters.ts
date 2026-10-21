@@ -13,7 +13,8 @@
  * resumable upload; TikTok takes it (or JPEG stills by URL) as a draft in
  * the founder's inbox, never as a post (ADR 0086).
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { setEnvLine } from './envfile.ts';
 import type { Caption } from '../lib/queue.ts';
 
 export type Media = {
@@ -408,18 +409,8 @@ async function tiktokAccessToken(): Promise<string> {
   const tok = await tiktokToken({ grant_type: 'refresh_token', refresh_token: current });
   if (tok.refresh_token && tok.refresh_token !== current) {
     process.env.TIKTOK_REFRESH_TOKEN = tok.refresh_token;
-    let saved = false;
-    try {
-      const envFile = readFileSync('.env', 'utf8');
-      if (/^TIKTOK_REFRESH_TOKEN=.*$/m.test(envFile)) {
-        writeFileSync('.env', envFile.replace(/^TIKTOK_REFRESH_TOKEN=.*$/m, `TIKTOK_REFRESH_TOKEN=${tok.refresh_token}`));
-        saved = true;
-      }
-    } catch {
-      /* no local .env: CI */
-    }
     console.warn(
-      saved
+      setEnvLine('TIKTOK_REFRESH_TOKEN', tok.refresh_token)
         ? 'TikTok rotated the refresh token; .env updated'
         : 'TikTok rotated the refresh token; run npm run auth:tiktok and update the TIKTOK_REFRESH_TOKEN secret',
     );

@@ -9,6 +9,8 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
 import { bskyVideoBlob, clock, threads, tiktok, tiktokChunks, youtube, youtubePrivacy } from './adapters.ts';
 import { challengeHex, listen } from './loopback.ts';
+import { setEnvLine } from './envfile.ts';
+import { existsSync, readFileSync } from 'node:fs';
 
 type Call = { url: string; method: string; headers: Record<string, string>; body: unknown };
 let calls: Call[] = [];
@@ -245,4 +247,15 @@ test('loopback: hands over the code only when state matches', async () => {
 
 test('loopback: the TikTok challenge is hex SHA-256', () => {
   assert.equal(challengeHex('abc'), 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+});
+
+test('envfile: rewrites one line, appends a missing one, and reports no .env', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'content-env-'));
+  const p = join(dir, '.env');
+  writeFileSync(p, '# keep\nA=1\nTIKTOK_REFRESH_TOKEN=old\nB=2');
+  assert.equal(setEnvLine('TIKTOK_REFRESH_TOKEN', 'new', p), true);
+  assert.equal(setEnvLine('IG_TOKEN_EXPIRES', '2026-12-20', p), true);
+  assert.equal(readFileSync(p, 'utf8'), '# keep\nA=1\nTIKTOK_REFRESH_TOKEN=new\nB=2\nIG_TOKEN_EXPIRES=2026-12-20\n');
+  assert.equal(setEnvLine('X', 'y', join(dir, 'missing.env')), false);
+  assert.equal(existsSync(join(dir, 'missing.env')), false);
 });

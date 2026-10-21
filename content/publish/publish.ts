@@ -87,7 +87,18 @@ async function urlsReachable(urls: string[]): Promise<string | null> {
   return null;
 }
 
+/** Meta's tokens last 60 days; npm run refresh:tokens renews them and records the dates. */
+function warnExpiring() {
+  for (const [name, key] of [['Threads', 'THREADS_TOKEN_EXPIRES'], ['Instagram', 'IG_TOKEN_EXPIRES']] as const) {
+    const until = process.env[key];
+    if (!until) continue;
+    const days = Math.floor((new Date(until).getTime() - now.getTime()) / 86_400_000);
+    if (days <= 10) console.warn(`warn  ${name} token ${days < 0 ? 'expired' : `expires in ${days} days`} (${until}); run npm run refresh:tokens -- --github`);
+  }
+}
+
 async function run() {
+  warnExpiring();
   const ledger = readLedger(LEDGER);
   const items = listQueue('queue');
   if (!items.length) {

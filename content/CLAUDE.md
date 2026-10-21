@@ -90,6 +90,7 @@ npm run dry-run                                            # prints what publish
 npm test                                                   # adapter request shapes, nothing sent
 npm run auth:youtube                                       # once: prints YOUTUBE_REFRESH_TOKEN
 npm run auth:tiktok                                        # once: prints TIKTOK_REFRESH_TOKEN
+npm run refresh:tokens -- --github                         # monthly: renews the Threads and Instagram tokens
 npm run analytics                                          # pull metrics for published items
 ```
 
