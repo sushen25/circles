@@ -148,6 +148,19 @@ export function injectCss(key, css) {
 }
 
 /**
+ * Height of a stack's content, overflow included. A bottom-anchored stream (justify-content: flex-end)
+ * pushes overflow out of its top, where scrollHeight does not count it, so measure it top-anchored.
+ * @param {HTMLElement} stream
+ */
+export function contentHeight(stream) {
+  const prev = stream.style.justifyContent;
+  stream.style.justifyContent = 'flex-start';
+  const h = stream.scrollHeight;
+  stream.style.justifyContent = prev;
+  return h;
+}
+
+/**
  * A new `.scene` inserted just before `before`: for a component that plays
  * an extra full-screen card ahead of its own scene (chat's time skip).
  * @param {HTMLElement} before

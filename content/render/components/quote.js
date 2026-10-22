@@ -73,13 +73,13 @@ export default {
   .quote .q.s { font-size: 80px; }
   .quote .q .g { display: inline-block; text-indent: 0; opacity: 0; }
   .quote .q .mk { color: var(--accent-dark); }
-  .quote .src { margin-top: 56px; opacity: 0; }
+  .quote .src { margin-top: 56px; text-transform: none; letter-spacing: 0.02em; opacity: 0; }
 
   body.still .scene.quote .q { letter-spacing: -0.018em; line-height: 1.1; }
   body.still .scene.quote .q.l { font-size: 108px; }
   body.still .scene.quote .q.m { font-size: 90px; }
   body.still .scene.quote .q.s { font-size: 72px; }
-  body.still .scene.quote .src { margin-top: 48px; font-size: 28px; letter-spacing: 0.07em; }
+  body.still .scene.quote .src { margin-top: 48px; font-size: 28px; letter-spacing: 0.02em; }
   `,
   schema(p) {
     const errs = [];

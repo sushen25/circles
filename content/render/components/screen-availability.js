@@ -27,7 +27,7 @@ export default {
   .ph-cal .d { position: relative; height: 92px; border-radius: 20px; background: var(--surface); border: 2px solid var(--line); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 32px; font-weight: 500; color: var(--ink); }
   .ph-cal .d .fill { position: absolute; inset: -2px; border-radius: 20px; background: var(--accent); opacity: 0; }
   .ph-cal .d .n { position: relative; }
-  .ph-cal .d .tag { position: relative; font-size: 18px; font-weight: 600; color: #fff; margin-top: 2px; opacity: 0; }
+  .ph-cal .d .tag { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; font-size: 18px; font-weight: 600; color: #fff; opacity: 0; }
   .ph-ans { display: flex; flex-direction: column; }
   .ph-ans .row { display: flex; justify-content: space-between; font-size: 29px; padding: 16px 0; border-top: 2px solid var(--line-soft); opacity: 0; }
   .ph-ans .row span:last-child { color: var(--ink-2); font-variant-numeric: tabular-nums; }

@@ -9,7 +9,7 @@
  * accent. Optional trailing messages arrive behind typing bubbles, the same
  * mechanic as chat.
  */
-import { anim, el, esc, hide, known, pop, reserve, rise, SPRING, str, unreserve } from './_kit.js';
+import { anim, contentHeight, el, esc, hide, known, pop, reserve, rise, SPRING, str, unreserve } from './_kit.js';
 
 /**
  * @typedef {{ label: string, votes: string[] }} Option
@@ -83,7 +83,8 @@ export default {
   body.still .poll .head { top: 220px; left: 120px; right: 120px; border-bottom: 2px solid var(--line); }
   body.still .poll .title { font-size: 40px; }
   body.still .poll .when { font-size: 40px; font-variant-numeric: tabular-nums; }
-  body.still .poll .stream { height: auto; max-height: 1120px; gap: 26px; -webkit-mask-image: none; mask-image: none; transform: none !important; }
+  body.still .poll .stream { height: auto; max-height: 1040px; gap: 26px; -webkit-mask-image: none; mask-image: none; transform: none !important; }
+  body.still .poll .stream.overflows { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 120px); mask-image: linear-gradient(to bottom, transparent 0, #000 120px); }
   body.still .poll .typing { display: none !important; }
   body.still .poll .from { font-size: 26px; letter-spacing: 0.07em; margin: 0 0 8px 28px; }
   body.still .poll .msg.me .from, body.still .poll .pcard.me .from { margin-right: 28px; }
@@ -241,6 +242,8 @@ export default {
       tl.add(0.35 + 0.02 * m.text.length);
     });
 
+    // still: a poll too long for its slide fades out under its header instead of running into it
+    if (document.body.classList.contains('still') && contentHeight(stream) > stream.clientHeight) stream.classList.add('overflows');
     tl.add(1.0);
     const end = tl.now;
     anim(stream, [{ transform: 'scale(1)' }, { transform: 'scale(1.02)' }], end - 2, 2.2);

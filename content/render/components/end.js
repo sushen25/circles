@@ -95,7 +95,7 @@ export default {
   still(p) {
     return `<div class="slide end-still">
         <div class="lockup">${staticMark('#E8A07A')}<div class="wordmark">wenna</div></div>
-        <div class="descriptor">Plans with friends</div>
+        <div class="descriptor">${esc(p.descriptor || 'Plans with friends')}</div>
         <div class="display">${esc(p.line)}</div>
         <div class="url">${esc(p.url)}</div>
       </div>`;

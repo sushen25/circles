@@ -4,7 +4,7 @@
  * link card. A `when` with no digits ("Three weeks later") first plays the
  * full-screen time-skip card.
  */
-import { anim, el, esc, hide, known, pop, reserve, sceneBefore, SPRING, str, unreserve } from './_kit.js';
+import { anim, contentHeight, el, esc, hide, known, pop, reserve, sceneBefore, str, unreserve } from './_kit.js';
 import { skipCard } from './_skip.js';
 
 /**
@@ -31,7 +31,7 @@ export default {
   .msg.me .bubble { background: var(--accent); border-color: var(--accent); color: #fff; }
   .msg.me { align-self: flex-end; transform-origin: right bottom; }
   .msg.me .from { text-align: right; margin-right: 30px; }
-  .msg .bubble .u { text-decoration: underline; text-underline-offset: 8px; opacity: .9; }
+  .msg .bubble .u { text-decoration: underline; text-underline-offset: 8px; }
   .msg .card { margin-top: 14px; background: var(--surface); border: 3px solid var(--line); border-left: 14px solid var(--accent); border-radius: 28px; padding: 28px 32px; width: 820px; opacity: 0; transform-origin: center top; }
   .msg .card .ct { font-size: 40px; font-weight: 600; line-height: 1.2; color: var(--ink); }
   .msg .card .cs { font-size: 32px; color: var(--ink-2); margin-top: 8px; line-height: 1.3; }
@@ -47,14 +47,14 @@ export default {
   body.still .chat .head { top: 220px; left: 120px; right: 120px; border-bottom: 2px solid var(--line); }
   body.still .chat .title { font-size: 40px; }
   body.still .chat .when { font-size: 40px; font-variant-numeric: tabular-nums; }
-  body.still .chat .stream { height: auto; max-height: 1120px; gap: 26px; -webkit-mask-image: none; mask-image: none; transform: none !important; }
+  body.still .chat .stream { height: auto; max-height: 1040px; gap: 26px; -webkit-mask-image: none; mask-image: none; transform: none !important; }
+  body.still .chat .stream.overflows { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 120px); mask-image: linear-gradient(to bottom, transparent 0, #000 120px); }
   body.still .chat .typing { display: none !important; }
   body.still .chat .msg { max-width: 780px; max-height: none !important; margin-top: 0 !important; }
   body.still .chat .msg.same { margin-top: -14px !important; }
   body.still .chat .msg .from { font-size: 26px; letter-spacing: 0.07em; margin: 0 0 8px 28px; }
   body.still .chat .msg.me .from { margin-right: 28px; }
   body.still .chat .msg .bubble { border-width: 2px; border-radius: 36px; padding: 26px 34px; font-size: 44px; line-height: 1.3; }
-  body.still .chat .msg .bubble .u { opacity: 1; }
   body.still .chat .msg .card { margin-top: 12px; border: 2px solid var(--line); border-left: 12px solid var(--accent); border-radius: 24px; padding: 24px 28px; width: 780px; }
   body.still .chat .msg .card .ct { font-size: 34px; }
   body.still .chat .msg .card .cs { font-size: 28px; margin-top: 6px; }
@@ -144,12 +144,14 @@ export default {
         const card = el('div', 'card');
         card.append(el('div', 'ct', esc(m.link.title)), el('div', 'cs', esc(m.link.sub || '')), el('div', 'cd', esc(m.link.domain || 'wenna.app')));
         node.appendChild(card);
-        anim(card, [{ opacity: 0, transform: 'scaleY(.5)' }, { opacity: 1, transform: 'scaleY(1)' }], t + 0.5, 0.32, SPRING);
+        anim(card, [{ opacity: 0, transform: 'translateY(16px) scale(.97)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], t + 0.5, 0.3, 'cubic-bezier(0.23, 1, 0.32, 1)');
         tl.cue('tick', t + 0.5);
         hold += 0.7;
       }
       tl.add(hold);
     });
+    // still: a chat too long for its slide fades out under its header instead of running into it
+    if (document.body.classList.contains('still') && contentHeight(stream) > stream.clientHeight) stream.classList.add('overflows');
     const end = tl.now;
     anim(stream, [{ transform: 'scale(1)' }, { transform: 'scale(1.02)' }], end - 2, 2.2);
     tl.exit(root, end - 0.22);

@@ -16,7 +16,7 @@
  * child: the card is full-screen and has no place inside a pane.
  * `order`: "sequence" only (left plays fully, then right).
  */
-import { anim, el, injectCss, known, Timeline } from './_kit.js';
+import { anim, contentHeight, el, injectCss, known, Timeline } from './_kit.js';
 import chat, { skipsTime } from './chat.js';
 import dm from './dm.js';
 
@@ -34,6 +34,37 @@ const HOLD = 0.5;
 /** A clock for a child that cannot slide its own root out: split exits both panes together. */
 class PaneTimeline extends Timeline {
   exit() {}
+}
+
+/**
+ * Still mode: size both panes to their content and scale them together, so every message
+ * shows inside y 140–1500 (above TikTok's caption band). Never above 0.82, never below 0.66;
+ * at the floor the left stream keeps a top fade, because the piece is too long for one still.
+ * @param {HTMLElement} left @param {HTMLElement} right
+ */
+function fitStill(left, right) {
+  const TOP = 140, BOTTOM = 1500, GAP_PX = 24, MAX = 0.82, MIN = 0.66;
+  /** @param {HTMLElement} pane */
+  const need = (pane) => {
+    const stream = /** @type {HTMLElement} */ (pane.querySelector('.stream'));
+    return pane.offsetHeight - stream.clientHeight + contentHeight(stream);
+  };
+  const hl = need(left), hr = need(right);
+  const fit = (BOTTOM - TOP - GAP_PX) / (hl + hr);
+  const s = Math.max(MIN, Math.min(MAX, fit));
+  left.style.height = `${hl}px`;
+  right.style.height = `${hr}px`;
+  for (const pane of [left, right]) {
+    pane.style.transform = `scale(${s})`;
+    pane.querySelector('.stream')?.classList.remove('overflows');
+  }
+  left.style.top = `${TOP}px`;
+  right.style.top = `${Math.round(TOP + hl * s + GAP_PX)}px`;
+  right.style.left = `${Math.round(1040 - 1080 * s)}px`;
+  if (fit < MIN) {
+    const stream = /** @type {HTMLElement} */ (left.querySelector('.stream'));
+    stream.style.webkitMaskImage = stream.style.maskImage = 'linear-gradient(to bottom, transparent 0, #000 90px)';
+  }
 }
 
 /** @type {import('./_kit.js').Component<Props>} */
@@ -62,7 +93,8 @@ export default {
   body.still .split .pane > .sub.dm { padding: 160px 80px 50px; }
   body.still .split .pane > .sub.dm .room { top: 10px; left: 20px; right: 20px; bottom: 10px; }
   body.still .split .pane > .sub.dm .head { top: 40px; left: 80px; right: 80px; }
-  body.still .split .pane > .sub .stream { max-height: none; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 90px); mask-image: linear-gradient(to bottom, transparent 0, #000 90px); }
+  body.still .split .pane > .sub .stream { max-height: none; -webkit-mask-image: none; mask-image: none; }
+  body.still .split .pane.left { opacity: 1 !important; }
   body.still .scene.split > .chrome { display: flex; }
   `,
   schema(p) {
@@ -143,9 +175,10 @@ export default {
 
     const left = play('left');
     tl.add(GAP);
-    // the group chat steps back as the side room opens
-    anim(left, [{ opacity: 1 }, { opacity: 0.55 }], tl.now, 0.4);
-    play('right');
+    // the group chat steps back a little as the side room opens; it stays readable
+    anim(left, [{ opacity: 1 }, { opacity: 0.85 }], tl.now, 0.4);
+    const right = play('right');
+    if (document.body.classList.contains('still')) fitStill(left, right);
     tl.add(HOLD);
     const end = tl.now;
     tl.exit(root, end - 0.22);

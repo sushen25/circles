@@ -13,7 +13,7 @@ export default {
   .grid .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 16px; }
   .grid .day { position: relative; background: var(--surface); border: 3px solid var(--line); border-radius: 26px; height: 170px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; font-size: 36px; font-weight: 500; color: var(--ink-2); opacity: 0; }
   .grid .day .fill { position: absolute; inset: -3px; border-radius: 26px; background: var(--accent); opacity: 0; }
-  .grid .day .lbl { position: relative; }
+  .grid .day .dl { position: relative; }
   .grid .day .tick { position: relative; font-size: 46px; line-height: 1; color: #fff; opacity: 0; }
   .grid .note { margin-top: 64px; align-self: flex-start; display: inline-flex; align-items: center; gap: 18px; background: var(--support-soft); color: var(--support); border-radius: 999px; padding: 26px 40px; font-size: 42px; font-weight: 600; opacity: 0; }
 
@@ -24,7 +24,6 @@ export default {
   body.still .grid .day .fill { display: none; }
   body.still .grid .day:not(.picked) .tick { display: none; }
   body.still .grid .day .tick { font-size: 40px; }
-  body.still .grid .day .lbl { font-size: inherit; font-weight: inherit; letter-spacing: normal; text-transform: none; color: inherit; }
   body.still .grid .note { margin-top: 56px; padding: 22px 36px; font-size: 36px; font-weight: 500; }
   `,
   schema(p) {
@@ -53,7 +52,7 @@ export default {
     const days = el('div', 'days');
     const cells = p.days.map((d) => {
       const c = el('div', 'day' + (p.picked.includes(d) ? ' picked' : ''));
-      c.append(el('div', 'fill'), el('div', 'tick', '✓'), el('div', 'lbl', esc(d)));
+      c.append(el('div', 'fill'), el('div', 'tick', '✓'), el('div', 'dl', esc(d)));
       days.appendChild(c);
       return c;
     });
@@ -69,7 +68,7 @@ export default {
       const at = t + 0.85 + pk * 0.18;
       anim(/** @type {Element} */ (c.querySelector('.fill')), [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'scale(1)' }], at, 0.28, SPRING);
       anim(/** @type {Element} */ (c.querySelector('.tick')), [{ opacity: 0, transform: 'scale(.4)' }, { opacity: 1, transform: 'scale(1)' }], at + 0.05, 0.25, SPRING);
-      anim(/** @type {Element} */ (c.querySelector('.lbl')), [{ color: '#6C6156' }, { color: '#ffffff' }], at, 0.1);
+      anim(/** @type {Element} */ (c.querySelector('.dl')), [{ color: '#6C6156' }, { color: '#ffffff' }], at, 0.1);
       tl.cue('tick', at);
       pk++;
     });
