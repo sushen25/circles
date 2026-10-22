@@ -5276,11 +5276,7 @@ describe('content-funnel', () => {
   });
 
   const call = (bearer?: string, body: unknown = { since: '2026-10-12' }) =>
-    load('content-funnel')(
-      bearer === undefined
-        ? postWithoutSession(body)
-        : post(body, bearer),
-    );
+    load('content-funnel')(bearer === undefined ? postWithoutSession(body) : post(body, bearer));
 
   it('answers the export, as the database returned it, to the right bearer', async () => {
     const response = await call('the-funnel-secret');
