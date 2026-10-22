@@ -46,7 +46,10 @@ what keep it shut: `security definer` with `set search_path = ''`, executable by
 period clamps to 400 days from the Monday of the week, as the founder function
 does, and the answer is `{ since, by_source_ref, stalled }` in the shape of
 `SourceRefNumbers` and `StalledRow` in `packages/contracts`, with the stalled
-rows filtered to the `content` source.
+rows filtered to the `content` source and the tags to those that begin with a
+platform prefix the content loop mints (`tt ig th bs li yt rd`): a tag is what a
+visitor's link said, so one the loop did not mint is not published to a public
+repository.
 
 **It answers counts and ages, and names nothing.** Per tag: circles made, plans
 shared, answered, confirmed. Per group of stalled first plans: the week the circle began,

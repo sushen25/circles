@@ -11,6 +11,12 @@
 -- functions that call it are the way in. `p_from` is taken as given (the
 -- callers have already clamped it to the Monday of a week within 400 days).
 --
+-- **With a source, only tags the content loop minted** (`<platform>-<slug>`,
+-- `content/lib/links.ts`). A tag is whatever an arriving visitor's link said
+-- (`?from=` is not ours to trust), so the export that lands in a public
+-- repository lists only tags that carry a platform prefix, and the founder
+-- screen, which no one else reads, lists them all.
+--
 -- Counts and ages only. A tag is a slug chosen for a post and nothing names
 -- the person who followed it (ADR 0084); no circle, plan, member, code, id or
 -- address is returned.
@@ -55,12 +61,14 @@ as $$
           select f.source_ref, sum(f.n)::bigint as weight
           from analytics.funnel_counts f
           where f.day >= p_from and f.source_ref is not null
+            and (p_source is null or f.source_ref ~ '^(tt|ig|th|bs|li|yt|rd)-')
           group by f.source_ref
           union all
           select es.source_ref, 0::bigint
           from analytics.events e
           join analytics.event_source_ref es on es.event_id = e.id
           where es.source_ref is not null
+            and (p_source is null or es.source_ref ~ '^(tt|ig|th|bs|li|yt|rd)-')
             and e.event_name in ('plan_shared', 'availability_submitted', 'meetup_confirmed')
             and (e.occurred_at at time zone 'UTC')::date >= p_from
         ) t

@@ -74,7 +74,7 @@ $$;
 
 select pg_temp.make_circle('00000000-0000-0000-0000-0000000e0002', 'maya', 'ig-never-lead-anywhere');
 select pg_temp.make_circle('00000000-0000-0000-0000-0000000e0004', 'pia', 'rd-profile');
-select pg_temp.make_circle('00000000-0000-0000-0000-0000000e0005', 'quin', null);
+select pg_temp.make_circle('00000000-0000-0000-0000-0000000e0005', 'quin', 'jane-doe-0412555123');
 
 create or replace function pg_temp.make_plan(
   key text, organiser uuid, code text, made interval
@@ -175,7 +175,7 @@ select throws_ok(
 select is(
   (select array(select jsonb_object_keys(j -> 'by_source_ref') order by 1) from ex),
   array['ig-never-lead-anywhere', 'rd-profile'],
-  'the tags that exist are listed, and the untagged circle is not'
+  'the tags the content loop minted are listed, and a visitor''s own tag is not'
 );
 select is(
   (select j -> 'by_source_ref' -> 'ig-never-lead-anywhere' -> 'counters' ->> 'circles_created' from ex),
@@ -222,8 +222,8 @@ create temporary table fa as select public.founder_analytics(current_date - 7) a
 grant select on fa to public;
 select pg_temp.act_as_postgres();
 select is(
-  (select j -> 'by_source_ref' from fa), (select j -> 'by_source_ref' from ex),
-  'the founder''s funnel by tag is the export''s, key for key'
+  (select j -> 'by_source_ref' from fa) - 'jane-doe-0412555123', (select j -> 'by_source_ref' from ex),
+  'the founder''s funnel by tag is the export''s, key for key, and the founder alone also sees the visitor''s tag'
 );
 select is(
   (select coalesce(jsonb_agg(e order by e ->> 'state'), '[]') from fa, jsonb_array_elements(j -> 'stalled') e where e ->> 'source' = 'content'),

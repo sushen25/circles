@@ -76,7 +76,7 @@ funnel without a founder's session, through a keyed export
 
 **What it returns.** `POST <project>/functions/v1/content-funnel` with
 `Authorization: Bearer $CONTENT_FUNNEL_SECRET` and body `{ "since": "YYYY-MM-DD" }`
-answers `{ since, by_source_ref, stalled }`: per tag, the circle counters and the
+answers `{ since, by_source_ref, stalled }`: per tag the content loop minted (a platform prefix: `tt ig th bs li yt rd`; a tag a visitor typed is on the founder screen and nowhere else), the circle counters and the
 totals of `plan_shared`, `availability_submitted` and `meetup_confirmed`
 (the pull reads circles made, plans shared, answered and confirmed from these as the founder screen's "By post" does); and the
 first plans from the `content` source that have stopped, by week, cohort, state,
