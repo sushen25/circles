@@ -90,3 +90,4 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0084](./0084-a-campaign-tag-labels-a-circles-cohort-row-never-a-person.md) | A campaign tag labels a circle's cohort row, never a person | accepted |
 | [0085](./0085-a-first-plan-nobody-answers-gets-one-question-and-one-letter-from-the-founder.md) | A first plan nobody answers gets one question and one letter from the founder, a support letter capped at one per circle | accepted |
 | [0086](./0086-youtube-is-scripted-and-tiktok-is-scripted-as-far-as-a-draft.md) | YouTube is published by script, and TikTok is scripted only as far as a draft | accepted (amends 0081) |
+| [0087](./0087-the-content-loop-reads-the-funnel-by-tag-through-a-keyed-export-counts-only.md) | The content loop reads the funnel by tag through a keyed export, counts only | proposed |
