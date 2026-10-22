@@ -14,8 +14,12 @@ Proposed 21 October 2026, with the decisions below taken the same day.
 Phase 1 (the pull) merged on 22 October (PR #253), and phase 2 (measure,
 scorecard, brief) the same day (PR #254); what it decided where this plan
 left a choice is under "Phase 2, as built" in "Phases". Phase 4 (the retro)
-is built on `claude/analytics-phase-4`, ahead of phase 3, which waits on open
-point 1; its choices are under "Phase 4, as built". Phase 5 is not started.
+merged the same day (PR #255), ahead of phase 3; its choices are under
+"Phase 4, as built", and its fortnightly Routine is set up by hand. Phase 3
+(the Wenna export, SUS-244, ADR 0087) merged on 22 October (PR #257). The
+bots commit to the `content-data` branch through one pull request since
+SUS-246 (PR #259, ADR 0089). Phase 5 is not started. What is left to do by
+hand is in `analytics-handover.md`.
 
 Before phase 1, nothing was built. A read-only probe of what the tokens in
 `.env` can see was run the same evening from a session scratchpad; it is not
@@ -169,7 +173,7 @@ hand-posted ones need the two commands under "Hand posts" below.
 | Bluesky | script | ledger | likes, reposts, replies, quotes. No views. (confirmed) | public thread, no auth | none for reading (confirmed) |
 | Instagram | script (Reel when the MP4 exists) | ledger | Reels (confirmed): views, reach, saved, shares, likes, comments, total_interactions, avg watch time and total watch time in ms, skip rate in %. `reposts` per Reel is refused on every API version up to v26; it exists only at account level. Feed (documented): views, reach, saved, shares, likes, comments, follows, profile_visits. Account by day (confirmed): reach and views split by `follow_type` (follower / non-follower) and by `media_product_type` (Reel, Feed, Story, Ad); likes, comments, shares, saves, total_interactions by surface; replies, reposts, accounts_engaged, profile_links_taps by button; reach as a day-by-day time series. Under 100 followers, follows_and_unfollows, follower_count, online_followers and the demographics come back empty, not as errors. In-app only: the retention curve, views over time per post, follower split and view sources per post. | comments endpoint, readable with the current token (confirmed) | long-lived token, 60 days, 59 left; refresh when over a day old (confirmed working through Instagram Login) |
 | Threads | script | ledger | views, likes, replies, reposts, quotes, shares. Account by day: views, likes, replies, reposts, quotes, clicks, followers_count; follower demographics above 100 followers. (documented; no token yet) | replies endpoint, `threads_read_replies` | long-lived token, 60 days; the current value is a placeholder |
-| YouTube | script (Short, private until the founder sets it Public in Studio; ADR 0086) | ledger, or auto-claimed by tag, or `npm run posted` | Data API: views, likes, comments (with an API key, no consent). Analytics API, after re-consent with `youtube.readonly` + `yt-analytics.readonly`: everything Instagram shows only in its app, natively: the retention curve per video (`elapsedVideoTimeRatio` × `audienceWatchRatio`), subscribed vs not, traffic sources and their detail, playback location, device, country, sharing service, demographics, per-day series; plus views, engaged views, minutes watched, average view duration and percentage, shares, subscribers gained. The current token has `youtube.upload` only (confirmed). | commentThreads and comments, with `YOUTUBE_API_KEY` only, public videos (a private Short's are a skip until it is public); OAuth reads comments only under `youtube.force-ssl`, which can also edit and delete them, so it is never requested | OAuth refresh token, does not expire while used |
+| YouTube | script (Short, private until the founder sets it Public in Studio; ADR 0086) | ledger, or auto-claimed by tag, or `npm run posted` | Data API: views, likes, comments (with an API key, no consent). Analytics API, after re-consent with `youtube.readonly` + `yt-analytics.readonly`: everything Instagram shows only in its app, natively: the retention curve per video (`elapsedVideoTimeRatio` × `audienceWatchRatio`), subscribed vs not, traffic sources and their detail, playback location, device, country, sharing service, demographics, per-day series; plus views, engaged views, minutes watched, average view duration and percentage, shares, subscribers gained. Re-consented on 22 October with `youtube.upload`, `youtube.readonly` and `yt-analytics.readonly`: both APIs read (confirmed). | commentThreads and comments, with `YOUTUBE_API_KEY` only, public videos (a private Short's are a skip until it is public); OAuth reads comments only under `youtube.force-ssl`, which can also edit and delete them, so it is never requested | OAuth refresh token, does not expire while used |
 | TikTok | script drafts, founder posts | `npm run posted` | hand: views, saves, shares (weekly), plus the in-app screens by screenshot. Display API (developer app, one sign-in): view, like, comment, share counts only. Business API (a Business account and app approval): video views, likes, comments, shares, reach, full-video-watched rate, total and average time watched, impression sources, audience countries; account followers by day, profile views, audience activity by hour, demographics. | hand | the Business API is the one worth the approval |
 | LinkedIn | script | ledger | none yet: member post analytics is a separate API product (`r_member_postAnalytics`). Deferred. | none | token in `.env.example`, not set |
 | Reddit | by hand, drafts only | `npm run posted` | hand, if ever. Deferred. | hand | none |
@@ -656,19 +660,20 @@ than a text channel; Reddit read-only. Each is one module in
    circles made and plans shared by tag are not. `experiments.md` intended
    them in the repo and this plan follows it. The alternative is a
    git-excluded `analytics/private/` like `docs/audits/`, which the nightly
-   bot cannot then persist; it would need a private bucket. Decide before
-   phase 3 ships.
+   bot cannot then persist; it would need a private bucket. Decided by
+   ADR 0087 (SUS-244, 22 October): counts by tag go in the repository, as
+   `experiments.md` intended; no circle, plan or person.
 2. **Instagram comments** need `instagram_business_manage_comments` on the
    token; the probe read them with the current token, so the permission is
    present. The refresh keeps the scopes it was issued with.
-3. **YouTube** reads nothing today: the refresh token has `youtube.upload`
-   only. Phase 1 ships with an API key for the public numbers and comment
-   text, with `YOUTUBE_CHANNEL_ID` beside it (a key alone cannot say whose
-   channel it is, and the account row and auto-claim need to know), and
-   the retention metrics (watch percentage, traffic source) wait for a
-   re-consent that adds `youtube.readonly` and `yt-analytics.readonly`.
-   The same sign-in carries all three scopes; the publisher's adapter keeps
-   working with it.
+3. **YouTube** is settled (22 October). The refresh token was re-consented
+   with `youtube.upload`, `youtube.readonly` and `yt-analytics.readonly`: it
+   reads the channel as `mine` (so `YOUTUBE_CHANNEL_ID` is no longer
+   needed), private Shorts, and the Analytics API's retention, traffic and
+   subscribed split. Comments are read with `YOUTUBE_API_KEY` alone (PR
+   #258), because OAuth reads them only under `youtube.force-ssl`, which can
+   also edit and delete them and is never requested; a private Short's
+   comments are a skip until it is public.
 3a. **Threads** needs its OAuth sign-in before any Threads row exists. The
    publisher is in the same position, so this was true before this plan.
 3b. **The one pre-loop hand post** (Bluesky, 16 October) carries no tag and
