@@ -7,6 +7,7 @@ import { track } from '../../../analytics/track';
 import { useSession } from '../../../data/auth/session';
 import { newIdempotencyKey } from '../../../data/functions';
 import { circleNameForCode, guestMembersFor, reattachFromList } from '../../../data/membership';
+import { ClaimPlaceSheet } from '../ClaimPlaceSheet';
 import { ContinueAsScreen, type ContinueProblem } from '../ContinueAsScreen';
 import { LinkInvalidScreen } from '../LinkInvalidScreen';
 import { failureOf, isOffline } from './failure';
@@ -59,6 +60,8 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
   const haveAccount = useHaveAccount();
 
   const [busyKey, setBusyKey] = useState<string | undefined>();
+  // The guest an account has tapped and not yet confirmed (SUS-245): nothing is sent until "Yes".
+  const [claiming, setClaiming] = useState<GuestMemberOption | undefined>();
   const [problem, setProblem] = useState<ContinueProblem | undefined>();
   const [reference, setReference] = useState<string | undefined>();
   const [askForInvite, setAskForInvite] = useState(false);
@@ -259,24 +262,39 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
       }
     } finally {
       setBusyKey(undefined);
+      setClaiming(undefined);
     }
   };
 
   return (
-    <ContinueAsScreen
-      circleName={title}
-      options={listed.map((m) => ({ key: m.member_user_id, name: m.display_name }))}
-      signedIn={signedIn}
-      problem={guests.data?.kind === 'limited' ? { kind: 'too_many_tries' } : problem}
-      reference={reference}
-      busyKey={busyKey}
-      onPick={(option) => {
-        const member = byKey.get(option.key);
-        if (member !== undefined) void pick(member);
-      }}
-      onImNewHere={openNameStep}
-      onSignIn={haveAccount}
-      onBack={back}
-    />
+    <>
+      <ContinueAsScreen
+        circleName={title}
+        options={listed.map((m) => ({ key: m.member_user_id, name: m.display_name }))}
+        signedIn={signedIn}
+        problem={guests.data?.kind === 'limited' ? { kind: 'too_many_tries' } : problem}
+        reference={reference}
+        busyKey={busyKey}
+        onPick={(option) => {
+          const member = byKey.get(option.key);
+          if (member === undefined) return;
+          // An account is asked first: a wrong tap would otherwise move somebody's place.
+          if (signedIn) setClaiming(member);
+          else void pick(member);
+        }}
+        onImNewHere={openNameStep}
+        onSignIn={haveAccount}
+        onBack={back}
+      />
+      <ClaimPlaceSheet
+        name={claiming?.display_name}
+        circleName={title ?? ''}
+        busy={busyKey !== undefined}
+        onYes={() => {
+          if (claiming !== undefined) void pick(claiming);
+        }}
+        onDismiss={() => setClaiming(undefined)}
+      />
+    </>
   );
 }

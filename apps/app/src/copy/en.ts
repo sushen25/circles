@@ -921,6 +921,11 @@ export const en = {
     try_again: 'Try again',
     reference: 'Ref {reference}',
     i_have_an_account: 'I have an account',
+    /** The step before an account takes a guest's place (SUS-245): nothing moves until "Yes". */
+    claim_title: "Take {name}'s place in {circle}?",
+    claim_body: "{name}'s answers and their place in {circle} move to your account.",
+    claim_yes: "Yes, I'm {name}",
+    claim_no: 'Not me',
   },
   /** The page behind "Get back in" in a plan-update email (ADR 0023): one tap, then the token is spent. */
   reentry: {

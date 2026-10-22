@@ -375,6 +375,7 @@ describe('an account that is not a member, in a circle that has guests (ADR 0088
     expect(screen.queryByRole('button', { name: 'I have an account' })).toBeNull();
 
     await tap(screen.findByRole('button', { name: /Alex/ }));
+    await tap(screen.findByRole('button', { name: "Yes, I'm Alex" }));
 
     await waitFor(() => expect(reattachFromList).toHaveBeenCalledTimes(1));
     expect(reattachFromList.mock.calls[0]?.[0]).toMatchObject({
@@ -390,6 +391,33 @@ describe('an account that is not a member, in a circle that has guests (ADR 0088
     expect(joinPlan).not.toHaveBeenCalled();
   });
 
+  it('asks first: a tapped name opens the confirmation, and nothing is sent or recorded', async () => {
+    arrive();
+
+    await tap(screen.findByRole('button', { name: /Alex/ }));
+
+    expect(await screen.findByText("Take Alex's place in Sunday Crew?")).toBeTruthy();
+    expect(
+      screen.getByText("Alex's answers and their place in Sunday Crew move to your account."),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: "Yes, I'm Alex" })).toBeTruthy();
+    expect(reattachFromList).not.toHaveBeenCalled();
+    expect(track).not.toHaveBeenCalled();
+  });
+
+  it('"Not me" goes back to the list with nothing sent and no event', async () => {
+    arrive();
+
+    await tap(screen.findByRole('button', { name: /Alex/ }));
+    await tap(screen.findByRole('button', { name: 'Not me' }));
+
+    await waitFor(() => expect(screen.queryByText("Take Alex's place in Sunday Crew?")).toBeNull());
+    expect(screen.getByRole('button', { name: /Alex/ })).toBeTruthy();
+    expect(screen.getByText('Have you answered this before?')).toBeTruthy();
+    expect(reattachFromList).not.toHaveBeenCalled();
+    expect(track).not.toHaveBeenCalledWith('member_reattached', expect.anything());
+  });
+
   it('can still take their place when the plan is no longer asking', async () => {
     // The bug SUS-245 fixes: join-plan would answer invite_inactive and end at
     // "You need the invite link", while a guest on the same link could pick.
@@ -402,6 +430,7 @@ describe('an account that is not a member, in a circle that has guests (ADR 0088
     arrive();
 
     await tap(screen.findByRole('button', { name: /Alex/ }));
+    await tap(screen.findByRole('button', { name: "Yes, I'm Alex" }));
 
     expect(await screen.findByText('the plan')).toBeTruthy();
     expect(screen.queryByText('You need the invite link to join.')).toBeNull();
@@ -412,6 +441,7 @@ describe('an account that is not a member, in a circle that has guests (ADR 0088
     arrive();
 
     await tap(screen.findByRole('button', { name: /Alex/ }));
+    await tap(screen.findByRole('button', { name: "Yes, I'm Alex" }));
 
     expect(
       await screen.findByText(

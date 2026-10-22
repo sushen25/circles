@@ -59,6 +59,13 @@ the same trust as a guest has today. No extra proof.
 4. **The emailed re-entry link is unchanged.** A signed-in account still cannot
    use somebody else's emailed link (`caller_is_permanent`). The link proves an
    address and is the rightful member's own way back, so it stays theirs.
+5. **An account is asked before the place moves.** Tapping a name opens a
+   confirmation, "Take {name}'s place in {circle}?", and only **Yes, I'm
+   {name}** calls the reattach; **Not me** goes back to the list and sends
+   nothing and records nothing. The founder asked for it on 22 October 2026,
+   because a place taken by an account cannot be taken back from the list
+   (Consequences) and a wrong tap is now costly. A guest's own Continue-as path
+   is unchanged; the same step could be added there later.
 
 ## Alternatives considered
 

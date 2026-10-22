@@ -179,6 +179,15 @@ test("an account takes a guest's place, with its answer, even once the plan has 
   await page.goto(`/p/${crew.planCode}`);
   await page.getByRole('button', { name: 'Continue as Tom' }).click();
 
+  // Nothing moves on the tap: the account is asked first, and "Not me" sends nothing.
+  await expect(page.getByText("Take Tom's place in Sunday Crew?")).toBeVisible();
+  expect(memberNamed(crew.circleId, 'Tom')?.anonymous, 'still the guest').toBe(true);
+  await page.getByRole('button', { name: 'Not me' }).click();
+  await expect(page.getByText("Take Tom's place in Sunday Crew?")).toHaveCount(0);
+  expect(memberNamed(crew.circleId, 'Tom')?.userId, 'nothing moved').toBe(tomAsGuest);
+  await page.getByRole('button', { name: 'Continue as Tom' }).click();
+  await page.getByRole('button', { name: "Yes, I'm Tom" }).click();
+
   await expect(page.getByText('Have you answered this before?')).toHaveCount(0);
   await expect(page.getByText('You need the invite link to join.')).toHaveCount(0);
   const member = memberNamed(crew.circleId, 'Tom');
