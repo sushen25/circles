@@ -203,6 +203,7 @@ const handlers = {
   'submit-availability': await serveOf('submit-availability'),
   'recalculate-candidates': await serveOf('recalculate-candidates'),
   'process-scheduled-jobs': await serveOf('process-scheduled-jobs'),
+  'content-funnel': await serveOf('content-funnel'),
   'confirm-meetup': await serveOf('confirm-meetup'),
   'edit-confirmation': await serveOf('edit-confirmation'),
   'report-outcome': await serveOf('report-outcome'),
@@ -5247,5 +5248,119 @@ describe('process-scheduled-jobs', () => {
 
     expect(response.status).toBe(500);
     expect(called('dispatch_end')[0]?.args['p_holder']).toEqual(expect.any(String));
+  });
+});
+
+describe('content-funnel', () => {
+  // ADR 0087: the content loop reads counts by tag under a secret of its own.
+  // Internal, so no member's JWT is the bearer; and the two secrets are not
+  // interchangeable, which is the point of giving it one.
+  const EXPORT = {
+    since: '2026-10-19',
+    by_source_ref: { 'ig-never-lead-anywhere': { counters: { circles_created: 1 }, events: {} } },
+    stalled: [],
+  };
+
+  beforeEach(() => {
+    process.env.CONTENT_FUNNEL_SECRET = 'the-funnel-secret';
+    process.env.CRON_SECRET = 'a-shared-secret';
+    state.answer = (fn) => {
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'content_funnel_export') return { data: EXPORT, error: null };
+      return { data: null, error: null };
+    };
+  });
+
+  afterEach(() => {
+    delete process.env.CONTENT_FUNNEL_SECRET;
+  });
+
+  const call = (bearer?: string, body: unknown = { since: '2026-10-12' }) =>
+    load('content-funnel')(
+      bearer === undefined
+        ? postWithoutSession(body)
+        : post(body, bearer),
+    );
+
+  it('answers the export, as the database returned it, to the right bearer', async () => {
+    const response = await call('the-funnel-secret');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(EXPORT);
+    expect(called('content_funnel_export')[0]?.args).toEqual({ p_since: '2026-10-12' });
+  });
+
+  it('refuses no bearer and a wrong bearer with the same answer, and reads nothing', async () => {
+    const none = await call();
+    const wrong = await call('not-the-secret');
+
+    expect(none.status).toBe(401);
+    expect(wrong.status).toBe(401);
+    // Everything but the per-request reference is the same.
+    expect({ ...(await none.json()), reference: '' }).toEqual({
+      ...(await wrong.json()),
+      reference: '',
+    });
+    expect(called('content_funnel_export')).toHaveLength(0);
+  });
+
+  it('is off entirely while its secret is unset', async () => {
+    delete process.env.CONTENT_FUNNEL_SECRET;
+
+    const response = await call('the-funnel-secret');
+
+    expect(response.status).toBe(401);
+    expect(called('content_funnel_export')).toHaveLength(0);
+  });
+
+  it('refuses the cron secret, and the funnel secret opens nothing else', async () => {
+    expect((await call('a-shared-secret')).status).toBe(401);
+    expect(called('content_funnel_export')).toHaveLength(0);
+
+    const processor = await load('process-scheduled-jobs')(post({}, 'the-funnel-secret'));
+    expect(processor.status).toBe(401);
+    expect(called('dispatch_begin')).toHaveLength(0);
+    const engine = await load('recalculate-candidates')(
+      post({ plan_id: PLAN_ID }, 'the-funnel-secret'),
+    );
+    expect(engine.status).toBe(401);
+  });
+
+  it('takes a POST and nothing else', async () => {
+    const response = await load('content-funnel')(
+      new Request('https://example.test/fn', {
+        method: 'GET',
+        headers: { authorization: 'Bearer the-funnel-secret' },
+      }),
+    );
+
+    expect(response.status).toBe(405);
+    expect(called('content_funnel_export')).toHaveLength(0);
+  });
+
+  it('wants a date and nothing else', async () => {
+    expect((await call('the-funnel-secret', { since: 'yesterday' })).status).toBe(400);
+    expect((await call('the-funnel-secret', {})).status).toBe(400);
+    expect((await call('the-funnel-secret', { since: '2026-10-12', circle_id: 'x' })).status).toBe(
+      400,
+    );
+    expect(called('content_funnel_export')).toHaveLength(0);
+  });
+
+  it('is limited to twelve an hour, to one key, and refuses past it', async () => {
+    await call('the-funnel-secret');
+    expect(called('take_rate_token')[0]?.args).toMatchObject({
+      p_scope: 'content_funnel',
+      p_limit: 12,
+      p_window: '1 hour',
+    });
+
+    const base = state.answer;
+    state.answer = (fn) => (fn === 'take_rate_token' ? { data: false, error: null } : base(fn));
+    const before = called('content_funnel_export').length;
+    const response = await call('the-funnel-secret');
+
+    expect(response.status).toBe(429);
+    expect(called('content_funnel_export')).toHaveLength(before);
   });
 });

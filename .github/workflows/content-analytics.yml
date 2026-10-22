@@ -1,8 +1,8 @@
 # The nightly pull for the content loop (content/analytics/pull.ts; the why is
-# content/docs/analytics-plan.md). GET only, against every platform that has
-# a token. It appends what it gets under content/analytics/: posts.jsonl (one
+# content/docs/analytics-plan.md). Reads only, against every platform that has
+# a token, and one read-only POST to Wenna's keyed funnel export. It appends what it gets under content/analytics/: posts.jsonl (one
 # row per post per platform, the platform's answer kept whole), account.jsonl
-# (the account by day), and new replies into content/inbox/<date>-replies.md
+# (the account by day), funnel.jsonl (the Wenna funnel by tag, counts only), and new replies into content/inbox/<date>-replies.md
 # with the handles already stripped, for the next /daily to mine. It may also
 # claim a hand-posted Short by its link tag, which writes the id into the
 # piece's queue file and a row into publish/ledger.jsonl, and may move the
@@ -74,6 +74,13 @@ jobs:
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           YOUTUBE_CHANNEL_ID: ${{ vars.YOUTUBE_CHANNEL_ID }}
+          # The Wenna funnel by tag (ADR 0087, platforms/wenna.ts). Unset, the
+          # pull says "not configured" and goes on. The URL is a repository
+          # variable (the prod `content-funnel` address, not a secret); the
+          # secret is the same value as the function's, and opens that one
+          # function and nothing else.
+          WENNA_FUNNEL_URL: ${{ vars.WENNA_FUNNEL_URL }}
+          CONTENT_FUNNEL_SECRET: ${{ secrets.CONTENT_FUNNEL_SECRET }}
       # Allowed to fail for the same reason as the pull: the rows are worth
       # committing even when the tables built from them are not.
       - id: scorecard

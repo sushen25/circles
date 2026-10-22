@@ -18,8 +18,9 @@
  * - Saves+shares /1k: the median day-7 rate per platform, with n; "too
  *   early" when no piece is seven days old; "not measured" when some are,
  *   but only on platforms ranked on another rate (Bluesky).
- * - Circles made, Plans shared: from the Wenna export (phase 3); blank until
- *   then, rather than guessed.
+ * - Circles made, Plans shared: from the Wenna export (funnel.jsonl, ADR 0087),
+ *   the latest count on each piece's tags summed, with n = pieces that have one;
+ *   blank until a piece has a row, rather than guessed.
  *
  * `--write` changes those five cells in the fortnight's rows and nothing
  * else. A row it cannot rebuild cell for cell (a cell count that differs
@@ -169,7 +170,12 @@ export function cellsFor(row: Row, card: Scorecard, features: Map<string, Featur
     rate = other && !waiting ? 'not measured' : 'too early';
   }
 
-  return { Pieces: String(slugs.length), 'Views (TikTok)': views, 'Saves+shares /1k': rate, 'Circles made': '', 'Plans shared': '' };
+  // The Wenna export's latest counts for each piece's tags (funnel.jsonl), summed over the platforms it was posted to.
+  // Blank when no piece has a row, rather than a zero that says nothing came.
+  const tagged = pieces.filter((p) => p.funnel);
+  const sum = (k: 'circles' | 'plans_shared') => (tagged.length ? `${tagged.reduce((a, p) => a + p.funnel![k], 0)} (n=${tagged.length})` : '');
+
+  return { Pieces: String(slugs.length), 'Views (TikTok)': views, 'Saves+shares /1k': rate, 'Circles made': sum('circles'), 'Plans shared': sum('plans_shared') };
 }
 
 /** The row with its number cells filled and every other cell (Hypothesis, Result, Next …) exactly as it was. */

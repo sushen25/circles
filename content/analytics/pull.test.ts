@@ -565,3 +565,71 @@ test('the nightly run writes a features row for a published piece, once; --serie
   assert.deepEqual(Object.keys(rows[0].posted).sort(), ['bluesky', 'instagram']);
   assert.ok(t.log.includes(`feat  ${SLUG} (no timing yet)`));
 });
+
+// ---- the Wenna funnel (platforms/wenna.ts, ADR 0087) ----
+
+const FUNNEL_ENV = { WENNA_FUNNEL_URL: 'https://wenna.test/functions/v1/content-funnel', CONTENT_FUNNEL_SECRET: 'the-secret' };
+const EXPORT = {
+  since: '2026-10-19',
+  by_source_ref: {
+    'bs-never-lead-anywhere': { counters: { circles_created: 2 }, events: { plan_shared: 1, availability_submitted: 3 } },
+  },
+  stalled: [{ week: '2026-10-19', cohort: 'external', source: 'content', state: 'not_shared', circles: 1, oldest_hours: 30, median_hours: 30 }],
+};
+
+test('the funnel: not configured is a skip line and writes nothing', async () => {
+  const t = setup();
+  const s = await t.run({ bluesky: fake('bluesky') });
+  assert.equal(s.exitCode, 0);
+  assert.ok(t.log.includes('skip  wenna: not configured (WENNA_FUNNEL_URL, CONTENT_FUNNEL_SECRET unset)'), t.log.join('\n'));
+  assert.equal(existsSync(join(t.dirs.analytics, 'funnel.jsonl')), false);
+});
+
+test('the funnel: one row per tag and one stalled row, asked from the first post, once a night', async () => {
+  const t = setup();
+  const asked: { url: string; body: unknown; auth: string }[] = [];
+  const fetcher: typeof fetch = async (url, init) => {
+    asked.push({ url: String(url), body: JSON.parse(String(init!.body)), auth: (init!.headers as Record<string, string>).authorization });
+    return new Response(JSON.stringify(EXPORT));
+  };
+  const run = () => runPull({ now: NOW, flags: parseFlags([]), dirs: t.dirs, modules: { bluesky: fake('bluesky') }, log: (l) => t.log.push(l), env: (k) => (FUNNEL_ENV as Record<string, string>)[k], fetch: fetcher });
+
+  const s = await run();
+  assert.equal(s.exitCode, 0);
+  assert.deepEqual(asked, [{ url: FUNNEL_ENV.WENNA_FUNNEL_URL, body: { since: '2026-10-18' }, auth: 'Bearer the-secret' }]);
+  const rows = readJsonl<Record<string, unknown>>(join(t.dirs.analytics, 'funnel.jsonl'));
+  assert.deepEqual(rows, [
+    { date: '2026-10-21', at: NOW.toISOString(), from: 'bs-never-lead-anywhere', circles: 2, plans_shared: 1, answered: 3, confirmed: 0, raw: EXPORT.by_source_ref['bs-never-lead-anywhere'] },
+    { date: '2026-10-21', at: NOW.toISOString(), stalled: EXPORT.stalled },
+  ]);
+  assert.ok(t.log.includes('funnel bs-never-lead-anywhere: circles 2, plans shared 1, answered 3, confirmed 0'), t.log.join('\n'));
+  assert.equal(JSON.stringify(t.log).includes('the-secret'), false, 'the secret is in no log line');
+
+  await run();
+  assert.equal(asked.length, 1, 'not asked again the same day');
+  assert.equal(readJsonl(join(t.dirs.analytics, 'funnel.jsonl')).length, 2);
+});
+
+test('the funnel: --only wenna reads it and nothing else, and --dry writes nothing', async () => {
+  const t = setup();
+  const fetcher: typeof fetch = async () => new Response(JSON.stringify(EXPORT));
+  const log: string[] = [];
+  const modules = { bluesky: fake('bluesky', { metrics: async () => { throw new Error('a platform was asked'); } }) };
+  const s = await runPull({ now: NOW, flags: parseFlags(['--only', 'wenna', '--dry']), dirs: t.dirs, modules, log: (l) => log.push(l), env: (k) => (FUNNEL_ENV as Record<string, string>)[k], fetch: fetcher });
+  assert.equal(s.failures, 0);
+  assert.equal(s.rows, 0);
+  assert.ok(log.includes('funnel bs-never-lead-anywhere: circles 2, plans shared 1, answered 3, confirmed 0'), log.join('\n'));
+  assert.ok(log.includes('dry   would append funnel row bs-never-lead-anywhere to ' + join(t.dirs.analytics, 'funnel.jsonl')));
+  assert.equal(existsSync(join(t.dirs.analytics, 'funnel.jsonl')), false);
+  assert.deepEqual(log.filter((l) => /^(row|acct|inbox|skip)/.test(l)), [], log.join('\n'));
+});
+
+test('the funnel: a refusal is a failure with exit 1, after the other rows are written', async () => {
+  const t = setup();
+  const fetcher: typeof fetch = async () => new Response('{"message":"Not something you can call."}', { status: 401 });
+  const s = await runPull({ now: NOW, flags: parseFlags([]), dirs: t.dirs, modules: { bluesky: fake('bluesky') }, log: (l) => t.log.push(l), env: (k) => (FUNNEL_ENV as Record<string, string>)[k], fetch: fetcher });
+  assert.equal(s.exitCode, 1);
+  assert.equal(s.rows, 1);
+  assert.ok(t.log.some((l) => l.startsWith('FAIL  funnel: wenna: 401')));
+  assert.equal(existsSync(join(t.dirs.analytics, 'funnel.jsonl')), false);
+});

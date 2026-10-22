@@ -161,3 +161,27 @@ test('"48 h" is the last series row before the pull stops at 48 hours', () => {
   assert.equal(f.views.h48, 505);
   assert.equal(f.views.h24, 390);
 });
+
+test('the funnel by tag joins to the piece it came from, by the tag the link carries, latest night wins', () => {
+  const row = (date: string, from: string, circles: number) => ({ date, at: `${date}T16:15:00.000Z`, from, circles, plans_shared: circles, answered: 0, confirmed: 0, raw: {} });
+  const card = buildScorecard(
+    {
+      ...inputs(),
+      funnel: [
+        row('2026-11-16', 'bs-pm-one', 1),
+        row('2026-11-17', 'bs-pm-one', 3),
+        row('2026-11-17', 'ig-pm-one', 2),
+        row('2026-11-17', 'bs-unrelated', 9),
+        { date: '2026-11-17', at: '2026-11-17T16:15:00.000Z', stalled: [{ week: '2026-11-16', cohort: 'external', source: 'content', state: 'not_shared', circles: 1, oldest_hours: 30, median_hours: 30 }] },
+      ],
+    },
+    NOW,
+  );
+  const piece = (slug: string, platform: string) => card.pieces.find((p) => p.slug === slug && p.platform === platform);
+  assert.deepEqual(piece('pm-one', 'bluesky')?.funnel, { as_of: '2026-11-17', circles: 3, plans_shared: 3, answered: 0, confirmed: 0 });
+  assert.deepEqual(piece('pm-one', 'instagram')?.funnel, { as_of: '2026-11-17', circles: 2, plans_shared: 2, answered: 0, confirmed: 0 });
+  assert.equal(piece('pm-two', 'instagram')?.funnel, undefined, 'a piece with no tag row has no funnel');
+  assert.equal(card.stalled?.groups.length, 1);
+  assert.match(renderScorecard(card), /## After the tap[\s\S]*\| pm-one \| bluesky \| 3 \| 3 \| 0 \| 0 \| 2026-11-17 \|/);
+  assert.equal(buildScorecard(inputs(), NOW).stalled, undefined, 'and with no export read, nothing is shown');
+});

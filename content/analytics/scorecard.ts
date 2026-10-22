@@ -34,7 +34,9 @@ import {
   type Rates,
   type SeriesRow,
 } from './metrics.ts';
+import { PLATFORM_PREFIX, sourceRef } from '../lib/links.ts';
 import { latestFeatures } from './features.ts';
+import type { FunnelRow, StalledGroup, StalledRow } from './platforms/wenna.ts';
 import { MIN_N, aggregate, type Aggregates } from './aggregates.ts';
 import { renderScorecard } from './scorecard-md.ts';
 
@@ -61,6 +63,8 @@ export type PieceScore = {
   screens: { screen: string; by: string; captured_at?: string; retention?: { tenth: string; pct: number; slide?: number }[]; sources?: Record<string, number> }[];
   replies: number;
   hook_quotes: number;
+  /** what Wenna counted on this piece's `?from=` tag, the latest night (funnel.jsonl); raw counts, never rates */
+  funnel?: { as_of: string; circles: number; plans_shared: number; answered: number; confirmed: number };
 };
 
 export type AccountLine = { platform: Platform; date: string; text: string };
@@ -74,6 +78,8 @@ export type Scorecard = {
   /** each platform's median headline rate at day 7, and over how many pieces */
   medians: Partial<Record<Platform, { rate: keyof Rates; median: number; n: number }>>;
   account: AccountLine[];
+  /** the content source's stalled first plans on the latest night the export was read */
+  stalled?: { as_of: string; groups: StalledGroup[] };
 } & Aggregates;
 
 export type Inputs = {
@@ -87,6 +93,8 @@ export type Inputs = {
   replies: { slug: string; platform: Platform; text: string }[];
   /** experiments.md as text, for the control arm */
   experiments: string;
+  /** funnel.jsonl: a tag's row per night, and the night's stalled row; absent until the export is read */
+  funnel?: (FunnelRow | StalledRow)[];
 };
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -158,11 +166,36 @@ function postedAt(ledger: Ledger, slug: string, platform: Platform): string | un
   return ledger.find((l) => l.slug === slug && l.platform === platform && l.kind !== 'drafted')?.at;
 }
 
+/** The newest funnel row of each tag. Rows are appended nightly; the latest date wins, and the file's later line on a tie. */
+function latestTags(rows: (FunnelRow | StalledRow)[]): Map<string, FunnelRow> {
+  const out = new Map<string, FunnelRow>();
+  for (const r of rows) if ('from' in r && (!out.has(r.from) || out.get(r.from)!.date <= r.date)) out.set(r.from, r);
+  return out;
+}
+
+/** The piece's counts, joined to the export by the tag its link carries (lib/links.ts), the way the pull tags them. */
+function funnelOf(tags: Map<string, FunnelRow>, slug: string, platform: Platform): PieceScore['funnel'] {
+  if (!(platform in PLATFORM_PREFIX)) return undefined;
+  let row: FunnelRow | undefined;
+  try {
+    row = tags.get(sourceRef(platform, slug));
+  } catch {
+    return undefined;
+  }
+  return row && { as_of: row.date, circles: row.circles, plans_shared: row.plans_shared, answered: row.answered, confirmed: row.confirmed };
+}
+
+function stalledOf(rows: (FunnelRow | StalledRow)[]): Pick<Scorecard, 'stalled'> {
+  const last = rows.filter((r): r is StalledRow => 'stalled' in r).reduce<StalledRow | undefined>((a, b) => (!a || a.date <= b.date ? b : a), undefined);
+  return last ? { stalled: { as_of: last.date, groups: last.stalled } } : {};
+}
+
 export function buildScorecard(input: Inputs, now: Date): Scorecard {
   const features = latestFeatures(input.features);
   const keys = new Map<string, { slug: string; platform: Platform }>();
   for (const r of [...input.posts, ...input.hand]) keys.set(`${r.slug}\u0000${r.platform}`, { slug: r.slug, platform: r.platform });
 
+  const tags = latestTags(input.funnel ?? []);
   const pieces: PieceScore[] = [];
   for (const { slug, platform } of keys.values()) {
     const f = features.get(slug);
@@ -223,6 +256,7 @@ export function buildScorecard(input: Inputs, now: Date): Scorecard {
       screens,
       replies: replies.length,
       hook_quotes: hook ? replies.filter((r) => quotesHook(r.text, hook)).length : 0,
+      ...(funnelOf(tags, slug, platform) ? { funnel: funnelOf(tags, slug, platform) } : {}),
     });
   }
   pieces.sort((a, b) => a.slug.localeCompare(b.slug) || a.platform.localeCompare(b.platform));
@@ -246,6 +280,7 @@ export function buildScorecard(input: Inputs, now: Date): Scorecard {
     pieces,
     medians,
     account: accountLines(input.account),
+    ...stalledOf(input.funnel ?? []),
     ...aggregate(pieces, features, input.experiments),
   };
 }
@@ -298,6 +333,7 @@ export function readInputs(dir = 'analytics'): Inputs {
     features: readJsonl<FeatureRow>(join(dir, 'features.jsonl')),
     ledger: readLedger('publish/ledger.jsonl'),
     replies: readReplies('inbox'),
+    funnel: readJsonl<FunnelRow | StalledRow>(join(dir, 'funnel.jsonl')),
     experiments: existsSync('experiments.md') ? readFileSync('experiments.md', 'utf8') : '',
   };
 }

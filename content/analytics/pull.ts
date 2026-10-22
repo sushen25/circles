@@ -12,6 +12,7 @@
  *   npm run analytics                    # the nightly run
  *   npm run analytics -- --series        # every two hours: posts under 48 hours old, into series.jsonl
  *   npm run analytics -- --only youtube  # one platform; the rest are left alone
+ *   npm run analytics -- --only wenna    # only the funnel by tag; add --dry to print it and write nothing
  *   npm run analytics -- --dry           # make the calls, write nothing, say what would be written
  *   npm run analytics -- --no-replies --no-account --no-claim
  *
@@ -27,7 +28,9 @@
  * TikTok has no module yet; its numbers arrive by `npm run hand -- …`.
  * The nightly run also appends a features.jsonl row for any published piece
  * whose measure is new or changed (analytics/features.ts); that reads files
- * only.
+ * only. Once a night it also asks Wenna for the funnel by tag (platforms/wenna.ts,
+ * ADR 0087) when WENNA_FUNNEL_URL and CONTENT_FUNNEL_SECRET are both set, and appends
+ * counts to funnel.jsonl; with either unset it says "not configured" and goes on.
  */
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -50,6 +53,7 @@ import {
   type SeriesRow,
 } from './metrics.ts';
 import { NotConfigured, Unreadable, env as realEnv, type PlatformModule, type RecentPost } from './platforms/module.ts';
+import { configured as wennaConfigured, fetchFunnel, rowsOf } from './platforms/wenna.ts';
 import { claim } from './claim.ts';
 import { writeReplies, type ReplyEntry } from './inbox.ts';
 import { writeFeatures } from './features.ts';
@@ -57,7 +61,8 @@ import { writeFeatures } from './features.ts';
 export type Flags = {
   /** the two-hourly run: posts under SERIES_HOURS old, into series.jsonl, nothing else */
   series: boolean;
-  only?: Platform;
+  /** one platform, or `wenna`: only the funnel by tag */
+  only?: Platform | 'wenna';
   /** make the calls, write nothing */
   dry: boolean;
   replies: boolean;
@@ -118,8 +123,10 @@ export function parseFlags(argv: string[]): Flags {
         break;
       case '--only': {
         const p = argv[++i];
-        if (!p || !(p in PLATFORM_PREFIX)) throw new Error('--only needs a platform, e.g. --only youtube');
-        flags.only = p as Platform;
+        if (!p || !(p === 'wenna' || p in PLATFORM_PREFIX)) throw new Error('--only needs a platform, e.g. --only youtube, or wenna');
+        flags.only = p as Platform | 'wenna';
+        // The funnel is not a platform: nothing else is asked, so nothing else is read or written.
+        if (p === 'wenna') Object.assign(flags, { replies: false, account: false, claim: false });
         break;
       }
       default:
@@ -171,6 +178,8 @@ export async function runPull(opts: {
   log?: (line: string) => void;
   /** one env var, trimmed, undefined when unset or blank; the tests hand in values instead of touching process.env */
   env?: (k: string) => string | undefined;
+  /** the Wenna funnel call's fetch; the tests hand in their own */
+  fetch?: typeof fetch;
 }): Promise<Summary> {
   const { now, flags, dirs, modules } = opts;
   const log = opts.log ?? console.log;
@@ -186,6 +195,7 @@ export async function runPull(opts: {
     account: join(dirs.analytics, 'account.jsonl'),
     seen: join(dirs.analytics, 'replies-seen.json'),
     features: join(dirs.analytics, 'features.jsonl'),
+    funnel: join(dirs.analytics, 'funnel.jsonl'),
   };
 
   const write = (path: string, row: unknown, what: string) => {
@@ -441,6 +451,32 @@ export async function runPull(opts: {
           summary.failures++;
           log(`FAIL  account ${platform}: ${message(e)}`);
         }
+      }
+    }
+  }
+
+  // Tier 4: what Wenna saw after the tap, by tag. Not a platform, so a platform's --only leaves it out, and a failure is
+  // counted like a platform's. Counts only come back (ADR 0087); they are written as returned.
+  if (!flags.only || flags.only === 'wenna') {
+    const w = wennaConfigured(env);
+    if (!w.ok) log(`skip  wenna: not configured (${w.reason})`);
+    else if (readJsonl<{ date: string }>(paths.funnel).some((r) => r.date === date)) log(`funnel already have ${date}`);
+    else {
+      // Counted from the first post: the export reads from the Monday of this day's week, and a tag is only ever on a post.
+      const first = posts().map((p) => p.posted_at).sort()[0];
+      const since = first ? dateOf(new Date(first)) : date;
+      try {
+        const rows = rowsOf(await fetchFunnel({ url: w.url, secret: w.secret, since, ...(opts.fetch ? { fetch: opts.fetch } : {}) }), date, at);
+        for (const r of rows.tags) {
+          write(paths.funnel, r, `funnel row ${r.from}`);
+          log(`funnel ${r.from}: circles ${r.circles}, plans shared ${r.plans_shared}, answered ${r.answered}, confirmed ${r.confirmed}`);
+        }
+        write(paths.funnel, rows.stalled, 'funnel stalled row');
+        log(`funnel stalled first plans from content: ${rows.stalled.stalled.reduce((n, g) => n + g.circles, 0)}`);
+      } catch (e) {
+        summary.failures++;
+        log(`FAIL  funnel: ${message(e)}`);
+        summary.exitCode = 1;
       }
     }
   }

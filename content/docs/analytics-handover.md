@@ -113,7 +113,7 @@ Merged as PR #254. Next: the first night with it (item 5).
 **Phase 3: the Wenna export** (main repo, SUS-244, under the full gate).
 Decide open point 1 first (counts by tag in a public repo;
 `experiments.md` already intended it). Then ADR 0087 before any code: an
-`analytics.source_ref_export(p_since)` factored out of `founder_analytics`
+`public.content_funnel_export(p_since)` factored out of `founder_analytics`
 and executable by `service_role` only, with the Edge Function
 `content-funnel` on `_shared/internal.ts` taking its own
 `CONTENT_FUNNEL_SECRET` (the content loop's secret must never be able to

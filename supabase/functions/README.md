@@ -34,6 +34,7 @@ function's `deno.json` points at.
 | [`stop-letters/`](./stop-letters)                         | The link under an account-holder letter: stops the cadence nudge, the organiser's letters or the quiet ask's, with no sign-in. No session                                                                                     |
 | [`email-provider-webhook/`](./email-provider-webhook)     | Resend's delivery events: a hard bounce or a complaint suppresses the address. Signed by the provider, not a session                                                                                                          |
 | [`process-scheduled-jobs/`](./process-scheduled-jobs)     | The one background worker: outbox → notification jobs → email, plus deadlines, expiry and the daily health summary ([ADR 0003](../../docs/decisions/0003-domain-events-via-postgres-outbox.md)). Internal                     |
+| [`content-funnel/`](./content-funnel)                     | The content loop's read of the funnel by campaign tag, counts only, under `CONTENT_FUNNEL_SECRET` ([ADR 0087](../../docs/decisions/0087-the-content-loop-reads-the-funnel-by-tag-through-a-keyed-export-counts-only.md)). Internal
 
 ## The lock file
 

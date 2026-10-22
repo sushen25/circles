@@ -40,6 +40,13 @@ export interface InternalHandling<Body> {
 
 interface InternalSpec<Schema extends z.ZodType> {
   name: string;
+  /**
+   * The environment variable holding the bearer this function accepts.
+   * `CRON_SECRET` unless said otherwise. A function that serves a different
+   * caller names its own (`content-funnel` reads `CONTENT_FUNNEL_SECRET`), so
+   * one secret can never open the other's door (ADR 0087).
+   */
+  secretName?: string;
   schema: Schema;
   handle: (context: InternalHandling<z.infer<Schema>>) => Promise<unknown>;
 }
@@ -68,7 +75,7 @@ export function internalHandler<Schema extends z.ZodType>(
       return fail(plainProblem('invalid_request', 405, 'That address takes a POST.', requestId));
     }
 
-    const secret = optional('CRON_SECRET');
+    const secret = optional(spec.secretName ?? 'CRON_SECRET');
     const token = bearerOf(request.headers.get('authorization'));
     if (secret === undefined || token === undefined || !sameSecret(token, secret)) {
       // The same answer for "no secret configured", "no bearer" and "wrong
