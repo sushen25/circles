@@ -12,10 +12,11 @@ right place and not from the plan's first page.
   `content-analytics` run is live from the next 03:15 Melbourne; the first
   real rows (`never-lead-anywhere` on Bluesky and Instagram at 0.65 days,
   the two account rows for 20 and 21 October) came in with the PR.
-- **Phase 2, measure, score, brief, is built** on
-  `claude/analytics-phase-2`, as the next PR. What it adds is under "Phase
-  2" below; the choices it made where the plan left one are in the plan,
-  under "Phase 2, as built".
+- **Phase 2, measure, score, brief, is merged** (PR #254, 22 October,
+  after two independent review rounds). What it adds is under "Phase 2"
+  below; the choices it made are in the plan, under "Phase 2, as built".
+- **Phase 4, the retro, is built** on `claude/analytics-phase-4`, ahead of
+  phase 3, which waits on open point 1. Its Routine is not set up yet.
 - **The main checkout is clean.** The probes (`analytics/probe.ts`,
   `probe-extras.ts`), the 21 October draft of the plan and the `probe`
   script line are gone. `content/ads/` and its lines in `CLAUDE.md` and
@@ -105,7 +106,7 @@ What `claude/analytics-phase-2` adds:
 - Tests: a fixture of six pieces (`analytics/scorecard.fixture.ts`) is the
   phase's "done when"; 262 tests in all, `npm run typecheck` clean.
 
-To do: review and merge the PR; then the first night with it (item 5).
+Merged as PR #254. Next: the first night with it (item 5).
 
 ## What is left, by phase
 
@@ -125,11 +126,14 @@ of columns in the scorecard, raw counts, never rates. Done when the nightly
 run writes circles made and plans shared by tag and the scorecard shows
 them.
 
-**Phase 4: retro.** `npm run retro` printing the filled `experiments.md`
-rows from `scorecard.json`, the `/retro` skill writing Result and Next and
-proposing the next fortnight as a PR, its own Routine every fourteen days,
-the day-30 kill-two-double-one rule as a proposal. Phase 2 is its input.
-Done when a fortnight's rows are filled by a PR nobody typed numbers into.
+**Phase 4: retro** (built on `claude/analytics-phase-4`). `npm run retro`
+(`analytics/retro.ts`) fills a fortnight's number cells in `experiments.md`
+from `scorecard.json`, with `--write`, and prints the day-30 ranking; the
+`/retro` skill (`.claude/skills/retro/`) writes Result and Next, proposes
+the next fortnight and opens the PR. Left: merge it, then set up the
+fortnightly Routine by hand in Claude Code (README, setup step 6; the first
+run is Tuesday 3 November, the morning after the first rows end). Done when
+a fortnight's rows are filled by a PR nobody typed numbers into.
 
 **Phase 5: by evidence.** TikTok through its Business API, LinkedIn post
 analytics if LinkedIn ever matters, Reddit read-only. One module and one

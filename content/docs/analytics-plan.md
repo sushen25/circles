@@ -11,10 +11,11 @@ nothing here posts on its own, and nothing here adds a claim to facts.md.
 ## Status
 
 Proposed 21 October 2026, with the decisions below taken the same day.
-Phase 1 (the pull) merged on 22 October (PR #253). Phase 2 (measure,
-scorecard, brief) is built on `claude/analytics-phase-2`, stacked on it; what
-it decided where this plan left a choice is under "Phase 2, as built" in
-"Phases". Phases 3 to 5 are not started.
+Phase 1 (the pull) merged on 22 October (PR #253), and phase 2 (measure,
+scorecard, brief) the same day (PR #254); what it decided where this plan
+left a choice is under "Phase 2, as built" in "Phases". Phase 4 (the retro)
+is built on `claude/analytics-phase-4`, ahead of phase 3, which waits on open
+point 1; its choices are under "Phase 4, as built". Phase 5 is not started.
 
 Before phase 1, nothing was built. A read-only probe of what the tokens in
 `.env` can see was run the same evening from a session scratchpad; it is not
@@ -620,6 +621,28 @@ plans shared by tag into `funnel.jsonl` and the scorecard shows them.
 **Phase 4: retro.** `npm run retro`, the `/retro` skill, its Routine, the
 day-30 rule as a proposal. Done when the first fortnight's rows are filled by
 a PR nobody typed numbers into.
+
+*Phase 4, as built.* `npm run retro` writes the number cells only, and
+only with `--write`; it prints the rows either way. A row's pieces are its
+family's pieces whose first post (the ledger's, Melbourne day; a TikTok
+draft is not a post) falls inside the fortnight. Views (TikTok) is the sum
+of the latest TikTok views with n, Saves+shares /1k the median day-7 rate
+per platform with n (or "too early"), and Circles made and Plans shared stay
+blank until phase 3. With no `--fortnight` it takes the latest fortnight
+that has ended and refuses when none has; an explicit one may be running,
+and says so. A row it cannot rebuild cell for cell is refused before
+anything is written. Day 30 is counted from the first row a family appears
+in (its start is day 1) and is due at the last retro before it, for the
+families with a row in the fortnight: with rows starting 20 October, that
+is the 17 November retro, for day 30 on the 18th. The script prints the
+day-7 lift by family with n; the kill-two, double-one proposal is the
+skill's, never the script's, and shrinks with fewer than three ranked
+families: with two, double the higher and kill the lower only at or under
+the brief's "Stop" bar (`LAG` in `analytics/brief.ts`, 0.8 today); with one or none, propose nothing; never
+kill and double the same family. A row is filled once, the morning after its fortnight ends, so
+a piece from its second week is not yet seven days old and is not in its
+day-7 median; the n says so, and the scorecard keeps the later number. The Routine is set
+up by hand in Claude Code (README, setup step 6).
 
 **Phase 5: later, by evidence.** TikTok's Display API once views are the
 number that decides anything (it is the headline metric in `experiments.md`,

@@ -61,6 +61,10 @@ npm run dry-run                      # dry-run publisher: prints the plan
    draft in your inbox: you add a sound and post it. Reddit is never
    scripted; the PR body and the publisher's `hand` lines carry its text.
    Who posts where is in `CLAUDE.md`.
+6. **Fortnightly retro Routine** (Claude Code → Routines, beside the daily
+   one): clone the Circles repo, work in `content/`, run `/retro`, every
+   fourteen days on the morning after a row of `experiments.md` ends (the
+   first is Tuesday 3 November 2026). It opens one PR a fortnight.
 
 ## Links
 
@@ -140,5 +144,10 @@ what is yours.
   expiry date to the variables with the gh CLI; the Action cannot write its
   own secrets. It folds in `npm run refresh:tokens -- --github`, which
   still works and does the renewal alone.
-- Run `/review` on `experiments.md` on day 30 of each family: kill the two
-  worst, double the best.
+- **Fortnightly**, the morning after a fortnight ends, `/retro` (its own
+  Routine, step 6 of the setup) runs `npm run retro -- --write`, which fills
+  that fortnight's number cells in `experiments.md` from the scorecard, then
+  writes each row's Result and Next, proposes the next fortnight's rows and
+  opens one PR. On day 30 of a family the PR carries the standing rule,
+  kill the two worst and double the best, as a proposal. Merging is the
+  decision; nobody types a number into the table.
