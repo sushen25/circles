@@ -48,7 +48,7 @@ const COLUMNS = ['Pieces', 'Views (TikTok)', 'Saves+shares /1k', 'Circles made',
 type Column = (typeof COLUMNS)[number];
 
 export type Row = { line: number; cells: string[]; start: string; end: string; family: string };
-export type Table = { header: string[]; rows: Row[]; eol: string };
+export type Table = { header: string[]; rows: Row[]; eol: string; missing: string[] };
 
 const DAY = 86_400_000;
 const addDays = (iso: string, n: number) => new Date(Date.parse(iso) + n * DAY).toISOString().slice(0, 10);
@@ -60,7 +60,7 @@ const days = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)
  * the start.
  */
 export function parseFortnight(cell: string): { start: string; end: string } | undefined {
-  const m = cell.match(/^(\d{4})-(\d{2})-(\d{2})\s*(?:→|->|–)\s*(?:(\d{4})-)?(\d{2})-(\d{2})(?!\d)/);
+  const m = cell.replace(/^(\*\*|__)/, '').match(/^(\d{4})-(\d{2})-(\d{2})(?:\s*(?:→|->|–)\s*|\s+-\s+)(?:(\d{4})-)?(\d{2})-(\d{2})(?!\d)/);
   if (!m) return undefined;
   const [, y, mo, d, y2, mo2, d2] = m;
   const endYear = y2 ?? String(Number(mo2) < Number(mo) ? Number(y) + 1 : Number(y));
@@ -70,21 +70,20 @@ export function parseFortnight(cell: string): { start: string; end: string } | u
   return { start, end };
 }
 
-/** A table row's cells. A pipe escaped as `\|` or inside a `code span` is part of its cell, as markdown renders it. */
+/**
+ * A table row's cells. A pipe escaped as `\|` is part of its cell, as GitHub renders it; any other pipe, one inside a
+ * code span included, splits the row, which is how GitHub draws it too.
+ */
 export function splitRow(line: string): string[] {
   const body = line.trim().replace(/^\|/, '').replace(/(?<!\\)\|$/, '');
   const cells: string[] = [];
   let cur = '';
-  let code = false;
   for (let i = 0; i < body.length; i++) {
     const ch = body[i];
     if (ch === '\\' && body[i + 1] === '|') {
       cur += '\\|';
       i++;
-    } else if (ch === '`') {
-      code = !code;
-      cur += ch;
-    } else if (ch === '|' && !code) {
+    } else if (ch === '|') {
       cells.push(cur.trim());
       cur = '';
     } else cur += ch;
@@ -111,7 +110,7 @@ export function parseTable(md: string): Table {
     const f = parseFortnight(cells[0] ?? '');
     if (f) rows.push({ line: i, cells, ...f, family: familyName(cells[1] ?? '') });
   }
-  return { header, rows, eol };
+  return { header, rows, eol, missing };
 }
 
 /**
@@ -163,7 +162,11 @@ export function cellsFor(row: Row, card: Scorecard, features: Map<string, Featur
       .map(([p, xs]) => `${PLATFORM_PREFIX[p]} ${fmt(median(xs))} (n=${xs.length})`)
       .join(', ');
   } else if (slugs.length) {
-    rate = pieces.some((p) => p.day7 !== undefined) ? 'not measured' : 'too early';
+    // "not measured" only when every piece seven days old is on a platform ranked on another rate and none on a
+    // saves+shares platform is still waiting for its day 7; otherwise the honest answer is "too early".
+    const waiting = pieces.some((p) => p.headline === 'saves_shares_per_k' && p.day7 === undefined);
+    const other = pieces.some((p) => p.headline !== 'saves_shares_per_k' && p.day7 !== undefined);
+    rate = other && !waiting ? 'not measured' : 'too early';
   }
 
   return { Pieces: String(slugs.length), 'Views (TikTok)': views, 'Saves+shares /1k': rate, 'Circles made': '', 'Plans shared': '' };
@@ -189,15 +192,19 @@ export function day30(t: Table, card: Scorecard, start: string, end: string): st
   const first = new Map<string, string>();
   for (const r of t.rows) if (!first.has(r.family) || first.get(r.family)! > r.start) first.set(r.family, r.start);
   const live = new Set(t.rows.filter((r) => r.start === start).map((r) => r.family));
+  // This retro is the morning after the fortnight ends, the next one fourteen days later. Due means day 30 falls in
+  // [this retro, next retro): once, at the last retro before it, never again at a later one.
+  const thisRetro = addDays(end, 1);
   const nextRetro = addDays(end, 15);
-  const due = [...live].filter((f) => days(first.get(f)!, nextRetro) >= 30).sort();
+  const day30Of = (f: string) => addDays(first.get(f)!, 29);
+  const due = [...live].filter((f) => day30Of(f) >= thisRetro && day30Of(f) < nextRetro).sort();
   if (!due.length) return [];
   const lines = due.map((f) => {
     const g = card.groups.find((x) => x.dimension === 'family' && x.value === f);
     if (!g) return `- ${f}: no piece seven days old (n=0)`;
     return g.ranked ? `- ${f}: median lift ${fmt(g.median_lift ?? NaN)} (n=${g.n})` : `- ${f}: too early to rank (n=${g.n}, needs ${MIN_N})`;
   });
-  const when = due.map((f) => `${f} ${addDays(first.get(f)!, 29)}`).join(', ');
+  const when = due.map((f) => `${f} ${day30Of(f)}`).join(', ');
   return [`Day 30 before the next retro (${when}). Day-7 lift by family:`, ...lines];
 }
 
@@ -217,6 +224,8 @@ export function retro(opts: { experiments: string; card: Scorecard; features: Fe
     start,
     end,
     ended: end < opts.today,
+    /** the number columns the header does not have, which are left unfilled */
+    missing: t.missing,
     rows: filled.map((f) => f.text),
     updated: lines.join(t.eol),
     day30: day30(t, opts.card, start, end),
@@ -256,6 +265,7 @@ function main(): void {
   });
   console.log(`Fortnight ${r.start} → ${r.end}${r.ended ? '' : `, still running on ${today}: these are not its results`}\n`);
   for (const row of r.rows) console.log(row);
+  if (r.missing.length) console.log(`\nnote  the table has no ${r.missing.map((m) => `"${m}"`).join(', ')} column, so nothing fills it`);
   if (r.day30.length) console.log(`\n${r.day30.join('\n')}`);
   if (args.write) {
     writeFileSync('experiments.md', r.updated);

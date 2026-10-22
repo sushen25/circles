@@ -31,6 +31,8 @@ test('a fortnight cell reads with or without the end year, across new year too',
   assert.equal(parseFortnight('~~2026-10-20 → 11-02~~ (dropped)'), undefined);
   assert.equal(parseFortnight('2026-10-20 → 10-19'), undefined);
   assert.equal(parseFortnight('2026-10-20 → 2026-11-2'), undefined);
+  assert.deepEqual(parseFortnight('2026-10-20 - 11-02'), { start: '2026-10-20', end: '2026-11-02' });
+  assert.deepEqual(parseFortnight('**2026-10-20 → 11-02**'), { start: '2026-10-20', end: '2026-11-02' });
 });
 
 test('the default fortnight is the latest that has ended', () => {
@@ -78,6 +80,8 @@ test('day 30 is due at the last retro before it, for the families live that fort
   assert.equal(d[1], '- skit: too early to rank (n=2, needs 3)');
   // pm has no row in that fortnight: a family already dropped is not listed again
   assert.equal(d.length, 2);
+  // and after day 30 it is never listed again, though skit keeps a row
+  assert.deepEqual(run('2026-11-17', '2026-12-01').day30, []);
 });
 
 test('a row whose cells do not line up with the header is refused, and nothing is written', () => {
@@ -86,12 +90,13 @@ test('a row whose cells do not line up with the header is refused, and nothing i
   assert.throws(() => retro({ experiments: bad, card: buildScorecard(i, NOW), features: i.features, ledger: i.ledger, today: '2026-11-18' }), /line 9 has 12 cells where the header has 11/);
 });
 
-test('a pipe escaped or inside a code span stays in its cell, and Result and Next survive the write', () => {
-  assert.deepEqual(splitRow('| a \\| b | `x | y` | c |'), ['a \\| b', '`x | y`', 'c']);
-  const piped = EXPERIMENTS.replace('| a second look |', '| a \\| b hook, `p | q` |');
+test('an escaped pipe stays in its cell and Result and Next survive the write; a bare one in a code span splits, as on GitHub', () => {
+  assert.deepEqual(splitRow('| a \\| b | `x | y` | c |'), ['a \\| b', '`x', 'y`', 'c']);
   const i = inputs();
-  const r = retro({ experiments: piped, card: buildScorecard(i, NOW), features: i.features, ledger: i.ledger, today: '2026-11-18' });
-  assert.equal(r.rows[0], '| 2026-11-03 → 11-16 | skit | skit | a \\| b hook, `p | q` | 2 |  | ig 11 (n=2) |  |  | supported | keep it |');
+  const go = (md: string) => retro({ experiments: md, card: buildScorecard(i, NOW), features: i.features, ledger: i.ledger, today: '2026-11-18' });
+  const r = go(EXPERIMENTS.replace('| a second look |', '| a \\| b hook, `p \\| q` |'));
+  assert.equal(r.rows[0], '| 2026-11-03 → 11-16 | skit | skit | a \\| b hook, `p \\| q` | 2 |  | ig 11 (n=2) |  |  | supported | keep it |');
+  assert.throws(() => go(EXPERIMENTS.replace('| a second look |', '| `p | q` |')), /line 9 has 12 cells/);
 });
 
 test('a bold family cell is the same family, and a CRLF file stays CRLF', () => {
@@ -108,6 +113,10 @@ test('pieces seven days old only on a platform ranked on another rate read "not 
   const card = buildScorecard({ ...i, posts: i.posts.filter((p) => p.platform === 'bluesky'), hand: [] }, NOW);
   const r = retro({ experiments: EXPERIMENTS, card, features: i.features, ledger: i.ledger, today: '2026-11-18', fortnight: '2026-10-20' });
   assert.match(r.rows[0], /\| 3 \|  \| not measured \|/);
+  // one of them still waiting for its Instagram day 7 is "too early", not "not measured"
+  const young = buildScorecard({ ...i, posts: i.posts.filter((p) => p.platform === 'bluesky' || (p.slug === 'pm-three' && p.age_days < 7)), hand: [] }, NOW);
+  const r2 = retro({ experiments: EXPERIMENTS, card: young, features: i.features, ledger: i.ledger, today: '2026-11-18', fortnight: '2026-10-20' });
+  assert.match(r2.rows[0], /\| 3 \|  \| too early \|/);
 });
 
 test('flags: put back when npm swallowed them, refused when a value is missing or unknown', () => {
@@ -121,4 +130,10 @@ test('flags: put back when npm swallowed them, refused when a value is missing o
   assert.throws(() => parseArgs(['--fortnight', '--write'], {}), /--fortnight needs the day a row starts/);
   assert.throws(() => parseArgs([], { npm_config_fortnight: 'true' }), /--fortnight needs the day a row starts/);
   assert.throws(() => parseArgs(['--wirte'], {}), /not an option: --wirte/);
+});
+
+test('a number column the header lacks is named, not silently skipped', () => {
+  const i = inputs();
+  const r = retro({ experiments: EXPERIMENTS.replace('| Views (TikTok) |', '| Views |'), card: buildScorecard(i, NOW), features: i.features, ledger: i.ledger, today: '2026-11-18' });
+  assert.deepEqual(r.missing, ['Views (TikTok)']);
 });

@@ -46,8 +46,8 @@ rows, and merging the PR is the decision.
    standing rule as a proposal: kill the two worst families, double the
    best, using only families the lines rank (with their n). A family that
    is "too early to rank" is neither killed nor doubled; say so. With
-   fewer than three ranked families the rule shrinks, and never kills and
-   doubles the same family:
+   fewer than three ranked families the rule shrinks as the plan's "Phase
+   4, as built" says, and never kills and doubles the same family:
    - three or more: kill the two lowest, double the highest;
    - two: double the higher; kill the lower only when its lift is 0.8 or
      less, otherwise keep it;

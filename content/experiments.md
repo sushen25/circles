@@ -3,7 +3,9 @@
 One row per hook family per fortnight. One piece a day (`/daily`), rotating
 through the live families; everything else waits. Shapes (from the skit
 skill) rotate within a family, so a fortnight compares shapes as well as
-families. Day 30: kill the two worst, double the best.
+families. Day 30: kill the two worst, double the best (with fewer than
+three families ranked, the shrunk rule in `docs/analytics-plan.md`, "Phase
+4, as built").
 
 Metric: saves + shares per 1,000 views, per platform at day 7, against that
 platform's median (`analytics/scorecard.md`; TikTok's views are typed by hand
