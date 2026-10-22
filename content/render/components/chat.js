@@ -4,7 +4,7 @@
  * link card. A `when` with no digits ("Three weeks later") first plays the
  * full-screen time-skip card.
  */
-import { anim, contentHeight, EASE_IN_OUT, EASE_OUT, el, esc, hide, known, pop, reserve, sceneBefore, str, unreserve } from './_kit.js';
+import { anim, contentHeight, EASE_IN_OUT, EASE_OUT, el, esc, GAP, glide, known, naturalHeight, pop, reserve, sceneBefore, str, unreserve } from './_kit.js';
 import { skipCard } from './_skip.js';
 
 /**
@@ -39,7 +39,7 @@ export default {
   .typing { opacity: 0; transform-origin: left bottom; max-height: 0; margin-top: 0; }
   .typing.me { align-self: flex-end; transform-origin: right bottom; }
   .typing.me .bubble { background: var(--accent-soft); border-color: var(--accent-soft); }
-  .typing .bubble { display: inline-flex; gap: 14px; padding: 40px 44px; }
+  .typing .bubble { display: inline-flex; gap: 14px; padding: 40px 44px; background: var(--surface); border: 3px solid var(--line); border-radius: 40px; }
   .typing .bubble span { width: 20px; height: 20px; border-radius: 50%; background: var(--ink-3); opacity: 0.5; }
 
   /* still: every message at rest, the old carousel metrics */
@@ -120,10 +120,10 @@ export default {
         d.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-10px)' }, { transform: 'translateY(0)' }],
           { duration: 500, delay: i * 120, iterations: Infinity, easing: 'ease-in-out' }));
       stream.appendChild(typing);
-      reserve(typing, tl.now, 200);
+      const typingH = naturalHeight(typing);
+      reserve(typing, tl.now, typingH);
       pop(typing, tl.now, 0.2);
-      hide(typing, tl.now + typeFor);
-      unreserve(typing, tl.now + typeFor);
+      if (k > 0) glide(stream, tl.now, typingH + GAP);
       tl.add(typeFor);
 
       const t = tl.now;
@@ -133,17 +133,26 @@ export default {
       let text = esc(m.text);
       if (m.link) text = text.replace(esc(m.link.url), `<span class="u">${esc(m.link.url)}</span>`);
       node.appendChild(el('div', 'bubble', text));
+      /** @type {HTMLElement | null} */
+      let card = null;
+      if (m.link) {
+        card = el('div', 'card');
+        card.append(el('div', 'ct', esc(m.link.title)), el('div', 'cs', esc(m.link.sub || '')), el('div', 'cd', esc(m.link.domain || 'wenna.app')));
+        node.appendChild(card);
+      }
       stream.insertBefore(node, typing);
-      reserve(node, t);
+      const nodeH = naturalHeight(node);
+      // the typing bubble hands its slot to the message: the stack moves once, by the difference
+      anim(typing, [{ opacity: 1 }, { opacity: 0 }], t, 0.01, 'step-start', 'forwards');
+      unreserve(typing, t, typingH);
+      reserve(node, t, nodeH);
       pop(node, t, 0.3);
+      if (k > 0) glide(stream, t, nodeH - typingH);
       tl.cue(m.from === me ? 'send' : 'pop', t);
       prev = m.from;
       // reading time scales with length; the last message in a scene lingers
       let hold = (0.35 + 0.02 * m.text.length + (last ? 0.45 : 0)) * pace;
-      if (m.link) {
-        const card = el('div', 'card');
-        card.append(el('div', 'ct', esc(m.link.title)), el('div', 'cs', esc(m.link.sub || '')), el('div', 'cd', esc(m.link.domain || 'wenna.app')));
-        node.appendChild(card);
+      if (card) {
         anim(card, [{ opacity: 0, transform: 'translateY(16px) scale(.97)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], t + 0.5, 0.3, EASE_OUT);
         tl.cue('tick', t + 0.5);
         hold += 0.7;
@@ -153,7 +162,7 @@ export default {
     // still: a chat too long for its slide fades out under its header instead of running into it
     if (document.body.classList.contains('still') && contentHeight(stream) > stream.clientHeight) stream.classList.add('overflows');
     const end = tl.now;
-    anim(stream, [{ transform: 'scale(1)' }, { transform: 'scale(1.02)' }], end - 2, 2.2, EASE_IN_OUT);
+    anim(stream, [{ transform: 'scale(1)' }, { transform: 'scale(1.02)' }], end - 2, 2.2, EASE_IN_OUT, 'both', 'add');
     tl.exit(root, end - 0.22);
     return { poster: end - 0.23 };
   },

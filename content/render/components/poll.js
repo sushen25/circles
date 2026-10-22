@@ -9,7 +9,7 @@
  * accent. Optional trailing messages arrive behind typing bubbles, the same
  * mechanic as chat.
  */
-import { anim, contentHeight, EASE, EASE_IN_OUT, el, esc, hide, known, pop, reserve, rise, SPRING, str, unreserve } from './_kit.js';
+import { anim, contentHeight, EASE, EASE_IN_OUT, el, esc, GAP, glide, known, naturalHeight, pop, reserve, rise, SPRING, str, unreserve } from './_kit.js';
 
 /**
  * @typedef {{ label: string, votes: string[] }} Option
@@ -193,7 +193,7 @@ export default {
     card.appendChild(inner);
     stream.appendChild(card);
     const ct = tl.now;
-    reserve(card, ct, 1400);
+    reserve(card, ct, naturalHeight(card));
     anim(card, [{ opacity: 0, transform: 'translateY(40px) scale(.92)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], ct, 0.34, SPRING);
     tl.cue(mine ? 'send' : 'pop', ct);
     rows.forEach((r, i) => rise(r.row, ct + 0.14 + i * 0.06, 0.26));
@@ -226,19 +226,25 @@ export default {
       const typeFor = 0.35;
       const typing = typingNode(isMe);
       stream.appendChild(typing);
-      reserve(typing, tl.now, 200);
+      const typingH = naturalHeight(typing);
+      reserve(typing, tl.now, typingH);
       pop(typing, tl.now, 0.2);
-      hide(typing, tl.now + typeFor);
-      unreserve(typing, tl.now + typeFor);
+      glide(stream, tl.now, typingH + GAP);
       tl.add(typeFor);
+      const t = tl.now;
       const node = el('div', 'msg' + (isMe ? ' me' : ''));
       // the card sits between, so the name always shows again
       node.appendChild(el('div', 'from', esc(m.from)));
       node.appendChild(el('div', 'bubble', esc(m.text)));
       stream.insertBefore(node, typing);
-      reserve(node, tl.now);
-      pop(node, tl.now, 0.3);
-      tl.cue(isMe ? 'send' : 'pop');
+      const nodeH = naturalHeight(node);
+      // the typing bubble hands its slot to the message: the stack moves once, by the difference
+      anim(typing, [{ opacity: 1 }, { opacity: 0 }], t, 0.01, 'step-start', 'forwards');
+      unreserve(typing, t, typingH);
+      reserve(node, t, nodeH);
+      pop(node, t, 0.3);
+      glide(stream, t, nodeH - typingH);
+      tl.cue(isMe ? 'send' : 'pop', t);
       tl.add(0.35 + 0.02 * m.text.length);
     });
 
@@ -246,7 +252,7 @@ export default {
     if (document.body.classList.contains('still') && contentHeight(stream) > stream.clientHeight) stream.classList.add('overflows');
     tl.add(1.0);
     const end = tl.now;
-    anim(stream, [{ transform: 'scale(1)' }, { transform: 'scale(1.02)' }], end - 2, 2.2, EASE_IN_OUT);
+    anim(stream, [{ transform: 'scale(1)' }, { transform: 'scale(1.02)' }], end - 2, 2.2, EASE_IN_OUT, 'both', 'add');
     tl.exit(root, end - 0.22);
     return { poster: end - 0.23 };
   },

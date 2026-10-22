@@ -10,7 +10,7 @@
  * its own styles and renders correctly in a piece that has no `chat` slide.
  * A `when` with no digits plays the time-skip card first, like chat.
  */
-import { el, esc, hide, known, pop, reserve, sceneBefore, str, unreserve } from './_kit.js';
+import { anim, el, esc, GAP, glide, known, naturalHeight, pop, reserve, sceneBefore, str, unreserve } from './_kit.js';
 import { skipCard } from './_skip.js';
 import { skipsTime } from './chat.js';
 
@@ -128,10 +128,10 @@ export default {
         d.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-10px)' }, { transform: 'translateY(0)' }],
           { duration: 500, delay: i * 120, iterations: Infinity, easing: 'ease-in-out' }));
       stream.appendChild(typing);
-      reserve(typing, tl.now, 200);
+      const typingH = naturalHeight(typing);
+      reserve(typing, tl.now, typingH);
       pop(typing, tl.now, 0.2);
-      hide(typing, tl.now + typeFor);
-      unreserve(typing, tl.now + typeFor);
+      if (k > 0) glide(stream, tl.now, typingH + GAP);
       tl.add(typeFor);
 
       const t = tl.now;
@@ -140,8 +140,13 @@ export default {
       if (m.from !== prev) node.appendChild(el('div', 'from', esc(m.from)));
       node.appendChild(el('div', 'bubble', esc(m.text)));
       stream.insertBefore(node, typing);
-      reserve(node, t);
+      const nodeH = naturalHeight(node);
+      // the typing bubble hands its slot to the message: the stack moves once, by the difference
+      anim(typing, [{ opacity: 1 }, { opacity: 0 }], t, 0.01, 'step-start', 'forwards');
+      unreserve(typing, t, typingH);
+      reserve(node, t, nodeH);
       pop(node, t, 0.3);
+      if (k > 0) glide(stream, t, nodeH - typingH);
       tl.cue(m.from === me ? 'send' : 'pop', t);
       prev = m.from;
       tl.add((0.35 + 0.02 * m.text.length + (last ? 0.45 : 0)) * pace);

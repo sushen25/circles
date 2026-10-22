@@ -77,9 +77,10 @@ export const MARK = (peach) => `<svg viewBox="0 0 120 120" xmlns="http://www.w3.
  * @param {number} dur  seconds
  * @param {string} [easing]
  * @param {FillMode} [fill]
+ * @param {CompositeOperation} [composite]
  */
-export function anim(node, keyframes, at, dur, easing = EASE_OUT, fill = 'both') {
-  node.animate(keyframes, { delay: ms(at), duration: ms(dur), fill, easing });
+export function anim(node, keyframes, at, dur, easing = EASE_OUT, fill = 'both', composite = 'replace') {
+  node.animate(keyframes, { delay: ms(at), duration: ms(dur), fill, easing, composite });
 }
 /** @param {Element} node @param {number} at @param {number} [dur] */
 export const show = (node, at, dur = 0.01) => anim(node, [{ opacity: 0 }, { opacity: 1 }], at, dur);
@@ -94,12 +95,44 @@ export const rise = (node, at, dur = 0.3) =>
 /** @param {Element} node @param {number} at @param {number} [dur] */
 export const exitUp = (node, at, dur = 0.22) =>
   anim(node, [{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(-70px)' }], at, dur, EASE_OUT, 'forwards');
-/** Reserve layout space the instant a chat item arrives (max-height 0 → open). @param {Element} node @param {number} at @param {number} [h] */
-export const reserve = (node, at, h = 900) =>
-  anim(node, [{ maxHeight: '0px', marginTop: '0px' }, { maxHeight: `${h}px`, marginTop: '26px' }], at, 0.08, 'linear');
-/** @param {Element} node @param {number} at */
-export const unreserve = (node, at) =>
-  anim(node, [{ maxHeight: '900px', marginTop: '26px' }, { maxHeight: '0px', marginTop: '0px' }], at, 0.01, 'linear', 'forwards');
+/** Gap between items in a stack (chat messages, notification banners), px. */
+export const GAP = 26;
+
+/**
+ * Height a stack item takes once it is open, measured with its max-height lifted.
+ * offsetHeight, not getBoundingClientRect: a pending entrance has already scaled the node.
+ * The fonts must be loaded first (template.html and video.html load them before stageReady).
+ * @param {HTMLElement} node
+ */
+export function naturalHeight(node) {
+  const prev = node.style.maxHeight;
+  node.style.maxHeight = 'none';
+  const h = node.offsetHeight;
+  node.style.maxHeight = prev;
+  return h;
+}
+
+/** Open a stack item's slot at `at`, as a true step; glide() makes the move visible. @param {Element} node @param {number} at @param {number} h naturalHeight() of the node */
+export const reserve = (node, at, h) =>
+  anim(node, [{ maxHeight: '0px', marginTop: '0px' }, { maxHeight: `${h}px`, marginTop: `${GAP}px` }], at, 0.01, 'step-start');
+
+/** Close a slot at `at`, as a true step. @param {Element} node @param {number} at @param {number} h */
+export const unreserve = (node, at, h) =>
+  anim(node, [{ maxHeight: `${h}px`, marginTop: `${GAP}px` }, { maxHeight: '0px', marginTop: '0px' }], at, 0.01, 'step-start', 'forwards');
+
+/**
+ * A stack's layout moved by `dy` px at `at` (a slot opened or closed). This starts the node
+ * back where it was and eases it to its new place, so the stack glides instead of jumping.
+ * Additive: it composes with the node's other transform animations, and every transform
+ * animation created after it on the same node must be additive too (composite 'add').
+ * dy > 0: the node moved up (a chat stream, new item at the bottom). dy < 0: it moved down.
+ * @param {Element} node @param {number} at @param {number} dy @param {number} [dur]
+ */
+export function glide(node, at, dy, dur = 0.36) {
+  if (!dy) return;
+  node.animate([{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0px)' }],
+    { delay: ms(at), duration: ms(dur), fill: 'none', easing: EASE_DRAWER, composite: 'add' });
+}
 /** A tap: quick down, slower release. @param {Element} node @param {number} at */
 export const press = (node, at) =>
   anim(node, [{ transform: 'scale(1)' }, { transform: 'scale(.96)', offset: 0.35 }, { transform: 'scale(1)' }], at, 0.22, EASE_OUT, 'none');
