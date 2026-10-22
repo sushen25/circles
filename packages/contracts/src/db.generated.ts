@@ -1136,6 +1136,7 @@ export type Database = {
         Args: { p_confirmation_id: string }
         Returns: Json
       }
+      content_funnel_export: { Args: { p_since: string }; Returns: Json }
       create_circle: {
         Args: {
           cadence?: string
