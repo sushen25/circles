@@ -268,22 +268,24 @@ there?" to whoever still owes it (`PastMeetup`), and the emailed way back in
 
 ### identity
 
-| Artboard                    | Route                                 | Component                |
-| --------------------------- | ------------------------------------- | ------------------------ |
-| `Account.dc.html`           | `/settings/account`                   | `AccountScreen`          |
-| `ContinueAs.dc.html`        | `/join/continue`                      | `ContinueAsScreen`       |
-| `DeleteAccount.dc.html`     | `/settings/account` (sheet, step one) | `DeleteAccountSheet`     |
-| `DeleteAccountSure.dc.html` | `/settings/account` (sheet, step two) | `DeleteAccountSheet`     |
-| `Diagnostics.dc.html`       | `/settings/diagnostics`               | `DiagnosticsScreen`      |
-| `EnterCode.dc.html`         | `/sign-in` (code step)                | `EnterCodeScreen`        |
-| `LinkInvalid.dc.html`       | `/join/invalid`                       | `LinkInvalidScreen`      |
-| `Main.dc.html`              | `/join`                               | `MainScreen`             |
-| `Name.dc.html`              | `/join/name`                          | `NameScreen`             |
-| `Privacy.dc.html`           | `/settings/privacy`                   | `PrivacyScreen`          |
-| `SaveAccess.dc.html`        | `/j/[code]/save-access`               | `SaveAccessScreen`       |
-| `SignIn.dc.html`            | `/sign-in`                            | `SignInScreen`           |
-| `SavePlace.dc.html`         | `/circles/new/save`                   | `SignInScreen` (`place`) |
-| `YourName.dc.html`          | `/name`                               | `YourNameScreen`         |
+| Artboard                           | Route                                 | Component                |
+| ---------------------------------- | ------------------------------------- | ------------------------ |
+| `Account.dc.html`                  | `/settings/account`                   | `AccountScreen`          |
+| `ContinueAs.dc.html`               | `/join/continue`                      | `ContinueAsScreen`       |
+| `ContinueAsAccount.dc.html`        | `/join/continue` (signed in)          | `ContinueAsScreen`       |
+| `ContinueAsAccountConfirm.dc.html` | `/join/continue` (signed in, sheet)   | `ClaimPlaceSheet`        |
+| `DeleteAccount.dc.html`            | `/settings/account` (sheet, step one) | `DeleteAccountSheet`     |
+| `DeleteAccountSure.dc.html`        | `/settings/account` (sheet, step two) | `DeleteAccountSheet`     |
+| `Diagnostics.dc.html`              | `/settings/diagnostics`               | `DiagnosticsScreen`      |
+| `EnterCode.dc.html`                | `/sign-in` (code step)                | `EnterCodeScreen`        |
+| `LinkInvalid.dc.html`              | `/join/invalid`                       | `LinkInvalidScreen`      |
+| `Main.dc.html`                     | `/join`                               | `MainScreen`             |
+| `Name.dc.html`                     | `/join/name`                          | `NameScreen`             |
+| `Privacy.dc.html`                  | `/settings/privacy`                   | `PrivacyScreen`          |
+| `SaveAccess.dc.html`               | `/j/[code]/save-access`               | `SaveAccessScreen`       |
+| `SignIn.dc.html`                   | `/sign-in`                            | `SignInScreen`           |
+| `SavePlace.dc.html`                | `/circles/new/save`                   | `SignInScreen` (`place`) |
+| `YourName.dc.html`                 | `/name`                               | `YourNameScreen`         |
 
 **Real since S1-22:** `/` (`WelcomeFlow`; since ADR 0053 the first circle for somebody with no saved place, and its loading and error states for an account being sent on), `/sign-in` (`SignInFlow`, which
 drives `SignInScreen` and `EnterCodeScreen` on one route so the address never

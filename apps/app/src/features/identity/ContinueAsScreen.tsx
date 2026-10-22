@@ -43,9 +43,9 @@ export type ContinueAsProps = {
   circleName?: string | undefined;
   options?: readonly ContinueOption[] | undefined;
   /**
-   * A saved place is never offered a name: `reattach-member` refuses it with
-   * `caller_is_permanent`, and a list whose every tap must fail is worse than
-   * none. It gets "I'm new here" alone.
+   * Signed in with an account. It is offered the same names as a guest, and a
+   * pick moves that place onto the account (ADR 0088); it is not offered
+   * "I have an account", because it has one.
    */
   signedIn?: boolean | undefined;
   problem?: ContinueProblem | undefined;
@@ -117,22 +117,23 @@ export function ContinueAsScreen({
     );
   }
 
-  const listed = signedIn ? [] : options;
-
   return (
     <Screen>
       <TopBar title={circleName} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <DisplayL>{t('continueAs', 'have_you_answered_this_before')}</DisplayL>
-        {listed.length === 0 ? (
-          <BodyText>
-            {signedIn ? t('continueAs', 'signed_in_no_names') : t('continueAs', 'no_names_to_pick')}
-          </BodyText>
+        {options.length === 0 ? (
+          <BodyText>{t('continueAs', 'no_names_to_pick')}</BodyText>
         ) : (
           <>
-            <BodyText>{t('continueAs', 'pick_your_name_to_carry_on_where')}</BodyText>
+            <BodyText>
+              {t(
+                'continueAs',
+                signedIn ? 'pick_your_name_signed_in' : 'pick_your_name_to_carry_on_where',
+              )}
+            </BodyText>
             <Card>
-              {listed.map((option, index) => (
+              {options.map((option, index) => (
                 <Fragment key={option.key}>
                   {index === 0 ? null : <Divider />}
                   <ListRow

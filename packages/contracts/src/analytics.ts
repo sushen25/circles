@@ -124,7 +124,8 @@ export const catalogue = {
   account_completed: event(1, { provider: z.enum(['apple', 'google', 'email']) }),
   account_claimed: event(1, { moment: z.enum(CLAIM_MOMENTS) }),
   session_missing_on_return: event(1),
-  member_reattached: event(1, { source: z.enum(['list', 'email']) }),
+  // 'list_account': a signed-in account took a guest's place from the list (ADR 0088).
+  member_reattached: event(1, { source: z.enum(['list', 'email', 'list_account']) }),
   duplicate_member_removed: event(1),
   guest_started_circle: event(1),
   // The first run's gate comes after the plan is drafted (ADR 0053). No payload:

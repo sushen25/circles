@@ -5,6 +5,7 @@ import {
   guestWhoAnswered,
   letTheQuorumFollow,
   quorumOf,
+  responderIds,
   revisionOf,
   isParticipant,
   memberNamed,
@@ -19,7 +20,7 @@ import {
  *
  * The link the group chat actually sees is the plan's, and it now lets people
  * in while the plan is asking. Who arrives decides what they are asked: a guest
- * picks returning or new, an account gets one tap, a circle with nobody to be
+ * or an account picks returning or new (an account's "new" is one tap), a circle with nobody to be
  * skips the question. Each test ends in the database, because the screens after
  * a join are still fixtures until S1-25.
  */
@@ -132,7 +133,7 @@ test('with nobody to continue as, the arrow stays on the plan link and the brows
   await expect(page).toHaveURL('about:blank');
 });
 
-test('an account that is not a member sees one button naming the circle and itself, and joins', async ({
+test('an account that is not a member is shown the guests, and "I\'m new here" joins it as itself', async ({
   page,
 }) => {
   const crew = sundayCrew();
@@ -141,20 +142,59 @@ test('an account that is not a member sees one button naming the circle and itse
   await page.addInitScript({
     content: `localStorage.setItem(${JSON.stringify(sessionStorageKey())}, ${JSON.stringify(sam.stored)});`,
   });
-  await watchForTheList(page);
 
   await page.goto(`/p/${crew.planCode}`);
+  // The same list a guest gets (ADR 0088), without "I have an account".
+  await expect(page.getByRole('button', { name: 'Continue as Tom' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'I have an account' })).toHaveCount(0);
+
+  await page.getByRole('button', { name: "I'm new here" }).click();
   const join = page.getByRole('button', { name: 'Join Sunday Crew as Sam' });
   await expect(join).toBeVisible();
+  await expect(page.getByLabel('Your name'), 'one tap, not the name step').toHaveCount(0);
   await join.click();
 
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
-  // Never a list: those are guests, and an account is nobody's guest.
-  expect(await page.evaluate('window.sawList === true')).toBe(false);
   const member = memberNamed(crew.circleId, 'Sam');
   expect(member?.userId, 'the account itself, not a new guest').toBe(sam.userId);
   expect(member?.anonymous).toBe(false);
   expect(isParticipant(crew.planId, sam.userId)).toBe(true);
+  expect(memberNamed(crew.circleId, 'Tom')?.anonymous, 'Tom is still a guest').toBe(true);
+});
+
+test("an account takes a guest's place, with its answer, even once the plan has stopped asking", async ({
+  page,
+}) => {
+  // SUS-245: Tom answered as a guest, then signed up. On a plan past its deadline
+  // join-plan admits nobody, and the account used to end at "You need the invite
+  // link to join" while a guest on the same link could still pick Tom.
+  const crew = sundayCrew();
+  const tomAsGuest = guestWhoAnswered(crew, 'Tom');
+  planStopsAsking(crew, 'deadline_passed');
+  const tom = await signedInAccount('Tom Signed Up');
+  await page.addInitScript({
+    content: `localStorage.setItem(${JSON.stringify(sessionStorageKey())}, ${JSON.stringify(tom.stored)});`,
+  });
+
+  await page.goto(`/p/${crew.planCode}`);
+  await page.getByRole('button', { name: 'Continue as Tom' }).click();
+
+  // Nothing moves on the tap: the account is asked first, and "Not me" sends nothing.
+  await expect(page.getByText("Take Tom's place in Sunday Crew?")).toBeVisible();
+  expect(memberNamed(crew.circleId, 'Tom')?.anonymous, 'still the guest').toBe(true);
+  await page.getByRole('button', { name: 'Not me' }).click();
+  await expect(page.getByText("Take Tom's place in Sunday Crew?")).toHaveCount(0);
+  expect(memberNamed(crew.circleId, 'Tom')?.userId, 'nothing moved').toBe(tomAsGuest);
+  await page.getByRole('button', { name: 'Continue as Tom' }).click();
+  await page.getByRole('button', { name: "Yes, I'm Tom" }).click();
+
+  await expect(page.getByText('Have you answered this before?')).toHaveCount(0);
+  await expect(page.getByText('You need the invite link to join.')).toHaveCount(0);
+  const member = memberNamed(crew.circleId, 'Tom');
+  expect(member?.userId, "the place is the account's now").toBe(tom.userId);
+  expect(member?.anonymous).toBe(false);
+  expect(responderIds(crew.planId), 'and the answer came with it').toContain(tom.userId);
+  expect(responderIds(crew.planId)).not.toContain(tomAsGuest);
 });
 
 test('a plan that is not asking ends at one place, and a link that is not live at another', async ({

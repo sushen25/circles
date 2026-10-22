@@ -905,10 +905,10 @@ export const en = {
     have_you_answered_this_before: 'Have you answered this before?',
     pick_your_name_to_carry_on_where:
       'Pick your name to carry on where you left off. The circle can see when someone rejoins.',
+    pick_your_name_signed_in:
+      'Were you one of these? Pick your name and that place, with its answers, moves onto your account. The circle can see when someone rejoins.',
     continue_as: 'Continue as {name}',
     no_names_to_pick: "There's nobody here to continue as. If you're new, start below.",
-    signed_in_no_names:
-      "You're signed in, so there's nobody to continue as. If you're new to this circle, start below.",
     im_new_here: "I'm new here",
     finding_the_circle: 'Finding the circle',
     rejoining: 'Rejoining',
@@ -921,6 +921,11 @@ export const en = {
     try_again: 'Try again',
     reference: 'Ref {reference}',
     i_have_an_account: 'I have an account',
+    /** The step before an account takes a guest's place (SUS-245): nothing moves until "Yes". */
+    claim_title: "Take {name}'s place in {circle}?",
+    claim_body: "{name}'s answers and their place in {circle} move to your account.",
+    claim_yes: "Yes, I'm {name}",
+    claim_no: 'Not me',
   },
   /** The page behind "Get back in" in a plan-update email (ADR 0023): one tap, then the token is spent. */
   reentry: {

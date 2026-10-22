@@ -18,6 +18,8 @@ create extension if not exists pgtap with schema extensions;
 --   A. Sunday Crew, mid-plan — the canvas's circle: Maya, Nina, Tom, Jess,
 --      Sam have answered, Alex has not, candidates are generated. The partial
 --      state is the most common real one and every screen has to read in it.
+--      Alex also has an account, signed in on a second device and in no circle,
+--      to claim the guest's place from (ADR 0088).
 --   B. Thursday Regulars — a confirmed meetup that happened, with an outcome
 --      reported; `last_met_at` is set. Monthly, and five weeks on, so it is
 --      "About time for the next one": the first dispatcher run after a reset
@@ -146,6 +148,11 @@ select pg_temp.seed_user('00000000-0000-4000-8000-000000000104', 'Jess');
 select pg_temp.seed_user('00000000-0000-4000-8000-000000000105', 'Sam');
 select pg_temp.seed_user('00000000-0000-4000-8000-000000000106', 'Alex', true);
 select pg_temp.seed_user('00000000-0000-4000-8000-000000000107', 'Nic');
+-- Alex on a second device (SUS-245, ADR 0088): the same person as the guest
+-- above, signed in on a laptop (alex@example.com), in no circle yet. Opening
+-- Sunday Crew's plan link as this account lists Alex, and picking it moves the
+-- guest's place and answers onto the account.
+select pg_temp.seed_user('00000000-0000-4000-8000-000000000108', 'Alex');
 
 -- Dates: the plan window is the coming week, Monday to Sunday — reset on a
 -- Thursday 10 September and the Sunday Crew's Thursday is the 17th, the

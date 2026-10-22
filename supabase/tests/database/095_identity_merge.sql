@@ -7,7 +7,7 @@
 -- membership can never be moved onto somebody with a saved place.
 
 begin;
-select plan(147);
+select plan(145);
 
 -- SUS-114: the token form of reattachment is `reattach_with_token`, the service
 -- role's, called by its Edge Function with the person it verified. This is that
@@ -318,13 +318,6 @@ select throws_ok(
   $$ select public.reattach_member(pg_temp.circle_id(), '95000000-0000-0000-0000-00000000dead') $$,
   'member_not_found',
   'and neither can somebody who is not in the circle'
-);
-
-select pg_temp.act_as('95000000-0000-0000-0000-0000000000f1');
-select throws_ok(
-  $$ select public.reattach_member(pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000e1') $$,
-  'caller_is_permanent',
-  'a caller with a saved place signs in instead of reattaching'
 );
 
 select pg_temp.act_as('95000000-0000-0000-0000-0000000000f2', true);
@@ -710,37 +703,13 @@ select ok(
   'and its profile is untouched'
 );
 
--- ---------------------------------------------------------------------------
--- Round 2: a JWT outlives the event it describes.
---
--- `linkIdentity` converts the user in place, so an access token issued minutes
--- earlier keeps `is_anonymous: true` for the rest of its hour while `auth.users`
--- and `profiles` have already moved on. For that hour the stale token was enough
--- to take a second guest membership and attach it to a saved place, where
--- Continue-as can never move it again.
--- ---------------------------------------------------------------------------
+-- A saved place with a stale anonymous JWT used to be refused here as a
+-- caller. Since ADR 0088 a saved place may pick from the list, so that case is
+-- an allow and lives in 520_account_continues_as_guest.sql. This identity is
+-- the caller for the lookup limit below.
 select pg_temp.act_as_postgres();
-
-select pg_temp.make_user('95000000-0000-0000-0000-00000000a101'::uuid, 'Just Linked', true);
 select pg_temp.make_user('95000000-0000-0000-0000-00000000a102'::uuid, 'Someone Else', true);
 
-insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-values (pg_temp.circle_id(), '95000000-0000-0000-0000-00000000a102', 'Tom on his laptop');
-
--- What `linkIdentity` leaves behind: the durable records say permanent, and the
--- token in the caller's hand still says otherwise.
-update auth.users set is_anonymous = false
-where id = '95000000-0000-0000-0000-00000000a101';
-update public.profiles set is_permanent = true
-where user_id = '95000000-0000-0000-0000-00000000a101';
-
-select pg_temp.act_as('95000000-0000-0000-0000-00000000a101', true);
-
-select throws_ok(
-  $$ select public.reattach_member(pg_temp.circle_id(), '95000000-0000-0000-0000-00000000a102') $$,
-  'caller_is_permanent',
-  'a stale anonymous claim does not make a saved-place caller a guest again'
-);
 
 -- ---------------------------------------------------------------------------
 -- Round 2: the account may hold a membership of this circle that *ended*.

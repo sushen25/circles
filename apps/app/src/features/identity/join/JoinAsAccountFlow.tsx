@@ -13,7 +13,9 @@ import { failureOf, isOffline } from './failure';
 import { PlanNameFlow, useJoinedFromPlan } from './PlanNameFlow';
 
 /**
- * An account on a plan link to a circle it is not in (ADR 0022, Decision 3).
+ * An account on a plan link to a circle it is not in (ADR 0022, Decision 3),
+ * once it has said it is new here, or when there are no guests whose place it
+ * could take (ADR 0088: `ContinueAsFlow` shows it the list first).
  *
  * One tap joins under the profile's name, and nothing is sent that could rename
  * the profile. Three ways off the one-tap path:

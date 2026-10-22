@@ -7,10 +7,12 @@ import { track } from '../../../analytics/track';
 import { useSession } from '../../../data/auth/session';
 import { newIdempotencyKey } from '../../../data/functions';
 import { circleNameForCode, guestMembersFor, reattachFromList } from '../../../data/membership';
+import { ClaimPlaceSheet } from '../ClaimPlaceSheet';
 import { ContinueAsScreen, type ContinueProblem } from '../ContinueAsScreen';
 import { LinkInvalidScreen } from '../LinkInvalidScreen';
 import { failureOf, isOffline } from './failure';
 import { useHaveAccount } from './haveAccount';
+import { JoinAsAccountFlow } from './JoinAsAccountFlow';
 import { nameStepBack, NAME_STEP, nameStepPushed, rememberNameStepPushed } from './nameStepBack';
 import { PlanNameFlow } from './PlanNameFlow';
 
@@ -18,9 +20,12 @@ import { PlanNameFlow } from './PlanNameFlow';
  * "Have you answered this before?" (ADR 0006, spec §5.1, §6.2), and "I'm new
  * here" (ADR 0022).
  *
- * Shown in place of a plan page when a guest session — or one this page has
- * just made — holds no membership of its circle. An account never sees it: the
- * gate sends one to `JoinAsAccountFlow`.
+ * Shown in place of a plan page when a session holds no membership of its
+ * circle: a guest's, one this page has just made, or a signed-in account's.
+ * An account sees the same names, and a pick moves that guest's place onto it
+ * (ADR 0088). For an account, "I'm new here" — and a circle with no guests —
+ * is `JoinAsAccountFlow`'s one tap, "Join [circle] as [name]", rather than the
+ * name step.
  *
  * - **A pick reattaches**, and the page underneath is then simply allowed —
  *   nothing navigates, so "resume the original route" is the route the person
@@ -55,6 +60,8 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
   const haveAccount = useHaveAccount();
 
   const [busyKey, setBusyKey] = useState<string | undefined>();
+  // The guest an account has tapped and not yet confirmed (SUS-245): nothing is sent until "Yes".
+  const [claiming, setClaiming] = useState<GuestMemberOption | undefined>();
   const [problem, setProblem] = useState<ContinueProblem | undefined>();
   const [reference, setReference] = useState<string | undefined>();
   const [askForInvite, setAskForInvite] = useState(false);
@@ -94,7 +101,6 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
     // limit on it is counted per caller.
     queryKey: ['guest-members', code, session.userId],
     queryFn: () => guestMembersFor(code),
-    enabled: !signedIn,
     staleTime: 0,
     retry: 1,
   });
@@ -164,7 +170,13 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
     return <LinkInvalidScreen reason="plan_inactive" onBack={back} />;
   }
 
-  if ((imNew || nobodyToBe) && !signedIn) {
+  // An account that is new here joins as itself, in one tap (ADR 0022). Its
+  // Back, from the `?step=name` entry, returns to the list.
+  if ((imNew || nobodyToBe) && signedIn) {
+    return <JoinAsAccountFlow code={code} onJoined={() => onReattached()} />;
+  }
+
+  if (imNew || nobodyToBe) {
     if (circleName.isPending) {
       return <ContinueAsScreen circleName={title} state="loading" onBack={back} />;
     }
@@ -184,7 +196,7 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
     );
   }
 
-  if (!signedIn && guests.isError) {
+  if (guests.isError) {
     return (
       <ContinueAsScreen
         circleName={title}
@@ -194,11 +206,17 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
       />
     );
   }
-  if (!signedIn && guests.isPending) {
+  if (guests.isPending) {
     return <ContinueAsScreen circleName={title} state="loading" onBack={back} />;
   }
 
   const byKey = new Map<string, GuestMemberOption>(listed.map((m) => [m.member_user_id, m]));
+  // Only while the guest is still listed and the circle's name is known: a place claimed
+  // elsewhere meanwhile, or a title reading "in ?", is not something to confirm.
+  const claimOpen =
+    claiming !== undefined && byKey.has(claiming.member_user_id) && title !== undefined
+      ? claiming
+      : undefined;
 
   const pick = async (member: GuestMemberOption) => {
     let key = keys.current.get(member.member_user_id);
@@ -219,8 +237,13 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
       });
       // The circle goes on the event so the founder's gate can count it in its
       // cohort (ADR 0058); the person does not.
-      track('member_reattached', { source: 'list', circle_id: member.circle_id });
-      onReattached('list');
+      track('member_reattached', {
+        source: signedIn ? 'list_account' : 'list',
+        circle_id: member.circle_id,
+      });
+      // "Keep your place for good?" follows a guest's pick only: an account's
+      // place is already kept.
+      onReattached(signedIn ? undefined : 'list');
     } catch (error) {
       const failure = failureOf(error);
       const reason = failure.kind === 'reason' ? failure.reason : undefined;
@@ -245,24 +268,39 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
       }
     } finally {
       setBusyKey(undefined);
+      setClaiming(undefined);
     }
   };
 
   return (
-    <ContinueAsScreen
-      circleName={title}
-      options={listed.map((m) => ({ key: m.member_user_id, name: m.display_name }))}
-      signedIn={signedIn}
-      problem={guests.data?.kind === 'limited' ? { kind: 'too_many_tries' } : problem}
-      reference={reference}
-      busyKey={busyKey}
-      onPick={(option) => {
-        const member = byKey.get(option.key);
-        if (member !== undefined) void pick(member);
-      }}
-      onImNewHere={openNameStep}
-      onSignIn={haveAccount}
-      onBack={back}
-    />
+    <>
+      <ContinueAsScreen
+        circleName={title}
+        options={listed.map((m) => ({ key: m.member_user_id, name: m.display_name }))}
+        signedIn={signedIn}
+        problem={guests.data?.kind === 'limited' ? { kind: 'too_many_tries' } : problem}
+        reference={reference}
+        busyKey={busyKey}
+        onPick={(option) => {
+          const member = byKey.get(option.key);
+          if (member === undefined) return;
+          // An account is asked first: a wrong tap would otherwise move somebody's place.
+          if (signedIn) setClaiming(member);
+          else void pick(member);
+        }}
+        onImNewHere={openNameStep}
+        onSignIn={haveAccount}
+        onBack={back}
+      />
+      <ClaimPlaceSheet
+        name={claimOpen?.display_name}
+        circleName={title ?? ''}
+        busy={busyKey !== undefined}
+        onYes={() => {
+          if (claimOpen !== undefined) void pick(claimOpen);
+        }}
+        onDismiss={() => setClaiming(undefined)}
+      />
+    </>
   );
 }

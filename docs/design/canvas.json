@@ -352,6 +352,24 @@
       "title": "Name \u00b7 plan link"
     },
     {
+      "file": "ContinueAsAccount.dc.html",
+      "x": 1440,
+      "y": 7800,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Continue as \u00b7 signed in, takes a guest's place"
+    },
+    {
+      "file": "ContinueAsAccountConfirm.dc.html",
+      "x": 1920,
+      "y": 7800,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Continue as \u00b7 signed in, confirm taking the place"
+    },
+    {
       "file": "AddToCalendarPreparing.dc.html",
       "x": 0,
       "y": 9100,

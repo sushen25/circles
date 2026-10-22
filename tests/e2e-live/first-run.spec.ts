@@ -244,7 +244,7 @@ test('a returning organiser with a name skips Your name and lands on their circl
   await expect(page.getByRole('heading', { name: 'Sunday Crew' })).toBeVisible();
 });
 
-test('"I have an account" on a plan link signs in and comes back to the one-tap join', async ({
+test('"I have an account" on a plan link signs in and comes back to the list, where "I\'m new here" is one tap', async ({
   page,
 }) => {
   const crew = sundayCrew();
@@ -259,6 +259,9 @@ test('"I have an account" on a plan link signs in and comes back to the one-tap 
   await signInByCode(page, ren.email);
 
   await expect(page).toHaveURL(new RegExp(`/p/${crew.planCode}$`));
+  // Signed in now, and shown the same guests (ADR 0088); Ren is new here.
+  await expect(page.getByRole('button', { name: 'Continue as Tom' })).toBeVisible();
+  await page.getByRole('button', { name: "I'm new here" }).click();
   const join = page.getByRole('button', { name: 'Join Sunday Crew as Ren' });
   await expect(join).toBeVisible();
   await join.click();

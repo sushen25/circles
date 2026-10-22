@@ -9,8 +9,8 @@ import { callerAddress, enforce } from '../_shared/rate.ts';
  * Coming back with no session — "Continue as", and the emailed way in (ADR 0006,
  * §10).
  *
- * Every safeguard is in `private.reattach_member_core`, behind `public.reattach_member` (the list) and `public.reattach_with_token` (the emailed link): the caller must be a guest, the
- * target must be a guest. (There is no per-membership cap; ADR 0078.) None of them
+ * Every safeguard is in `private.reattach_member_core`, behind `public.reattach_member` (the list) and `public.reattach_with_token` (the emailed link): the target must be a guest, and
+ * a signed-in caller may pick from the list (ADR 0088) but not use another's emailed link. (There is no per-membership cap; ADR 0078.) None of them
  * is repeated here, deliberately — a guard in an Edge Function is a guard the
  * next Edge Function has to remember to write again.
  *
