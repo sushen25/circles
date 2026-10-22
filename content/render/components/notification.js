@@ -7,7 +7,7 @@
  * Our own card language (the chat bubble and link card's register), never a
  * lookalike of a phone's lock screen or a messenger's banner.
  */
-import { anim, EASE, el, esc, known, pop, reserve, rise, str } from './_kit.js';
+import { anim, EASE, EASE_IN_OUT, el, esc, known, pop, reserve, rise, str } from './_kit.js';
 
 /**
  * @typedef {{ group: string, from: string, text: string, time: string }} Item
@@ -110,7 +110,7 @@ export default {
       tl.add(last ? 0.3 + 1.0 + 0.02 * m.text.length : step);
     });
     const end = tl.now;
-    anim(stack, [{ transform: 'scale(1)' }, { transform: 'scale(1.015)' }], end - 1.2, 1.4);
+    anim(stack, [{ transform: 'scale(1)' }, { transform: 'scale(1.015)' }], end - 1.2, 1.4, EASE_IN_OUT);
     tl.exit(root, end - 0.22);
     return { poster: end - 0.23 };
   },

@@ -31,7 +31,14 @@
  */
 
 export const SPRING = 'cubic-bezier(.2, 1.35, .35, 1)';
+/** CSS `ease`. Colour and opacity cross-fades only; never an entrance or an exit. */
 export const EASE = 'cubic-bezier(.25, .1, .25, 1)';
+/** Strong ease-out: anything entering or leaving the frame. The default. */
+export const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
+/** Strong ease-in-out: something that moves while it stays on screen (a push-in, a wipe). */
+export const EASE_IN_OUT = 'cubic-bezier(0.77, 0, 0.175, 1)';
+/** iOS-like curve: a list making room for a new item (the chat stack moving up). */
+export const EASE_DRAWER = 'cubic-bezier(0.32, 0.72, 0, 1)';
 /** @param {number} s */
 export const ms = (s) => Math.round(s * 1000);
 
@@ -71,7 +78,7 @@ export const MARK = (peach) => `<svg viewBox="0 0 120 120" xmlns="http://www.w3.
  * @param {string} [easing]
  * @param {FillMode} [fill]
  */
-export function anim(node, keyframes, at, dur, easing = EASE, fill = 'both') {
+export function anim(node, keyframes, at, dur, easing = EASE_OUT, fill = 'both') {
   node.animate(keyframes, { delay: ms(at), duration: ms(dur), fill, easing });
 }
 /** @param {Element} node @param {number} at @param {number} [dur] */
@@ -86,16 +93,16 @@ export const rise = (node, at, dur = 0.3) =>
   anim(node, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'translateY(0)' }], at, dur);
 /** @param {Element} node @param {number} at @param {number} [dur] */
 export const exitUp = (node, at, dur = 0.22) =>
-  anim(node, [{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(-70px)' }], at, dur, EASE, 'forwards');
+  anim(node, [{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(-70px)' }], at, dur, EASE_OUT, 'forwards');
 /** Reserve layout space the instant a chat item arrives (max-height 0 → open). @param {Element} node @param {number} at @param {number} [h] */
 export const reserve = (node, at, h = 900) =>
   anim(node, [{ maxHeight: '0px', marginTop: '0px' }, { maxHeight: `${h}px`, marginTop: '26px' }], at, 0.08, 'linear');
 /** @param {Element} node @param {number} at */
 export const unreserve = (node, at) =>
   anim(node, [{ maxHeight: '900px', marginTop: '26px' }, { maxHeight: '0px', marginTop: '0px' }], at, 0.01, 'linear', 'forwards');
-/** @param {Element} node @param {number} at */
+/** A tap: quick down, slower release. @param {Element} node @param {number} at */
 export const press = (node, at) =>
-  anim(node, [{ transform: 'scale(1)' }, { transform: 'scale(.94)' }, { transform: 'scale(1)' }], at, 0.22, EASE, 'none');
+  anim(node, [{ transform: 'scale(1)' }, { transform: 'scale(.96)', offset: 0.35 }, { transform: 'scale(1)' }], at, 0.22, EASE_OUT, 'none');
 
 /**
  * The clock a piece is built on. Replaces the old shared `t`.

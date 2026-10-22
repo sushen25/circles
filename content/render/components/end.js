@@ -1,6 +1,6 @@
 // @ts-check
 /** The end card: the lockup on the dark surface, the line, the URL. The one product mention. */
-import { anim, el, esc, known, MARK, pop, rise, SPRING, str } from './_kit.js';
+import { anim, EASE_IN_OUT, el, esc, known, MARK, pop, rise, SPRING, str } from './_kit.js';
 
 /** @typedef {{ type: 'end', line: string, url: string, descriptor?: string }} Props */
 
@@ -61,7 +61,7 @@ export default {
     root.append(lockup, desc, d, url);
 
     // the surface wipes up
-    anim(root, [{ opacity: 1, clipPath: 'inset(100% 0 0 0)' }, { opacity: 1, clipPath: 'inset(0 0 0 0)' }], t, 0.4);
+    anim(root, [{ opacity: 1, clipPath: 'inset(100% 0 0 0)' }, { opacity: 1, clipPath: 'inset(0 0 0 0)' }], t, 0.4, EASE_IN_OUT);
     tl.cue('thud', t);
     // five seats arrive around the table, then the open seat draws itself
     let tt = t + 0.35;

@@ -4,7 +4,7 @@
  * link card. A `when` with no digits ("Three weeks later") first plays the
  * full-screen time-skip card.
  */
-import { anim, contentHeight, el, esc, hide, known, pop, reserve, sceneBefore, str, unreserve } from './_kit.js';
+import { anim, contentHeight, EASE_IN_OUT, EASE_OUT, el, esc, hide, known, pop, reserve, sceneBefore, str, unreserve } from './_kit.js';
 import { skipCard } from './_skip.js';
 
 /**
@@ -144,7 +144,7 @@ export default {
         const card = el('div', 'card');
         card.append(el('div', 'ct', esc(m.link.title)), el('div', 'cs', esc(m.link.sub || '')), el('div', 'cd', esc(m.link.domain || 'wenna.app')));
         node.appendChild(card);
-        anim(card, [{ opacity: 0, transform: 'translateY(16px) scale(.97)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], t + 0.5, 0.3, 'cubic-bezier(0.23, 1, 0.32, 1)');
+        anim(card, [{ opacity: 0, transform: 'translateY(16px) scale(.97)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], t + 0.5, 0.3, EASE_OUT);
         tl.cue('tick', t + 0.5);
         hold += 0.7;
       }
@@ -153,7 +153,7 @@ export default {
     // still: a chat too long for its slide fades out under its header instead of running into it
     if (document.body.classList.contains('still') && contentHeight(stream) > stream.clientHeight) stream.classList.add('overflows');
     const end = tl.now;
-    anim(stream, [{ transform: 'scale(1)' }, { transform: 'scale(1.02)' }], end - 2, 2.2);
+    anim(stream, [{ transform: 'scale(1)' }, { transform: 'scale(1.02)' }], end - 2, 2.2, EASE_IN_OUT);
     tl.exit(root, end - 0.22);
     return { poster: end - 0.23 };
   },

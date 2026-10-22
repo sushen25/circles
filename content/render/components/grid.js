@@ -1,6 +1,6 @@
 // @ts-check
 /** A row of days; the picked ones fill and tick, then a note lands. */
-import { anim, el, esc, known, pop, SPRING, str, strList } from './_kit.js';
+import { anim, EASE, el, esc, known, pop, SPRING, str, strList } from './_kit.js';
 
 /** @typedef {{ type: 'grid', caption: string, days: string[], picked: string[], note?: string }} Props */
 
@@ -68,7 +68,7 @@ export default {
       const at = t + 0.85 + pk * 0.18;
       anim(/** @type {Element} */ (c.querySelector('.fill')), [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'scale(1)' }], at, 0.28, SPRING);
       anim(/** @type {Element} */ (c.querySelector('.tick')), [{ opacity: 0, transform: 'scale(.4)' }, { opacity: 1, transform: 'scale(1)' }], at + 0.05, 0.25, SPRING);
-      anim(/** @type {Element} */ (c.querySelector('.dl')), [{ color: '#6C6156' }, { color: '#ffffff' }], at, 0.1);
+      anim(/** @type {Element} */ (c.querySelector('.dl')), [{ color: '#6C6156' }, { color: '#ffffff' }], at, 0.1, EASE);
       tl.cue('tick', at);
       pk++;
     });

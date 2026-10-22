@@ -16,7 +16,7 @@
  * child: the card is full-screen and has no place inside a pane.
  * `order`: "sequence" only (left plays fully, then right).
  */
-import { anim, contentHeight, el, injectCss, known, Timeline } from './_kit.js';
+import { anim, contentHeight, EASE, el, injectCss, known, Timeline } from './_kit.js';
 import chat, { skipsTime } from './chat.js';
 import dm from './dm.js';
 
@@ -176,7 +176,7 @@ export default {
     const left = play('left');
     tl.add(GAP);
     // the group chat steps back a little as the side room opens; it stays readable
-    anim(left, [{ opacity: 1 }, { opacity: 0.85 }], tl.now, 0.4);
+    anim(left, [{ opacity: 1 }, { opacity: 0.85 }], tl.now, 0.4, EASE);
     const right = play('right');
     if (document.body.classList.contains('still')) fitStill(left, right);
     tl.add(HOLD);

@@ -9,7 +9,7 @@
  * accent. Optional trailing messages arrive behind typing bubbles, the same
  * mechanic as chat.
  */
-import { anim, contentHeight, el, esc, hide, known, pop, reserve, rise, SPRING, str, unreserve } from './_kit.js';
+import { anim, contentHeight, EASE, EASE_IN_OUT, el, esc, hide, known, pop, reserve, rise, SPRING, str, unreserve } from './_kit.js';
 
 /**
  * @typedef {{ label: string, votes: string[] }} Option
@@ -215,8 +215,8 @@ export default {
     // the tally is in: the leader, or every row tied for the lead, takes the accent
     const settle = tl.now + Math.max(0, order.length - 1) * VOTE_GAP + 0.3;
     rows.filter((r) => r.lead).forEach((r) => {
-      anim(r.fill, [{ background: 'var(--line-soft)' }, { background: 'var(--accent-soft)' }], settle, 0.25);
-      anim(r.label, [{ color: 'var(--ink)' }, { color: 'var(--accent-dark)' }], settle, 0.25);
+      anim(r.fill, [{ background: 'var(--line-soft)' }, { background: 'var(--accent-soft)' }], settle, 0.25, EASE);
+      anim(r.label, [{ color: 'var(--ink)' }, { color: 'var(--accent-dark)' }], settle, 0.25, EASE);
     });
     tl.add(Math.max(0, order.length - 1) * VOTE_GAP + 0.65);
 
@@ -246,7 +246,7 @@ export default {
     if (document.body.classList.contains('still') && contentHeight(stream) > stream.clientHeight) stream.classList.add('overflows');
     tl.add(1.0);
     const end = tl.now;
-    anim(stream, [{ transform: 'scale(1)' }, { transform: 'scale(1.02)' }], end - 2, 2.2);
+    anim(stream, [{ transform: 'scale(1)' }, { transform: 'scale(1.02)' }], end - 2, 2.2, EASE_IN_OUT);
     tl.exit(root, end - 0.22);
     return { poster: end - 0.23 };
   },

@@ -4,7 +4,7 @@
  * Big serif text in typographic quotes, the source as a small label. The text
  * must be verbatim in context/hooks.md (quoteIsVerbatim, called by check.ts).
  */
-import { el, EASE, anim, esc, known, str } from './_kit.js';
+import { el, EASE_OUT, anim, esc, known, str } from './_kit.js';
 
 /** @typedef {{ type: 'quote', text: string, source: string }} Props */
 
@@ -116,7 +116,7 @@ export default {
       q.append(n, ' ');
       const g = groupOf(i);
       const at = t + 0.08 + g * step;
-      anim(n, [{ opacity: 0, transform: 'translateY(34px)' }, { opacity: 1, transform: 'translateY(0)' }], at, 0.34, EASE);
+      anim(n, [{ opacity: 0, transform: 'translateY(34px)' }, { opacity: 1, transform: 'translateY(0)' }], at, 0.34, EASE_OUT);
       if (i % 3 === 0 && g === Math.floor(i / 3)) tl.cue('pop', at);
     });
     // the first line's text-indent hangs the opening mark in the margin

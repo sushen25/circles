@@ -6,7 +6,7 @@
  * busy on reads darker. Clear days left at the end go `--support-soft` and
  * the note lands.
  */
-import { anim, el, esc, known, pop, rise, SPRING, str } from './_kit.js';
+import { anim, EASE, el, esc, known, pop, rise, SPRING, str } from './_kit.js';
 
 /**
  * @typedef {{ name: string, busy: number[] }} Person
@@ -132,7 +132,7 @@ export default {
     const crossed = new Map();
     p.people.forEach((x, pi) => {
       const chip = chips[pi];
-      anim(chip, [{ background: '#FFFFFF', borderColor: '#EAE0D3', color: '#6C6156' }, { background: '#F6E5DC', borderColor: '#F6E5DC', color: '#A0431F' }], tt, 0.16);
+      anim(chip, [{ background: '#FFFFFF', borderColor: '#EAE0D3', color: '#6C6156' }, { background: '#F6E5DC', borderColor: '#F6E5DC', color: '#A0431F' }], tt, 0.16, EASE);
       tl.cue('pop', tt);
       tt += 0.28;
       const busy = [...new Set(x.busy)].sort((a, b) => a - b);
@@ -152,19 +152,19 @@ export default {
         const [a, b] = svg.querySelectorAll('line');
         anim(a, [{ strokeDashoffset: 1, opacity: 0 }, { opacity: 1, offset: 0.01 }, { strokeDashoffset: 0, opacity: 1 }], tt, 0.1);
         anim(b, [{ strokeDashoffset: 1, opacity: 0 }, { opacity: 1, offset: 0.01 }, { strokeDashoffset: 0, opacity: 1 }], tt + 0.06, 0.1);
-        if (k === 0) anim(/** @type {Element} */ (c.querySelector('.n')), [{ color: '#221E19' }, { color: '#796D61' }], tt, 0.12);
+        if (k === 0) anim(/** @type {Element} */ (c.querySelector('.n')), [{ color: '#221E19' }, { color: '#796D61' }], tt, 0.12, EASE);
         tl.cue('tick', tt);
         tt += 0.12;
       });
       tt += 0.12;
-      anim(chip, [{ background: '#F6E5DC', borderColor: '#F6E5DC', color: '#A0431F' }, { background: '#FFFFFF', borderColor: '#EAE0D3', color: '#6C6156' }], tt, 0.2, undefined, 'forwards');
+      anim(chip, [{ background: '#F6E5DC', borderColor: '#F6E5DC', color: '#A0431F' }, { background: '#FFFFFF', borderColor: '#EAE0D3', color: '#6C6156' }], tt, 0.2, EASE, 'forwards');
       tt += pi === p.people.length - 1 ? 0.2 : 0.35;
     });
 
     const clear = [...cells.entries()].filter(([d]) => !crossed.has(d));
     clear.forEach(([, c], i) => {
       anim(/** @type {Element} */ (c.querySelector('.clear')), [{ opacity: 0, transform: 'scale(.7)' }, { opacity: 1, transform: 'scale(1)' }], tt + i * 0.06, 0.3, SPRING);
-      anim(/** @type {Element} */ (c.querySelector('.n')), [{ color: '#221E19' }, { color: '#4F6B45' }], tt + i * 0.06, 0.15);
+      anim(/** @type {Element} */ (c.querySelector('.n')), [{ color: '#221E19' }, { color: '#4F6B45' }], tt + i * 0.06, 0.15, EASE);
     });
     if (clear.length) tt += 0.3 + clear.length * 0.06;
     if (note) {

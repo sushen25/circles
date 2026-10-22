@@ -7,7 +7,7 @@
  * The still is the poster frame just before the press: calendar picked,
  * button not yet pressed. The video carries on to "Sent".
  */
-import { anim, el, esc, known, pop, press, rise, show, hide, SPRING, str } from './_kit.js';
+import { anim, EASE, el, esc, known, pop, press, rise, show, hide, SPRING, str } from './_kit.js';
 
 /**
  * @typedef {{ day: number, when?: string, label: string, time?: string }} Pick
@@ -125,7 +125,7 @@ export default {
       c.classList.add('on'); // still metrics only; the video animates .fill
       press(c, tt);
       anim(/** @type {Element} */ (c.querySelector('.fill')), [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'scale(1)' }], tt + 0.05, 0.26, SPRING);
-      anim(/** @type {Element} */ (c.querySelector('.n')), [{ color: '#221E19' }, { color: '#ffffff' }], tt + 0.05, 0.1);
+      anim(/** @type {Element} */ (c.querySelector('.n')), [{ color: '#221E19' }, { color: '#ffffff' }], tt + 0.05, 0.1, EASE);
       const tag = /** @type {HTMLElement} */ (c.querySelector('.tag'));
       tag.textContent = k.when || 'Eve';
       show(tag, tt + 0.12, 0.15);
