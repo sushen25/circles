@@ -11,8 +11,12 @@ and fails review. Add a line here (with where it comes from) before using it.
   they would actually be up for.
 - Guests need no account, no app, no calendar access.
 - The organiser confirms a time; Wenna does not decide for the group.
-- Nobody is shown as having said no. Members see a combined result, not each
-  other's answers.
+- The group sees who can make each time Wenna suggests, and who hasn't
+  answered yet. Nobody sees anyone's calendar, and nobody is shown anyone's
+  whole availability with their name on it. (ADR 0066, the founder's choice
+  on 10 October 2026.)
+- Nobody is called out for not replying. If a plan doesn't get there it just
+  fades, and the message names no one. (ADR 0066.)
 - Wenna asks for willingness ("times I'd actually be up for"), not free/busy.
 - Built in Melbourne by one person.
 - Tagline: "Plans with friends".
@@ -50,6 +54,9 @@ and fails review. Add a line here (with where it comes from) before using it.
 - Any statistic about how often plans fail, unless added here with a source.
 - Any integration (WhatsApp, iMessage, Google Calendar) beyond "paste the
   link in the chat".
+- That friends only see a combined result, or that nobody is shown as having
+  said no. The options name who can make each one, who can't and who hasn't
+  answered (ADR 0066).
 
 ## Sourced numbers (none yet)
 
