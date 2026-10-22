@@ -66,7 +66,7 @@ hashtags: #friends #melbourne #groupchat #catchup
 
 ## bluesky
 
-> From a Reddit thread on old friends: "We spent most of the summer trying to find a weekend that worked for everyone." Nobody wants to be the one who says no in front of the group. Building a small thing for that.
+> From a Reddit thread on old friends: "We spent most of the summer trying to find a weekend that worked for everyone." Building a small thing where nobody is called out for not replying, and a plan that doesn't get there just fades.
 > wenna.app
 
 ## linkedin
