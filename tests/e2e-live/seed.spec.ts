@@ -64,6 +64,19 @@ const SUNDAY_CREW = '00000000-0000-4000-8000-000000000a01';
 const THURSDAY_REGULARS = '00000000-0000-4000-8000-000000000a02';
 const BOOK_CLUB = '00000000-0000-4000-8000-000000000a05';
 
+/**
+ * Seeded plans age: A's deadline is a few days after the reset, E's meetup a
+ * fortnight on. CI resets just before the suite, so there a scenario that is
+ * not as written is a failure; on a stack opened by hand it is a skip.
+ */
+function skipUnless(asWritten: boolean, scenario: string) {
+  if (process.env.CI) expect(asWritten, `${scenario} as the seed writes it`).toBe(true);
+  test.skip(!asWritten, `${scenario} has moved on since the last reset: \`make reset\``);
+}
+const asked = (planId: string) =>
+  sql(`select state in ('collecting','ready') and response_deadline > now()
+       from public.plans where id = '${planId}'`)[0]?.[0] === 't';
+
 for (const [who, email] of [
   ['Maya, who owns it,', 'maya@example.com'],
   ['Nina, a member,', 'nina@example.com'],
@@ -75,6 +88,7 @@ for (const [who, email] of [
       test.info().project.name !== 'android-chrome',
       'the seed is the same in every project',
     );
+    skipUnless(asked('00000000-0000-4000-8000-000000000b01'), 'scenario A');
     await signedInAs(page, await sessionFor(email));
     await page.goto(`/circles/${SUNDAY_CREW}`);
 
@@ -94,6 +108,12 @@ test('seed scenario E: Nina, a member of Book Club, can add someone and send the
   page,
 }) => {
   test.skip(test.info().project.name !== 'android-chrome', 'the seed is the same in every project');
+  skipUnless(
+    sql(`select count(*) from public.meetup_confirmations c join public.plans p on p.id = c.plan_id
+         where p.circle_id = '${BOOK_CLUB}' and c.status = 'active' and c.ends_at > now()`)[0]?.[0] ===
+      '1',
+    'scenario E',
+  );
   await signedInAs(page, await sessionFor('nina@example.com'));
   await page.goto(`/circles/${BOOK_CLUB}`);
 
@@ -108,6 +128,11 @@ test('seed scenario B: Tom, a member of Thursday Regulars, can add someone when 
   page,
 }) => {
   test.skip(test.info().project.name !== 'android-chrome', 'the seed is the same in every project');
+  skipUnless(
+    sql(`select last_met_at < now() - interval '3 weeks' from public.circles
+         where id = '${THURSDAY_REGULARS}'`)[0]?.[0] === 't',
+    'scenario B',
+  );
   await signedInAs(page, await sessionFor('tom@example.com'));
   await page.goto(`/circles/${THURSDAY_REGULARS}`);
 

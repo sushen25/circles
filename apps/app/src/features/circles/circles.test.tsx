@@ -847,6 +847,18 @@ describe('circle home: one way into the chat at a time (SUS-248)', () => {
 
       expect(await screen.findByText('Replies closed')).toBeVisible();
       expect(screen.queryByRole('button', { name: 'Add my times' })).toBeNull();
+      expect(screen.queryByText(/Add yours again/)).toBeNull();
+    });
+
+    it('offers Add someone on a quiet ask nobody has taken on, which is never shared by link', async () => {
+      circleHome.mockResolvedValue(
+        home({ activePlan: { ...PLAN_OPEN(), organiserUserId: null, quiet: true } }),
+      );
+      wrap(<CircleHomeFlow id={CIRCLE} />);
+
+      expect(await screen.findByText('Started quietly')).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Share the plan' })).toBeNull();
+      expect(screen.getByRole('button', { name: 'Add someone' })).toBeVisible();
     });
   });
 

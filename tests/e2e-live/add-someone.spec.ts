@@ -1,5 +1,5 @@
 // @e2e: core
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 import { expect, test, type Page } from './fixtures';
 import { signedInAs } from './journeys';
@@ -11,6 +11,7 @@ import {
   sessionFor,
   signedInAccount,
   sql,
+  stackConfig,
 } from './stack';
 
 /**
@@ -95,6 +96,22 @@ test('a member who is not the owner cannot cancel old invitations, whatever she 
   const maya = await accountToSignInTo('Maya');
   const circleId = circleOwnedBy(maya.userId, 'Sunday Crew');
   const nina = await memberIn(circleId, 'Nina');
+  sql(`insert into public.circle_invites (circle_id, secret_hash, created_by)
+       values ('${circleId}', extensions.digest('${randomBytes(32).toString('base64url')}', 'sha256'), '${maya.userId}')`);
+
+  // Whatever the screen shows, the server refuses her reset.
+  const { apiUrl, anonKey } = stackConfig();
+  const refused = await fetch(`${apiUrl}/functions/v1/rotate-invite`, {
+    method: 'POST',
+    headers: {
+      apikey: anonKey,
+      authorization: `Bearer ${(JSON.parse(nina.stored) as { access_token: string }).access_token}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ idempotency_key: randomUUID(), circle_id: circleId }),
+  });
+  expect(refused.status).toBe(403);
+  expect(((await refused.json()) as { reason?: string }).reason).toBe('not_the_owner');
 
   const member = await (await browser.newContext()).newPage();
   await signedInAs(member, nina.stored);
@@ -105,7 +122,7 @@ test('a member who is not the owner cannot cancel old invitations, whatever she 
   expect(
     sql(`select count(*) from public.circle_invites
          where circle_id = '${circleId}' and revoked_at is null`)[0]?.[0],
-  ).toBe('0');
+  ).toBe('1');
 });
 
 test('the owner cancels old invitations: the old one stops, the plan already shared keeps working', async ({

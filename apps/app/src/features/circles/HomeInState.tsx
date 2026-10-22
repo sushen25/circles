@@ -169,7 +169,12 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
               })
         }
         replied={t('circleHome', 'replied', { count: plan.replied, total: plan.asked })}
-        askedAgain={plan.askedAgain === true ? t('circleHome', 'asked_again') : undefined}
+        // Nothing takes their times once replies have closed, so nothing asks for them.
+        askedAgain={
+          plan.askedAgain === true && !share.repliesClosed
+            ? t('circleHome', 'asked_again')
+            : undefined
+        }
         met={met}
         lastCaughtUp={lastCaughtUp(home)}
         nextOne={nextOne(home)}

@@ -56,7 +56,7 @@ link" changes accordingly.
 "Takes answers" is the domain's `acceptsAnswers`: a state of `collecting` or
 `ready` with a deadline still ahead. The domain also decides what leads once
 replies have closed (`circleHomePrimary`) and where Add someone is offered
-(`offersAddSomeone`); no screen works either out.
+(`offersAddSomeone`); no screen works either out. A quiet ask nobody has taken on is never shared by link (ADR 0022), so while it is open its card offers no share and the members row offers **Add someone**: there is always exactly one way in.
 
 ### 2. Any active member can add someone; only the owner can cancel old invitations
 

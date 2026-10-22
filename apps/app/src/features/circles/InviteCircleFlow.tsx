@@ -65,12 +65,11 @@ function LiveInvite({ id }: { id: string }) {
   const shown = useQuery({
     queryKey: ['invite-link-shown', id, session.userId],
     queryFn: async () => (await fetchInviteSecret(id)) !== undefined,
-    enabled:
-      home.data !== undefined &&
-      home.data !== null &&
-      !atCap &&
-      heldInviteLink(id, appOrigin()) === undefined,
-    staleTime: Infinity,
+    // Asked on every visit, held or not: somebody else may have cancelled the
+    // invitation this tab holds, and a member depends on that more than an owner.
+    enabled: home.data !== undefined && home.data !== null && !atCap,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const toHome = () => router.replace({ pathname: '/circles/[id]', params: { id } });

@@ -1,6 +1,6 @@
 -- 0076_invite_link_for_any_member
 --
--- What this changes, and why, in a sentence or two.
+-- live_invite answers any active member of the circle, not the owner alone (ADR 0091): any member can add someone; resetting stays the owner's.
 
 -- BEGIN GENERATED: function definitions (scripts/gen-sql-functions.mjs)
 

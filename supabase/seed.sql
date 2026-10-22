@@ -32,7 +32,9 @@ create extension if not exists pgtap with schema extensions;
 --   E. Book Club — a meetup locked in for the week after next (S1-23), so
 --      circle home's "locked in" state has something to show.
 --      There, and in B, every member sees Add someone: any active member can add
---      someone between plans, and only Maya can cancel old invitations.
+--      someone between plans, and only Maya can cancel old invitations. (No
+--      seeded circle has an invitation to show yet: Add someone says so until
+--      its owner cancels old invitations once.)
 --
 -- Ids are deterministic (`00000000-0000-4000-8000-0000000001NN` for people,
 -- `…0a0N` for circles, `…0b0N` for plans) so a URL survives a reset. Dates are
