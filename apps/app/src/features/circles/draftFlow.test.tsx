@@ -619,11 +619,28 @@ describe('the finish', () => {
     expect(await readDraft()).toBeNull();
   });
 
-  it('keeps the draft when the connection drops on the answer, and the second run sends the same key', async () => {
+  it('shares the plan with the answer skipped when the connection drops on it, rather than offering to go back over a plan that exists', async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya' });
+    await draftReady();
+    submitAnswer.mockRejectedValueOnce(
+      Object.assign(new Error('x'), { name: 'AuthRetryableFetchError', status: 0 }),
+    );
+    wrap(<FinishDraftFlow />);
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(SHARE('later')));
+    expect(screen.queryByRole('button', { name: 'Back to the plan' })).toBeNull();
+    expect(createPlan).toHaveBeenCalledTimes(1);
+    expect(await readDraft()).toBeNull();
+  });
+
+  it('keeps the draft when the answer is rate limited, and the second run sends the same keys', async () => {
     Object.assign(session, { status: 'saved', userId: 'maya' });
     const { draft } = await draftReady();
     submitAnswer.mockRejectedValueOnce(
-      Object.assign(new Error('x'), { name: 'AuthRetryableFetchError', status: 0 }),
+      new FunctionError(
+        { error: 'rate_limited', reason: 'too_many_requests', message: 'x' } as never,
+        'x',
+      ),
     );
     wrap(<FinishDraftFlow />);
 
@@ -632,8 +649,33 @@ describe('the finish', () => {
     const keyOf = (mock: typeof createPlan) =>
       mock.mock.calls.map(([o]) => (o as { idempotencyKey: string }).idempotencyKey);
     expect(keyOf(submitAnswer)).toEqual([draft.keys.answer, draft.keys.answer]);
-    // The plan was made by the first run and by the second: one plan, one key.
+    // One plan, one key, and counted once however often it was asked for.
     expect(keyOf(createPlan)).toEqual([draft.keys.plan, draft.keys.plan]);
+    expect(track.mock.calls.filter(([name]) => name === 'plan_created')).toHaveLength(1);
+  });
+
+  it('counts the answer as in when the server already holds the key for an earlier run', async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya' });
+    await draftReady();
+    submitAnswer.mockRejectedValueOnce(
+      new FunctionError(
+        { error: 'conflict', reason: 'idempotency_mismatch', message: 'x' } as never,
+        'x',
+      ),
+    );
+    wrap(<FinishDraftFlow />);
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(SHARE('answered')));
+  });
+
+  it("writes an evening that ends at midnight as the next day's first instant", async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya' });
+    await draftReady({ days: ['2026-10-28'] });
+    createPlan.mockResolvedValue({ ...THE_PLAN, daily: { startMin: 18 * 60, endMin: 24 * 60 } });
+    wrap(<FinishDraftFlow />);
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(SHARE('answered')));
+    expect(submitAnswer.mock.calls[0]?.[0]).toMatchObject({
+      windows: [{ start: '2026-10-28T18:00:00.000Z', end: '2026-10-29T00:00:00.000Z' }],
+    });
   });
 
   it('counts the circle once, however many times the finish runs', async () => {

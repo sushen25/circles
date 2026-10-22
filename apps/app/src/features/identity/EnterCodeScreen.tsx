@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, type ComponentProps, type ReactNode } from 'react';
+import { useEffect, useState, type ComponentProps, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import {
@@ -14,7 +14,7 @@ import {
   Step,
   Tertiary,
   TopBar,
-  useLeave,
+  useStepMotion,
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -149,7 +149,8 @@ export function EnterCodeScreen({
   onBack,
 }: EnterCodeProps) {
   const wait = useSecondsUntil(resendAt);
-  const leave = useLeave();
+  const motion = useStepMotion(step !== undefined);
+  const leave = motion.leave;
   // A code that was refused is of no use to anyone: clear the boxes and put the
   // cursor back in the first, so the next try is typing and not deleting six
   // digits one by one (SUS-204). `problem` is reset when the next try starts,
@@ -162,7 +163,6 @@ export function EnterCodeScreen({
   }, [dead]);
   const resendDisabled = wait > 0;
   const shown = notice ?? (problem === undefined ? undefined : problemCopy(problem));
-  const Move = step === undefined ? Fragment : Step;
 
   return (
     <Screen>
@@ -172,7 +172,7 @@ export function EnterCodeScreen({
         onBack={onBack === undefined ? undefined : () => leave('back', onBack)}
         backLabel={t('common', 'back')}
       />
-      <Move>
+      <Step motion={motion}>
         <Body>
           <Stack>
             <DisplayL>{t('enterCode', 'enter_the_code_we_emailed')}</DisplayL>
@@ -183,7 +183,7 @@ export function EnterCodeScreen({
           <CodeInput
             label={t('enterCode', 'code')}
             value={code}
-            editable={!busy}
+            editable={!busy && foot === undefined}
             onChangeText={(text) => {
               onCodeChange?.(text);
               if (text.length === 6 && !busy) onContinue?.(text);
@@ -216,7 +216,11 @@ export function EnterCodeScreen({
               onPress={busy ? undefined : onSendNewCode}
             />
           </View>
-          {problem !== undefined && !dead && foot === undefined && code.length === 6 ? (
+          {problem !== undefined &&
+          !dead &&
+          problem !== 'too_many_tries' &&
+          foot === undefined &&
+          code.length === 6 ? (
             <Button
               label={t('enterCode', 'try_again')}
               variant="secondary"
@@ -225,7 +229,7 @@ export function EnterCodeScreen({
           ) : null}
         </Body>
         {foot === undefined ? null : <Foot>{foot}</Foot>}
-      </Move>
+      </Step>
     </Screen>
   );
 }

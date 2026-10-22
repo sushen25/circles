@@ -40,8 +40,9 @@ adds an idempotency key for the answer. The finish makes the circle, then the pl
 then **submits the answer after `create-plan` under that key**, and clears the draft
 only when all three are done (ADR 0016). Days that went by while the organiser signed
 in are dropped; if none is left the answer is **skipped, not refused**, and the plan
-is still made and shared. An answer the server refuses for a reason of its own is
-skipped the same way; a connection that dropped, or a rate limit, is tried again.
+is still made and shared. An answer that fails for any other reason (a refusal of its own, a connection that
+dropped, a server error) is skipped the same way, because the plan already exists and
+"Add my times" is on the share; only a rate limit is tried again, with the same keys.
 A **version 2 record** still in a browser reads as a draft with no answer (and the way
 on it carried is not carried on: see 4); a version 1 or an unknown record reads as no
 draft, as before. The answer is the organiser's own times, so it is the same

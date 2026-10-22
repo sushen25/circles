@@ -6,6 +6,7 @@ import { track } from '../../analytics/track';
 import { t } from '../../copy';
 import { guard, useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
+import { readDraft } from '../../data/draft';
 import { finishDraft, firstShare } from '../circles/finishDraft';
 import { useOrganiserDraft } from '../circles/useOrganiserDraft';
 import { FINISH_PATH } from './afterSignIn';
@@ -100,6 +101,8 @@ function LiveSavePlace() {
         circle: draft.circleName,
         onBackToPlan: () => router.replace('/circles/new/plan'),
         onPassed: async (): Promise<GateOutcome> => {
+          // The draft may have gone while the code was typed (a day, or another tab).
+          if ((await readDraft()) === null) return { kind: 'go', to: '/circles/new' };
           await save({ proceed: true });
           track('organiser_gate_passed', {});
           const outcome = await finishDraft();

@@ -254,7 +254,7 @@ describe('answer-interest', () => {
       p_actor: CALLER,
       p_interested: true,
       // `defaultDeadline('this_weekend', now, …)`: a day from now.
-      p_deadline_if_opened: '2026-09-16T00:00:00.000Z',
+      p_deadline_if_opened: '2026-09-16T08:00:00.000Z',
     });
   });
 

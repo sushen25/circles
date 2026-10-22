@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import {
   SavePlaceError,
@@ -88,9 +88,12 @@ export function SavePlaceByEmail({
   const [codeProblem, setCodeProblem] = useState<EnterCodeProblem | undefined>();
   const [reference, setReference] = useState<string | undefined>();
   const [newCodeSent, setNewCodeSent] = useState(false);
+  const confirming = useRef(false);
 
   if (step.kind === 'code') {
     const confirm = async (code: string) => {
+      if (confirming.current) return;
+      confirming.current = true;
       setBusy(true);
       setCodeProblem(undefined);
       setReference(undefined);
@@ -120,10 +123,12 @@ export function SavePlaceByEmail({
           );
         }
         setBusy(false);
+        confirming.current = false;
         return;
       }
       await onSaved(step.address);
       setBusy(false);
+      confirming.current = false;
     };
 
     return (

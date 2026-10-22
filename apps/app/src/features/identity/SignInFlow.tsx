@@ -121,6 +121,9 @@ export function SignInFlow({ returnTo, gate }: SignInFlowProps) {
   >();
   const started = useRef(false);
   const sending = useRef(false);
+  // A code is checked once: a second `onChangeText` with the six digits (autofill
+  // fires twice on some devices) must not verify the used code again.
+  const confirming = useRef(false);
 
   const back = () => (router.canGoBack() ? router.back() : router.replace(next ?? '/'));
 
@@ -167,6 +170,8 @@ export function SignInFlow({ returnTo, gate }: SignInFlowProps) {
     };
 
     const confirm = async (code: string) => {
+      if (confirming.current) return;
+      confirming.current = true;
       setBusy(true);
       setCodeText(code);
       setCodeProblem(undefined);
@@ -206,12 +211,14 @@ export function SignInFlow({ returnTo, gate }: SignInFlowProps) {
         }
         setStatus(undefined);
         setBusy(false);
+        confirming.current = false;
         return;
       }
 
       // The gate makes what was drafted here, in the code step (ADR 0090).
       if (gate !== undefined) {
         await makeWhatWasDrafted();
+        confirming.current = false;
         return;
       }
 
@@ -243,6 +250,7 @@ export function SignInFlow({ returnTo, gate }: SignInFlowProps) {
         // Unknown: Your name reads the profile again and says what it finds.
       }
       router.replace(destinationAfterSignIn({ next, hasName, circleId }));
+      confirming.current = false;
     };
 
     const timeWent = setUp?.problem === 'too_late' || setUp?.problem === 'time_passed';

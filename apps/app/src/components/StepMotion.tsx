@@ -1,12 +1,4 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, Platform, StyleSheet } from 'react-native';
 
 import { useReducedMotion } from './wait';
@@ -22,7 +14,7 @@ import { useReducedMotion } from './wait';
  * slide.
  *
  * Each step is a route, so the screen that is going away cannot be animated by
- * the router: it is told to go (`useLeave`), plays its exit, and then runs the
+ * the router: it is told to go (`motion.leave`), plays its exit, and then runs the
  * navigation. How the next one arrives is remembered here, between the two.
  */
 export const STEP_EASING = [0.23, 1, 0.32, 1] as const;
@@ -30,6 +22,8 @@ export const STEP_EASING = [0.23, 1, 0.32, 1] as const;
 const SLIDE = 12;
 const ENTER_MS = 200;
 const LEAVE_MS = 140;
+/** How long a step stays "left" after it has gone, before it can be left again. */
+const SETTLE_MS = 600;
 
 export type StepDirection = 'forward' | 'back';
 
@@ -45,25 +39,33 @@ export type Go = (navigate: () => void) => void;
 let arriving: StepDirection = 'forward';
 
 type Leave = (direction: StepDirection, then: () => void) => void;
-const LeaveContext = createContext<Leave>((_direction, then) => then());
 
-/** Leaves this step, then runs `then`. Outside a `Step`, `then` runs at once. */
-export function useLeave(): Leave {
-  return useContext(LeaveContext);
-}
+/**
+ * Where a step's motion lives: the screen asks for it, draws its body in a
+ * `<Step motion={…}>`, and uses `motion.leave` for Back and for the primary, from
+ * the same component, so there is one leave and a second tap while it runs does
+ * nothing. A screen that is not a step of the run passes `on: false` and gets a
+ * leave that goes at once.
+ */
+export type StepMotion = {
+  leave: Leave;
+  style: object | undefined;
+};
 
-export function Step({ children }: { children: ReactNode }) {
+export function useStepMotion(on = true): StepMotion {
   const reduced = useReducedMotion();
   const [from] = useState<StepDirection>(() => arriving);
   const native = Platform.OS !== 'web';
-  const [shown] = useState(() => new Animated.Value(0));
-  const [slide] = useState(() => new Animated.Value(from === 'forward' ? SLIDE : -SLIDE));
+  const [shown] = useState(() => new Animated.Value(on ? 0 : 1));
+  const [slide] = useState(
+    () => new Animated.Value(on && from === 'forward' ? SLIDE : on ? -SLIDE : 0),
+  );
   const leaving = useRef(false);
   const entered = useRef(false);
 
   // Begins at nothing, so no frame is drawn at full opacity before the fade starts.
   useEffect(() => {
-    if (entered.current) return;
+    if (!on || entered.current) return;
     entered.current = true;
     Animated.parallel([
       Animated.timing(shown, {
@@ -79,10 +81,14 @@ export function Step({ children }: { children: ReactNode }) {
         useNativeDriver: native,
       }),
     ]).start();
-  }, [native, reduced, shown, slide]);
+  }, [on, native, reduced, shown, slide]);
 
   const leave = useCallback<Leave>(
     (direction, then) => {
+      if (!on) {
+        then();
+        return;
+      }
       if (leaving.current) return;
       leaving.current = true;
       arriving = direction;
@@ -101,21 +107,30 @@ export function Step({ children }: { children: ReactNode }) {
           useNativeDriver: native,
         }),
       ]).start(() => {
-        // A step that failed to go (an error, a refusal) is not left behind.
-        leaving.current = false;
         then();
+        // A screen left by a push is still mounted underneath, and Back finds it
+        // as it was: at rest, not at the end of its exit.
+        shown.setValue(1);
+        slide.setValue(0);
+        // Not at once: a second tap on the same press, or an animation that ended
+        // early, must not send the person on twice. Back finds it ready again.
+        setTimeout(() => {
+          leaving.current = false;
+        }, SETTLE_MS);
       });
     },
-    [native, reduced, shown, slide],
+    [on, native, reduced, shown, slide],
   );
 
-  return (
-    <LeaveContext.Provider value={leave}>
-      <Animated.View style={[styles.step, { opacity: shown, transform: [{ translateX: slide }] }]}>
-        {children}
-      </Animated.View>
-    </LeaveContext.Provider>
-  );
+  return {
+    leave,
+    style: on ? { opacity: shown, transform: [{ translateX: slide }] } : undefined,
+  };
+}
+
+/** The part of a screen that moves: everything under the top bar. */
+export function Step({ motion, children }: { motion: StepMotion; children: ReactNode }) {
+  return <Animated.View style={[styles.step, motion.style]}>{children}</Animated.View>;
 }
 
 const styles = StyleSheet.create({

@@ -12,7 +12,7 @@ import {
   Step,
   Tertiary,
   TopBar,
-  useLeave,
+  useStepMotion,
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -75,7 +75,8 @@ export function FirstCircleScreen({
   onBack,
   onSignIn,
 }: FirstCircleProps) {
-  const leave = useLeave();
+  const motion = useStepMotion();
+  const leave = motion.leave;
   const typed = name.trim().replace(/\s+/g, ' ');
   const group = typed === '' ? t('firstRun', 'preview_group_empty') : typed;
   const link = t('firstRun', 'preview_link');
@@ -97,7 +98,7 @@ export function FirstCircleScreen({
           )
         }
       />
-      <Step>
+      <Step motion={motion}>
         <Body>
           <Stack gap={14}>
             <DisplayL nativeID="group-heading">

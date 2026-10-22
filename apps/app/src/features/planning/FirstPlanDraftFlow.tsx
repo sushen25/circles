@@ -4,7 +4,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { t } from '../../copy';
 import { hasBackend } from '../../data/auth/client';
-import { DEFAULT_PLAN, readDraft, type DraftAnswer, type DraftPlan } from '../../data/draft';
+import {
+  DEFAULT_PLAN,
+  readDraft,
+  type DraftAnswer,
+  type DraftPatch,
+  type DraftPlan,
+  type OrganiserDraft,
+} from '../../data/draft';
 import { weekdayHeadings } from '../availability/days';
 import { useOrganiserDraft } from '../circles/useOrganiserDraft';
 import { isOffline } from '../identity/join/failure';
@@ -138,10 +145,23 @@ function LiveFirstPlanDraft() {
   };
   const grid = useEveningPicks(days, picked, setPicked);
 
-  /** What the draft holds of the answer, with what was just chosen. */
-  const answerOf = (change: Partial<DraftAnswer> = {}): DraftAnswer => ({
-    ...(draft?.answer ?? { days: [] }),
-    days: picked,
+  /**
+   * A change made to the draft as the device holds it **now**, one at a time, in
+   * the order they were asked: two quick taps in Adjust, or a pick and a tap,
+   * each build on the one before and not on the render they were made in.
+   */
+  const writes = useRef<Promise<unknown>>(Promise.resolve());
+  const editLatest = (change: (latest: OrganiserDraft) => DraftPatch): Promise<unknown> => {
+    writes.current = writes.current
+      .then(async () => {
+        const latest = await readDraft();
+        if (latest !== null) await save(change(latest));
+      })
+      .catch(() => undefined);
+    return writes.current;
+  };
+  const answerOf = (latest: OrganiserDraft, change: Partial<DraftAnswer> = {}): DraftAnswer => ({
+    ...(latest.answer ?? { days: [] }),
     ...change,
   });
 
@@ -150,7 +170,10 @@ function LiveFirstPlanDraft() {
   useEffect(() => {
     if (!edited.current || !ready) return;
     pending.current = setTimeout(
-      () => void save({ answer: { ...answerOf(), days: picked, later: false } }),
+      () =>
+        void editLatest((latest) => ({
+          answer: answerOf(latest, { days: picked, later: false }),
+        })),
       SAVE_AFTER_MS,
     );
     return () => clearTimeout(pending.current);
@@ -180,14 +203,14 @@ function LiveFirstPlanDraft() {
   const steps = where.signedIn ? 2 : 3;
 
   /** The plan with a different window: its own dates and deadline, the time of day the person chose. */
-  const withWindow = (preset: WindowChip): DraftPlan => {
-    const next: DraftPlan = { ...plan, preset };
+  const withWindow = (from: OrganiserDraft, preset: WindowChip): DraftPlan => {
+    const next: DraftPlan = { ...from.plan, preset };
     delete next.custom;
     delete next.deadline;
     delete next.band;
-    const choice = draft.answer?.band;
+    const choice = from.answer?.band;
     if (choice !== undefined) {
-      const own = windowOf(preset, undefined, undefined, plan.duration, opened, zone);
+      const own = windowOf(preset, undefined, undefined, from.plan.duration, opened, zone);
       if (typeof own !== 'string' && timeOfDay(own.band) !== choice) next.band = bandOf(choice);
     }
     return next;
@@ -197,36 +220,51 @@ function LiveFirstPlanDraft() {
     if (busy || preset === plan.preset) return;
     clearTimeout(pending.current);
     edited.current = false;
-    const nextPlan = withWindow(preset);
-    const nextDays = daysOf(draftCard(nextPlan, zone, openedAt).resolved.window);
+    // The days kept are those the new window asks about; the grid shows them at once.
+    const nextDays = daysOf(draftCard(withWindow(draft, preset), zone, openedAt).resolved.window);
     const keep = picked.filter((day) => nextDays.includes(day));
     setPicks(keep);
     setMissing(undefined);
-    void save({ plan: nextPlan, answer: answerOf({ days: keep }) });
+    void editLatest((latest) => ({
+      plan: withWindow(latest, preset),
+      answer: answerOf(latest, { days: keep }),
+    }));
   };
 
   const chooseTimeOfDay = (choice: TimeOfDay) => {
-    const next: DraftPlan = { ...plan };
-    delete next.band;
-    const own = windowOf(plan.preset, plan.custom, undefined, plan.duration, opened, zone);
-    if (typeof own === 'string' || timeOfDay(own.band) !== choice) next.band = bandOf(choice);
-    delete next.deadline;
-    void save({ plan: next, answer: answerOf({ band: choice }) });
+    void editLatest((latest) => {
+      const next: DraftPlan = { ...latest.plan };
+      delete next.band;
+      const own = windowOf(
+        latest.plan.preset,
+        latest.plan.custom,
+        undefined,
+        latest.plan.duration,
+        opened,
+        zone,
+      );
+      if (typeof own === 'string' || timeOfDay(own.band) !== choice) next.band = bandOf(choice);
+      delete next.deadline;
+      return { plan: next, answer: answerOf(latest, { band: choice }) };
+    });
   };
 
   const chooseDuration = (duration: DurationMinutes) => {
-    void save({ plan: { ...plan, duration } });
+    void editLatest((latest) => ({ plan: { ...latest.plan, duration } }));
   };
 
   const base = draftCard({ ...plan, deadline: undefined } as DraftPlan, zone, openedAt);
   const chooseReplies = (iso: string) => {
-    const next: DraftPlan = { ...plan, deadline: iso };
-    if (iso === base.resolved.deadline) delete next.deadline;
-    void save({ plan: next });
+    void editLatest((latest) => {
+      const next: DraftPlan = { ...latest.plan, deadline: iso };
+      if (iso === base.resolved.deadline) delete next.deadline;
+      return { plan: next };
+    });
   };
 
   const leaveFor = async (change: Partial<DraftAnswer>, go: (navigate: () => void) => void) => {
     clearTimeout(pending.current);
+    await writes.current;
     // The draft as the device holds it now, not as this render saw it: a window
     // or a length just chosen may still be on its way to being written, and
     // reading goes through the same line as the writes, so it comes after them.
@@ -241,7 +279,7 @@ function LiveFirstPlanDraft() {
       // The whole plan, not a patch: one that ran out since it was drawn falls
       // back here, and not at the server after the circle is made.
       plan: draftCard(latest.plan, zone, Date.now()).plan,
-      answer: { ...(latest.answer ?? { days: [] }), days: picked, ...change },
+      answer: answerOf(latest, { days: picked, ...change }),
       proceed: where.signedIn,
     });
     go(() => router.push(where.signedIn ? '/circles/new/finish' : '/circles/new/save'));
@@ -311,7 +349,9 @@ function LiveFirstPlanDraft() {
           onMore={() => {
             setSheet(false);
             clearTimeout(pending.current);
-            void save({ answer: answerOf() }).then(() => router.push('/circles/new/plan/setup'));
+            void editLatest((latest) => ({ answer: answerOf(latest, { days: picked }) })).then(() =>
+              router.push('/circles/new/plan/setup'),
+            );
           }}
         />
       }

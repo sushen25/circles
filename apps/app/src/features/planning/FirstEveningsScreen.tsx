@@ -17,7 +17,7 @@ import {
   Step,
   Tertiary,
   TopBar,
-  useLeave,
+  useStepMotion,
   useLoadingHold,
   type Go,
   type GridDay,
@@ -101,7 +101,8 @@ export function FirstEveningsScreen({
   onRetry,
   onBack,
 }: FirstEveningsProps) {
-  const leave = useLeave();
+  const motion = useStepMotion();
+  const leave = motion.leave;
   const loading = useLoadingHold(state === 'loading');
   if (loading) {
     return (
@@ -136,7 +137,7 @@ export function FirstEveningsScreen({
         onBack={onBack === undefined ? undefined : () => leave('back', onBack)}
         backLabel={t('common', 'back')}
       />
-      <Step>
+      <Step motion={motion}>
         <Body>
           <Stack>
             <DisplayL>{heading}</DisplayL>

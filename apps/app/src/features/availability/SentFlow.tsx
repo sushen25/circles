@@ -1,5 +1,6 @@
 import type { ShortCode } from '@circles/contracts';
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { track } from '../../analytics/track';
@@ -74,12 +75,14 @@ function fixtureStage(state: string | undefined): OneStepStage {
 function FixtureSent({ code }: { code: string }) {
   const { state } = useLocalSearchParams<{ state?: string }>();
   const one = useOneStep(`fixture:${code}:${state ?? ''}`, fixtureStage(state));
+  const [typed, setTyped] = useState('');
   if (one.stage.kind === 'code') {
     const { address } = one.stage.start;
     return (
       <EnterCodeScreen
         address={address}
-        code="47"
+        code={typed}
+        onCodeChange={setTyped}
         onContinue={() => one.toDone(address)}
         onBack={one.toCard}
       />

@@ -127,6 +127,8 @@ const Draft = z.object({
    * that runs again returns the same circle, and must not count it again.
    */
   circleCounted: z.boolean().default(false),
+  /** `plan_created` has been counted for the plan these keys make. */
+  planCounted: z.boolean().default(false),
   keys: Keys,
 });
 
@@ -146,6 +148,7 @@ const DraftV2 = z
   .transform(({ way: _way, ...rest }): z.infer<typeof Draft> => ({
     ...rest,
     v: 3,
+    planCounted: false,
     keys: { ...rest.keys, answer: newIdempotencyKey() },
   }));
 
@@ -158,7 +161,10 @@ export type DraftBand = (typeof DRAFT_BANDS)[number];
 
 /** What a change may carry. `proceed` is set by the screens that choose it. */
 export type DraftPatch = Partial<
-  Pick<OrganiserDraft, 'circleName' | 'cadence' | 'plan' | 'answer' | 'proceed' | 'circleCounted'>
+  Pick<
+    OrganiserDraft,
+    'circleName' | 'cadence' | 'plan' | 'answer' | 'proceed' | 'circleCounted' | 'planCounted'
+  >
 >;
 
 /**
@@ -236,6 +242,7 @@ function blank(now: number): OrganiserDraft {
     plan: DEFAULT_PLAN,
     proceed: false,
     circleCounted: false,
+    planCounted: false,
     keys: newKeys(),
   };
 }
@@ -322,7 +329,9 @@ async function write(
   if (circleChanged) {
     next.keys = newKeys();
     next.circleCounted = false;
+    next.planCounted = false;
   } else if (planChanged) {
+    next.planCounted = false;
     // The answer is to this plan's days, so a new plan is a new answer too.
     next.keys = { ...next.keys, plan: newIdempotencyKey(), answer: newIdempotencyKey() };
   } else if (answerChanged) next.keys = { ...next.keys, answer: newIdempotencyKey() };

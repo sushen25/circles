@@ -3,6 +3,7 @@ import {
   askedDays,
   fromISO,
   fromLocal,
+  fromLocalEnd,
   localDate,
   roundUpToHalfHour,
   toISO,
@@ -100,7 +101,8 @@ export function answerSpans(
     if (from >= daily.endMin) continue;
     spans.push({
       start: toISO(fromLocal(day as LocalDate, from, z)),
-      end: toISO(fromLocal(day as LocalDate, daily.endMin, z)),
+      // A band may end at midnight, which is the next day's first instant.
+      end: toISO(fromLocalEnd(day as LocalDate, daily.endMin, z)),
     });
   }
   return spans;
@@ -137,6 +139,10 @@ export async function finishDraft(
 
   const circleId = made.circle.id as CircleId;
   const plan = await makePlan(draft, circleId);
+  if (!draft.planCounted) {
+    track('plan_created', planCreated(draft, circleId, plan.plan_id));
+    await saveDraft({ planCounted: true });
+  }
   const answered = await answer(draft, plan, zone, at);
 
   await clearDraft();
@@ -168,24 +174,33 @@ async function makePlan(draft: OrganiserDraft, circleId: CircleId): Promise<Crea
     responseDeadline: setup.deadline,
     idempotencyKey: draft.keys.plan,
   });
-  track('plan_created', {
+  return plan;
+}
+
+/** `plan_created`, counted once however many times the finish runs (as `circle_created` is). */
+function planCreated(draft: OrganiserDraft, circleId: CircleId, planId: PlanId) {
+  const setup = formOf(draft.plan);
+  return {
     circle_id: circleId,
-    plan_id: plan.plan_id,
-    mode: 'named',
+    plan_id: planId,
+    mode: 'named' as const,
     window: WINDOW_EVENT[setup.preset],
     used_defaults: isUntouched(draft.plan),
     // A custom plan's shape: a flag and a count, never the dates (ADR 0047).
     ...(setup.preset === 'custom' && setup.custom !== undefined ? customShape(setup.custom) : {}),
-  });
-  return plan;
+  };
 }
 
 /**
  * The organiser's own answer, after `create-plan`, with its own key. Returns
- * whether it is in. A refusal that is about the answer itself is not a reason
- * to keep the link from the group: the plan exists, and "Add my times" is on
- * the share. A connection that dropped, or a rate limit, is thrown, so the run
- * can be tried again (the keys make that safe).
+ * whether it is in. **Only a rate limit is thrown**, so the run can be tried
+ * again with the same keys. Everything else (a refusal about the answer itself,
+ * a connection that dropped, a server that failed) is a reason to share what
+ * exists, not to keep the link from the group: the plan is made, and "Add my
+ * times" is on the share. Throwing there would offer "Back to the plan" over a
+ * plan that already exists. A key the server already holds for another body
+ * means the answer is in (an earlier run landed it): the evening it was made
+ * for has moved on, the body with it.
  */
 async function answer(
   draft: OrganiserDraft,
@@ -207,9 +222,8 @@ async function answer(
     });
   } catch (error) {
     const failure = failureOf(error);
-    if (failure.kind === 'offline') throw error;
     if (failure.kind === 'reason' && failure.reason === 'too_many_requests') throw error;
-    return false;
+    if (failure.kind !== 'reason' || failure.reason !== 'idempotency_mismatch') return false;
   }
   track('availability_submitted', {
     plan_id: plan.plan_id,

@@ -24,7 +24,7 @@ export { ProgressLine, resetProgress } from './ProgressLine';
 export { Radio } from './Radio';
 export { Body, Foot, Screen, TopBar } from './Screen';
 export { SettingRow } from './SettingRow';
-export { Step, useLeave, type Go, type StepDirection } from './StepMotion';
+export { Step, useStepMotion, type Go, type StepDirection, type StepMotion } from './StepMotion';
 export { Sheet } from './Sheet';
 export { Skeleton, type SkeletonShape } from './Skeleton';
 export { Spinner } from './Spinner';

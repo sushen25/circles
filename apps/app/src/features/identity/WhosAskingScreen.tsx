@@ -11,7 +11,7 @@ import {
   Small,
   Step,
   TopBar,
-  useLeave,
+  useStepMotion,
   type Go,
 } from '../../components';
 import { Stack } from '../../components/layout';
@@ -75,7 +75,8 @@ export function WhosAskingScreen({
   onPrivacy,
   onBack,
 }: WhosAskingProps) {
-  const leave = useLeave();
+  const motion = useStepMotion();
+  const leave = motion.leave;
   const send = () => onSendCode?.((navigate) => leave('forward', navigate));
 
   return (
@@ -86,7 +87,7 @@ export function WhosAskingScreen({
         onBack={onBack === undefined ? undefined : () => leave('back', onBack)}
         backLabel={t('common', 'back')}
       />
-      <Step>
+      <Step motion={motion}>
         <Body>
           <DisplayL>{t('firstRun', 'whos_asking')}</DisplayL>
           <Stack gap={8}>
