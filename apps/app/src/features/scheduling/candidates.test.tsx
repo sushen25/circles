@@ -206,7 +206,7 @@ describe('the organiser, with nothing yet', () => {
     planCandidates.mockResolvedValue(fixture.waiting);
     show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="waiting" />);
 
-    await tap(screen.findByRole('button', { name: 'Share the link again' }));
+    await tap(screen.findByRole('button', { name: 'Share the plan again' }));
     await waitFor(() => expect(shareMessage).toHaveBeenCalled());
     const message = shareMessage.mock.calls[0]?.[0] as string;
     expect(message).toContain('waiting on 4 replies');

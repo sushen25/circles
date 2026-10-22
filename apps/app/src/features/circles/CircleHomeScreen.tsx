@@ -2,13 +2,12 @@ import type { ReactNode } from 'react';
 
 import {
   Body,
+  BodyText,
   Button,
   ButtonRow,
   Card,
   CircleHeader,
-  DateText,
   Foot,
-  Label,
   Marks,
   Notice,
   Screen,
@@ -17,18 +16,24 @@ import {
   TopBar,
   type Member,
 } from '../../components';
-import { Row, Stack } from '../../components/layout';
+import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
 import { CircleHomeJoiningScreen } from './CircleHomeJoiningScreen';
 import { answeredLabel, MARKS_MAX, marksMore } from './lines';
-import { MembersLine, SettingsButton } from './parts';
+import { CatchUpFacts, MembersLine, SettingsButton } from './parts';
 
 /**
  * CircleHome, finding a time — `docs/design/CircleHome.dc.html` (spec §5.2):
- * the active plan with its reply count and deadline, last caught up, next one,
- * members and the invite link, and one primary action: the plan's own.
+ * the active plan, titled by its state ("Finding a time", "Replies closed"),
+ * with its marks and reply count, last caught up and next one once the circle
+ * has met, the members, and one primary action: the plan's own.
+ *
+ * One way into the chat (ADR 0091): while the plan takes answers the card
+ * offers **Share the plan**, which also admits new people, and the members row
+ * has no Add someone; once replies have closed the card shares nothing and
+ * **Add someone** appears with the members.
  *
  * The locked-in and about-time states are their own screens
  * (`CircleHomeConfirmedScreen`, `CircleHomeDueScreen`); the flow picks which
@@ -40,10 +45,13 @@ export type CircleHomeProps = {
   circleName?: string | undefined;
   color?: string | undefined;
   subtitle?: string | undefined;
-  /** The card's label: "Finding a time", or "Started quietly" (spec §5.4). */
+  /** The card's title, its state: "Finding a time", "Replies closed", or "Started quietly" (spec §5.4). */
   label?: string | undefined;
   planTitle?: string | undefined;
-  /** "Replies close Tue 15 Sep, 6 pm". */
+  /**
+   * The line under the title: "Replies close Tue 15 Sep, 6 pm", and once they
+   * have closed, "Time to pick one" or "Maya picks a time next".
+   */
   closes?: string | undefined;
   /** "5 of 6 replied". */
   replied?: string | undefined;
@@ -60,15 +68,18 @@ export type CircleHomeProps = {
   planMembers?: readonly Member[] | undefined;
   /** What a screen reader hears over them; built from `planMembers` when absent. */
   planMarksLabel?: string | undefined;
-  memberCount?: string | undefined;
+  /** "Thursday Lot is full (20 people)", said in place of Add someone at the cap. */
+  full?: string | undefined;
+  /** False until the circle has met: then there is no last caught up or next one. */
+  met?: boolean | undefined;
   lastCaughtUp?: string | undefined;
   nextOne?: string | undefined;
-  /** Offered to the owner only: the link is theirs to hand out. */
-  onInviteLink?: (() => void) | undefined;
+  /** Any member's, while no plan takes answers (ADR 0091). */
+  onAddSomeone?: (() => void) | undefined;
   onSettings?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
-  /** Which of the plan's two actions leads; from `circleHomePrimary`. */
-  primary?: 'see_how_its_looking' | 'add_my_times' | undefined;
+  /** Which of the plan's actions leads; from `circleHomePrimary`. */
+  primary?: 'see_how_its_looking' | 'add_my_times' | 'pick_a_time' | undefined;
   onBack?: (() => void) | undefined;
   onSeeHowItsLooking?: (() => void) | undefined;
   /**
@@ -76,8 +87,10 @@ export type CircleHomeProps = {
    * the button is the way to give them (SUS-130).
    */
   onAddMyTimes?: (() => void) | undefined;
-  /** Offered to the organiser while the plan takes answers (SUS-132). */
-  onShareLink?: (() => void) | undefined;
+  /** The organiser's primary once replies have closed: the options, to decide. */
+  onPickATime?: (() => void) | undefined;
+  /** Offered to every member while the plan takes answers (SUS-132). */
+  onSharePlan?: (() => void) | undefined;
   /** What sharing did when it copied rather than opened a sheet. */
   shareOutcome?: string | undefined;
   /** The morning after's card, under the circle's name, when the reader owes it (S1-29). */
@@ -98,17 +111,19 @@ export function CircleHomeScreen({
   members = fixture?.circle.members ?? [],
   planMembers = members,
   planMarksLabel,
-  memberCount = t('circleHome', '6_members'),
+  full,
+  met = true,
   lastCaughtUp = t('circleHome', 'sat_8_aug'),
   nextOne = t('circleHome', 'no_rush'),
-  onInviteLink,
+  onAddSomeone,
   onSettings,
   onRetry,
   primary = 'see_how_its_looking',
   onBack,
   onSeeHowItsLooking,
   onAddMyTimes,
-  onShareLink,
+  onPickATime,
+  onSharePlan,
   shareOutcome,
   prompt,
 }: CircleHomeProps) {
@@ -127,13 +142,13 @@ export function CircleHomeScreen({
         <CircleHeader name={circleName} color={color} subtitle={subtitle} />
         {prompt}
         <Card recommended>
-          {/* Stacked, not a row: "Replies close …" beside the label does not
+          {/* Stacked, not a row: "Replies close …" beside the title does not
               fit on a narrow phone (S1-27). */}
           <Stack>
-            <Label>{label}</Label>
+            <Title>{label}</Title>
             <Small>{closes}</Small>
           </Stack>
-          <Title>{planTitle}</Title>
+          <BodyText>{planTitle}</BodyText>
           <Stack>
             <Marks
               members={planMembers}
@@ -144,32 +159,24 @@ export function CircleHomeScreen({
             <Small>{replied}</Small>
           </Stack>
           {askedAgain === undefined ? null : <Notice kind="warn">{askedAgain}</Notice>}
-          {onShareLink === undefined ? null : (
-            <ButtonRow>
-              <Button
-                label={t('circleHome', 'share_the_link')}
-                variant="secondary"
-                onPress={onShareLink}
-              />
-            </ButtonRow>
+          {onSharePlan === undefined ? null : (
+            <Stack>
+              <ButtonRow>
+                <Button
+                  label={t('circleHome', 'share_the_plan')}
+                  variant="secondary"
+                  onPress={onSharePlan}
+                />
+              </ButtonRow>
+              <Small>{t('circleHome', 'share_the_plan_line')}</Small>
+            </Stack>
           )}
           {shareOutcome === undefined ? null : (
             <Small accessibilityLiveRegion="polite">{shareOutcome}</Small>
           )}
         </Card>
-        <Card>
-          <Row>
-            <Stack>
-              <Label>{t('circleHome', 'last_caught_up')}</Label>
-              <DateText>{lastCaughtUp}</DateText>
-            </Stack>
-            <Stack>
-              <Label>{t('circleHome', 'next_one')}</Label>
-              <DateText>{nextOne}</DateText>
-            </Stack>
-          </Row>
-        </Card>
-        <MembersLine members={members} memberCount={memberCount} onInviteLink={onInviteLink} />
+        {met ? <CatchUpFacts lastCaughtUp={lastCaughtUp} nextOne={nextOne} /> : null}
+        <MembersLine members={members} full={full} onAddSomeone={onAddSomeone} />
       </Body>
       {/* The plan's own next step leads (SUS-197): the domain says which
           (`circleHomePrimary`). There is no "Plan a catch-up" here — a second
@@ -177,6 +184,8 @@ export function CircleHomeScreen({
       <Foot>
         {primary === 'add_my_times' ? (
           <Button label={t('circleHome', 'add_my_times')} onPress={onAddMyTimes} />
+        ) : primary === 'pick_a_time' ? (
+          <Button label={t('circleHome', 'pick_a_time')} onPress={onPickATime} />
         ) : (
           <Button label={t('circleHome', 'see_how_its_looking')} onPress={onSeeHowItsLooking} />
         )}

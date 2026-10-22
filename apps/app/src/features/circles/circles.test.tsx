@@ -230,10 +230,14 @@ describe('circle home, in the state the data puts it in', () => {
     });
     // Planning another stays reachable, as the quiet action beneath (SUS-197).
     expect(screen.getByRole('button', { name: 'Plan another' })).toBeVisible();
+    // The plan's link turns newcomers away once it is locked in, so the card's
+    // action is for people already in, and adding someone is the members'.
+    expect(screen.getByText('For people already in Sunday Crew.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Add someone' })).toBeVisible();
 
     shareMessage.mockResolvedValue('sheet');
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Send the details' }));
     });
     expect(shareMessage).toHaveBeenCalledWith(
       expect.stringMatching(/^Locked in: Sunday Crew, .* at Hope St Radio\. .*\/j\/pnsundaycr$/),
@@ -248,12 +252,27 @@ describe('circle home, in the state the data puts it in', () => {
     expect(screen.getByText(/It's been about a month since Sunday Crew/)).toBeVisible();
   });
 
-  it('is just you before anybody joins, and shares the link', async () => {
+  it('is just you before anybody joins: plan a catch-up leads, Add someone is with the members', async () => {
     circleHome.mockResolvedValue(home({ members: home().members.slice(0, 1), lastMetAt: null }));
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    await tap(screen.findByRole('button', { name: 'Share invite link' }));
-    expect(push).toHaveBeenCalledWith({ pathname: '/circles/[id]/invite', params: { id: CIRCLE } });
+    expect(await screen.findByText('Just you so far')).toBeVisible();
+    expect(
+      screen.getByText('Plan a catch-up and share it. Friends join from the plan.'),
+    ).toBeVisible();
+    // Nothing has happened yet, so nothing to say of last time or next time.
+    expect(screen.queryByText('Last caught up')).toBeNull();
+    expect(screen.queryByText('Next one')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Add someone' }));
+    expect(push).toHaveBeenLastCalledWith({
+      pathname: '/circles/[id]/invite',
+      params: { id: CIRCLE },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Plan a catch-up' }));
+    expect(push).toHaveBeenLastCalledWith({
+      pathname: '/circles/[id]/plan/new',
+      params: { id: CIRCLE },
+    });
   });
 
   it('is archived before any other state: no plan, no link, only the way back', async () => {
@@ -276,7 +295,7 @@ describe('circle home, in the state the data puts it in', () => {
     expect(await screen.findByText('Archived. Nobody gets prompts about it.')).toBeVisible();
     expect(screen.queryByText('Finding a time')).toBeNull();
     expect(screen.queryByRole('button', { name: /Plan/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Invite link' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add someone' })).toBeNull();
     fireEvent.click(screen.getAllByRole('button', { name: 'Circle settings' }).at(-1)!);
     expect(push).toHaveBeenCalledWith({
       pathname: '/circles/[id]/settings',
@@ -284,7 +303,7 @@ describe('circle home, in the state the data puts it in', () => {
     });
   });
 
-  it('offers a member who is not the owner no invite link, and settings still', async () => {
+  it('offers a member who is not the owner Add someone, between plans, and settings', async () => {
     circleHome.mockResolvedValue(home({ isOwner: false, me: 'nina' }));
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
@@ -293,7 +312,11 @@ describe('circle home, in the state the data puts it in', () => {
       pathname: '/circles/[id]/settings',
       params: { id: CIRCLE },
     });
-    expect(screen.queryByRole('button', { name: 'Invite link' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Add someone' }));
+    expect(push).toHaveBeenLastCalledWith({
+      pathname: '/circles/[id]/invite',
+      params: { id: CIRCLE },
+    });
   });
 });
 
@@ -313,35 +336,34 @@ function fullHome(overrides: Partial<CircleData.CircleHome> = {}): CircleData.Ci
 }
 
 describe('circle home at the member cap (SUS-199)', () => {
-  it('says the circle is full where it filled up, and offers no way to share it', async () => {
+  it('says the circle is full where it filled up, and offers no way to add anyone', async () => {
     circleHome.mockResolvedValue(fullHome({ lastMetAt: null }));
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
     expect(await screen.findByText('Thursday Lot is full (20 people)')).toBeVisible();
     // "In so far" promises more to come.
     expect(screen.queryByText(/in so far/)).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Share again' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Invite link' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add someone' })).toBeNull();
     // The way forward is still the plan, and settings.
     expect(screen.getByRole('button', { name: 'Plan the first catch-up' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Circle settings' })).toBeVisible();
   });
 
-  it('says it in place of the count, with the invite link gone, in every other state', async () => {
+  it('says it beside the members, with Add someone gone, in every other state', async () => {
     circleHome.mockResolvedValue(fullHome());
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
     expect(await screen.findByText('Thursday Lot is full (20 people)')).toBeVisible();
     expect(screen.queryByText('20 members')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Invite link' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add someone' })).toBeNull();
   });
 
-  it('is only said at the cap: nineteen still offer the link', async () => {
+  it('is only said at the cap: nineteen still offer Add someone', async () => {
     const nineteen = fullHome();
     circleHome.mockResolvedValue({ ...nineteen, members: nineteen.members.slice(0, 19) });
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    expect(await screen.findByRole('button', { name: 'Invite link' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Add someone' })).toBeVisible();
     expect(screen.queryByText(/is full/)).toBeNull();
   });
 
@@ -360,7 +382,8 @@ describe('circle home and the quiet ask (S2-03)', () => {
     code: 'pnsundaycr',
     organiserUserId: 'maya',
     title: 'Catch up',
-    responseDeadline: '2026-09-29T08:00:00Z',
+    // Still asking whenever this runs.
+    responseDeadline: '2099-09-29T08:00:00Z',
     replied: 1,
     asked: 6,
   };
@@ -430,7 +453,8 @@ describe('circle home, for somebody whose times an edit cleared (SUS-130)', () =
     code: 'pnsundaycr',
     organiserUserId: 'maya',
     title: 'Catch up',
-    responseDeadline: '2026-09-29T08:00:00Z',
+    // Still asking whenever this runs.
+    responseDeadline: '2099-09-29T08:00:00Z',
     replied: 1,
     asked: 6,
   };
@@ -494,7 +518,7 @@ describe('circle home, for somebody whose times an edit cleared (SUS-130)', () =
   });
 });
 
-describe('circle home, sharing the plan link again (SUS-132)', () => {
+describe('circle home, sharing the plan again (SUS-132, SUS-248)', () => {
   const OPEN = () => ({
     id: PLAN,
     code: 'pnsundaycr',
@@ -505,7 +529,7 @@ describe('circle home, sharing the plan link again (SUS-132)', () => {
     replied: 2,
     asked: 6,
   });
-  const SHARE = { name: 'Share the link' };
+  const SHARE = { name: 'Share the plan' };
 
   it('gives the organiser the plan link in one tap, as a count and never names', async () => {
     shareMessage.mockResolvedValue('sheet');
@@ -553,7 +577,7 @@ describe('circle home, sharing the plan link again (SUS-132)', () => {
     );
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    expect((await screen.findAllByText('Finding a time'))[0]).toBeVisible();
+    expect(await screen.findByText('Replies closed')).toBeVisible();
     expect(screen.queryByRole('button', SHARE)).toBeNull();
   });
 
@@ -622,7 +646,7 @@ describe('circle home, sharing the plan link again (SUS-132)', () => {
     );
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    expect((await screen.findAllByText('Finding a time'))[0]).toBeVisible();
+    expect(await screen.findByText('Replies closed')).toBeVisible();
     expect(screen.queryByRole('button', SHARE)).toBeNull();
   });
 
@@ -663,6 +687,207 @@ describe('circle home, sharing the plan link again (SUS-132)', () => {
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
     expect(await screen.findByRole('button', SHARE)).toBeVisible();
+    // While the plan asks there is one way into the chat, and no Add someone...
+    expect(screen.queryByRole('button', { name: 'Add someone' })).toBeNull();
+    // ...and at the deadline the card stops sharing and Add someone takes over.
     await waitFor(() => expect(screen.queryByRole('button', SHARE)).toBeNull());
+    expect(await screen.findByRole('button', { name: 'Add someone' })).toBeVisible();
+    expect(screen.getByText('Replies closed')).toBeVisible();
+  });
+});
+
+/**
+ * SUS-248 (ADR 0091): one way into the chat for each job. The rule table, for
+ * the owner and for a member, in every state of the home.
+ */
+describe('circle home: one way into the chat at a time (SUS-248)', () => {
+  const day = 24 * 3600 * 1000;
+  const PLAN_OPEN = () => ({
+    id: PLAN,
+    code: 'pnsundaycr',
+    organiserUserId: 'maya',
+    title: 'Catch up in the next 14 days',
+    responseDeadline: new Date(Date.now() + 3 * day).toISOString(),
+    replied: 5,
+    asked: 6,
+  });
+  const PLAN_CLOSED = () => ({
+    ...PLAN_OPEN(),
+    responseDeadline: new Date(Date.now() - 3600 * 1000).toISOString(),
+  });
+  const LOCKED = {
+    planId: PLAN,
+    code: 'pnsundaycr',
+    startsAt: '2026-10-17T08:30:00Z',
+    endsAt: '2026-10-17T10:30:00Z',
+    placeName: 'Hope St Radio',
+    going: 5,
+    toConfirm: 1,
+  };
+  const ONLY_MAYA = () => home().members.slice(0, 1);
+  // Nina and Tom came in this hour, so they "just joined".
+  const JOINING = () =>
+    ['Maya', 'Nina', 'Tom'].map((name, i) => ({
+      userId: name.toLowerCase(),
+      name,
+      joinedAt: i === 0 ? '2026-01-01T00:00:00Z' : new Date(Date.now() - 3600 * 1000).toISOString(),
+      role: i === 0 ? ('owner' as const) : ('member' as const),
+      savedPlace: true,
+    }));
+
+  const readers = [
+    ['the owner', { isOwner: true, me: 'maya' }],
+    ['a member', { isOwner: false, me: 'nina' }],
+  ] as const;
+
+  const NEVER = { name: /link/i };
+
+  describe.each(readers)('as %s', (_who, reader) => {
+    it('Finding a time: the card is titled by its state and offers Share the plan, and no Add someone', async () => {
+      circleHome.mockResolvedValue(home({ ...reader, activePlan: PLAN_OPEN() }));
+      wrap(<CircleHomeFlow id={CIRCLE} />);
+
+      expect((await screen.findAllByText('Finding a time'))[0]).toBeVisible();
+      expect(screen.getByText(/^Replies close /)).toBeVisible();
+      expect(screen.getByText('5 of 6 replied')).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Share the plan' })).toBeVisible();
+      expect(screen.getByText('Anyone new can join from it too.')).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Add someone' })).toBeNull();
+      expect(screen.getByRole('button', { name: "See how it's looking" })).toBeVisible();
+      expect(screen.queryByRole('button', NEVER)).toBeNull();
+    });
+
+    it('Locked in: Send the details, for people already in, and Add someone with the members', async () => {
+      circleHome.mockResolvedValue(home({ ...reader, lockedIn: LOCKED }));
+      wrap(<CircleHomeFlow id={CIRCLE} />);
+
+      expect(await screen.findByText('Locked in')).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Send the details' })).toBeVisible();
+      expect(screen.getByText('For people already in Sunday Crew.')).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Add someone' })).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Details' })).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Plan another' })).toBeVisible();
+      expect(screen.queryByRole('button', NEVER)).toBeNull();
+    });
+
+    it('About time: the nudge as before, Add someone, and Plan another', async () => {
+      circleHome.mockResolvedValue(home({ ...reader, lastMetAt: '2026-01-01T08:30:00Z' }));
+      wrap(<CircleHomeFlow id={CIRCLE} />);
+
+      expect(await screen.findByText('About time for the next one')).toBeVisible();
+      expect(screen.getByText('Last caught up')).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Add someone' })).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Plan another' })).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Share the plan' })).toBeNull();
+      expect(screen.queryByRole('button', NEVER)).toBeNull();
+    });
+
+    it('Between catch-ups: Add someone, and Plan a catch-up', async () => {
+      circleHome.mockResolvedValue(home({ ...reader, lastMetAt: new Date().toISOString() }));
+      wrap(<CircleHomeFlow id={CIRCLE} />);
+
+      expect(await screen.findByRole('button', { name: 'Add someone' })).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Plan a catch-up' })).toBeVisible();
+      expect(screen.queryByRole('button', NEVER)).toBeNull();
+    });
+
+    it('Just you: the plan is how friends join, Add someone sits with the marks', async () => {
+      circleHome.mockResolvedValue(home({ ...reader, members: ONLY_MAYA(), lastMetAt: null }));
+      wrap(<CircleHomeFlow id={CIRCLE} />);
+
+      expect(await screen.findByText('Just you so far')).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Plan a catch-up' })).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Add someone' })).toBeVisible();
+      expect(screen.queryByText('Last caught up')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Share again' })).toBeNull();
+      expect(screen.queryByRole('button', NEVER)).toBeNull();
+    });
+  });
+
+  describe('Replies closed', () => {
+    it('tells the organiser it is time to pick one, and leads with Pick a time', async () => {
+      circleHome.mockResolvedValue(home({ activePlan: PLAN_CLOSED() }));
+      wrap(<CircleHomeFlow id={CIRCLE} />);
+
+      expect(await screen.findByText('Replies closed')).toBeVisible();
+      expect(screen.getByText('Time to pick one')).toBeVisible();
+      expect(screen.getByText('5 of 6 replied')).toBeVisible();
+      // The card shares nothing: the plan admits nobody now.
+      expect(screen.queryByRole('button', { name: 'Share the plan' })).toBeNull();
+      expect(screen.getByRole('button', { name: 'Add someone' })).toBeVisible();
+      expect(screen.queryByRole('button', { name: "See how it's looking" })).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Pick a time' }));
+      expect(push).toHaveBeenCalledWith({
+        pathname: '/circles/[id]/plan/[planId]/candidates',
+        params: { id: CIRCLE, planId: PLAN },
+      });
+    });
+
+    it('tells a member who picks next, and leads with how it is looking', async () => {
+      circleHome.mockResolvedValue(home({ isOwner: false, me: 'nina', activePlan: PLAN_CLOSED() }));
+      wrap(<CircleHomeFlow id={CIRCLE} />);
+
+      expect(await screen.findByText('Replies closed')).toBeVisible();
+      expect(screen.getByText('Maya picks a time next')).toBeVisible();
+      expect(screen.getByRole('button', { name: "See how it's looking" })).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Pick a time' })).toBeNull();
+      expect(screen.getByRole('button', { name: 'Add someone' })).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Share the plan' })).toBeNull();
+    });
+
+    it('does not offer Add my times to somebody whose times were cleared: nothing takes them now', async () => {
+      circleHome.mockResolvedValue(
+        home({
+          isOwner: false,
+          me: 'nina',
+          activePlan: { ...PLAN_CLOSED(), askedAgain: true },
+        }),
+      );
+      wrap(<CircleHomeFlow id={CIRCLE} />);
+
+      expect(await screen.findByText('Replies closed')).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Add my times' })).toBeNull();
+    });
+  });
+
+  describe('New people joined', () => {
+    it('names them in the title, goes without Share again, and leads with the first plan', async () => {
+      circleHome.mockResolvedValue(home({ members: JOINING(), lastMetAt: null }));
+      wrap(<CircleHomeFlow id={CIRCLE} />);
+
+      expect(await screen.findByText('Nina and Tom just joined')).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Share again' })).toBeNull();
+      expect(screen.getByRole('button', { name: 'Add someone' })).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Plan the first catch-up' })).toBeVisible();
+      expect(screen.queryByText('Last caught up')).toBeNull();
+    });
+
+    it('reads "You and Tom just joined" to a member who is one of them', async () => {
+      circleHome.mockResolvedValue(
+        home({ isOwner: false, me: 'nina', members: JOINING(), lastMetAt: null }),
+      );
+      wrap(<CircleHomeFlow id={CIRCLE} />);
+
+      expect(await screen.findByText('You and Tom just joined')).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Add someone' })).toBeVisible();
+    });
+  });
+
+  it('a member adds someone between plans, from the home to the Add someone screen', async () => {
+    circleHome.mockResolvedValue(
+      home({ isOwner: false, me: 'nina', lastMetAt: '2026-10-01T00:00:00Z' }),
+    );
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    await tap(screen.findByRole('button', { name: 'Add someone' }));
+    expect(push).toHaveBeenCalledWith({ pathname: '/circles/[id]/invite', params: { id: CIRCLE } });
+  });
+
+  it('says the last caught up and next one only once the circle has met', async () => {
+    circleHome.mockResolvedValue(home({ activePlan: PLAN_OPEN(), lastMetAt: null }));
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+    expect((await screen.findAllByText('Finding a time'))[0]).toBeVisible();
+    expect(screen.queryByText('Last caught up')).toBeNull();
+    expect(screen.queryByText('Next one')).toBeNull();
   });
 });

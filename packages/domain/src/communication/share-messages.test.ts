@@ -175,10 +175,14 @@ describe("the wording is the caller's", () => {
 describe('inviteMessage', () => {
   it('is the artboard, word for word', () => {
     expect(
-      inviteMessage({ circleName: 'Sunday Crew', url: LINK, templates: EN_SHARE_TEMPLATES }),
+      inviteMessage({
+        circleName: 'Sunday Crew',
+        brandName: 'Acme',
+        url: LINK,
+        templates: EN_SHARE_TEMPLATES,
+      }),
     ).toBe(
-      'Made a Sunday Crew circle so we stop losing catch-ups in the chat. ' +
-        `Join here, no app needed: ${LINK}`,
+      "Join Sunday Crew on Acme so you're in on the next catch-up. " + `No app needed: ${LINK}`,
     );
   });
 });

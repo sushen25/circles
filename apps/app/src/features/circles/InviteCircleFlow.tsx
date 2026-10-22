@@ -1,3 +1,4 @@
+import { brand } from '@circles/config';
 import { EN_SHARE_TEMPLATES, inviteMessage } from '@circles/domain';
 import type { CircleId } from '@circles/contracts';
 import { useQuery } from '@tanstack/react-query';
@@ -17,23 +18,24 @@ import { InviteCircleScreen } from './InviteCircleScreen';
 import { fullHint, fullLine, isFull } from './words';
 
 /**
- * `/circles/:id/invite` — the link and the message, ready for the group chat.
+ * `/circles/:id/invite` — Add someone: the invitation, ready for the chat.
  *
- * No longer a step in the first run (ADR 0026): it is reached from circle home,
- * from settings (S1-23) and from "Just invite people for now" on the first
- * plan, for a circle that needs somebody in it with nothing yet to answer.
+ * Any active member can open it (ADR 0091): `get-invite-link` answers every
+ * member, and only resetting is the owner's. No longer a step in the first run
+ * (ADR 0026): it is reached from circle home between plans, from settings
+ * (S1-23) and from "Just invite people for now" on the first plan, for a
+ * circle that needs somebody in it with nothing yet to answer.
  *
  * The link is `/join#<secret>`, from the secret this tab holds in memory — from
- * `create-circle`, a reset, or, after a reload, the owner asking
- * `get-invite-link` for it again (ADR 0028). Only the owner can; anybody else
- * is shown the expired state, which says so. **It never reaches analytics or a log**: the
- * events here carry the circle's id and how it was shared, and nothing the
- * link or the message contains.
+ * `create-circle`, a reset, or, after a reload, the member asking
+ * `get-invite-link` for it again (ADR 0028). **It never reaches analytics or a
+ * log**: the events here carry the circle's id and how it was shared, and
+ * nothing the link or the message contains.
  *
  * Share opens the system sheet where there is one (iOS Safari, Android
  * Chrome) and copies where there is not — the in-app browsers — and the screen
- * says which happened. A shared link moves on to the circle's home; a copied
- * one stays, so the person can go and paste it and come back.
+ * says which happened. A shared invitation moves on to the circle's home; a
+ * copied one stays, so the person can go and paste it and come back.
  */
 export function InviteCircleFlow({ id }: { id: string }) {
   return hasBackend() ? <LiveInvite id={id} /> : <FixtureInvite id={id} />;
@@ -42,16 +44,13 @@ export function InviteCircleFlow({ id }: { id: string }) {
 function FixtureInvite({ id }: { id: string }) {
   const router = useRouter();
   const home = () => router.push({ pathname: '/circles/[id]', params: { id, state: 'joining' } });
-  return <InviteCircleScreen onNext={home} onSkipForNowIll={home} onBack={() => router.back()} />;
+  return <InviteCircleScreen onNext={home} onBack={() => router.back()} />;
 }
 
 function LiveInvite({ id }: { id: string }) {
   const router = useRouter();
   const session = useSession();
   const [outcome, setOutcome] = useState<'copied' | 'couldnt_copy' | undefined>();
-  // Whether the chat has it: the way on stops being a quiet tertiary once the
-  // link has actually left (the share screen's rule, ADR 0026).
-  const [shared, setShared] = useState(false);
 
   const home = useQuery({
     queryKey: ['circle-home', id, session.userId],
@@ -60,13 +59,17 @@ function LiveInvite({ id }: { id: string }) {
   });
   const owner = home.data !== undefined && home.data !== null && home.data.isOwner;
   const atCap = home.data !== undefined && home.data !== null && isFull(home.data);
-  // After a reload the link is not in memory: the owner asks for it again
-  // (ADR 0028). The query answers only whether it came back — the secret goes
-  // to `invite.ts` and never into the cache.
+  // After a reload the link is not in memory: any member asks for it again
+  // (ADR 0028, ADR 0091). The query answers only whether it came back — the
+  // secret goes to `invite.ts` and never into the cache.
   const shown = useQuery({
     queryKey: ['invite-link-shown', id, session.userId],
     queryFn: async () => (await fetchInviteSecret(id)) !== undefined,
-    enabled: owner && !atCap && heldInviteLink(id, appOrigin()) === undefined,
+    enabled:
+      home.data !== undefined &&
+      home.data !== null &&
+      !atCap &&
+      heldInviteLink(id, appOrigin()) === undefined,
     staleTime: Infinity,
   });
 
@@ -101,7 +104,7 @@ function LiveInvite({ id }: { id: string }) {
 
   const circleName = home.data.name;
   const link = heldInviteLink(id, appOrigin());
-  if (link === undefined && owner && shown.fetchStatus === 'fetching') {
+  if (link === undefined && shown.fetchStatus === 'fetching') {
     return <InviteCircleScreen state="loading" onBack={back} />;
   }
   if (link === undefined && shown.isError) {
@@ -118,7 +121,7 @@ function LiveInvite({ id }: { id: string }) {
       <InviteCircleScreen
         state="expired"
         circleName={circleName}
-        onSkipForNowIll={toHome}
+        onHome={toHome}
         onSettings={
           owner
             ? () => router.replace({ pathname: '/circles/[id]/settings', params: { id } })
@@ -128,7 +131,12 @@ function LiveInvite({ id }: { id: string }) {
       />
     );
   }
-  const message = inviteMessage({ circleName, url: link, templates: EN_SHARE_TEMPLATES });
+  const message = inviteMessage({
+    circleName,
+    brandName: brand.name,
+    url: link,
+    templates: EN_SHARE_TEMPLATES,
+  });
   const circle_id = id as CircleId;
 
   return (
@@ -137,7 +145,6 @@ function LiveInvite({ id }: { id: string }) {
       link={link}
       message={message}
       outcome={outcome}
-      shared={shared}
       onNext={() => {
         setOutcome(undefined);
         void shareMessage(message).then((result) => {
@@ -150,22 +157,17 @@ function LiveInvite({ id }: { id: string }) {
           if (result === 'sheet') toHome();
           else if (result === 'copied') {
             track('circle_invite_shared', { circle_id, kind: 'copy' });
-            setShared(true);
             setOutcome('copied');
           } else if (result === 'failed') setOutcome('couldnt_copy');
         });
       }}
-      onCopyLink={() => {
+      onCopy={() => {
         setOutcome(undefined);
-        void copyText(link).then((copied) => {
-          if (copied) {
-            track('circle_invite_shared', { circle_id, kind: 'copy' });
-            setShared(true);
-          }
+        void copyText(message).then((copied) => {
+          if (copied) track('circle_invite_shared', { circle_id, kind: 'copy' });
           setOutcome(copied ? 'copied' : 'couldnt_copy');
         });
       }}
-      onSkipForNowIll={toHome}
       onBack={back}
     />
   );

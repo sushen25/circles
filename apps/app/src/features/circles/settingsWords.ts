@@ -100,8 +100,3 @@ export function memberRows(home: CircleHome): SettingsMember[] {
     };
   });
 }
-
-/** "sundaycrew.app/join#…7f3k": enough to recognise the link, not enough to use it. */
-export function linkDisplay(secret: string): string {
-  return t('settings', 'link_ending', { tail: secret.slice(-4) });
-}

@@ -136,7 +136,13 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
   }
 
   if (askForInvite) {
-    return <LinkInvalidScreen reason="ask_for_invite" onBack={back} />;
+    return (
+      <LinkInvalidScreen
+        reason="not_admitting"
+        circleName={circleName.data ?? undefined}
+        onBack={back}
+      />
+    );
   }
 
   const title = circleName.data ?? undefined;

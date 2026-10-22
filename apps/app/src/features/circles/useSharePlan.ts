@@ -11,8 +11,10 @@ import { shareMessage } from '../../platform/share';
 import { reminderMessage } from '../planning/reminder';
 
 /**
- * "Share the link" on the finding-a-time card (SUS-132): the way back to the
- * plan's link once the organiser has left the share screen.
+ * "Share the plan" on the finding-a-time card (SUS-132): the way back to the
+ * plan's link once the organiser has left the share screen. It is circle
+ * home's one way into the chat while the plan takes answers, and then there is
+ * no Add someone (ADR 0091): the plan's link admits new people itself.
  *
  * **Offered to every member, not only the organiser** (the founder's decision,
  * 1 October 2026): the link admits people and is not a secret (ADR 0022), and
@@ -25,9 +27,14 @@ import { reminderMessage } from '../planning/reminder';
  * ask nobody has taken on has its own screens and its own anonymity (spec
  * §5.4), so it is not offered here; once somebody has, it is a plan like any.
  */
-export function useShareLink(home: CircleHome): {
-  onShareLink: (() => void) | undefined;
+export function useSharePlan(home: CircleHome): {
+  onSharePlan: (() => void) | undefined;
   outcome: string | undefined;
+  /**
+   * The plan is still open but its deadline has passed: replies are closed,
+   * and the organiser decides (spec §5.7). False with no plan.
+   */
+  repliesClosed: boolean;
 } {
   const [outcome, setOutcome] = useState<string | undefined>();
   // A home left open across the deadline is not read again while a plan is
@@ -43,13 +50,13 @@ export function useShareLink(home: CircleHome): {
     const timer = setTimeout(() => setNow(new Date()), wait + 50);
     return () => clearTimeout(timer);
   }, [deadline]);
-  const open =
-    plan !== null &&
-    !(plan.quiet === true && plan.organiserUserId === null) &&
-    isAfter(fromISO(plan.responseDeadline), fromISO(now.toISOString()));
-  if (!open) return { onShareLink: undefined, outcome: undefined };
+  const before =
+    plan !== null && isAfter(fromISO(plan.responseDeadline), fromISO(now.toISOString()));
+  const repliesClosed = plan !== null && !before;
+  const open = plan !== null && before && !(plan.quiet === true && plan.organiserUserId === null);
+  if (!open) return { onSharePlan: undefined, outcome: undefined, repliesClosed };
 
-  const onShareLink = () => {
+  const onSharePlan = () => {
     setOutcome(undefined);
     const message = reminderMessage({
       remaining: Math.max(0, plan.asked - plan.replied),
@@ -68,5 +75,5 @@ export function useShareLink(home: CircleHome): {
       else if (result === 'failed') setOutcome(t('circleHome', 'link_couldnt_copy'));
     });
   };
-  return { onShareLink, outcome };
+  return { onSharePlan, outcome, repliesClosed };
 }

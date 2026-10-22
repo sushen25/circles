@@ -133,22 +133,25 @@ after the code) shows a line that promises nothing. The gallery's `?state=member
 
 ### circles
 
-| Artboard                      | Route                           | Component                   |
-| ----------------------------- | ------------------------------- | --------------------------- |
-| `CircleHome.dc.html`          | `/circles/[id]`                 | `CircleHomeScreen`          |
-| `CircleHomeConfirmed.dc.html` | `/circles/[id]?state=confirmed` | `CircleHomeConfirmedScreen` |
-| `CircleHomeDue.dc.html`       | `/circles/[id]?state=due`       | `CircleHomeDueScreen`       |
-| `CircleHomeJoining.dc.html`   | `/circles/[id]?state=joining`   | `CircleHomeJoiningScreen`   |
-| `CirclesList.dc.html`         | `/circles`                      | `CirclesListScreen`         |
-| `CreateCircle.dc.html`        | `/circles/create`               | `CreateCircleScreen`        |
-| `EmptyCircle.dc.html`         | `/circles/[id]?state=empty`     | `EmptyCircleScreen`         |
-| `EmptyCirclesList.dc.html`    | `/circles/empty`                | `EmptyCirclesListScreen`    |
-| `FirstCircle.dc.html`         | `/circles/new`                  | `FirstCircleScreen`         |
-| `InviteCircle.dc.html`        | `/circles/[id]/invite`          | `InviteCircleScreen`        |
-| `Settings.dc.html`            | `/circles/[id]/settings`        | `SettingsScreen`            |
+| Artboard                      | Route                            | Component                                    |
+| ----------------------------- | -------------------------------- | -------------------------------------------- |
+| `CircleHome.dc.html`          | `/circles/[id]`                  | `CircleHomeScreen`                           |
+| `CircleHomeConfirmed.dc.html` | `/circles/[id]?state=confirmed`  | `CircleHomeConfirmedScreen`                  |
+| `CircleHomeDue.dc.html`       | `/circles/[id]?state=due`        | `CircleHomeDueScreen`                        |
+| `CircleHomeJoining.dc.html`   | `/circles/[id]?state=joining`    | `CircleHomeJoiningScreen`                    |
+| `CirclesList.dc.html`         | `/circles`                       | `CirclesListScreen`                          |
+| `CreateCircle.dc.html`        | `/circles/create`                | `CreateCircleScreen`                         |
+| `CircleHomeClosed.dc.html`    | `/circles/[id]` (replies closed) | `CircleHomeScreen`, `primary: 'pick_a_time'` |
+| `CancelInvitations.dc.html`   | `/circles/[id]/settings` (sheet) | `SettingsScreen`, `ConfirmSheet`             |
+| `PlanNotAdmitting.dc.html`    | a plan link, not taking answers  | `LinkInvalidScreen` (`not_admitting`)        |
+| `EmptyCircle.dc.html`         | `/circles/[id]?state=empty`      | `EmptyCircleScreen`                          |
+| `EmptyCirclesList.dc.html`    | `/circles/empty`                 | `EmptyCirclesListScreen`                     |
+| `FirstCircle.dc.html`         | `/circles/new`                   | `FirstCircleScreen`                          |
+| `InviteCircle.dc.html`        | `/circles/[id]/invite`           | `InviteCircleScreen` (Add someone)           |
+| `Settings.dc.html`            | `/circles/[id]/settings`         | `SettingsScreen`                             |
 
 **Real since S1-22:** `/circles/new` (`FirstCircleFlow`; a draft since ADR 0053, and `create-circle` is called by `FinishDraftFlow`),
-`/circles/[id]/invite` (`InviteCircleFlow`) and `/circles/[id]` (`CircleHomeFlow`).
+`/circles/[id]/invite` (`InviteCircleFlow`, **Add someone** since SUS-248) and `/circles/[id]` (`CircleHomeFlow`).
 **Since SUS-247 (ADR 0090)** the first run is four screens to the share: `/circles/new` (who it is for, `FirstCircleScreen`) → `/circles/new/plan` (which evenings, `FirstEveningsScreen` with the `AdjustSheet`) → `/circles/new/save` (who's asking, `WhosAskingScreen`, and the code, `EnterCodeScreen`, both driven by `SignInFlow` in its gate form) → the share (`FirstShareScreen`, reached with `?first=answered|later`). It drafts on the device and creates nothing until the code is accepted; then `finishDraft` (`features/circles`) makes the circle, the plan and the organiser's own answer, in that order, inside the code step. A signed-in organiser goes 1, 2 and `/circles/new/finish` (`FinishDraftFlow`, the same `finishDraft`), then the share; `/name` is only for an account with no name the gate did not supply. The draft is `data/draft`, record version 3. **More options** in Adjust opens `/circles/new/plan/setup` (`PlanSetupDraftFlow`): the plan setup over the draft, with no quorum or required people, which saves into the draft and sends nothing. The message bubble is the shared `MessageBubble` component; the steps' motion is `Step`/`useLeave` and the progress line `ProgressLine`.
 **Since S1-22b (ADR 0026)** the first run goes plan-first, then
 `/circles/[id]/plan/[planId]/shared` → the availability editor:
@@ -168,15 +171,14 @@ not.
 `EmptyCirclesListScreen` when there are none, otherwise a row per circle with
 its line from `lines.ts`), `/circles/create` (`CreateCircleFlow`, name, colour,
 cadence and area through `create-circle`) and `/circles/[id]/settings`
-(`SettingsFlow`: the link through `get-invite-link` / `rotate-invite`,
+(`SettingsFlow`: who is in, **Add someone** for any member, and for the owner alone **Cancel old invitations** through `rotate-invite`,
 cadence and nudge pickers, colour, the reader's quiet-asks switch, members
 with Remove through `remove-member`, "Change my name here" on the reader's own row through `rename-in-circle`, Archive). Circle home picks its state with
 the domain's `circleHomeState` (`HomeInState`): finding a time
 (`CircleHomeScreen`), locked in (`CircleHomeConfirmedScreen`, "Details" to
 `/circles/[id]/plan/[planId]/confirmed`), just you (`EmptyCircleScreen`), about
 time and between catch-ups (`CircleHomeDueScreen`, `due` or not), and never
-met (`CircleHomeJoiningScreen`). The invite link is the owner's: members are
-not offered it. The finding-a-time card also has **Share the link** for every member while the plan takes answers (SUS-132; never on a quiet ask, never after the deadline): the plan's count-only reminder, as the options and no-quorum screens' **Share the link again** is. The reads are `data/circles` (`useCircles`, `useCircle`), all
+met (`CircleHomeJoiningScreen`). **One way into the chat at a time (SUS-248, ADR 0091):** while a plan takes answers the finding-a-time card has **Share the plan** for every member (SUS-132; never on a quiet ask nobody has taken on, never after the deadline): the plan's count-only reminder, as the options and no-quorum screens' **Share the plan again** is, and there is no Add someone. In every other state each active member sees **Add someone** at the right of the members' marks (`MembersLine`; `offersAddSomeone` in the domain), and it goes to `/circles/[id]/invite`, whose secret `get-invite-link` returns to any member. Once replies have closed the card is titled **Replies closed** and shares nothing; the organiser's primary is **Pick a time** (`circleHomePrimary`). Last caught up and next one show only once the circle has met. The reads are `data/circles` (`useCircles`, `useCircle`), all
 through RLS; the secret is held in memory only (ADR 0028). A circle's colour is
 a `circleColor` token from `@circles/tokens` (`CircleBadge`, `Swatches`).
 
@@ -450,7 +452,7 @@ or an answer. `quietScreenOf` turns a view into a screen.
 | `Waiting.dc.html`          | `/circles/[id]/plan/[planId]/waiting`    | `WaitingScreen`          |
 
 **Footer and header (SUS-161):** on `Candidates`, `Waiting` and `NoQuorum` the
-plan's own actions (Share the link again, Edit the plan, Change my times) are
+plan's own actions (Share the plan again, Edit the plan, Change my times) are
 compact buttons in `PlanActions`, in the header under the plan's facts. The
 footer keeps the decision: the primary and, on `Candidates`, the nudge as a
 compact button under it. `DeadlinePassed` carries none of the plan actions.

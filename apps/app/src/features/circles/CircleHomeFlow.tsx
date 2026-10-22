@@ -35,8 +35,7 @@ type Common = {
   onBack?: (() => void) | undefined;
   onSeeHowItsLooking?: (() => void) | undefined;
   onSettings?: (() => void) | undefined;
-  onShareAgain?: (() => void) | undefined;
-  onInviteLink?: (() => void) | undefined;
+  onAddSomeone?: (() => void) | undefined;
   onDetails?: (() => void) | undefined;
   onPlanAnother?: (() => void) | undefined;
 };
@@ -59,8 +58,7 @@ function FixtureHome({ state }: { state?: string | undefined }) {
       onNext={() => router.push('/circles/sunday-crew/plan/setup')}
       onSeeHowItsLooking={() => router.push('/circles/sunday-crew/plan/thu-17/candidates')}
       onSettings={() => router.push('/circles/sunday-crew/settings')}
-      onShareAgain={() => router.push('/circles/sunday-crew/invite')}
-      onInviteLink={() => router.push('/circles/sunday-crew/invite')}
+      onAddSomeone={() => router.push('/circles/sunday-crew/invite')}
       onDetails={() => router.push('/circles/sunday-crew/plan/thu-17/confirmed')}
       onPlanAnother={() => router.push('/circles/sunday-crew/plan/another')}
       onBack={() => router.back()}

@@ -45,6 +45,8 @@ export type ShareDateFormat = {
 
 export type InviteParts = {
   readonly circleName: string;
+  /** The product's name, read by the caller from `brand`, never written here. */
+  readonly brandName: string;
   readonly url: string;
 };
 
@@ -129,9 +131,12 @@ export type ShareTemplates = {
  * knows the preset that was chosen.
  */
 export const EN_SHARE_TEMPLATES: ShareTemplates = {
-  invite: ({ circleName, url }) =>
-    `Made a ${circleName} circle so we stop losing catch-ups in the chat. ` +
-    `Join here, no app needed: ${url}`,
+  // What Add someone sends between plans (SUS-248, ADR 0091): who is asking,
+  // what for, and that nothing needs installing. The old line described a
+  // circle somebody had just made, which is untrue for a member adding a friend.
+  invite: ({ circleName, brandName, url }) =>
+    `Join ${circleName} on ${brandName} so you're in on the next catch-up. ` +
+    `No app needed: ${url}`,
 
   // Eighteen words, where it was twenty-seven (SUS-247, ADR 0090): friends skim
   // the chat too. A window that is not the default goes in the first sentence.
@@ -170,9 +175,15 @@ export type ShareBase = {
   readonly templates: ShareTemplates;
 };
 
-/** "Made a Sunday Crew circle so we stop losing catch-ups in the chat. …" */
-export function inviteMessage(input: ShareBase & { readonly circleName: string }): string {
-  return input.templates.invite({ circleName: input.circleName, url: input.url });
+/** "Join Sunday Crew on {brand} so you're in on the next catch-up. …" */
+export function inviteMessage(
+  input: ShareBase & { readonly circleName: string; readonly brandName: string },
+): string {
+  return input.templates.invite({
+    circleName: input.circleName,
+    brandName: input.brandName,
+    url: input.url,
+  });
 }
 
 /** "When can Sunday Crew actually catch up? …" */

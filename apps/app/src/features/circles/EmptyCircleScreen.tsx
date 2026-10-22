@@ -7,24 +7,25 @@ import {
   Card,
   CircleHeader,
   Foot,
-  Label,
   Screen,
-  Small,
+  Title,
   TopBar,
+  type Member,
 } from '../../components';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
-import { SettingsButton } from './parts';
+import { MembersLine, SettingsButton } from './parts';
 
 /**
  * EmptyCircle — `docs/design/EmptyCircle.dc.html`: a circle with nobody in it
- * but its owner (spec §5.2). The link is the only useful thing, so sharing it
- * is the primary action; planning anyway is offered, because anyone who joins
- * later can still add their times.
+ * but its owner (spec §5.2). The plan is how friends join (ADR 0022), so
+ * planning leads; **Add someone** sits with the one mark, for the day somebody
+ * would rather be invited (ADR 0091). Nothing about last caught up or a next
+ * one: the circle has not met.
  *
- * The link itself is shown on the invite screen, which is where "Share invite
- * link" goes: a secret is never drawn on a screen that did not have to.
+ * The invitation itself is shown on the Add someone screen, which is where it
+ * goes: a secret is never drawn on a screen that did not have to.
  */
 export type EmptyCircleProps = {
   fixture?: Fixture | undefined;
@@ -32,11 +33,13 @@ export type EmptyCircleProps = {
   circleName?: string | undefined;
   color?: string | undefined;
   subtitle?: string | undefined;
+  members?: readonly Member[] | undefined;
   onSettings?: (() => void) | undefined;
-  /** The screen's one decision: share the invite link. */
+  /** The screen's one decision: plan a catch-up. */
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
-  onPlanACatchUp?: (() => void) | undefined;
+  /** Any member's; the circle's invitation. */
+  onAddSomeone?: (() => void) | undefined;
   /**
    * The morning after's card (S1-29): everybody else can have left since the
    * meetup, and the organiser still owes the answer.
@@ -45,13 +48,15 @@ export type EmptyCircleProps = {
 };
 
 export function EmptyCircleScreen({
+  fixture,
   circleName = t('emptyCircle', 'sunday_crew'),
   color = 'clay',
   subtitle = t('emptyCircle', 'just_you_so_far'),
+  members = fixture?.circle.members.slice(0, 1).map((m) => ({ name: m.name })) ?? [],
   onSettings,
   onNext,
   onBack,
-  onPlanACatchUp,
+  onAddSomeone,
   prompt,
 }: EmptyCircleProps) {
   return (
@@ -65,18 +70,13 @@ export function EmptyCircleScreen({
         <CircleHeader name={circleName} color={color} subtitle={subtitle} />
         {prompt}
         <Card>
-          <Label>{t('emptyCircle', 'invite_link')}</Label>
-          <BodyText>{t('emptyCircle', 'paste_this_into_the_group_chat_friends')}</BodyText>
+          <Title>{t('emptyCircle', 'just_you_so_far')}</Title>
+          <BodyText>{t('emptyCircle', 'plan_and_share')}</BodyText>
         </Card>
-        <Small>{t('emptyCircle', 'you_can_start_a_plan_now_too')}</Small>
+        <MembersLine members={members} onAddSomeone={onAddSomeone} />
       </Body>
       <Foot>
-        <Button label={t('emptyCircle', 'share_invite_link')} onPress={onNext} />
-        <Button
-          label={t('emptyCircle', 'plan_a_catch_up_anyway')}
-          variant="secondary"
-          onPress={onPlanACatchUp}
-        />
+        <Button label={t('emptyCircle', 'plan_a_catch_up')} onPress={onNext} />
       </Foot>
     </Screen>
   );

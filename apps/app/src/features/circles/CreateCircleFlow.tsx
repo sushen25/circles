@@ -26,7 +26,7 @@ import type { CircleCadence } from './FirstCircleScreen';
  * `create-circle` like the first one, with a colour and an area as well.
  *
  * Made, it goes to its own home — with `replace`, so Back does not return to a
- * form that has already made a circle — where "Invite link" shares it. The
+ * form that has already made a circle — where "Add someone" shares it. The
  * secret is held in memory for that (`keepInviteSecret`), never stored.
  *
  * One key per request, as FirstCircle: the same values reuse it, so a tap after

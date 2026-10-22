@@ -6,24 +6,18 @@ import {
   Button,
   Card,
   CircleHeader,
-  DateText,
   Foot,
-  Label,
-  Marks,
   Screen,
-  Small,
-  Tertiary,
+  Title,
   TopBar,
   type Member,
   Loading,
   useLoadingHold,
 } from '../../components';
-import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
-import { MARKS_MAX, marksMore } from './lines';
-import { SettingsButton } from './parts';
+import { MembersLine, SettingsButton } from './parts';
 import { LoadFailed } from '../system/LoadFailed';
 
 /**
@@ -33,7 +27,9 @@ import { LoadFailed } from '../system/LoadFailed';
  *
  * The flow polls while this is on screen; the screen only draws what it is
  * given. Marks here mean "who is in", not who has answered anything, so they
- * carry the names alone.
+ * carry the names alone. The card's title is who just joined; **Add someone**
+ * sits with the marks, for any member (ADR 0091), and the primary is the first
+ * plan, which is how everyone else joins.
  */
 export type CircleHomeJoiningProps = {
   fixture?: Fixture | undefined;
@@ -42,16 +38,17 @@ export type CircleHomeJoiningProps = {
   color?: string | undefined;
   subtitle?: string | undefined;
   members?: readonly Member[] | undefined;
-  /** "Nina and Tom just joined", or undefined when nobody has lately. */
+  /**
+   * "Nina and Tom just joined", or "You and Tom just joined" for a member who is
+   * one of them; undefined when nobody has lately.
+   */
   joined?: string | undefined;
-  lastCaughtUp?: string | undefined;
-  nextOne?: string | undefined;
   /** False once the circle has met: then it is not the *first* catch-up. */
   firstPlan?: boolean | undefined;
-  /** "Thursday Lot is full (20 people)": said in place of "Share again" at the cap. */
+  /** "Thursday Lot is full (20 people)": said in place of Add someone at the cap. */
   full?: string | undefined;
-  /** The owner's alone; without it there is no "Share again". */
-  onShareAgain?: (() => void) | undefined;
+  /** Any member's; absent at the cap. */
+  onAddSomeone?: (() => void) | undefined;
   onSettings?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
   /** The screen's one decision: plan the first catch-up. */
@@ -69,11 +66,9 @@ export function CircleHomeJoiningScreen({
   subtitle = t('circleHomeJoining', '3_in_so_far_about_monthly'),
   members = fixture?.circle.members.slice(0, 3).map((m) => ({ name: m.name })) ?? [],
   joined = fixture === undefined ? undefined : t('circleHomeJoining', 'nina_and_tom_just_joined'),
-  lastCaughtUp = t('circleHomeJoining', 'not_yet'),
-  nextOne = t('circleHomeJoining', 'up_to_you'),
   firstPlan = true,
   full,
-  onShareAgain,
+  onAddSomeone,
   onSettings,
   onRetry,
   onNext,
@@ -114,37 +109,13 @@ export function CircleHomeJoiningScreen({
       <Body>
         <CircleHeader name={circleName} color={color} subtitle={subtitle} />
         {prompt}
-        <Card>
-          <Marks
-            members={members}
-            max={MARKS_MAX}
-            more={marksMore}
-            label={members.map((m) => m.name).join(', ')}
-          />
-          <Small accessibilityLiveRegion="polite">
-            {joined ?? t('circleHomeJoining', 'nobody_yet')}
-          </Small>
-          {full === undefined ? null : <Small accessibilityLiveRegion="polite">{full}</Small>}
-          {onShareAgain === undefined ? null : (
-            <Tertiary label={t('circleHomeJoining', 'share_again')} onPress={onShareAgain} />
-          )}
-        </Card>
         <Card recommended>
-          <Label>{t('circleHomeJoining', 'ready_when_you_are')}</Label>
+          <Title accessibilityLiveRegion="polite">
+            {joined ?? t('circleHomeJoining', 'ready_when_you_are')}
+          </Title>
           <BodyText>{t('circleHomeJoining', 'you_dont_have_to_wait_for_everyone')}</BodyText>
         </Card>
-        <Card>
-          <Row>
-            <Stack>
-              <Label>{t('circleHomeJoining', 'last_caught_up')}</Label>
-              <DateText>{lastCaughtUp}</DateText>
-            </Stack>
-            <Stack>
-              <Label>{t('circleHomeJoining', 'next_one')}</Label>
-              <DateText>{nextOne}</DateText>
-            </Stack>
-          </Row>
-        </Card>
+        <MembersLine members={members} full={full} onAddSomeone={onAddSomeone} />
       </Body>
       <Foot>
         <Button

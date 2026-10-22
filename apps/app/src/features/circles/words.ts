@@ -70,7 +70,9 @@ const JUST_MS = 24 * 60 * 60 * 1000;
 
 /**
  * "Nina and Tom just joined" — the people who arrived in the last day, newest
- * first, never the reader. Undefined when nobody has.
+ * first. The owner's own arrival is the circle's making and never "just
+ * joined"; a member who is one of them reads "You and Tom just joined"
+ * (SUS-248), because to them it is the news. Undefined when nobody has.
  */
 export function justJoined(
   members: readonly HomeMember[],
@@ -78,18 +80,40 @@ export function justJoined(
   now = Date.now(),
 ): string | undefined {
   const recent = members
-    .filter((m) => m.userId !== me && now - Date.parse(m.joinedAt) < JUST_MS)
+    .filter((m) => now - Date.parse(m.joinedAt) < JUST_MS && m.role !== 'owner')
     .sort((a, b) => Date.parse(b.joinedAt) - Date.parse(a.joinedAt));
-  const [first, second] = recent;
+  // The reader leads, as "You", whoever else came.
+  const names = [
+    ...recent.filter((m) => m.userId === me).map(() => t('circleHomeJoining', 'you')),
+    ...recent.filter((m) => m.userId !== me).map((m) => m.name),
+  ];
+  const [first, second] = names;
   if (first === undefined) return undefined;
-  if (second === undefined) return t('circleHomeJoining', 'one_just_joined', { name: first.name });
-  if (recent.length === 2) {
-    return t('circleHomeJoining', 'two_just_joined', { name: first.name, other: second.name });
+  if (second === undefined) return t('circleHomeJoining', 'one_just_joined', { name: first });
+  if (names.length === 2) {
+    return t('circleHomeJoining', 'two_just_joined', { name: first, other: second });
   }
   return t('circleHomeJoining', 'many_just_joined', {
-    name: first.name,
-    count: recent.length - 1,
+    name: first,
+    count: names.length - 1,
   });
+}
+
+/**
+ * The line under "Replies closed": the organiser reads "Time to pick one",
+ * everybody else who picks next ("Maya picks a time next"), and a plan nobody
+ * has taken on says only that no time has been picked.
+ */
+export function closedLine(
+  home: CircleHome,
+  organiserUserId: string | null,
+  reader: boolean,
+): string {
+  if (reader) return t('circleHome', 'time_to_pick_one');
+  const name = home.members.find((m) => m.userId === organiserUserId)?.name;
+  return name === undefined
+    ? t('circleHome', 'nobody_has_picked')
+    : t('circleHome', 'picks_a_time_next', { name });
 }
 
 /** "Sat 8 Aug", or "Not yet" for a circle that has never met. */

@@ -167,7 +167,7 @@ describe('a guest, in a circle that has guests', () => {
     expect(JSON.stringify(track.mock.calls)).not.toContain(CODE);
   });
 
-  it('ends at the ask-for-the-invite state when the plan is not asking', async () => {
+  it('ends at the ask-someone-to-add-you state when the plan is not asking', async () => {
     // A quiet ask, a confirmed plan, a plan past its deadline and a code that
     // does not exist all answer the same `invite_inactive`, so this is the one
     // end state for all of them.
@@ -177,7 +177,10 @@ describe('a guest, in a circle that has guests', () => {
     await tap(screen.findByRole('button', { name: "I'm new here" }));
     await type('Ren');
 
-    expect(await screen.findByText('You need the invite link to join.')).toBeTruthy();
+    expect(await screen.findByText("This plan isn't taking new answers.")).toBeTruthy();
+    // Told whom to ask, never about a link they have not seen (ADR 0091).
+    expect(screen.getByText('Ask someone in Sunday Crew to add you.')).toBeTruthy();
+    expect(screen.queryByText(/invite/i)).toBeNull();
     expect(replace).not.toHaveBeenCalled();
   });
 
@@ -571,7 +574,7 @@ describe('an account that is not a member, in a circle with no guests', () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it('ends at the ask-for-the-invite state when the plan is not asking', async () => {
+  it('ends at the ask-someone-to-add-you state when the plan is not asking', async () => {
     ownDisplayName.mockResolvedValue('Maya');
     joinPlan.mockRejectedValue(refusal('invite_inactive'));
     arrive();
@@ -580,7 +583,8 @@ describe('an account that is not a member, in a circle with no guests', () => {
       await tap(screen.findByRole('button', { name: 'Join Sunday Crew as Maya' }));
     });
 
-    expect(await screen.findByText('You need the invite link to join.')).toBeTruthy();
+    expect(await screen.findByText("This plan isn't taking new answers.")).toBeTruthy();
+    expect(screen.getByText('Ask someone in Sunday Crew to add you.')).toBeTruthy();
   });
 });
 

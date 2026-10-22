@@ -13,7 +13,7 @@ import { t } from '../../copy';
 
 /**
  * The two bottom sheets circle settings, notification settings and account
- * are made of: a question with one answer that does something ("Reset link?",
+ * are made of: a question with one answer that does something ("Cancel old invitations?",
  * "Remove Nina?", "Archive Sunday Crew?"), and a choice among a few
  * ("How often would you like to catch up?"). Presentational; the flow decides
  * what each one says and does.
@@ -24,6 +24,7 @@ export function ConfirmSheet({
   title,
   body,
   confirmLabel,
+  dismissLabel = t('common', 'cancel'),
   busy = false,
   problem,
   onConfirm,
@@ -33,25 +34,22 @@ export function ConfirmSheet({
   title: string;
   body?: string | undefined;
   confirmLabel: string;
+  /** The way out, when "Cancel" would be ambiguous ("Keep them"). */
+  dismissLabel?: string | undefined;
   busy?: boolean | undefined;
   problem?: string | undefined;
   onConfirm: () => void;
   onDismiss: () => void;
 }) {
   return (
-    <Sheet
-      visible={visible}
-      onDismiss={onDismiss}
-      label={title}
-      dismissLabel={t('common', 'cancel')}
-    >
+    <Sheet visible={visible} onDismiss={onDismiss} label={title} dismissLabel={dismissLabel}>
       <Stack>
         <Title>{title}</Title>
         {body === undefined ? null : <BodyText>{body}</BodyText>}
       </Stack>
       {problem === undefined ? null : <Small accessibilityLiveRegion="polite">{problem}</Small>}
       <Button label={confirmLabel} variant="secondary" busy={busy} onPress={onConfirm} />
-      <Tertiary label={t('common', 'cancel')} onPress={onDismiss} />
+      <Tertiary label={dismissLabel} onPress={onDismiss} />
     </Sheet>
   );
 }

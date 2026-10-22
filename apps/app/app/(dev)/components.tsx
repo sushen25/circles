@@ -167,7 +167,7 @@ export default function ComponentsScreen() {
           </View>
           <View testID="row-waiting-organiser">
             <ButtonRow>
-              <CompactButton label={t('waiting', 'share_the_link_again')} icon="share" />
+              <CompactButton label={t('waiting', 'share_the_plan_again')} icon="share" />
               <CompactButton label={t('waiting', 'edit_the_plan')} />
             </ButtonRow>
           </View>

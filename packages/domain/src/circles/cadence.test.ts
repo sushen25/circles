@@ -7,6 +7,7 @@ import {
   cadenceState,
   circleHomePrimary,
   circleHomeState,
+  offersAddSomeone,
   nextDueAt,
   nudgeDueDate,
   nudgeLeadDays,
@@ -159,7 +160,7 @@ describe('circleHomePrimary', () => {
     expect(circleHomePrimary('no_rush', { askedAgain: false })).toBe('plan_a_catch_up');
     expect(circleHomePrimary('no_goal', { askedAgain: false })).toBe('plan_a_catch_up');
     expect(circleHomePrimary('never_met', { askedAgain: false })).toBe('plan_a_catch_up');
-    expect(circleHomePrimary('just_you', { askedAgain: false })).toBe('invite');
+    expect(circleHomePrimary('just_you', { askedAgain: false })).toBe('plan_a_catch_up');
   });
 
   it('never offers a new plan in a state with a live plan, whatever else is said', () => {
@@ -171,6 +172,48 @@ describe('circleHomePrimary', () => {
   it('has an answer for every state', () => {
     for (const state of states) {
       expect(circleHomePrimary(state, { askedAgain: false })).toBeTruthy();
+    }
+  });
+
+  it('plans the first catch-up in a circle of one: the plan is how friends join', () => {
+    expect(circleHomePrimary('just_you', { askedAgain: false })).toBe('plan_a_catch_up');
+  });
+
+  it('closed replies: the organiser picks a time, everybody else watches it come', () => {
+    const closed = { askedAgain: false, repliesClosed: true } as const;
+    expect(circleHomePrimary('finding_a_time', { ...closed, organiser: true })).toBe('pick_a_time');
+    expect(circleHomePrimary('finding_a_time', { ...closed, organiser: false })).toBe(
+      'see_how_its_looking',
+    );
+    // Nothing to add to a plan that takes no answers, even after an edit cleared them.
+    expect(circleHomePrimary('finding_a_time', { askedAgain: true, repliesClosed: true })).toBe(
+      'see_how_its_looking',
+    );
+  });
+});
+
+describe('offersAddSomeone', () => {
+  const states = [
+    'finding_a_time',
+    'locked_in',
+    'just_you',
+    'about_time',
+    'never_met',
+    'no_goal',
+    'no_rush',
+  ] as const;
+
+  it('is withheld only while a plan takes answers (its own share admits)', () => {
+    expect(offersAddSomeone('finding_a_time', { takingAnswers: true })).toBe(false);
+  });
+
+  it('is offered once the replies have closed', () => {
+    expect(offersAddSomeone('finding_a_time', { takingAnswers: false })).toBe(true);
+  });
+
+  it('is offered in every other state', () => {
+    for (const state of states.filter((s) => s !== 'finding_a_time')) {
+      expect(offersAddSomeone(state, { takingAnswers: false })).toBe(true);
     }
   });
 });
