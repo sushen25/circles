@@ -637,8 +637,8 @@ families with a row in the fortnight: with rows starting 20 October, that
 is the 17 November retro, for day 30 on the 18th. The script prints the
 day-7 lift by family with n; the kill-two, double-one proposal is the
 skill's, never the script's, and shrinks with fewer than three ranked
-families: with two, double the higher and kill the lower only at a lift of
-0.8 or less (the brief's "Stop" bar); with one or none, propose nothing; never
+families: with two, double the higher and kill the lower only at or under
+the brief's "Stop" bar (`LAG` in `analytics/brief.ts`, 0.8 today); with one or none, propose nothing; never
 kill and double the same family. A row is filled once, the morning after its fortnight ends, so
 a piece from its second week is not yet seven days old and is not in its
 day-7 median; the n says so, and the scorecard keeps the later number. The Routine is set

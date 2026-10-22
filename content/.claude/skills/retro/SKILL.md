@@ -49,8 +49,9 @@ rows, and merging the PR is the decision.
    fewer than three ranked families the rule shrinks as the plan's "Phase
    4, as built" says, and never kills and doubles the same family:
    - three or more: kill the two lowest, double the highest;
-   - two: double the higher; kill the lower only when its lift is 0.8 or
-     less, otherwise keep it;
+   - two: double the higher; kill the lower only when its lift is at or
+     under the brief's "Stop" bar (`LAG` in `analytics/brief.ts`),
+     otherwise keep it;
    - one or none: propose nothing, and say why.
    Put the proposal in the PR body, and reflect it in step 6's rows.
 8. Commit `experiments.md` only. Push. Open a PR titled
