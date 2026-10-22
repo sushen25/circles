@@ -103,7 +103,7 @@ nobody says to the group. It works because the gap between the two panes is
 the joke, so the left chat should be short and keen and the dm should undo
 it. The `beat` names what happens next ("Sorry guys…"). It goes wrong when
 the dm is mean about someone (nobody is the villain) or when a second `dm`
-pushes it past 32 s; the split alone is ~10–11 s. No availability screen:
+pushes it past 32 s; the split alone is about 8.5 s. No availability screen:
 there is not the time.
 
 **drift.** Time passing with nobody replying, told with `notification`
@@ -141,7 +141,7 @@ check output is the truth.
 - `count` {lines[{n, of}]} 1.6–2.8 s. Use when a number is the hook: one to
   three lines, every number paired with its meaning ("0", "plans"). Not for
   a number that is not in the story or in facts.md.
-- `chat` {title, when?, pace?, messages[{from, text, link?}]} 4–8 s. The
+- `chat` {title, when?, pace?, messages[{from, text, link?}]} about 6 s. The
   workhorse. A digitless `when` adds a 0.9 s skip card; prefer an explicit
   `skip`. Not for a one-on-one: that is `dm`.
 - `skip` {line, sub?} 0.9 s. Use for the biggest time jump ("Five weeks
@@ -149,11 +149,11 @@ check output is the truth.
 - `beat` {line} 1.2–1.6 s. The emotional summary after the before, three
   words at most: "Every. Single. Time." / "Sorry guys…". Never a product
   line.
-- `dm` {a, b, when?, pace?, messages} 6–8 s alone. Use for what two people
+- `dm` {a, b, when?, pace?, messages} about 8.4 s alone for the slow fixture. Use for what two people
   say to each other that they do not say to the group: 3–7 messages, only
   `a` and `b` speak, no links. Not for exposition or for being unkind about
   a third friend.
-- `split` {left: chat, right: dm, order: "sequence"} ~10–11 s. The group
+- `split` {left: chat, right: dm, order: "sequence"} about 8.5 s. The group
   chat, then the dm beside it. Children are `chat` and `dm` only; no time
   skip (digitless `when`) and no `caption` inside or on it. Keep the left
   chat to 3–4 messages so it fits the pane.
@@ -161,7 +161,7 @@ check output is the truth.
   items. Use for drift without a single reply: 2–6 banners, the times are
   the joke. Not for a conversation, and never product copy.
 - `poll` {title, when?, asked, question, options[{label, votes[]}], after?}
-  ~6 s. Use in a chat slot for the poll where every option gets a vote
+  about 5.7 s. Use in a chat slot for the poll where every option gets a vote
   (names, not counts). Question under 40 characters, labels under 12, at
   most 8 votes. Never product copy.
 - `calendar` {title?, start, month?, days 7|14, firstDow?, people[{name,

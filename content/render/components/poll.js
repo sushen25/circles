@@ -165,7 +165,7 @@ export default {
     root.append(head, stream);
     tl.enter(root);
     pop(head, tl.now + 0.02, 0.28);
-    tl.add(0.3);
+    tl.add(0.12);
 
     // the card, sent by `asked`: from-label, "Poll", the question, the rows
     const mine = p.asked === me;
@@ -221,29 +221,38 @@ export default {
     tl.add(Math.max(0, order.length - 1) * VOTE_GAP + 0.65);
 
     // trailing messages, with typing, as chat does
-    (p.after || []).forEach((m) => {
+    (p.after || []).forEach((m, i, all) => {
       const isMe = m.from === me;
-      const typeFor = 0.35;
-      const typing = typingNode(isMe);
-      stream.appendChild(typing);
-      const typingH = naturalHeight(typing);
-      reserve(typing, tl.now, typingH);
-      pop(typing, tl.now, 0.2);
-      glide(stream, tl.now, typingH + GAP);
-      tl.add(typeFor);
+      // typing only before the last line, the one the scene builds to
+      const typed = i === all.length - 1;
+      /** @type {HTMLElement | null} */
+      let typing = null;
+      let typingH = 0;
+      if (typed) {
+        typing = typingNode(isMe);
+        stream.appendChild(typing);
+        typingH = naturalHeight(typing);
+        reserve(typing, tl.now, typingH);
+        pop(typing, tl.now, 0.2);
+        glide(stream, tl.now, typingH + GAP);
+        tl.add(0.5);
+      }
       const t = tl.now;
       const node = el('div', 'msg' + (isMe ? ' me' : ''));
       // the card sits between, so the name always shows again
       node.appendChild(el('div', 'from', esc(m.from)));
       node.appendChild(el('div', 'bubble', esc(m.text)));
-      stream.insertBefore(node, typing);
+      if (typing) stream.insertBefore(node, typing);
+      else stream.appendChild(node);
       const nodeH = naturalHeight(node);
-      // the typing bubble hands its slot to the message: the stack moves once, by the difference
-      anim(typing, [{ opacity: 1 }, { opacity: 0 }], t, 0.01, 'step-start', 'forwards');
-      unreserve(typing, t, typingH);
+      if (typing) {
+        // the typing bubble hands its slot to the message: the stack moves once, by the difference
+        anim(typing, [{ opacity: 1 }, { opacity: 0 }], t, 0.01, 'step-start', 'forwards');
+        unreserve(typing, t, typingH);
+      }
       reserve(node, t, nodeH);
       pop(node, t, 0.3);
-      glide(stream, t, nodeH - typingH);
+      glide(stream, t, typing ? nodeH - typingH : nodeH + GAP);
       tl.cue(isMe ? 'send' : 'pop', t);
       tl.add(0.35 + 0.02 * m.text.length);
     });
