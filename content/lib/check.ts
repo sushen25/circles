@@ -72,6 +72,11 @@ async function main() {
   }
   const slides = item.skit.slides as unknown as { type: string; screen?: string; [k: string]: unknown }[];
   console.log(`${file}  (${slides.length} slides)`);
+  const motion = (item.skit as { motion?: unknown }).motion;
+  if (motion !== undefined && motion !== 'lively' && motion !== 'calm') {
+    console.error(`  ✗ \`motion\` must be "lively" or "calm", not ${JSON.stringify(motion)}`);
+    process.exit(1);
+  }
 
   // schema, plus the two rules that need more than one slide's props:
   // a caption's limits, and a quote being verbatim from context/hooks.md

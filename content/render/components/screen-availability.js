@@ -7,7 +7,7 @@
  * The still is the poster frame just before the press: calendar picked,
  * button not yet pressed. The video carries on to "Sent".
  */
-import { anim, el, esc, known, pop, press, rise, show, hide, SPRING, str } from './_kit.js';
+import { anim, EASE, el, esc, known, pop, press, rise, show, hide, SPRING, str } from './_kit.js';
 
 /**
  * @typedef {{ day: number, when?: string, label: string, time?: string }} Pick
@@ -27,7 +27,7 @@ export default {
   .ph-cal .d { position: relative; height: 92px; border-radius: 20px; background: var(--surface); border: 2px solid var(--line); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 32px; font-weight: 500; color: var(--ink); }
   .ph-cal .d .fill { position: absolute; inset: -2px; border-radius: 20px; background: var(--accent); opacity: 0; }
   .ph-cal .d .n { position: relative; }
-  .ph-cal .d .tag { position: relative; font-size: 18px; font-weight: 600; color: #fff; margin-top: 2px; opacity: 0; }
+  .ph-cal .d .tag { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; font-size: 18px; font-weight: 600; color: #fff; opacity: 0; }
   .ph-ans { display: flex; flex-direction: column; }
   .ph-ans .row { display: flex; justify-content: space-between; font-size: 29px; padding: 16px 0; border-top: 2px solid var(--line-soft); opacity: 0; }
   .ph-ans .row span:last-child { color: var(--ink-2); font-variant-numeric: tabular-nums; }
@@ -76,7 +76,7 @@ export default {
       { day: 24, when: 'Eve', label: 'Thu 24 Sep', time: '6:30–10:30 pm' },
     ],
     sentLine: 'Done. Your times are in.',
-    sentSub: 'Your friends only see the combined result.',
+    sentSub: 'Your friends see who can make each suggested time, never your calendar.',
   },
   scene(p, ctx, tl, root) {
     root.classList.add('screen');
@@ -105,7 +105,7 @@ export default {
     body.appendChild(ans);
     const foot = el('div', 'ph-foot');
     const btn = el('div', 'ph-btn pri', 'Send my times');
-    foot.append(btn, el('div', 'ph-fine', 'Your friends only see a combined result. Never your calendar.'));
+    foot.append(btn, el('div', 'ph-fine', "Your friends will see who can make each suggested time. They won't see your calendar, or your whole availability with your name on it."));
     const sent = el('div', 'ph-sent');
     sent.append(el('div', 'ok', '✓ Sent'), el('div', 'big', esc(p.sentLine || 'Done. That took about 20 seconds.')), el('div', 'fine', esc(p.sentSub || "We'll tell you when it's locked in.")));
     ph.append(body, foot, sent);
@@ -125,7 +125,7 @@ export default {
       c.classList.add('on'); // still metrics only; the video animates .fill
       press(c, tt);
       anim(/** @type {Element} */ (c.querySelector('.fill')), [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'scale(1)' }], tt + 0.05, 0.26, SPRING);
-      anim(/** @type {Element} */ (c.querySelector('.n')), [{ color: '#221E19' }, { color: '#ffffff' }], tt + 0.05, 0.1);
+      anim(/** @type {Element} */ (c.querySelector('.n')), [{ color: '#221E19' }, { color: '#ffffff' }], tt + 0.05, 0.1, EASE);
       const tag = /** @type {HTMLElement} */ (c.querySelector('.tag'));
       tag.textContent = k.when || 'Eve';
       show(tag, tt + 0.12, 0.15);

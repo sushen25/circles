@@ -4,7 +4,7 @@
  * "0 plans"). Numbers roll up from 0 with ticks; the last line lands with a
  * thud and takes the accent.
  */
-import { anim, el, esc, hide, known, rise, show, SPRING, str } from './_kit.js';
+import { anim, el, esc, HOOK_CPS, hide, known, rise, show, SPRING, str } from './_kit.js';
 
 /** @typedef {{ n: string, of: string }} Line */
 /** @typedef {{ type: 'count', lines: Line[] }} Props */
@@ -41,6 +41,7 @@ export default {
   .count .n .v.mid { position: absolute; left: 0; bottom: 0; }
   .count .of { font-size: 60px; font-weight: 500; line-height: 1.15; color: var(--ink-2); opacity: 0; }
   .count .row.last .of { color: var(--ink); }
+  .count.rest .n .v, .count.rest .of { opacity: 1; }
 
   body.still .scene.count { gap: 40px; }
   body.still .count .row { gap: 36px; }
@@ -75,8 +76,11 @@ export default {
   },
   scene(p, ctx, tl, root) {
     root.classList.add('count');
+    // the opener is at rest from frame 0: that frame is the thumbnail and the muted first second
+    const opener = ctx.index === 0;
+    if (opener) root.classList.add('rest');
     const t = tl.now;
-    tl.enter(root, t);
+    tl.enter(root, t, opener);
     let at = t + 0.05;
     p.lines.forEach((line, i) => {
       const last = i === p.lines.length - 1;
@@ -86,7 +90,7 @@ export default {
       row.append(num, of);
       root.appendChild(row);
 
-      const values = rollValues(line.n);
+      const values = opener ? [line.n] : rollValues(line.n);
       // intermediate values sit over the final one, which sets the width
       const nodes = values.map((v, k) => el('span', 'v' + (k < values.length - 1 ? ' mid' : ''), esc(v)));
       num.append(...nodes);
@@ -103,6 +107,10 @@ export default {
         land = at + (values.length - 1) * STEP;
       }
       const fin = nodes[nodes.length - 1];
+      if (opener) {
+        at += 0.4;
+        return;
+      }
       if (last) anim(fin, [{ opacity: 0, transform: 'scale(1.35)' }, { opacity: 1, transform: 'scale(1)' }], land, 0.2, SPRING);
       else if (values.length === 1) anim(fin, [{ opacity: 0, transform: 'translateY(30px) scale(.94)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], land, 0.28, SPRING);
       else show(fin, land);
@@ -110,7 +118,10 @@ export default {
       rise(of, land + 0.08, 0.3);
       at = land + 0.4;
     });
-    const dur = at - 0.4 + 0.08 + 0.3 + 0.7 - t;
+    if (opener) tl.cue('thud', t);
+    const dur = opener
+      ? Math.min(3.0, Math.max(1.8, 0.5 + p.lines.map((l) => `${l.n} ${l.of}`).join(' ').length / HOOK_CPS))
+      : at - 0.4 + 0.08 + 0.3 + 0.7 - t;
     tl.exit(root, t + dur - 0.22);
     tl.add(dur);
     return { poster: t + dur - 0.23 };

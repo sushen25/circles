@@ -110,7 +110,7 @@ export type Slide =
 export type Captioned<S> = S & { caption?: string };
 
 /** `me` names the speaker shown as the viewer (right-aligned, accent) in video. */
-export type Skit = { hook: string; me?: string; slides: Slide[] };
+export type Skit = { hook: string; me?: string; motion?: 'lively' | 'calm'; slides: Slide[] };
 
 export type Caption = { text: string; hashtags: string[]; /** youtube only: the Short's title line */ title?: string };
 

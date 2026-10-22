@@ -10,9 +10,12 @@
  * its own styles and renders correctly in a piece that has no `chat` slide.
  * A `when` with no digits plays the time-skip card first, like chat.
  */
-import { el, esc, hide, known, pop, reserve, sceneBefore, str, unreserve } from './_kit.js';
+import { anim, el, esc, GAP, glideChildren, known, naturalHeight, pop, reserve, sceneBefore, str, unreserve } from './_kit.js';
 import { skipCard } from './_skip.js';
 import { skipsTime } from './chat.js';
+
+/** Seconds a typing bubble shows at normal pace: about one full bounce of its dots. */
+const TYPE_FOR = 0.5;
 
 /**
  * @typedef {{ from: string, text: string }} Message
@@ -115,33 +118,47 @@ export default {
     root.append(room, head, stream);
     tl.enter(root);
     pop(head, tl.now + 0.02, 0.28);
-    tl.add(0.3);
+    tl.add(0.12);
 
     const pace = p.pace === 'slow' ? 1.3 : p.pace === 'fast' ? 0.85 : 1;
     let prev = '';
     p.messages.forEach((m, k) => {
       const last = k === p.messages.length - 1;
-      const typeFor = 0.35 * pace;
-      const typing = el('div', 'typing' + (m.from === me ? ' me' : ''));
-      typing.appendChild(el('div', 'bubble', '<span></span><span></span><span></span>'));
-      typing.querySelectorAll('span').forEach((d, i) =>
-        d.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-10px)' }, { transform: 'translateY(0)' }],
-          { duration: 500, delay: i * 120, iterations: Infinity, easing: 'ease-in-out' }));
-      stream.appendChild(typing);
-      reserve(typing, tl.now, 200);
-      pop(typing, tl.now, 0.2);
-      hide(typing, tl.now + typeFor);
-      unreserve(typing, tl.now + typeFor);
-      tl.add(typeFor);
+      // typing earns its time before the line the scene builds to, or on a slow dm; never on the first
+      const typed = k > 0 && (last || p.pace === 'slow');
+      /** @type {HTMLElement | null} */
+      let typing = null;
+      let typingH = 0;
+      if (typed) {
+        typing = el('div', 'typing' + (m.from === me ? ' me' : ''));
+        typing.appendChild(el('div', 'bubble', '<span></span><span></span><span></span>'));
+        typing.querySelectorAll('span').forEach((d, i) =>
+          d.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-10px)' }, { transform: 'translateY(0)' }],
+            { duration: 500, delay: i * 120, iterations: Infinity, easing: 'ease-in-out' }));
+        stream.appendChild(typing);
+        typingH = naturalHeight(typing);
+        reserve(typing, tl.now, typingH);
+        pop(typing, tl.now, 0.2);
+        glideChildren(stream, tl.now, typingH + GAP, typing);
+        tl.add(TYPE_FOR * pace);
+      }
 
       const t = tl.now;
       // the name shows only when the speaker changes; `same` is for the still
       const node = el('div', 'msg' + (m.from === me ? ' me' : '') + (m.from === prev ? ' same' : ''));
       if (m.from !== prev) node.appendChild(el('div', 'from', esc(m.from)));
       node.appendChild(el('div', 'bubble', esc(m.text)));
-      stream.insertBefore(node, typing);
-      reserve(node, t);
+      if (typing) stream.insertBefore(node, typing);
+      else stream.appendChild(node);
+      const nodeH = naturalHeight(node);
+      if (typing) {
+        // the typing bubble hands its slot to the message: the stack moves once, by the difference
+        anim(typing, [{ opacity: 1 }, { opacity: 0 }], t, 0.01, 'step-start', 'forwards');
+        unreserve(typing, t, typingH);
+      }
+      reserve(node, t, nodeH);
       pop(node, t, 0.3);
+      if (k > 0) glideChildren(stream, t, typing ? nodeH - typingH : nodeH + GAP, node);
       tl.cue(m.from === me ? 'send' : 'pop', t);
       prev = m.from;
       tl.add((0.35 + 0.02 * m.text.length + (last ? 0.45 : 0)) * pace);

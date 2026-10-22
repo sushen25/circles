@@ -8,7 +8,7 @@
  * each scene's poster frame (or draw the component's still() override).
  */
 import { resolve } from './components/index.js';
-import { anim, el, esc, injectCss, ms, takesCaption, Timeline } from './components/_kit.js';
+import { anim, el, esc, injectCss, ms, setTone, takesCaption, Timeline } from './components/_kit.js';
 
 export { captionErrors } from './components/_kit.js';
 
@@ -21,10 +21,11 @@ const state = { skit: null, scenes: [], roots: [] };
 const ctxFor = (skit, index) => ({ me: skit.me || null, index, count: skit.slides.length, cast: skit.cast });
 
 /**
- * @param {{ me?: string, cast?: string[], slides: any[] }} skit
+ * @param {{ me?: string, cast?: string[], motion?: string, slides: any[] }} skit
  * @returns {{ total: number, events: import('./components/_kit.js').Cue[], scenes: SceneInfo[] }}
  */
 export function build(skit) {
+  setTone(skit.motion);
   for (const n of [...state.roots, ...document.querySelectorAll('.blob, .scene')]) n.remove();
   state.scenes = [];
   state.roots = [];
@@ -42,8 +43,8 @@ export function build(skit) {
     root.dataset.type = comp.type;
     document.body.appendChild(root);
     const start = tl.now;
-    const { poster } = comp.scene(slide, ctxFor(skit, index), tl, root);
-    if (hasCaption(comp, slide)) captionPill(root, start, slide.caption);
+    const { poster, settled } = comp.scene(slide, ctxFor(skit, index), tl, root);
+    if (hasCaption(comp, slide)) captionPill(root, start, slide.caption, settled);
     state.scenes.push({ type: comp.type, start, end: tl.now, poster, still: !!comp.still });
     state.roots.push(root);
   });
@@ -60,18 +61,21 @@ const pillNode = (text) => el('div', 'cap', esc(text));
 
 /**
  * The `caption` modifier: the viewer's character speaking, as a pill in the
- * lower left. It rises in 0.35 s after its scene appears and leaves with the
+ * lower left. It rises 0.35 s after its scene appears (or 0.15 s after the scene's `settled`
+ * time, when the component gives one) and leaves with the
  * scene (it is a child of the root, so the scene's exit carries it).
- * @param {HTMLElement} root @param {number} start  the slide's start on the timeline @param {string} text
+ * @param {HTMLElement} root @param {number} start  the slide's start on the timeline @param {string} text @param {number} [settled]
  */
-function captionPill(root, start, text) {
+function captionPill(root, start, text, settled) {
   const pill = pillNode(text);
   root.appendChild(pill);
   // The scene appears at its root's first animation, which is later than
   // `start` when a component plays a card first (chat's time skip).
   const delays = root.getAnimations().map((a) => Number(a.effect?.getTiming().delay ?? 0));
   const shownAt = delays.length ? Math.max(start, Math.min(...delays) / 1000) : start;
-  anim(pill, [{ opacity: 0, transform: 'translateY(18px)' }, { opacity: 1, transform: 'translateY(0)' }], shownAt + 0.35, 0.32);
+  // after the scene's punchline when the component says when that is; else just after it appears
+  const at = typeof settled === 'number' ? settled + 0.15 : shownAt + 0.35;
+  anim(pill, [{ opacity: 0, transform: 'translateY(18px)' }, { opacity: 1, transform: 'translateY(0)' }], at, 0.32);
 }
 
 /** @param {number} seconds */

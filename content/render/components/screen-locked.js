@@ -3,7 +3,7 @@
  * The locked-in screen inside a phone: date, time, place, who is going.
  * Queue JSON: `{ "type": "screen", "screen": "locked", ... }`.
  */
-import { anim, el, esc, known, pop, rise, SPRING, str, strList } from './_kit.js';
+import { anim, EASE_OUT, el, esc, known, pop, rise, SPRING, str, strList, tone } from './_kit.js';
 
 /**
  * @typedef {{ type: 'screen', screen: 'locked', lead?: string, circle?: string, date?: string, time?: string,
@@ -88,15 +88,26 @@ export default {
 
     tl.enter(root, t);
     pop(lead, t + 0.05, 0.3);
-    anim(ph, [{ opacity: 0, transform: 'translateY(120px) scale(.96)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], t + 0.15, 0.5, SPRING);
+    const phoneIn = [{ opacity: 0, transform: 'translateY(120px) scale(.96)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }];
+    if (tone.calm) anim(ph, phoneIn, t + 0.15, 0.7, EASE_OUT);
+    else anim(ph, phoneIn, t + 0.15, 0.5, SPRING);
     tl.cue('thud', t + 0.15);
-    items.slice(0, 3).forEach((n, i) => rise(n, t + 0.45 + i * 0.12, 0.3));
+    const avAt = items.indexOf(av);
+    const head = items.slice(0, avAt); // label, date, time and, when given, the place
+    head.forEach((n, i) => rise(n, t + 0.45 + i * 0.1, 0.3));
+    const avStart = t + 0.45 + head.length * 0.1 + 0.05;
     av.querySelectorAll('.a').forEach((a, i) => {
-      anim(a, [{ opacity: 0, transform: 'scale(.4)' }, { opacity: 1, transform: 'scale(1)' }], t + 0.9 + i * 0.1, 0.26, SPRING);
-      tl.cue('pop', t + 0.9 + i * 0.1);
+      anim(a, [{ opacity: 0, transform: 'scale(.4)' }, { opacity: 1, transform: 'scale(1)' }], avStart + i * 0.1, 0.26, SPRING);
+      // calm: each mark lands one note higher
+      tl.cue(tone.calm ? /** @type {any} */ (`note${Math.min(8, i + 1)}`) : 'pop', avStart + i * 0.1);
     });
-    pop(you, t + 1.5, 0.34);
-    tl.cue('send', t + 1.5);
+    const goingAt = avStart + people.length * 0.1;
+    rise(items[avAt + 1], goingAt, 0.3); // "4 of 4 going"
+    const youAt = Math.max(t + 1.5, goingAt + 0.2);
+    pop(you, youAt, 0.34);
+    const quoteNode = items[items.indexOf(you) + 1];
+    if (quoteNode) rise(quoteNode, youAt + 0.15, 0.3);
+    tl.cue('send', youAt);
     const dur = 2.6;
     tl.exit(root, t + dur - 0.22);
     tl.add(dur);

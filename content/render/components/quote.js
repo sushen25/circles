@@ -4,7 +4,7 @@
  * Big serif text in typographic quotes, the source as a small label. The text
  * must be verbatim in context/hooks.md (quoteIsVerbatim, called by check.ts).
  */
-import { el, EASE, anim, esc, known, str } from './_kit.js';
+import { el, EASE_OUT, anim, esc, HOOK_CPS, known, str } from './_kit.js';
 
 /** @typedef {{ type: 'quote', text: string, source: string }} Props */
 
@@ -72,14 +72,15 @@ export default {
   .quote .q.m { font-size: 100px; }
   .quote .q.s { font-size: 80px; }
   .quote .q .g { display: inline-block; text-indent: 0; opacity: 0; }
+  .quote.rest .q .g { opacity: 1; }
   .quote .q .mk { color: var(--accent-dark); }
-  .quote .src { margin-top: 56px; opacity: 0; }
+  .quote .src { margin-top: 56px; text-transform: none; letter-spacing: 0.02em; opacity: 0; }
 
   body.still .scene.quote .q { letter-spacing: -0.018em; line-height: 1.1; }
   body.still .scene.quote .q.l { font-size: 108px; }
   body.still .scene.quote .q.m { font-size: 90px; }
   body.still .scene.quote .q.s { font-size: 72px; }
-  body.still .scene.quote .src { margin-top: 48px; font-size: 28px; letter-spacing: 0.07em; }
+  body.still .scene.quote .src { margin-top: 48px; font-size: 28px; letter-spacing: 0.02em; }
   `,
   schema(p) {
     const errs = [];
@@ -96,6 +97,9 @@ export default {
   fixture: { type: 'quote', text: "suddenly it's been a month since we last chatted", source: 'r/daddit' },
   scene(p, ctx, tl, root) {
     root.classList.add('quote');
+    // the opener is at rest from frame 0: that frame is the thumbnail and the muted first second
+    const opener = ctx.index === 0;
+    if (opener) root.classList.add('rest');
     const t = tl.now;
     const text = bare(p.text);
     const q = el('div', `q ${sizeFor(text)}`);
@@ -114,17 +118,21 @@ export default {
       const close = i === words.length - 1 ? '<span class="mk">”</span>' : '';
       const n = el('span', 'g', open + esc(w) + close);
       q.append(n, ' ');
+      if (opener) return;
       const g = groupOf(i);
       const at = t + 0.08 + g * step;
-      anim(n, [{ opacity: 0, transform: 'translateY(34px)' }, { opacity: 1, transform: 'translateY(0)' }], at, 0.34, EASE);
+      anim(n, [{ opacity: 0, transform: 'translateY(34px)' }, { opacity: 1, transform: 'translateY(0)' }], at, 0.34, EASE_OUT);
       if (i % 3 === 0 && g === Math.floor(i / 3)) tl.cue('pop', at);
     });
     // the first line's text-indent hangs the opening mark in the margin
-    const srcAt = t + 0.08 + (groups - 1) * step + 0.42;
+    const srcAt = opener ? t + 0.3 : t + 0.08 + (groups - 1) * step + 0.42;
     anim(src, [{ opacity: 0 }, { opacity: 1 }], srcAt, 0.3);
-    tl.enter(root, t);
+    if (opener) tl.cue('thud', t);
+    tl.enter(root, t, opener);
     // reading time grows with length; the whole card stays within 2.5–3.5 s
-    const dur = Math.min(3.5, Math.max(2.5, srcAt - t + 0.3 + Math.max(0.6, 0.02 * text.length)));
+    const dur = opener
+      ? Math.min(4.0, Math.max(2.5, 0.5 + text.length / HOOK_CPS))
+      : Math.min(3.5, Math.max(2.5, srcAt - t + 0.3 + Math.max(0.6, 0.02 * text.length)));
     tl.exit(root, t + dur - 0.22);
     tl.add(dur);
     return { poster: t + dur - 0.23 };

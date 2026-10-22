@@ -8,6 +8,7 @@
 <body class="still">
 <script type="module">
 import { build, seek, still } from './stage.js';
+await Promise.all(['400 54px Figtree', '500 54px Figtree', '600 54px Figtree', '400 54px Newsreader'].map((f) => document.fonts.load(f)));
 Object.assign(window, { build, seek, still, stageReady: true });
 </script>
 </body>

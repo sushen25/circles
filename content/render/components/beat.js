@@ -1,6 +1,6 @@
 // @ts-check
 /** A one-line punch between chats: each word slams in on its own line. */
-import { anim, el, esc, known, SPRING, str } from './_kit.js';
+import { anim, EASE_OUT, el, esc, HOOK_CPS, known, SPRING, str, tone } from './_kit.js';
 
 /** @typedef {{ type: 'beat', line: string }} Props */
 
@@ -11,7 +11,7 @@ export default {
   .beat { justify-content: center; }
   .beat .w { display: block; font-size: 170px; color: var(--accent-dark); opacity: 0; transform-origin: left center; }
 
-  body.still .scene.beat .w { font-family: 'Newsreader', Georgia, serif; font-size: 150px; letter-spacing: -0.018em; line-height: 1.08; }
+  body.still .scene.beat .w { font-size: 150px; }
   `,
   schema(p) {
     const errs = [];
@@ -27,13 +27,23 @@ export default {
     words.forEach((w, i) => {
       const n = el('span', 'w', esc(w));
       root.appendChild(n);
-      anim(n, [{ opacity: 0, transform: 'scale(1.6)' }, { opacity: 1, transform: 'scale(1)' }], t + 0.05 + i * 0.3, 0.18, SPRING);
-      tl.cue('thud', t + 0.05 + i * 0.3);
+      if (tone.calm) {
+        // calm: a small settle with no overshoot, and one thud on the last word
+        anim(n, [{ opacity: 0, transform: 'scale(1.15)' }, { opacity: 1, transform: 'scale(1)' }], t + 0.05 + i * 0.3, 0.24, EASE_OUT);
+        if (i === words.length - 1) tl.cue('thud', t + 0.05 + i * 0.3);
+      } else {
+        anim(n, [{ opacity: 0, transform: 'scale(1.6)' }, { opacity: 1, transform: 'scale(1)' }], t + 0.05 + i * 0.3, 0.18, SPRING);
+        tl.cue('thud', t + 0.05 + i * 0.3);
+      }
     });
     tl.enter(root, t);
-    const dur = 0.05 + words.length * 0.3 + 0.6;
+    const landed = t + 0.05 + (words.length - 1) * 0.3 + (tone.calm ? 0.24 : 0.18); // the last word is in place
+    const caption = /** @type {any} */ (p).caption;
+    const chars = p.line.length + (typeof caption === 'string' ? caption.trim().length : 0);
+    const read = Math.max(1.2, chars / HOOK_CPS);
+    const dur = landed - t + read + 0.22; // the hold, then the 0.22 s exit
     tl.exit(root, t + dur - 0.22);
     tl.add(dur);
-    return { poster: t + dur - 0.23 };
+    return { poster: t + dur - 0.23, settled: landed };
   },
 };

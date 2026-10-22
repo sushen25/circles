@@ -9,7 +9,7 @@
  * accent. Optional trailing messages arrive behind typing bubbles, the same
  * mechanic as chat.
  */
-import { anim, el, esc, hide, known, pop, reserve, rise, SPRING, str, unreserve } from './_kit.js';
+import { anim, contentHeight, EASE, EASE_IN_OUT, el, esc, GAP, glideChildren, known, naturalHeight, pop, reserve, rise, SPRING, str, unreserve } from './_kit.js';
 
 /**
  * @typedef {{ label: string, votes: string[] }} Option
@@ -83,7 +83,8 @@ export default {
   body.still .poll .head { top: 220px; left: 120px; right: 120px; border-bottom: 2px solid var(--line); }
   body.still .poll .title { font-size: 40px; }
   body.still .poll .when { font-size: 40px; font-variant-numeric: tabular-nums; }
-  body.still .poll .stream { height: auto; max-height: 1120px; gap: 26px; -webkit-mask-image: none; mask-image: none; transform: none !important; }
+  body.still .poll .stream { height: auto; max-height: 1040px; gap: 26px; -webkit-mask-image: none; mask-image: none; transform: none !important; }
+  body.still .poll .stream.overflows { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 120px); mask-image: linear-gradient(to bottom, transparent 0, #000 120px); }
   body.still .poll .typing { display: none !important; }
   body.still .poll .from { font-size: 26px; letter-spacing: 0.07em; margin: 0 0 8px 28px; }
   body.still .poll .msg.me .from, body.still .poll .pcard.me .from { margin-right: 28px; }
@@ -164,7 +165,7 @@ export default {
     root.append(head, stream);
     tl.enter(root);
     pop(head, tl.now + 0.02, 0.28);
-    tl.add(0.3);
+    tl.add(0.12);
 
     // the card, sent by `asked`: from-label, "Poll", the question, the rows
     const mine = p.asked === me;
@@ -192,7 +193,7 @@ export default {
     card.appendChild(inner);
     stream.appendChild(card);
     const ct = tl.now;
-    reserve(card, ct, 1400);
+    reserve(card, ct, naturalHeight(card));
     anim(card, [{ opacity: 0, transform: 'translateY(40px) scale(.92)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], ct, 0.34, SPRING);
     tl.cue(mine ? 'send' : 'pop', ct);
     rows.forEach((r, i) => rise(r.row, ct + 0.14 + i * 0.06, 0.26));
@@ -214,36 +215,53 @@ export default {
     // the tally is in: the leader, or every row tied for the lead, takes the accent
     const settle = tl.now + Math.max(0, order.length - 1) * VOTE_GAP + 0.3;
     rows.filter((r) => r.lead).forEach((r) => {
-      anim(r.fill, [{ background: 'var(--line-soft)' }, { background: 'var(--accent-soft)' }], settle, 0.25);
-      anim(r.label, [{ color: 'var(--ink)' }, { color: 'var(--accent-dark)' }], settle, 0.25);
+      anim(r.fill, [{ background: 'var(--line-soft)' }, { background: 'var(--accent-soft)' }], settle, 0.25, EASE);
+      anim(r.label, [{ color: 'var(--ink)' }, { color: 'var(--accent-dark)' }], settle, 0.25, EASE);
     });
     tl.add(Math.max(0, order.length - 1) * VOTE_GAP + 0.65);
 
     // trailing messages, with typing, as chat does
-    (p.after || []).forEach((m) => {
+    (p.after || []).forEach((m, i, all) => {
       const isMe = m.from === me;
-      const typeFor = 0.35;
-      const typing = typingNode(isMe);
-      stream.appendChild(typing);
-      reserve(typing, tl.now, 200);
-      pop(typing, tl.now, 0.2);
-      hide(typing, tl.now + typeFor);
-      unreserve(typing, tl.now + typeFor);
-      tl.add(typeFor);
+      // typing only before the last line, the one the scene builds to
+      const typed = i === all.length - 1;
+      /** @type {HTMLElement | null} */
+      let typing = null;
+      let typingH = 0;
+      if (typed) {
+        typing = typingNode(isMe);
+        stream.appendChild(typing);
+        typingH = naturalHeight(typing);
+        reserve(typing, tl.now, typingH);
+        pop(typing, tl.now, 0.2);
+        glideChildren(stream, tl.now, typingH + GAP, typing);
+        tl.add(0.5);
+      }
+      const t = tl.now;
       const node = el('div', 'msg' + (isMe ? ' me' : ''));
       // the card sits between, so the name always shows again
       node.appendChild(el('div', 'from', esc(m.from)));
       node.appendChild(el('div', 'bubble', esc(m.text)));
-      stream.insertBefore(node, typing);
-      reserve(node, tl.now);
-      pop(node, tl.now, 0.3);
-      tl.cue(isMe ? 'send' : 'pop');
+      if (typing) stream.insertBefore(node, typing);
+      else stream.appendChild(node);
+      const nodeH = naturalHeight(node);
+      if (typing) {
+        // the typing bubble hands its slot to the message: the stack moves once, by the difference
+        anim(typing, [{ opacity: 1 }, { opacity: 0 }], t, 0.01, 'step-start', 'forwards');
+        unreserve(typing, t, typingH);
+      }
+      reserve(node, t, nodeH);
+      pop(node, t, 0.3);
+      glideChildren(stream, t, typing ? nodeH - typingH : nodeH + GAP, node);
+      tl.cue(isMe ? 'send' : 'pop', t);
       tl.add(0.35 + 0.02 * m.text.length);
     });
 
+    // still: a poll too long for its slide fades out under its header instead of running into it
+    if (document.body.classList.contains('still') && contentHeight(stream) > stream.clientHeight + 40) stream.classList.add('overflows');
     tl.add(1.0);
     const end = tl.now;
-    anim(stream, [{ transform: 'scale(1)' }, { transform: 'scale(1.02)' }], end - 2, 2.2);
+    anim(stream, [{ transform: 'scale(1)' }, { transform: 'scale(1.02)' }], end - 2, 2.2, EASE_IN_OUT, 'both', 'add');
     tl.exit(root, end - 0.22);
     return { poster: end - 0.23 };
   },

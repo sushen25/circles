@@ -9,7 +9,7 @@
  * only on purpose.
  */
 
-/** @typedef {'pop' | 'send' | 'tick' | 'thud'} CueKind */
+/** @typedef {'pop' | 'send' | 'tick' | 'thud' | 'note1' | 'note2' | 'note3' | 'note4' | 'note5' | 'note6' | 'note7' | 'note8'} CueKind */
 /** @typedef {{ at: number, kind: CueKind }} Cue */
 /**
  * @typedef {object} Ctx
@@ -25,13 +25,30 @@
  * @property {string} css                      this component's own rules, injected once per page
  * @property {(props: any) => string[]} schema returns [] or human-readable errors
  * @property {P} fixture                       realistic props the gallery renders
- * @property {(props: P, ctx: Ctx, tl: Timeline, root: HTMLElement) => { poster: number }} scene
+ * @property {(props: P, ctx: Ctx, tl: Timeline, root: HTMLElement) => { poster: number, settled?: number }} scene  `settled`: when the scene's content has finished arriving; the caption pill rises after it
  * @property {(props: P, ctx: Ctx) => string} [still]  override when the poster frame is the wrong picture
  * @property {boolean} [takesCaption]          false: stage.js never draws a slide's `caption` pill on this component
  */
 
 export const SPRING = 'cubic-bezier(.2, 1.35, .35, 1)';
+/** CSS `ease`. Colour and opacity cross-fades only; never an entrance or an exit. */
 export const EASE = 'cubic-bezier(.25, .1, .25, 1)';
+/** Strong ease-out: anything entering or leaving the frame. The default. */
+export const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
+/** Strong ease-in-out: something that moves while it stays on screen (a push-in, a wipe). */
+export const EASE_IN_OUT = 'cubic-bezier(0.77, 0, 0.175, 1)';
+/** iOS-like curve: a list making room for a new item (the chat stack moving up). */
+export const EASE_DRAWER = 'cubic-bezier(0.32, 0.72, 0, 1)';
+
+/** The piece's motion tone. stage.js sets it at the start of build(); components read it. */
+export const tone = { calm: false };
+/** @param {unknown} motion the skit's `motion` field: "calm", or anything else for lively */
+export function setTone(motion) {
+  tone.calm = motion === 'calm';
+}
+
+/** Characters a second a viewer reads a hook at; an opener holds at least that long (plus 0.5 s). */
+export const HOOK_CPS = 15;
 /** @param {number} s */
 export const ms = (s) => Math.round(s * 1000);
 
@@ -70,9 +87,10 @@ export const MARK = (peach) => `<svg viewBox="0 0 120 120" xmlns="http://www.w3.
  * @param {number} dur  seconds
  * @param {string} [easing]
  * @param {FillMode} [fill]
+ * @param {CompositeOperation} [composite]
  */
-export function anim(node, keyframes, at, dur, easing = EASE, fill = 'both') {
-  node.animate(keyframes, { delay: ms(at), duration: ms(dur), fill, easing });
+export function anim(node, keyframes, at, dur, easing = EASE_OUT, fill = 'both', composite = 'replace') {
+  node.animate(keyframes, { delay: ms(at), duration: ms(dur), fill, easing, composite });
 }
 /** @param {Element} node @param {number} at @param {number} [dur] */
 export const show = (node, at, dur = 0.01) => anim(node, [{ opacity: 0 }, { opacity: 1 }], at, dur);
@@ -80,22 +98,56 @@ export const show = (node, at, dur = 0.01) => anim(node, [{ opacity: 0 }, { opac
 export const hide = (node, at, dur = 0.01) => anim(node, [{ opacity: 1 }, { opacity: 0 }], at, dur, EASE, 'forwards');
 /** @param {Element} node @param {number} at @param {number} [dur] */
 export const pop = (node, at, dur = 0.32) =>
-  anim(node, [{ opacity: 0, transform: 'translateY(40px) scale(.92)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], at, dur, SPRING);
+  tone.calm
+    ? anim(node, [{ opacity: 0, transform: 'translateY(24px) scale(.96)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], at, dur, EASE_OUT)
+    : anim(node, [{ opacity: 0, transform: 'translateY(40px) scale(.92)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], at, dur, SPRING);
 /** @param {Element} node @param {number} at @param {number} [dur] */
 export const rise = (node, at, dur = 0.3) =>
   anim(node, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'translateY(0)' }], at, dur);
 /** @param {Element} node @param {number} at @param {number} [dur] */
 export const exitUp = (node, at, dur = 0.22) =>
-  anim(node, [{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(-70px)' }], at, dur, EASE, 'forwards');
-/** Reserve layout space the instant a chat item arrives (max-height 0 → open). @param {Element} node @param {number} at @param {number} [h] */
-export const reserve = (node, at, h = 900) =>
-  anim(node, [{ maxHeight: '0px', marginTop: '0px' }, { maxHeight: `${h}px`, marginTop: '26px' }], at, 0.08, 'linear');
-/** @param {Element} node @param {number} at */
-export const unreserve = (node, at) =>
-  anim(node, [{ maxHeight: '900px', marginTop: '26px' }, { maxHeight: '0px', marginTop: '0px' }], at, 0.01, 'linear', 'forwards');
-/** @param {Element} node @param {number} at */
+  anim(node, [{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(-70px)' }], at, dur, EASE_OUT, 'forwards');
+/** Gap between items in a stack (chat messages, notification banners), px. */
+export const GAP = 26;
+
+/**
+ * Height a stack item takes once it is open, measured with its max-height lifted.
+ * offsetHeight, not getBoundingClientRect: a pending entrance has already scaled the node.
+ * The fonts must be loaded first (template.html and video.html load them before stageReady).
+ * @param {HTMLElement} node
+ */
+export function naturalHeight(node) {
+  const prev = node.style.maxHeight;
+  node.style.maxHeight = 'none';
+  const h = node.offsetHeight;
+  node.style.maxHeight = prev;
+  return h;
+}
+
+/** Open a stack item's slot at `at`, as a true step; glide() makes the move visible. @param {Element} node @param {number} at @param {number} h naturalHeight() of the node */
+export const reserve = (node, at, h) =>
+  anim(node, [{ maxHeight: '0px', marginTop: '0px' }, { maxHeight: `${h}px`, marginTop: `${GAP}px` }], at, 0.01, 'step-start');
+
+/** Close a slot at `at`, as a true step. @param {Element} node @param {number} at @param {number} h */
+export const unreserve = (node, at, h) =>
+  anim(node, [{ maxHeight: `${h}px`, marginTop: `${GAP}px` }, { maxHeight: '0px', marginTop: '0px' }], at, 0.01, 'step-start', 'forwards');
+
+/**
+ * A stack's layout moved by `dy` px at `at` (a slot opened or closed). This starts the node
+ * back where it was and eases it to its new place, so the stack glides instead of jumping.
+ * Additive: it composes with the node's other transform animations, and every transform
+ * animation created after it on the same node must be additive too (composite 'add').
+ * dy > 0: the node moved up (a chat stream, new item at the bottom). dy < 0: it moved down.
+ * @param {Element} node @param {number} at @param {number} dy @param {number} [dur]
+ */
+export function glide(node, at, dy, dur = 0.36) {
+  if (!dy) return;
+  node.animate([{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0px)' }],
+    { delay: ms(at), duration: ms(dur), fill: 'none', easing: EASE_DRAWER, composite: 'add' });
+}
+/** A tap: quick down, slower release. @param {Element} node @param {number} at */
 export const press = (node, at) =>
-  anim(node, [{ transform: 'scale(1)' }, { transform: 'scale(.94)' }, { transform: 'scale(1)' }], at, 0.22, EASE, 'none');
+  anim(node, [{ transform: 'scale(1)' }, { transform: 'scale(.96)', offset: 0.35 }, { transform: 'scale(1)' }], at, 0.22, EASE_OUT, 'none');
 
 /**
  * The clock a piece is built on. Replaces the old shared `t`.
@@ -119,9 +171,14 @@ export class Timeline {
   cue(kind, at = this.now) {
     this.cues.push({ at, kind });
   }
-  /** Fade a scene in. @param {Element} node @param {number} [at] */
-  enter(node, at = this.now) {
-    show(node, at);
+  /**
+   * Fade a scene in. `instant` is for an opener at time 0: it is at full strength on frame 0,
+   * because a fade that starts at 0 would make frame 0 (the thumbnail) blank.
+   * @param {Element} node @param {number} [at] @param {boolean} [instant]
+   */
+  enter(node, at = this.now, instant = false) {
+    if (instant) anim(node, [{ opacity: 1 }, { opacity: 1 }], at, 0.01);
+    else show(node, at);
   }
   /** Slide a scene up and out. @param {Element} node @param {number} [at] */
   exit(node, at = this.now) {
@@ -145,6 +202,30 @@ export function injectCss(key, css) {
   s.dataset.css = key;
   s.textContent = css;
   document.head.appendChild(s);
+}
+
+/**
+ * Height of a stack's content, overflow included. A bottom-anchored stream (justify-content: flex-end)
+ * pushes overflow out of its top, where scrollHeight does not count it, so measure it top-anchored.
+ * @param {HTMLElement} stream
+ */
+export function contentHeight(stream) {
+  const prev = stream.style.justifyContent;
+  stream.style.justifyContent = 'flex-start';
+  const h = stream.scrollHeight;
+  stream.style.justifyContent = prev;
+  return h;
+}
+
+/**
+ * glide() on every child of a stack. The stack itself must not move: it clips its overflow and
+ * fades its top with a mask, and both would travel with it (the top of a full chat would vanish
+ * in one frame instead of sliding out). The arriving child stays out of it: it is bottom-anchored,
+ * so it appears in its final place and only the items above it move.
+ * @param {Element} stream @param {number} at @param {number} dy @param {Element} arriving
+ */
+export function glideChildren(stream, at, dy, arriving) {
+  for (const child of stream.children) if (child !== arriving) glide(child, at, dy);
 }
 
 /**

@@ -33,7 +33,7 @@ export async function openStage(browser: Browser, mode: Mode): Promise<Page> {
 }
 
 export type SceneInfo = { type: string; start: number; end: number; poster: number; still: boolean };
-export type Cue = { at: number; kind: 'pop' | 'send' | 'tick' | 'thud' };
+export type Cue = { at: number; kind: 'pop' | 'send' | 'tick' | 'thud' | 'note1' | 'note2' | 'note3' | 'note4' | 'note5' | 'note6' | 'note7' | 'note8' };
 export type Built = { total: number; events: Cue[]; scenes: SceneInfo[] };
 
 /** Lay the skit out on the page; waits for the fonts its text pulled in. */
