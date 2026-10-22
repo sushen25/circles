@@ -25,7 +25,8 @@ export type Configured = { ok: true } | { ok: false; reason: string };
 
 /**
  * "Cannot read this with these credentials": a private Short read with an
- * API key alone, a refresh token with the upload scope only. The pull logs
+ * API key alone, a refresh token with the upload scope only, YouTube
+ * comments with no API key. The pull logs
  * it as a skip, not a failure, because repeating the call changes nothing
  * and a red job every two hours for a video that is private on purpose
  * drowns the signal (an expiring token, a platform down) in noise.

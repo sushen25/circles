@@ -14,6 +14,12 @@
  *
  * Data API calls send a bearer when the token can read, else the key as a
  * query parameter, always through http.ts so neither reaches an error line.
+ * Comments are the exception: they are read with the key whenever it is
+ * set, whatever the token carries. Google lets OAuth read comments only
+ * under youtube.force-ssl, which can also edit and delete the channel's
+ * comments, and the publisher never asks for it; a public video's comments
+ * need nothing but a key. With no key (and no force-ssl), or a video the
+ * key cannot see, replies() throws Unreadable naming YOUTUBE_API_KEY.
  * The Analytics API needs the bearer whatever the Data API used. Every
  * response is kept whole in `raw`, keyed by what it was (video, analytics,
  * retention ...), and a report that is refused lands in `raw.errors` under
@@ -47,6 +53,12 @@ const OAUTH_VARS = ['YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET', 'YOUTUBE_REFRE
 const UPLOAD = ['youtube.upload', 'youtube', 'youtube.force-ssl'];
 const READ = ['youtube.readonly', 'youtube', 'youtube.force-ssl'];
 const ANALYTICS = ['yt-analytics.readonly', 'yt-analytics-monetary.readonly'];
+/**
+ * The one scope Google accepts for commentThreads.list and comments.list over
+ * OAuth. It also edits and deletes comments, so it is never requested; a
+ * token that somehow carries it may read, and the API key is preferred anyway.
+ */
+const COMMENT_READ = ['youtube.force-ssl'];
 const short = (scopes: string[]) => scopes.map((s) => s.replace(/^.*\/auth\//, ''));
 const has = (scopes: string[], names: string[]) => short(scopes).some((s) => names.includes(s));
 
@@ -59,6 +71,7 @@ type Video = {
   id: string;
   snippet?: { publishedAt?: string; channelId?: string; title?: string; description?: string };
   statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
+  status?: { privacyStatus?: string };
 };
 type Channel = {
   id: string;
@@ -157,11 +170,47 @@ async function auth(): Promise<Auth> {
 
 const bearer = (token: string) => ({ Authorization: 'Bearer ' + token });
 
-/** One Data API GET with whichever credential the module has; the key goes through withQuery, the bearer in a header. */
+type Cred = Auth['data'];
+
+/** One Data API GET with the given credential; the key goes through withQuery, the bearer in a header. */
+function get<T>(cred: Cred, path: string, params: Params): Promise<T> {
+  if ('key' in cred) return getJson<T>(withQuery(`${DATA}/${path}`, { ...params, key: cred.key }));
+  return getJson<T>(withQuery(`${DATA}/${path}`, params), { headers: bearer(cred.bearer) });
+}
+
+/** One Data API GET with whichever credential the module has for everything but comments. */
 async function data<T>(path: string, params: Params): Promise<T> {
-  const a = await auth();
-  if ('key' in a.data) return getJson<T>(withQuery(`${DATA}/${path}`, { ...params, key: a.data.key }));
-  return getJson<T>(withQuery(`${DATA}/${path}`, params), { headers: bearer(a.data.bearer) });
+  return get<T>((await auth()).data, path, params);
+}
+
+/** How comments are read: the key whenever it is set; else a bearer only if it carries force-ssl, which we never ask for. */
+async function commentCred(id: string): Promise<Cred> {
+  const key = env('YOUTUBE_API_KEY');
+  if (key) return { key };
+  const o = await oauthState();
+  if (o.token && has(o.scopes, COMMENT_READ)) return { bearer: o.token };
+  throw new Unreadable(
+    `YouTube video ${id}: replies are read with YOUTUBE_API_KEY, which is unset; OAuth reads comments only under youtube.force-ssl, which can also edit and delete them and is not requested`,
+  );
+}
+
+/** One of Google's error reasons in a body: `errors[].reason`, or the `details[].reason` the newer errors carry. */
+const reason = (e: HttpError, ...names: string[]) => names.some((n) => new RegExp(`"reason"\\s*:\\s*"${n}"`).test(e.body));
+
+/**
+ * A comment read these credentials cannot make, as Unreadable: the key on a
+ * video it cannot see (private), or a bearer refused for its scopes. Any
+ * other failure is returned as it came. The message names no credential.
+ */
+function commentFailure(e: unknown, id: string, cred: Cred): unknown {
+  if (!(e instanceof HttpError)) return e;
+  if ('key' in cred && (e.status === 403 || e.status === 404) && reason(e, 'videoNotFound', 'forbidden')) {
+    return new Unreadable(`YouTube video ${id}: YOUTUBE_API_KEY cannot see its comments (a private Short); they are read once it is public`);
+  }
+  if ('bearer' in cred && e.status === 403 && reason(e, 'insufficientPermissions', 'ACCESS_TOKEN_SCOPE_INSUFFICIENT')) {
+    return new Unreadable(`YouTube video ${id}: the refresh token cannot read comments (insufficient scopes); set YOUTUBE_API_KEY, which reads public comments`);
+  }
+  return e;
 }
 
 function report(token: string, params: Params): Promise<Report> {
@@ -209,11 +258,11 @@ export function reset(): void {
 }
 
 /** Every reply under a top-level comment, by page: commentThreads embeds only some of them. */
-async function repliesUnder(parentId: string): Promise<Comment[]> {
+async function repliesUnder(cred: Cred, parentId: string): Promise<Comment[]> {
   const out: Comment[] = [];
   let pageToken: string | undefined;
   for (let page = 0; page < 10; page++) {
-    const list = await data<List<Comment>>('comments', { part: 'snippet', parentId, maxResults: 100, textFormat: 'plainText', pageToken });
+    const list = await get<List<Comment>>(cred, 'comments', { part: 'snippet', parentId, maxResults: 100, textFormat: 'plainText', pageToken });
     out.push(...(list.items ?? []));
     pageToken = list.nextPageToken;
     if (!pageToken) break;
@@ -298,9 +347,19 @@ export const youtube: PlatformModule = {
   },
 
   async replies(id: string, since?: string): Promise<Reply[]> {
+    // Asked first: with no key, nothing below can be read, and no call is made.
+    const cred = await commentCred(id);
+    const a = await auth();
     const v = (await video(id)).items?.[0];
-    // With a key the Data API lists nothing for a private video, and there is nothing to read.
-    if (!v) return [];
+    if (!v) {
+      // A key lists nothing for a private video; a bearer that can read lists every video of the channel, so to it this one is gone.
+      if (!a.read) throw new Unreadable(`YouTube video ${id}: not visible to YOUTUBE_API_KEY (a private Short); its replies are read once it is public`);
+      return [];
+    }
+    // The bearer saw it private; the key would be refused, so do not ask.
+    if ('key' in cred && v.status?.privacyStatus === 'private') {
+      throw new Unreadable(`YouTube video ${id}: private, and YOUTUBE_API_KEY reads only public comments; its replies are read once it is public`);
+    }
     const own = v.snippet?.channelId;
     const floor = since ? Date.parse(since) : Number.NEGATIVE_INFINITY;
     const at = (c: Comment) => Date.parse(c.snippet?.publishedAt ?? '');
@@ -310,7 +369,7 @@ export const youtube: PlatformModule = {
     for (let page = 0; page < 10; page++) {
       let threads: List<Thread>;
       try {
-        threads = await data<List<Thread>>('commentThreads', {
+        threads = await get<List<Thread>>(cred, 'commentThreads', {
           part: 'snippet,replies',
           videoId: id,
           textFormat: 'plainText',
@@ -319,7 +378,7 @@ export const youtube: PlatformModule = {
         });
       } catch (e) {
         if (e instanceof HttpError && e.status === 403 && /commentsDisabled/.test(e.body)) return out;
-        throw e;
+        throw commentFailure(e, id, cred);
       }
       let older = false;
       for (const t of threads.items ?? []) {
@@ -327,7 +386,14 @@ export const youtube: PlatformModule = {
         if (top && at(top) < floor) older = true;
         // The thread embeds a subset of its replies; when the count says there are more, they are listed by parent instead.
         const embedded = t.replies?.comments ?? [];
-        const replies = top && (num(t.snippet?.totalReplyCount) ?? 0) > embedded.length ? await repliesUnder(top.id) : embedded;
+        let replies = embedded;
+        if (top && (num(t.snippet?.totalReplyCount) ?? 0) > embedded.length) {
+          try {
+            replies = await repliesUnder(cred, top.id);
+          } catch (e) {
+            throw commentFailure(e, id, cred);
+          }
+        }
         for (const c of [top, ...replies]) {
           if (!c?.snippet) continue;
           if (own && c.snippet.authorChannelId?.value === own) continue;
