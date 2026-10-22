@@ -91,5 +91,5 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0085](./0085-a-first-plan-nobody-answers-gets-one-question-and-one-letter-from-the-founder.md) | A first plan nobody answers gets one question and one letter from the founder, a support letter capped at one per circle | accepted |
 | [0086](./0086-youtube-is-scripted-and-tiktok-is-scripted-as-far-as-a-draft.md) | YouTube is published by script, and TikTok is scripted only as far as a draft | accepted (amends 0081) |
 | [0087](./0087-the-content-loop-reads-the-funnel-by-tag-through-a-keyed-export-counts-only.md) | The content loop reads the funnel by tag through a keyed export, counts only | proposed |
-| [0089](./0089-the-content-bots-commit-to-a-data-branch-and-a-tag-makes-a-second-post-impossible.md) | The content bots commit to a data branch, and a tag makes a second post impossible | proposed (amends 0081) |
 | [0088](./0088-a-signed-in-account-can-continue-as-a-guest.md) | A signed-in account can continue as a guest, the same as a guest can | accepted (amends 0006, 0022) |
+| [0089](./0089-the-content-bots-commit-to-a-data-branch-and-a-tag-makes-a-second-post-impossible.md) | The content bots commit to a data branch, and a tag makes a second post impossible | proposed (amends 0081) |
