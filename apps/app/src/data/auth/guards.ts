@@ -74,10 +74,10 @@ export type GuardDecision =
    */
   | { kind: 'continue_as' }
   /**
-   * A saved place that holds no membership here: one tap to join under their
-   * own name, never a list (ADR 0022). A list is for finding which guest you
-   * were, and an account is nobody's guest — every name on it would be refused
-   * with `caller_is_permanent`.
+   * A saved place that holds no membership here. On a plan link it is shown the
+   * guest list too, and may take a guest's place onto the account (ADR 0088);
+   * "I'm new here" is one tap to join under its own name (ADR 0022). On an
+   * organiser route it is that one tap.
    */
   | { kind: 'join_as_account' }
   /** A guest trying to organise. The InitiateGate (ADR 0004, spec §5.1). */
@@ -133,9 +133,9 @@ export function guard({ route, session, membership = 'unknown' }: GuardInput): G
        * A saved place is not let through to an empty screen on the grounds that
        * a permanent identity "should" already be a member: somebody with an
        * account can perfectly well open a friend's plan link on a circle they
-       * have never joined. They are asked one thing — join, as themselves — and
-       * never shown the guest list, whose every name `reattach-member` would
-       * refuse them with `caller_is_permanent`.
+       * have never joined, or one where they answered as a guest before they
+       * signed up. They are offered the guest list and, if they are new, to
+       * join as themselves (ADR 0088).
        *
        * Everybody else is a guest, or somebody whose session this page has
        * just made, and the question for them is whether they have been here

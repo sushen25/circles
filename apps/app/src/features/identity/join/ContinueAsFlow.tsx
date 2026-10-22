@@ -11,6 +11,7 @@ import { ContinueAsScreen, type ContinueProblem } from '../ContinueAsScreen';
 import { LinkInvalidScreen } from '../LinkInvalidScreen';
 import { failureOf, isOffline } from './failure';
 import { useHaveAccount } from './haveAccount';
+import { JoinAsAccountFlow } from './JoinAsAccountFlow';
 import { nameStepBack, NAME_STEP, nameStepPushed, rememberNameStepPushed } from './nameStepBack';
 import { PlanNameFlow } from './PlanNameFlow';
 
@@ -18,9 +19,12 @@ import { PlanNameFlow } from './PlanNameFlow';
  * "Have you answered this before?" (ADR 0006, spec §5.1, §6.2), and "I'm new
  * here" (ADR 0022).
  *
- * Shown in place of a plan page when a guest session — or one this page has
- * just made — holds no membership of its circle. An account never sees it: the
- * gate sends one to `JoinAsAccountFlow`.
+ * Shown in place of a plan page when a session holds no membership of its
+ * circle: a guest's, one this page has just made, or a signed-in account's.
+ * An account sees the same names, and a pick moves that guest's place onto it
+ * (ADR 0088). For an account, "I'm new here" — and a circle with no guests —
+ * is `JoinAsAccountFlow`'s one tap, "Join [circle] as [name]", rather than the
+ * name step.
  *
  * - **A pick reattaches**, and the page underneath is then simply allowed —
  *   nothing navigates, so "resume the original route" is the route the person
@@ -94,7 +98,6 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
     // limit on it is counted per caller.
     queryKey: ['guest-members', code, session.userId],
     queryFn: () => guestMembersFor(code),
-    enabled: !signedIn,
     staleTime: 0,
     retry: 1,
   });
@@ -164,7 +167,13 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
     return <LinkInvalidScreen reason="plan_inactive" onBack={back} />;
   }
 
-  if ((imNew || nobodyToBe) && !signedIn) {
+  // An account that is new here joins as itself, in one tap (ADR 0022). Its
+  // Back, from the `?step=name` entry, returns to the list.
+  if ((imNew || nobodyToBe) && signedIn) {
+    return <JoinAsAccountFlow code={code} onJoined={() => onReattached()} />;
+  }
+
+  if (imNew || nobodyToBe) {
     if (circleName.isPending) {
       return <ContinueAsScreen circleName={title} state="loading" onBack={back} />;
     }
@@ -184,7 +193,7 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
     );
   }
 
-  if (!signedIn && guests.isError) {
+  if (guests.isError) {
     return (
       <ContinueAsScreen
         circleName={title}
@@ -194,7 +203,7 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
       />
     );
   }
-  if (!signedIn && guests.isPending) {
+  if (guests.isPending) {
     return <ContinueAsScreen circleName={title} state="loading" onBack={back} />;
   }
 
@@ -220,7 +229,9 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
       // The circle goes on the event so the founder's gate can count it in its
       // cohort (ADR 0058); the person does not.
       track('member_reattached', { source: 'list', circle_id: member.circle_id });
-      onReattached('list');
+      // "Keep your place for good?" follows a guest's pick only: an account's
+      // place is already kept.
+      onReattached(signedIn ? undefined : 'list');
     } catch (error) {
       const failure = failureOf(error);
       const reason = failure.kind === 'reason' ? failure.reason : undefined;

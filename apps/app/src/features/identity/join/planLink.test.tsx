@@ -357,9 +357,79 @@ describe('the moment after joining', () => {
   });
 });
 
-describe('an account that is not a member', () => {
+describe('an account that is not a member, in a circle that has guests (ADR 0088)', () => {
   beforeEach(() => {
     Object.assign(session, { status: 'saved', userId: 'maya', isAnonymous: false });
+    ownDisplayName.mockResolvedValue('Maya');
+  });
+
+  it('is shown the guests, and picking one takes that place onto the account', async () => {
+    reattachFromList.mockImplementation(async () => {
+      // The server now answers that this account is in.
+      planAccess.mockResolvedValue({ membership: 'member', needsAsking: false });
+      return { circle: { id: CIRCLE_ID, name: 'Sunday Crew' } };
+    });
+    arrive();
+
+    await screen.findByText('Have you answered this before?');
+    expect(screen.queryByRole('button', { name: 'I have an account' })).toBeNull();
+
+    await tap(screen.findByRole('button', { name: /Alex/ }));
+
+    await waitFor(() => expect(reattachFromList).toHaveBeenCalledTimes(1));
+    expect(reattachFromList.mock.calls[0]?.[0]).toMatchObject({
+      circleId: CIRCLE_ID,
+      memberUserId: 'alex',
+    });
+    expect(track).toHaveBeenCalledWith('member_reattached', {
+      source: 'list',
+      circle_id: CIRCLE_ID,
+    });
+    // The account's place is already kept, so no "Keep your place for good?".
+    expect(await screen.findByText('the plan')).toBeTruthy();
+    expect(joinPlan).not.toHaveBeenCalled();
+  });
+
+  it('can still take their place when the plan is no longer asking', async () => {
+    // The bug SUS-245 fixes: join-plan would answer invite_inactive and end at
+    // "You need the invite link", while a guest on the same link could pick.
+    joinPlan.mockRejectedValue(refusal('invite_inactive'));
+    reattachFromList.mockImplementation(async () => {
+      // The server now answers that this account is in.
+      planAccess.mockResolvedValue({ membership: 'member', needsAsking: false });
+      return { circle: { id: CIRCLE_ID, name: 'Sunday Crew' } };
+    });
+    arrive();
+
+    await tap(screen.findByRole('button', { name: /Alex/ }));
+
+    expect(await screen.findByText('the plan')).toBeTruthy();
+    expect(screen.queryByText('You need the invite link to join.')).toBeNull();
+  });
+
+  it('"I\'m new here" is the one tap to join as themselves, and Back returns to the list', async () => {
+    joinPlan.mockResolvedValue(joined());
+    arrive();
+
+    await tap(screen.findByRole('button', { name: "I'm new here" }));
+    expect(push).toHaveBeenCalledWith({ pathname: `/p/${CODE}`, params: { step: 'name' } });
+    await screen.findByRole('button', { name: 'Join Sunday Crew as Maya' });
+    expect(screen.queryByLabelText('Your name')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByText('Have you answered this before?')).toBeTruthy();
+
+    await tap(screen.findByRole('button', { name: "I'm new here" }));
+    await tap(screen.findByRole('button', { name: 'Join Sunday Crew as Maya' }));
+    await waitFor(() => expect(joinPlan).toHaveBeenCalledTimes(1));
+    expect(joinPlan.mock.calls[0]?.[0]).not.toHaveProperty('displayName');
+  });
+});
+
+describe('an account that is not a member, in a circle with no guests', () => {
+  beforeEach(() => {
+    Object.assign(session, { status: 'saved', userId: 'maya', isAnonymous: false });
+    guestMembersFor.mockResolvedValue({ kind: 'listed', members: [] });
   });
 
   it('is told the link is not active when no circle is behind it now (ADR 0049)', async () => {
@@ -370,14 +440,13 @@ describe('an account that is not a member', () => {
     expect(joinPlan).not.toHaveBeenCalled();
   });
 
-  it('sees one button naming the circle and themselves, never a list, and joins with no name', async () => {
+  it('goes straight to one button naming the circle and themselves, and joins with no name', async () => {
     ownDisplayName.mockResolvedValue('Maya');
     joinPlan.mockResolvedValue(joined());
     arrive();
 
     const button = await screen.findByRole('button', { name: 'Join Sunday Crew as Maya' });
     expect(screen.queryByText('Have you answered this before?')).toBeNull();
-    expect(guestMembersFor).not.toHaveBeenCalled();
 
     await act(async () => {
       fireEvent.click(button);
@@ -519,6 +588,7 @@ describe('"I have an account" (ADR 0022, SUS-80)', () => {
 
   it('is not offered to an account, which is already in', async () => {
     Object.assign(session, { status: 'saved', isAnonymous: false });
+    guestMembersFor.mockResolvedValue({ kind: 'listed', members: [] });
     ownDisplayName.mockResolvedValue(null);
     arrive();
 

@@ -907,8 +907,6 @@ export const en = {
       'Pick your name to carry on where you left off. The circle can see when someone rejoins.',
     continue_as: 'Continue as {name}',
     no_names_to_pick: "There's nobody here to continue as. If you're new, start below.",
-    signed_in_no_names:
-      "You're signed in, so there's nobody to continue as. If you're new to this circle, start below.",
     im_new_here: "I'm new here",
     finding_the_circle: 'Finding the circle',
     rejoining: 'Rejoining',

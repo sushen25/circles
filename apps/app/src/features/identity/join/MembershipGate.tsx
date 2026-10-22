@@ -13,7 +13,6 @@ import { ReattachedNudgeFlow } from '../../growth/ReattachedNudgeFlow';
 import { ContinueAsScreen } from '../ContinueAsScreen';
 import { LinkInvalidScreen } from '../LinkInvalidScreen';
 import { ContinueAsFlow } from './ContinueAsFlow';
-import { JoinAsAccountFlow } from './JoinAsAccountFlow';
 import { isOffline } from './failure';
 
 /**
@@ -215,9 +214,8 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
         // account and a guest alike (ADR 0022 admits through a *plan's* code).
         return <LinkInvalidScreen reason="ask_for_invite" onBack={back} />;
       }
-      if (decision.kind === 'join_as_account') {
-        return <JoinAsAccountFlow code={target.code as ShortCode} onJoined={becameMember} />;
-      }
+      // An account and a guest alike: the list, and "I'm new here". The flow
+      // makes "I'm new here" an account's one-tap join (ADR 0022, ADR 0088).
       return (
         <ContinueAsFlow
           code={target.code as ShortCode}
