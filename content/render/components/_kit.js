@@ -39,6 +39,9 @@ export const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
 export const EASE_IN_OUT = 'cubic-bezier(0.77, 0, 0.175, 1)';
 /** iOS-like curve: a list making room for a new item (the chat stack moving up). */
 export const EASE_DRAWER = 'cubic-bezier(0.32, 0.72, 0, 1)';
+
+/** Characters a second a viewer reads a hook at; an opener holds at least that long (plus 0.5 s). */
+export const HOOK_CPS = 15;
 /** @param {number} s */
 export const ms = (s) => Math.round(s * 1000);
 
@@ -159,9 +162,14 @@ export class Timeline {
   cue(kind, at = this.now) {
     this.cues.push({ at, kind });
   }
-  /** Fade a scene in. @param {Element} node @param {number} [at] */
-  enter(node, at = this.now) {
-    show(node, at);
+  /**
+   * Fade a scene in. `instant` is for an opener at time 0: it is at full strength on frame 0,
+   * because a fade that starts at 0 would make frame 0 (the thumbnail) blank.
+   * @param {Element} node @param {number} [at] @param {boolean} [instant]
+   */
+  enter(node, at = this.now, instant = false) {
+    if (instant) anim(node, [{ opacity: 1 }, { opacity: 1 }], at, 0.01);
+    else show(node, at);
   }
   /** Slide a scene up and out. @param {Element} node @param {number} [at] */
   exit(node, at = this.now) {

@@ -11,7 +11,7 @@ export default {
   .beat { justify-content: center; }
   .beat .w { display: block; font-size: 170px; color: var(--accent-dark); opacity: 0; transform-origin: left center; }
 
-  body.still .scene.beat .w { font-family: 'Newsreader', Georgia, serif; font-size: 150px; letter-spacing: -0.018em; line-height: 1.08; }
+  body.still .scene.beat .w { font-size: 150px; }
   `,
   schema(p) {
     const errs = [];
