@@ -272,6 +272,7 @@ there?" to whoever still owes it (`PastMeetup`), and the emailed way back in
 | --------------------------- | ------------------------------------- | ------------------------ |
 | `Account.dc.html`           | `/settings/account`                   | `AccountScreen`          |
 | `ContinueAs.dc.html`        | `/join/continue`                      | `ContinueAsScreen`       |
+| `ContinueAsAccount.dc.html` | `/join/continue` (signed in)          | `ContinueAsScreen`       |
 | `DeleteAccount.dc.html`     | `/settings/account` (sheet, step one) | `DeleteAccountSheet`     |
 | `DeleteAccountSure.dc.html` | `/settings/account` (sheet, step two) | `DeleteAccountSheet`     |
 | `Diagnostics.dc.html`       | `/settings/diagnostics`               | `DiagnosticsScreen`      |

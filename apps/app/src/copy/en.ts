@@ -905,6 +905,8 @@ export const en = {
     have_you_answered_this_before: 'Have you answered this before?',
     pick_your_name_to_carry_on_where:
       'Pick your name to carry on where you left off. The circle can see when someone rejoins.',
+    pick_your_name_signed_in:
+      'Were you one of these? Pick your name and that place, with its answers, moves onto your account. The circle can see when someone rejoins.',
     continue_as: 'Continue as {name}',
     no_names_to_pick: "There's nobody here to continue as. If you're new, start below.",
     im_new_here: "I'm new here",

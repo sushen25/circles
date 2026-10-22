@@ -11,7 +11,7 @@
 -- anonymous.
 
 begin;
-select plan(17);
+select plan(22);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -62,6 +62,7 @@ select pg_temp.make_user('52000000-0000-0000-0000-000000000004', 'Nina');
 select pg_temp.make_user('52000000-0000-0000-0000-000000000005', 'Jess');
 select pg_temp.make_user('52000000-0000-0000-0000-000000000006', 'Sam on the laptop');
 select pg_temp.make_user('52000000-0000-0000-0000-000000000007', 'Ben', true);
+select pg_temp.make_user('52000000-0000-0000-0000-000000000008', 'Zed', true);
 
 select pg_temp.act_as('52000000-0000-0000-0000-000000000001');
 create temporary table fixture as
@@ -118,6 +119,21 @@ select public.issue_reentry_token(
   pg_temp.circle_id(),
   (select id from private.email_contacts where email_normalized = 'alex@example.com'),
   extensions.digest('alex-reentry-link', 'sha256'));
+
+-- Alex asked to be emailed about this plan: a verified address and a consent.
+insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, consent_text_version)
+select c.id, c.user_id, 'plan_updates', pg_temp.plan_id(), 'v1'
+from private.email_contacts c where c.email_normalized = 'alex@example.com';
+
+-- Zed is a guest in another circle, which Maya owns too.
+select pg_temp.act_as('52000000-0000-0000-0000-000000000001');
+create temporary table other_fixture as
+select id as circle_id
+from public.create_circle('Other crew', 'sky', 'Australia/Melbourne', 'sus245-other');
+grant select on other_fixture to authenticated;
+select pg_temp.act_as_postgres();
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+select circle_id, '52000000-0000-0000-0000-000000000008', 'Zed' from other_fixture;
 
 -- ---------------------------------------------------------------------------
 -- The list, as an account sees it
@@ -190,6 +206,18 @@ select is(
   'the move is audited as a list pick'
 );
 
+select is(
+  (select c.user_id from private.email_contacts c where c.email_normalized = 'alex@example.com'),
+  '52000000-0000-0000-0000-000000000006'::uuid,
+  'Alex''s address follows the place to the account (this circle''s contacts move)'
+);
+
+select is(
+  (select s.user_id from private.email_subscriptions s where s.plan_id = pg_temp.plan_id()),
+  '52000000-0000-0000-0000-000000000006'::uuid,
+  'and so does the plan-update consent, still scoped to the one plan'
+);
+
 select pg_temp.act_as('52000000-0000-0000-0000-000000000006');
 
 select is(
@@ -202,6 +230,18 @@ select set_eq(
   $$ select display_name from public.guest_members_for_reattach('acctgst') $$,
   array['Tom'],
   'and the place is off the list: it is a saved place now'
+);
+
+select is(
+  (select id from public.reattach_member(pg_temp.circle_id(), '52000000-0000-0000-0000-000000000006')),
+  pg_temp.circle_id(),
+  'picking a place already one''s own is a no-op that returns the circle (a retry is safe)'
+);
+
+select throws_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), '52000000-0000-0000-0000-000000000008') $$,
+  'member_not_found',
+  'a pick in one circle cannot reach a guest of another'
 );
 
 -- ---------------------------------------------------------------------------
@@ -236,13 +276,31 @@ select throws_ok(
 
 -- Once no plan is live, the list path is closed to an account as to a guest.
 select pg_temp.act_as_postgres();
+select set_config('circles.in_transition', 'on', true);
 update public.plans set state = 'cancelled' where id = pg_temp.plan_id();
+select set_config('circles.in_transition', 'off', true);
 
 select pg_temp.act_as('52000000-0000-0000-0000-000000000007', true);
 select throws_ok(
   $$ select public.reattach_member(pg_temp.circle_id(), '52000000-0000-0000-0000-000000000003') $$,
   'member_not_found',
   'no live plan, no pick'
+);
+
+-- The per-circle hourly limit counts an account's moves as a guest's.
+select pg_temp.act_as_postgres();
+select set_config('circles.in_transition', 'on', true);
+update public.plans set state = 'collecting' where id = pg_temp.plan_id();
+select set_config('circles.in_transition', 'off', true);
+select public.take_rate_token(
+  'reattach_circle_sql', extensions.digest(pg_temp.circle_id()::text, 'sha256'), 20, interval '1 hour')
+from generate_series(1, 20);
+
+select pg_temp.act_as('52000000-0000-0000-0000-000000000007', true);
+select throws_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), '52000000-0000-0000-0000-000000000003') $$,
+  'too_many_requests',
+  'twenty moves an hour a circle, for an account as for a guest'
 );
 
 select pg_temp.act_as_postgres();

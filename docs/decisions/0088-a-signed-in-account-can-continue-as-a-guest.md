@@ -85,9 +85,43 @@ the same trust as a guest has today. No extra proof.
   or until the guest uses an emailed link from that circle, which may take the
   place back from a saved account whose own address is not the link's (ADR 0049,
   decision 6). Each pick still tells the owner.
-- The guest's old anonymous identity keeps whatever it held outside this
-  circle, and its email contacts, as with any list pick. With no memberships
-  left it is deleted after thirty days ([ADR 0014](0014-retention-runs-in-the-database.md)).
+- **What happens to the guest's anonymous identity, contacts and consents** is
+  what already happens on the other reattach paths, because the move is the
+  same one (`private.move_membership`, `private.reconcile_contacts`). The
+  anonymous `auth.users` row is not deleted or merged: it keeps whatever it
+  holds outside this circle (a guest who is also in another circle stays that
+  circle's member), and with no memberships left it is removed by retention
+  after thirty days ([ADR 0014](0014-retention-runs-in-the-database.md)).
+  This circle's email contacts and plan-update consents move to the account
+  with the place, scoped as before to the plan they were given for; an address
+  the account already holds is merged rather than duplicated, a withdrawal
+  survives the merge, and a suppression stays global by hash. Contacts and
+  consents held for other circles stay with the anonymous identity. Queued mail
+  for this circle is re-pointed. Nothing becomes marketing consent
+  ([ADR 0048](0048-the-consent-sentence-is-the-one-string-that-lives-in-config.md)).
+  The guest's emailed re-entry links are retired, since the place is now a saved
+  one. `pgTAP` 520 asserts the contact and the consent moving.
+- **Analytics.** The client event is `member_reattached` with a third `source`,
+  `list_account`, declared in the catalogue before it is emitted, so the
+  funnel can tell an account's claim from a guest's pick. It carries the circle
+  id and nothing about the person. The database's audit row and the owner's
+  "rejoined from a new device" event keep `source: 'list'`; the founder's
+  reattach gate counts product rows, not events
+  ([ADR 0080](0080-the-reattach-and-verified-gates-count-product-rows-not-events.md)),
+  so it is unaffected.
+- **Idempotency and limits are the guest path's, unchanged.** A retry of a
+  completed pick is served by the idempotency record, and the database answers
+  a pick of one's own place with the circle and moves nothing. The per-address
+  hourly limit in the Edge Function and the per-circle limit of twenty moves an
+  hour in `public.reattach_member` apply to an account as to a guest; the
+  second counts completed moves only, so somebody who is not a member cannot
+  spend it.
+- **A circle page is not a plan link.** `MembershipGate` still answers a
+  non-member on a circle page (`/circles/...`, reached by navigating, with no
+  code in the URL) with "ask for the invite link", for an account and a guest
+  alike. The list is keyed by a plan's short code and the pick needs a live
+  plan link; a non-member has no way to learn either from a circle page, so
+  nothing is revealed there.
 - The privacy invariant "a reattachment moves a membership only within a circle
   the guest already belongs to, never onto a saved-place member" is reworded to
   say what it protects: a reattachment never takes a saved-place member's place.

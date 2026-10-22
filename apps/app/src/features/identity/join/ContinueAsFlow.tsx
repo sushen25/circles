@@ -228,7 +228,10 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
       });
       // The circle goes on the event so the founder's gate can count it in its
       // cohort (ADR 0058); the person does not.
-      track('member_reattached', { source: 'list', circle_id: member.circle_id });
+      track('member_reattached', {
+        source: signedIn ? 'list_account' : 'list',
+        circle_id: member.circle_id,
+      });
       // "Keep your place for good?" follows a guest's pick only: an account's
       // place is already kept.
       onReattached(signedIn ? undefined : 'list');

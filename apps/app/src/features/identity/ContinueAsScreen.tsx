@@ -126,7 +126,12 @@ export function ContinueAsScreen({
           <BodyText>{t('continueAs', 'no_names_to_pick')}</BodyText>
         ) : (
           <>
-            <BodyText>{t('continueAs', 'pick_your_name_to_carry_on_where')}</BodyText>
+            <BodyText>
+              {t(
+                'continueAs',
+                signedIn ? 'pick_your_name_signed_in' : 'pick_your_name_to_carry_on_where',
+              )}
+            </BodyText>
             <Card>
               {options.map((option, index) => (
                 <Fragment key={option.key}>

@@ -382,7 +382,7 @@ describe('an account that is not a member, in a circle that has guests (ADR 0088
       memberUserId: 'alex',
     });
     expect(track).toHaveBeenCalledWith('member_reattached', {
-      source: 'list',
+      source: 'list_account',
       circle_id: CIRCLE_ID,
     });
     // The account's place is already kept, so no "Keep your place for good?".
@@ -404,6 +404,28 @@ describe('an account that is not a member, in a circle that has guests (ADR 0088
     await tap(screen.findByRole('button', { name: /Alex/ }));
 
     expect(await screen.findByText('the plan')).toBeTruthy();
+    expect(screen.queryByText('You need the invite link to join.')).toBeNull();
+  });
+
+  it('says so on the list, and keeps the list, when the hourly limit is reached', async () => {
+    reattachFromList.mockRejectedValue(refusal('too_many_requests'));
+    arrive();
+
+    await tap(screen.findByRole('button', { name: /Alex/ }));
+
+    expect(
+      await screen.findByText(
+        'Too many tries from here just now. Wait a few minutes, then try again.',
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Alex/ })).toBeTruthy();
+  });
+
+  it('is offered Try again, not a dead end, when the list cannot be loaded', async () => {
+    guestMembersFor.mockRejectedValue(new Error('network'));
+    arrive();
+
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBeTruthy();
     expect(screen.queryByText('You need the invite link to join.')).toBeNull();
   });
 
