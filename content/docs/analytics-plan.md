@@ -466,9 +466,9 @@ holds; counts by tag land in a public repository, which `experiments.md`'s
 "Plans shared" column already intended; deleting the secret turns the door
 off.
 
-- **`public.source_ref_export(p_since date) returns jsonb`** (in `public`, where PostgREST exposes it, with `service_role` the only grant; ADR 0087): the
+- **`public.content_funnel_export(p_since date) returns jsonb`** (in `public`, where PostgREST exposes it, with `service_role` the only grant; ADR 0087): the
   `by_source_ref` and `stalled` blocks of `founder_analytics`, factored into
-  a function both call so there is one definition (ADR 0015: one file per
+  `private.funnel_by_tag`, which both call so there is one definition (ADR 0015: one file per
   function, generated into the migration). `security definer`, `set
   search_path = ''`, executable by `service_role` only, revoked from `anon`
   and `authenticated`. The period clamps to 400 days as the founder function

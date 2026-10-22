@@ -105,6 +105,20 @@ export function renderScorecard(c: Scorecard): string {
     push('');
   }
 
+  const tagged = c.pieces.filter((p) => p.funnel);
+  if (tagged.length || c.stalled) {
+    push('## After the tap', '', "What Wenna counted on each piece's link tag, from the nightly export: raw counts, never rates, because the numbers are small and a rate would lie. No person is in it.", '');
+    if (tagged.length) {
+      push('| piece | platform | circles made | plans shared | answered | confirmed | as of |', '|---|---|---|---|---|---|---|');
+      for (const p of tagged) push(`| ${p.slug} | ${p.platform} | ${p.funnel!.circles} | ${p.funnel!.plans_shared} | ${p.funnel!.answered} | ${p.funnel!.confirmed} | ${p.funnel!.as_of} |`);
+      push('');
+    }
+    if (c.stalled) {
+      const n = c.stalled.groups.reduce((t, g) => t + g.circles, 0);
+      push(`First plans from content that stopped, as of ${c.stalled.as_of}: ${n}${n ? ` (${c.stalled.groups.map((g) => `${g.circles} ${g.state.replace(/_/g, ' ')}, oldest ${g.oldest_hours} h`).join('; ')})` : ''}.`, '');
+    }
+  }
+
   const young = c.pieces.filter((p) => p.first48);
   if (young.length) {
     push('## First 48 hours', '', '| piece | platform | 2 h | 6 h | 12 h | 24 h | 48 h | bent at |', '|---|---|---|---|---|---|---|---|');

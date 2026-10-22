@@ -29,23 +29,31 @@ in CI is a rotating refresh token, a person's credential, in a bot.
 ## Decision
 
 **One function computes the by-tag numbers, and two doors call it.**
-`public.source_ref_export(p_since date) returns jsonb` holds the
-`by_source_ref` and the `stalled` blocks that `founder_analytics` returns
-today (the latter read from `analytics.stalled_first_plans`), factored out so
-both read one definition (ADR 0015: one file under
-`supabase/sql/functions/public/`, generated into the migration).
-`founder_analytics` calls it after its allowlist check and its own answer does
-not change. The new function is in `public` because the Edge Function's
-service client calls it through PostgREST, which exposes that schema and no
-other; the grants are what keep it shut: `security definer` with
-`set search_path = ''`, executable by `service_role` only, revoked from
-`public`, `anon` and `authenticated`. The period clamps to 400 days, as the founder function does.
-Its answer has the shape of `SourceRefNumbers` and `StalledRow` in
-`packages/contracts`, with the stalled rows filtered to the `content` source.
+`private.funnel_by_tag(p_from date, p_source text)` holds the `by_source_ref`
+and the `stalled` blocks that `founder_analytics` returns today (the latter read
+from `analytics.stalled_first_plans`), factored out so both read one definition
+(ADR 0015: one file each under `supabase/sql/functions/`, generated into the
+migration). It takes a source because the two doors want different stalled rows:
+the founder sees every source's, the content loop only those of `content`. No
+role can call it, `service_role` included; the two doors are `security definer`
+functions that do. `founder_analytics` calls it with no source after its
+allowlist check and its own answer does not change.
+`public.content_funnel_export(p_since date) returns jsonb` is the content
+loop's door. It is in `public` because the Edge Function's service client calls
+it through PostgREST, which exposes that schema and no other; the grants are
+what keep it shut: `security definer` with `set search_path = ''`, executable by
+`service_role` only, revoked from `public`, `anon` and `authenticated`. The
+period clamps to 400 days from the Monday of the week, as the founder function
+does, and the answer is `{ since, by_source_ref, stalled }` in the shape of
+`SourceRefNumbers` and `StalledRow` in `packages/contracts`, with the stalled
+rows filtered to the `content` source and the tags to those that begin with a
+platform prefix the content loop mints (`tt ig th bs li yt rd`): a tag is what a
+visitor's link said, so one the loop did not mint is not published to a public
+repository.
 
 **It answers counts and ages, and names nothing.** Per tag: circles made, plans
-shared, answered, confirmed. Per stalled first plan: the week the circle began,
-the state, the hours since, and the tag. No circle, plan, member, short code,
+shared, answered, confirmed. Per group of stalled first plans: the week the circle began,
+the cohort, the source, the state, how many circles, and the oldest and middle age in hours (a stalled row names no tag). No circle, plan, member, short code,
 uuid or name, as for the founder screen (ADR 0084). A tag is a label on a post,
 never on a person, so a count by tag is a fact about a post.
 
@@ -56,8 +64,8 @@ secret it checks. `recalculate-candidates` and `process-scheduled-jobs` keep
 loop's secret can never run the job processor, and the job processor's can
 never read the funnel. POST only, body `{ since }` (a date), a 405 on any
 other method. Every call is refused while the secret is unset (off until
-configured). A rate limit from `take_rate_token` of six calls an hour, keyed to
-the function, since there is no caller. One log line, the status, and nothing
+configured). A rate limit from `take_rate_token` of twelve calls an hour, one key for the
+function, since there is no caller. One log line, the status, and nothing
 from the answer. `verify_jwt = false` in `config.toml`, as for the other
 internal functions, and architecture §9.1 lists it as internal.
 

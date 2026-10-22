@@ -67,3 +67,52 @@ order by c.created_at desc;
 Read them against the second-degree and in-person cohorts, not instead of them.
 Arrivals are not counted: the site records nothing, so a post's reach is the
 platform's number and everything from the gate on is ours.
+
+## Read it from the content loop
+
+The nightly content pull (`content/analytics/pull.ts`) reads the same by-tag
+funnel without a founder's session, through a keyed export
+([ADR 0087](../decisions/0087-the-content-loop-reads-the-funnel-by-tag-through-a-keyed-export-counts-only.md)).
+
+**What it returns.** `POST <project>/functions/v1/content-funnel` with
+`Authorization: Bearer $CONTENT_FUNNEL_SECRET` and body `{ "since": "YYYY-MM-DD" }`
+answers `{ since, by_source_ref, stalled }`: per tag the content loop minted (a platform prefix: `tt ig th bs li yt rd`; a tag a visitor typed is on the founder screen and nowhere else), the circle counters and the
+totals of `plan_shared`, `availability_submitted` and `meetup_confirmed`
+(the pull reads circles made, plans shared, answered and confirmed from these as the founder screen's "By post" does); and the
+first plans from the `content` source that have stopped, by week, cohort, state,
+count and age in hours. Counts and ages and nothing finer: no circle, plan,
+member, short code, id, name or address. The function is
+`public.content_funnel_export`, executable by `service_role` alone, and it shares
+its numbers with the founder screen (`private.funnel_by_tag`). Any other method is
+a 405; no bearer, a wrong bearer, `CRON_SECRET`, or no secret set at all is a 401
+with the same body; a thirteenth call in an hour is a 429.
+
+**What the pull writes.** One row per tag per night, and one row of stalled first
+plans, appended to `content/analytics/funnel.jsonl`, which is in a public
+repository: counts by post, never by person. Try it from a laptop with
+`cd content && npm run analytics -- --only wenna --dry`.
+
+**Switch it on (the founder's steps).** None of these is done by code.
+
+1. Make the secret and set it on both hosted projects, a different value for
+   each: `GENERATE=1 make secret ENV=dev K=CONTENT_FUNNEL_SECRET` for `dev`. For
+   `prod`, make one value (`openssl rand -base64 32`), then pipe it in:
+   `pbpaste | make secret ENV=prod K=CONTENT_FUNNEL_SECRET`.
+2. Add the same `prod` value as a repository secret of the Circles repository:
+   `gh secret set CONTENT_FUNNEL_SECRET` (paste at the prompt). It is a repository
+   secret, not an environment one, because `content-analytics.yml` runs on a
+   schedule outside any environment.
+3. Add the address as a repository variable:
+   `gh variable set WENNA_FUNNEL_URL --body https://<prod project ref>.supabase.co/functions/v1/content-funnel`.
+4. After the next deploy to `prod`, run the workflow by hand (Actions,
+   content-analytics, Run workflow) and look for `funnel <tag>: circles …` lines
+   in the log, and a new `funnel.jsonl` in the commit.
+
+Until 1 to 3 are done the pull says `skip  wenna: not configured` and carries on.
+
+**Rotate it.** Make a new value; set it on the project (`make secret`) and as the
+repository secret in the same sitting. The old value stops working the moment the
+project has the new one, so the pull between the two steps is a 401 (a red
+`FAIL  funnel` line, nothing written, the rest of the run unaffected). **Turn it
+off:** delete the repository secret, or the project's: every call is refused while
+it is unset.

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseArgs, parseFortnight, parseTable, pickFortnight, retro, splitRow } from './retro.ts';
+import { cellsFor, parseArgs, parseFortnight, parseTable, pickFortnight, retro, splitRow } from './retro.ts';
 import { buildScorecard } from './scorecard.ts';
 import { NOW, inputs } from './scorecard.fixture.ts';
 
@@ -136,4 +136,15 @@ test('a number column the header lacks is named, not silently skipped', () => {
   const i = inputs();
   const r = retro({ experiments: EXPERIMENTS.replace('| Views (TikTok) |', '| Views |'), card: buildScorecard(i, NOW), features: i.features, ledger: i.ledger, today: '2026-11-18' });
   assert.deepEqual(r.missing, ['Views (TikTok)']);
+});
+
+test('Circles made and Plans shared come from the funnel rows, summed over the pieces that have one, and stay blank without', () => {
+  const i = inputs();
+  const row = (from: string, circles: number, plans_shared: number) => ({ date: '2026-11-17', at: '2026-11-17T16:15:00.000Z', from, circles, plans_shared, answered: 0, confirmed: 0, raw: {} });
+  const card = buildScorecard({ ...i, funnel: [row('ig-pm-one', 2, 1), row('ig-pm-two', 3, 2)] }, NOW);
+  const cells = cellsFor({ start: '2026-10-27', end: '2026-11-09', family: 'pm', line: 0, cells: [] } as unknown as Parameters<typeof cellsFor>[0], card, new Map(), i.ledger);
+  assert.equal(cells['Circles made'], '5 (n=2)');
+  assert.equal(cells['Plans shared'], '3 (n=2)');
+  const none = cellsFor({ start: '2026-10-27', end: '2026-11-09', family: 'pm', line: 0, cells: [] } as unknown as Parameters<typeof cellsFor>[0], buildScorecard(i, NOW), new Map(), i.ledger);
+  assert.equal(none['Circles made'], '');
 });

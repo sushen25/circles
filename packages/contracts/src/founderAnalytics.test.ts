@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 import { ORGANISER_SOURCES, catalogue, isUnattributed } from './analytics';
 import {
@@ -8,6 +9,8 @@ import {
   FUNNEL_SOURCES,
   GATES,
   RATES,
+  SourceRefNumbers,
+  StalledRow,
   adoptionOf,
   funnelOf,
   isEmpty,
@@ -439,5 +442,45 @@ describe('stalled first plans (SUS-240)', () => {
       'state',
       'week',
     ]);
+  });
+});
+
+describe('the content loop export (ADR 0087)', () => {
+  // `public.content_funnel_export`'s answer: the founder's two blocks, for the
+  // content source, and nothing else.
+  it('parses as the two blocks the founder screen already reads', () => {
+    const exported = {
+      since: '2026-10-19',
+      by_source_ref: founderAnalyticsFixture.by_source_ref,
+      stalled: founderAnalyticsFixture.stalled,
+    };
+
+    expect(z.record(z.string(), SourceRefNumbers).parse(exported.by_source_ref)).toEqual(
+      exported.by_source_ref,
+    );
+    expect(z.array(StalledRow).parse(exported.stalled)).toEqual(exported.stalled);
+  });
+
+  it('has no place for an identifier to ride in a tag or a stalled row', () => {
+    const tag = SourceRefNumbers.parse({
+      counters: { circles_created: 1 },
+      events: {},
+      circle_id: 'c',
+    });
+    const row = StalledRow.parse({
+      week: '2026-10-19',
+      cohort: 'external',
+      source: 'content',
+      state: 'not_shared',
+      circles: 1,
+      oldest_hours: 30,
+      median_hours: 30,
+      plan_id: 'p',
+      short_code: 'kmnpq2',
+    });
+
+    expect(Object.keys(tag).sort()).toEqual(['counters', 'events']);
+    expect(Object.keys(row)).not.toContain('plan_id');
+    expect(Object.keys(row)).not.toContain('short_code');
   });
 });
