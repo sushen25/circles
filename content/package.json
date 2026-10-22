@@ -24,6 +24,7 @@
     "measure": "node --env-file-if-exists=.env --experimental-strip-types lib/measure-cli.ts",
     "scorecard": "node --experimental-strip-types analytics/scorecard.ts",
     "brief": "node --experimental-strip-types analytics/brief.ts",
+    "retro": "node --experimental-strip-types analytics/retro.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

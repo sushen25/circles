@@ -41,6 +41,12 @@ writing anything a person will read. They are short and they are the law.
    saves=18 shares=9` records the TikTok numbers, and `/transcribe` reads
    the Insights screens dropped into `inbox/screens/<slug>-<platform>/`.
    Nothing in it posts.
+8. `/retro` — fortnightly, the Routine's other entrypoint: `npm run retro
+   -- --write` fills the ended fortnight's number cells in `experiments.md`
+   from the scorecard, the skill writes Result and Next from
+   `scorecard.md`, proposes the next fortnight's rows (and, on day 30, the
+   kill-two-double-one proposal) and opens one PR. Merging it is the
+   decision.
 
 Merging the PR is approval. `npm run publish` (or the GitHub Action on merge)
 publishes anything in `queue/` with `status: approved` and moves it to
@@ -99,7 +105,7 @@ publishes anything in `queue/` with `status: approved` and moves it to
 | `lib/measure.ts` | a queue file's features (hook, slides, chats before the beat, captions per platform, Melbourne post hour) and its timing; `npm run check` and `npm run video` measure with it, and the video build writes `timing:` into the frontmatter. |
 | `inbox/` | what the loop reads next: `<date>-replies.md` from the nightly pull (handles stripped) for `/mine`; `screens/<slug>-<platform>/` for `/transcribe`, git-ignored; `done/` is where both go once read. |
 | `docs/analytics-plan.md` | why the analytics are shaped as they are: the principles, the data model, what each platform can give, the phases. Read it before changing anything under `analytics/`. |
-| `experiments.md` | hypothesis · format · hook family · result · next. One row per fortnight per family. |
+| `experiments.md` | hypothesis · format · hook family · result · next. One row per fortnight per family. The number cells are written by `npm run retro`, Result and Next by `/retro` or a person. |
 
 ## Commands
 
@@ -123,6 +129,7 @@ npm run tokens -- --github                                    # monthly: every t
 npm run measure queue/2026-10-20-never-lead-anywhere.md       # a piece's feature row; -- --timing builds it and writes timing:
 npm run scorecard                                             # analytics/scorecard.json and scorecard.md from every row
 npm run brief                                                 # context/learned.md from the scorecard
+npm run retro -- [--fortnight 2026-10-20] [--write]           # a fortnight's experiments.md number cells, from the scorecard
 npm run typecheck                                             # tsc over analytics/ and lib/measure.ts, nothing emitted
 ```
 
