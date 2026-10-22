@@ -20,15 +20,23 @@ Nothing has 3 pieces at day 7 yet.
 
 | piece | platform | ranked on | day 1 | day 3 | day 7 | day 14 | latest | lift | watch / skip | like rate | replies (quote the hook) |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| never-lead-anywhere | bluesky | replies+reposts+quotes per post | – | – | – | – | 0 at 0.7 d | – | – | – | 0 (0) |
-| never-lead-anywhere | instagram | saves+shares /1k views | – | – | – | – | 15.5 at 0.7 d | – | 24.4% / 70% | 0.8% | 0 (0) |
+| never-lead-anywhere | bluesky | replies+reposts+quotes per post | 0 | – | – | – | 0 at 1.2 d | – | – | – | 0 (0) |
+| never-lead-anywhere | instagram | saves+shares /1k views | 15.5 | – | – | – | 15.5 at 1.2 d | – | 24.4% / 70% | 0.8% | 0 (0) |
+| never-lead-anywhere | youtube | saves+shares /1k views | – | – | – | – | – at 1.2 d | – | – | 0% | 0 (0) |
+
+## After the tap
+
+What Wenna counted on each piece's link tag, from the nightly export: raw counts, never rates, because the numbers are small and a rate would lie. No person is in it.
+
+First plans from content that stopped, as of 2026-10-22: 0.
 
 ## The account
 
 Context only: an account number is never put down to one post.
 
 - bluesky, 2026-10-21: followers 10
-- instagram, 2026-10-20: followers 2 · reach 2 · views 3 · link taps 0 · accounts engaged 1 · reach by follow type: non_follower 2 · views by surface: reel 3
+- instagram, 2026-10-21: followers 2 · reach 107 · views 124 · link taps 0 · accounts engaged 2 · reach by follow type: non_follower 107 · views by surface: reel 124
+- youtube, 2026-10-21: views 24
 
 ## Too early
 
