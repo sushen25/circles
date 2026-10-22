@@ -523,8 +523,8 @@ ADR 0081's promise holds: these commits run nothing else.
 A second schedule, `content-series.yml`, runs `npm run analytics --
 --series` every two hours and commits only when it has rows, which is only
 while a post is under 48 hours old. With one piece a day that is a dozen
-small bot commits a day on `main`, all under `content/`, all harmless to the
-gate (ADR 0081). If that is too noisy, the alternative is for each run to
+small bot commits a day, on the `content-data` branch (ADR 0089; `main` is
+protected), all under `content/`, all harmless to the gate (ADR 0081). If that is too noisy, the alternative is for each run to
 upload its rows as a workflow artifact and the nightly job to fold the day's
 artifacts into `series.jsonl` in one commit; decide after the first week.
 

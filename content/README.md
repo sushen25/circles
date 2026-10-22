@@ -30,7 +30,8 @@ npm run dry-run                      # dry-run publisher: prints the plan
 2. **GitHub**: add the same values as secrets of the Circles repository, and
    `MEDIA_BASE_URL` as a repository variable. From then on merging a PR is
    approval and `.github/workflows/content-publish.yml` posts within the
-   item's window and commits the ledger back, touching only `content/`. The
+   item's window and commits the ledger to the `content-data` branch, never
+   to `main` ("Where the bots' work goes", below). The
    runner installs Chromium and runs `npm run render -- --approved` first,
    because `out/` is git-ignored and the publisher refuses a slideshow with
    no slides on disk; Bluesky and LinkedIn upload those PNGs directly.
@@ -96,13 +97,58 @@ text-first with one still. Threads and Instagram fetch the MP4 from
 `render/audio/bed.mp3` and it is mixed in quietly with a fade. Timings live
 at the top of `render/video.ts`.
 
+## Where the bots' work goes
+
+`main` is protected, so the three workflows (`content-publish`,
+`content-analytics`, `content-series`) never push to it (ADR 0089). They push
+to one branch, `content-data`, and keep one pull request open from it to
+`main`, titled "content: data from the bots". Each run starts from that
+branch (`main` plus the bots' unmerged work), so the publisher sees every
+ledger line even before you merge, and a run that cannot read or write the
+branch posts nothing and goes red.
+
+**What you do**
+
+- **Once**, in the repository's Settings, Actions, General, Workflow
+  permissions: tick "Allow GitHub Actions to create and approve pull
+  requests". Without it the workflows still work and the data still reaches
+  `content-data`; they print a warning with a link and you open the pull
+  request yourself. Leave "Read repository contents" as the default.
+- **Weekly is enough** (nothing waits on it): open the data pull request,
+  wait for `check` (the workflows start it on the branch; if it is missing,
+  Actions, check, Run workflow, branch `content-data`), and merge it with
+  **Create a merge commit**, then **Delete branch**. The next run starts
+  again from `main`. Until you merge, `main` has no new analytics rows, and
+  the `/daily` and `/retro` Routines, which read a clone of `main`, see
+  last week's `learned.md`, scorecard and inbox.
+- **Do not close the pull request and delete the branch unmerged**: the rows
+  are lost. (Posts are not repeated either way.)
+- Merging the data pull request never posts anything.
+
+**When the publisher goes red with `BLOCKED …`**: before it calls a
+platform it pushes a tag, `content-attempt/<platform>/<slug>`. If a tag has
+no ledger row, a post may have gone out and its record was lost (a run was
+killed, a push was rejected, the branch was deleted), and the publisher
+posts nothing, for any piece, until you look at the platform:
+
+```
+npm run posted -- <platform> <slug> <url-or-id>   # it is live: records it
+npm run attempt -- clear <platform> <slug>        # it is not: lets the publisher try again
+```
+
+Run them in a clone that has the branch merged into it (`git fetch && git
+merge origin/content-data`), commit the ledger line through a pull request,
+and the next run sees it. `npm run attempt -- attempts` lists the attempts.
+A platform error (a 5xx, a timeout) leaves its tag in place on purpose: the
+platform may have taken the post before it answered.
+
 ## Nightly and weekly
 
 The why is in `docs/analytics-plan.md`; this is what runs on its own and
 what is yours.
 
 - **Nightly**, `content-analytics.yml` runs `npm run analytics` at 03:15
-  Melbourne and commits what it wrote, all under `content/`:
+  Melbourne and commits what it wrote to `content-data`, all under `content/`:
   `analytics/posts.jsonl` (one row per post per platform, the platform's
   answer kept whole beside the common names), `analytics/account.jsonl`
   (the account by day: followers, the follower and non-follower split,
@@ -124,7 +170,7 @@ what is yours.
   `npm run measure -- --timing queue/<file>.md`.
 - **Every two hours**, `content-series.yml` runs `npm run analytics --
   --series` for any post under 48 hours old and commits
-  `analytics/series.jsonl`, the views-over-time curve rebuilt from
+  `analytics/series.jsonl` to `content-data`, the views-over-time curve rebuilt from
   snapshots. With no young post it exits at once and commits nothing.
 - **When you post by hand**, a TikTok draft you finished in the app, a
   Short the tag did not catch, a Reddit post:

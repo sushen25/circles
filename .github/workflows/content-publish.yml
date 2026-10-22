@@ -1,8 +1,17 @@
 # The content loop (content/CLAUDE.md): merge = approve. On a push to `main`
 # that touches the queue, and on an evening schedule, publish anything in
 # content/queue with `status: approved` that is due, then commit the ledger
-# and the moved files back. It writes only under content/, and `ci-scope`
-# treats content/ as prose, so these commits never run the gate or a deploy.
+# and the moved files to the `content-data` branch, never to `main`, which is
+# protected (ADR 0089). The run starts from that branch (`main` plus what the
+# bots have written and the founder has not merged yet), so it sees every
+# ledger line there is.
+#
+# It must never post twice. Before a platform is called, the attempt is pushed
+# as a tag (lib/databranch.ts); a run that finds a tag with no ledger row
+# posts nothing and fails; a run that cannot sync, list or record posts
+# nothing and fails. The save step runs even when the publisher failed, so
+# whatever was posted is pushed. Nothing here ever runs `git push`: the one
+# script that pushes is lib/databranch.ts, and check:workflows holds that.
 name: content-publish
 on:
   push:
@@ -16,7 +25,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: content-publish
+  # One group for everything that writes to content-data (this, the nightly
+  # pull and the series pull), so two runs never write the branch, or post, at
+  # the same moment. A group keeps one pending run, so a newer one replaces it;
+  # every one of these is run again on its next schedule.
+  group: content-data
   cancel-in-progress: false
 
 defaults:
@@ -29,11 +42,22 @@ jobs:
     # A video renders frame by frame (a few minutes a piece on the runner).
     timeout-minutes: 30
     permissions:
-      contents: write
+      contents: write # the content-data branch and the attempt tags
+      pull-requests: write # the one pull request from content-data to main
+      actions: write # to start `check` on it
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # The data branch is merged with main, which needs their history.
+          fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: 22 }
+      # Everything after this builds on the data branch. If it cannot be read
+      # or main cannot be merged into it, the job stops here, red, before
+      # anything is rendered or posted.
+      - id: data
+        name: start from the content-data branch
+        run: node --experimental-strip-types lib/databranch.ts sync
       - run: npm ci
       # The slideshow guard (publish/guards.ts) refuses an item whose slides are
       # not in out/<slug>/, and out/ is never committed, so the runner renders
@@ -67,13 +91,17 @@ jobs:
           TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
           TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
           MEDIA_BASE_URL: ${{ vars.MEDIA_BASE_URL }}
-      - name: commit ledger and moves
+      # Runs whether or not the publisher did, so a post that went out is
+      # saved even when a later platform failed. If the push is rejected the
+      # job is red, and the next run posts nothing (the attempt tag has no
+      # ledger row behind it) until a person has looked.
+      - id: save
+        name: commit the ledger and the moves to content-data
+        if: ${{ always() && steps.data.outcome == 'success' }}
         run: |
-          git config user.name "wenna-content bot"
-          git config user.email "bot@wenna.app"
-          # The ledger does not exist until the first post, and a pathspec that
-          # matches nothing fails `git add`; the whole publish/ dir is what the
-          # publisher writes to (ledger.jsonl only), so stage that.
-          git add -A -- queue published publish
-          git diff --cached --quiet || git commit -m "content: publish $(date -u +%Y-%m-%dT%H:%M)"
-          git push
+          node --experimental-strip-types lib/databranch.ts save "content: publish $(date -u +%Y-%m-%dT%H:%M)" queue published publish
+      - name: open the data pull request and run check on it
+        if: ${{ always() && steps.save.outputs.pushed == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node --experimental-strip-types lib/databranch.ts open-pr

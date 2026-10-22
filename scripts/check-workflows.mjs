@@ -607,6 +607,65 @@ const ciRules = (path, file, doc) => {
     }
   }
 
+  // The content bots never write to `main` (ADR 0089): `main` is protected, a
+  // rejected push loses the run's rows, and for the publisher it once meant a
+  // second post. The one script that pushes is content/lib/databranch.ts, to
+  // `content-data` and to the attempt tags, so no run step here pushes at all.
+  if (['content-analytics.yml', 'content-series.yml', 'content-publish.yml'].includes(file)) {
+    if (doc?.concurrency?.group !== 'content-data') {
+      fail(
+        '`concurrency.group` must be `content-data`: the three content workflows write the same branch and the publisher must not run beside either',
+      );
+    }
+    if (doc?.concurrency?.['cancel-in-progress'] !== false) {
+      fail(
+        '`cancel-in-progress` must be `false`: a cancelled publish is a post whose ledger line is never saved',
+      );
+    }
+    for (const [name, job] of Object.entries(jobs)) {
+      const steps = Array.isArray(job?.steps) ? job.steps : [];
+      for (const step of steps) {
+        const run = typeof step?.run === 'string' ? step.run : '';
+        if (/\bgit\s+(push|pull)\b/.test(run)) {
+          fail(
+            `\`${name}\` runs \`git push\` or \`git pull\` itself; pushes go through content/lib/databranch.ts, which only ever writes content-data and the attempt tags`,
+          );
+        }
+      }
+      const runs = steps.map((step) => (typeof step?.run === 'string' ? step.run : ''));
+      const sync = runs.findIndex((run) => run.includes('lib/databranch.ts sync'));
+      const firstWork = runs.findIndex(
+        (run, i) => run && i !== sync && !run.includes('databranch.ts'),
+      );
+      if (sync < 0) {
+        fail(
+          `\`${name}\` never runs \`lib/databranch.ts sync\`, so it would build on main and miss the unmerged ledger`,
+        );
+      } else if (firstWork >= 0 && firstWork < sync) {
+        fail(
+          `\`${name}\` runs a step before \`lib/databranch.ts sync\`; nothing may run, let alone post, before the data branch is the starting point`,
+        );
+      }
+      const save = steps.find(
+        (step) => typeof step?.run === 'string' && step.run.includes('lib/databranch.ts save'),
+      );
+      if (!save)
+        fail(`\`${name}\` never runs \`lib/databranch.ts save\`, so its work would be lost`);
+      else if (!String(save.if ?? '').includes('always()')) {
+        fail(
+          `the save step in \`${name}\` must run \`if: always() …\`: a post that went out has to be saved even when a later step failed`,
+        );
+      }
+      for (const permission of ['contents', 'pull-requests', 'actions']) {
+        if (job?.permissions?.[permission] !== 'write') {
+          fail(
+            `\`${name}\` needs \`${permission}: write\` (the data branch, its pull request, and the \`check\` run on it)`,
+          );
+        }
+      }
+    }
+  }
+
   if (file === 'preview.yml' && (doc?.on?.pull_request?.types ?? []).includes('closed')) {
     fail('`preview` runs on `closed`; the clean-up is preview-cleanup.yml');
   }

@@ -10,8 +10,9 @@
 # It runs seven minutes past the even hours so it never lands on the round
 # time the nightly pull and the publisher use, and it shares the nightly
 # job's concurrency group so the two never append to analytics/ or push to
-# main at the same moment. It commits series.jsonl and nothing else, under
-# content/, so the commit runs nothing else (ADR 0081). Nothing here posts.
+# the data branch at the same moment. It commits series.jsonl and nothing
+# else, under content/, to the `content-data` branch, never to `main`
+# (ADR 0089). Nothing here posts.
 name: content-series
 on:
   schedule:
@@ -22,8 +23,9 @@ permissions:
   contents: read
 
 concurrency:
-  # The nightly job's group, on purpose: one of the two runs at a time.
-  group: content-analytics
+  # The same group as the nightly pull and the publisher, on purpose: one of
+  # the three runs at a time.
+  group: content-data
   cancel-in-progress: false
 
 defaults:
@@ -35,11 +37,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: write
+      contents: write # the content-data branch
+      pull-requests: write # the one pull request from content-data to main
+      actions: write # to start `check` on it
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: 22 }
+      - id: data
+        name: start from the content-data branch
+        run: node --experimental-strip-types lib/databranch.ts sync
       - run: npm ci
       # The same names as content-analytics.yml, every one of them, so a
       # platform the nightly pull reads is never silently missing from the
@@ -65,21 +74,20 @@ jobs:
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           YOUTUBE_CHANNEL_ID: ${{ vars.YOUTUBE_CHANNEL_ID }}
-      - name: commit the series rows
+      # Only series.jsonl, and only once it exists: the file is created by the
+      # first run that finds a young post. A rejected push is retried once on
+      # top of what is there; failing twice is red, and the rows are lost (the
+      # next run reads the same posts again).
+      - id: save
+        name: commit the series rows to content-data
+        if: ${{ always() && steps.data.outcome == 'success' }}
         run: |
-          git config user.name "wenna-content bot"
-          git config user.email "bot@wenna.app"
-          # Only series.jsonl, and only once it exists: the file is created by
-          # the first run that finds a young post, and a pathspec that matches
-          # nothing fails `git add`.
-          if [ -f analytics/series.jsonl ]; then git add -- analytics/series.jsonl; fi
-          git diff --cached --quiet || git commit -m "content: series $(date -u +%Y-%m-%dT%H:%M)"
-          # content-publish.yml has its own concurrency group and may push to
-          # main while this job runs; a non-fast-forward push would lose this
-          # run's rows. Only series.jsonl is in the commit, so the rebase is
-          # clean.
-          git pull --rebase origin main
-          git push
+          node --experimental-strip-types lib/databranch.ts save "content: series $(date -u +%Y-%m-%dT%H:%M)" analytics/series.jsonl
+      - name: open the data pull request and run check on it
+        if: ${{ always() && steps.save.outputs.pushed == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node --experimental-strip-types lib/databranch.ts open-pr
       - name: fail when the pull did
         if: steps.series.outcome == 'failure'
         run: exit 1
