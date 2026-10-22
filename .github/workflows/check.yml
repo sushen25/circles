@@ -15,9 +15,11 @@ on:
   push:
     branches: [main]
   # The content bots' pull request (ADR 0089). A push made with GITHUB_TOKEN
-  # starts no `pull_request` run, so after each push the content workflows
-  # dispatch this one on the `content-data` branch; its `check` job reports
-  # on the branch's head commit, which is what the pull request is waiting for.
+  # starts a `pull_request` run only in a held state that someone has to
+  # approve, again after every push (GitHub, 11 June 2026). So after each
+  # push the content workflows dispatch this one on the `content-data`
+  # branch. Its `check` job reports on the branch's head commit, which is
+  # what the pull request is waiting for, and needs no click.
   # Anyone can also run it by hand on any branch from the Actions tab. It is
   # judged against `main`, as a pull request is.
   workflow_dispatch:
@@ -56,10 +58,33 @@ jobs:
 
       - name: Look for secrets before doing anything else
         # Cheap, and the one failure where finishing the build first would be
-        # actively unhelpful: every other job waits for this one.
+        # actively unhelpful: every other job waits for this one. On a push or
+        # a pull request the action scans that push's or that pull request's
+        # own commits.
+        if: github.event_name != 'workflow_dispatch'
         uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Look for secrets in the branch's own commits (a dispatch)
+        # On a dispatch the action scans every ref the checkout fetched, which
+        # is every branch in the repository, so a test fixture on an old branch
+        # that was never merged failed the content bots' first pull request
+        # (#261, ADR 0089). A dispatch is judged against `main`, as a pull
+        # request is, so this scans what the branch adds to `main` and nothing
+        # else: the same gitleaks the action runs (its default version),
+        # downloaded and checked against the release's SHA-256.
+        # scripts/secret-scan-rules.mjs holds the two steps together.
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GITLEAKS_VERSION: 8.24.3
+          GITLEAKS_SHA256: 9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c
+        run: |
+          archive="$RUNNER_TEMP/gitleaks.tar.gz"
+          curl -fsSL --retry 3 -o "$archive" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  $archive" | sha256sum --check --strict -
+          tar -xzf "$archive" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git --redact -v --log-opts="origin/main..HEAD" .
 
       - name: What kind of change is this
         id: scope

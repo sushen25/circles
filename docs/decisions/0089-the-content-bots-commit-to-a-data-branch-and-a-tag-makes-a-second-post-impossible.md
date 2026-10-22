@@ -28,9 +28,14 @@ included; every change goes through a pull request; protection is not bypassed
 or loosened; merging stays the founder's, and nothing auto-merges.
 
 Two facts about GitHub shape the design. A pull request opened, or a branch
-pushed, with the `GITHUB_TOKEN` starts no `pull_request` or `push` workflow, so
-the required `check` would never run on it; `workflow_dispatch` is the one
-trigger the token can fire. And opening a pull request with the token needs the
+pushed, with the `GITHUB_TOKEN` starts no `push` workflow, and its
+`pull_request` workflows start held, waiting for someone with write access to
+approve them, again after every push (GitHub's change of 11 June 2026, found on
+the first data pull request), so the required `check` would never run on it
+unattended; `workflow_dispatch` is the one trigger the token can fire that
+runs at once. A dispatched run uses the dispatched branch's own workflow
+files, and `gitleaks-action` scans every fetched branch on a dispatch, so
+`check.yml` scans only `origin/main..HEAD` on one. And opening a pull request with the token needs the
 repository setting "Allow GitHub Actions to create and approve pull requests",
 which is off.
 

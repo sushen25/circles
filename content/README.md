@@ -131,6 +131,28 @@ branch posts nothing and goes red.
   checks that branch out, or the line stays in your working tree and the
   next bot run is blocked.
 - Merging the data pull request never posts anything.
+- **Ignore "workflows awaiting approval"** on the data pull request. Since
+  11 June 2026, GitHub starts the `pull_request` workflows for a pull request
+  opened or pushed with `GITHUB_TOKEN`, but holds them until someone with
+  write access clicks **Approve workflows to run**, and holds them again
+  after every bot push. Nothing waits on them. A held run reports no check,
+  and the `check` that branch protection reads is the one the workflows
+  dispatch on the branch, which runs without a click. Approving is harmless.
+  It runs `check` and `content-check` on the pull request once, for that
+  push only. The banner would go away only if the bots pushed with a GitHub
+  App or a personal token instead of `GITHUB_TOKEN`. That would be a new
+  credential with write access to the repository, so it is not done.
+- **Once, for the first data pull request (#261) only, approve its held runs.**
+  A dispatched `check` runs the branch's own copy of `check.yml`, and the
+  bots cannot bring a newer copy onto `content-data` (GitHub refuses a
+  `GITHUB_TOKEN` push that changes a workflow). That branch was cut before
+  `check` scanned only a dispatch's own commits. Its dispatched `check`
+  scans every branch in the repository, finds an old test fixture on a
+  branch that was never merged, and stays red. The held `pull_request` run
+  of `check` uses `main`'s workflow and scans only the pull request's
+  commits, so approve it, and merge once it is green. If a bot pushes
+  before you merge, approve again on the new head. Every data branch after
+  that is cut from `main` and needs no click.
 
 **When the publisher goes red with `BLOCKED …`**: before it calls a
 platform it pushes a tag, `content-attempt/<platform>/<slug>`. If a tag has
