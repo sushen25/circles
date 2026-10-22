@@ -75,9 +75,9 @@ jobs:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           YOUTUBE_CHANNEL_ID: ${{ vars.YOUTUBE_CHANNEL_ID }}
       # Only series.jsonl, and only once it exists: the file is created by the
-      # first run that finds a young post. A rejected push is retried once on
-      # top of what is there; failing twice is red, and the rows are lost (the
-      # next run reads the same posts again).
+      # first run that finds a young post. A push that is not a
+      # fast-forward is red, and the rows are lost (the next run reads the same
+      # posts again).
       - id: save
         name: commit the series rows to content-data
         if: ${{ always() && steps.data.outcome == 'success' }}

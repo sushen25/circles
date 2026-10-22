@@ -122,7 +122,14 @@ branch posts nothing and goes red.
   the `/daily` and `/retro` Routines, which read a clone of `main`, see
   last week's `learned.md`, scorecard and inbox.
 - **Do not close the pull request and delete the branch unmerged**: the rows
-  are lost. (Posts are not repeated either way.)
+  are lost, and so is a hand-claimed post's ledger line. (A scripted post is
+  not repeated either way: its tag stays and the publisher blocks until you
+  record it.)
+- **A real `npm run publish` on your laptop** pushes to the same tags, and
+  saves its ledger line only when you are on `content-data`: run
+  `node --experimental-strip-types lib/databranch.ts sync` first, which
+  checks that branch out, or the line stays in your working tree and the
+  next bot run is blocked.
 - Merging the data pull request never posts anything.
 
 **When the publisher goes red with `BLOCKED …`**: before it calls a
@@ -136,9 +143,19 @@ npm run posted -- <platform> <slug> <url-or-id>   # it is live: records it
 npm run attempt -- clear <platform> <slug>        # it is not: lets the publisher try again
 ```
 
-Run them in a clone that has the branch merged into it (`git fetch && git
-merge origin/content-data`), commit the ledger line through a pull request,
-and the next run sees it. `npm run attempt -- attempts` lists the attempts.
+Run `posted` on the data branch itself, so the next run sees the row at once
+and no pull request or `check` stands in the way:
+
+```
+cd content
+git fetch origin && git switch -C content-data origin/content-data
+npm run posted -- <platform> <slug> <url-or-id>
+git add -A . && git commit -m "content: claim <platform> <slug>" && git push origin content-data
+```
+
+`npm run attempt -- attempts` lists the attempts. For TikTok, "it is live"
+means the draft is in your inbox: post it from the app first, then `posted`
+with the video's id; clearing the tag makes the publisher draft it again.
 A platform error (a 5xx, a timeout) leaves its tag in place on purpose: the
 platform may have taken the post before it answered.
 

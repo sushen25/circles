@@ -42,7 +42,12 @@ which is off.
 already merged, and otherwise the branch with `main` merged into it, so a run
 sees every row, ledger line and `published:` id the earlier runs wrote that the
 founder has not merged yet, and every queue file the founder has. It commits to
-that branch and pushes it. It never runs `git push` to `main`, and no workflow
+that branch and pushes it. A data commit is built on the branch's tip from the
+tip's tree plus the files the run wrote, and nothing from `main`: GitHub
+refuses a push made with `GITHUB_TOKEN` that changes `.github/workflows/`, and
+`main` changes those most weeks, so the merge of `main` is never pushed. The
+rows are `merge=union` in `content/.gitattributes`, so a human and a bot
+adding lines to the same ledger do not conflict. It never runs `git push` to `main`, and no workflow
 step runs `git push` at all: `databranch.ts` is the one place that pushes, to
 `content-data` and to the attempt tags below. `check:workflows` holds both.
 
@@ -76,12 +81,12 @@ that both mean to post the same piece, only one creates it. Then:
   <id>` or `npm run attempt -- clear <platform> <slug>`. A tag that cannot be
   listed is the same as one that is there.
 - A failure from a platform's adapter leaves its attempt in place: the platform
-  may have taken the post before the error. The run stops after it and goes
-  red; nothing else is posted in it.
+  may have taken the post before the error. The run stops at it, even in the
+  middle of a piece, and goes red; nothing else is posted in it.
 - The ledger and ids are pushed to `content-data` straight after each piece,
-  and again by a last step that runs even if the publisher failed. A rejected
-  push is rebased once; failing twice is a red job, and the tag keeps the next
-  run from posting.
+  and again by a last step that runs even if the publisher failed. A push that
+  is not a fast-forward is a red job, and the tag keeps the next run from
+  posting.
 - The three workflows share one concurrency group, `content-data`, with no
   cancellation, so they never write the branch, or post, beside each other.
 
@@ -131,6 +136,16 @@ that both mean to post the same piece, only one creates it. Then:
   there and on `main` only after the merge.
 - `check` runs again (dispatched) after every push of the bots to the branch.
   On prose it is a few minutes.
+- A hand-claimed post (`by: hand`, written by `npm run posted` or the pull's
+  auto-claim) has no tag. Its ledger row lives on the data branch until
+  merged, so losing the branch unmerged can lose it. A scripted post is
+  always safe.
+- TikTok is only ever a draft: for a blocked TikTok attempt, "it is there"
+  means the draft is in the inbox. Post it from the app, then `npm run posted
+  -- tiktok …`; clearing the tag makes the publisher draft it again.
+- The switch to this design: a `content-publish` run from before ADR 0089 uses
+  the old `main` ledger and no tags. Merge it when nothing approved is due, and
+  never re-run an old workflow run.
 - A transient platform error, which used to be retried half an hour later, now
   stops the publisher until a person has looked. That is the price of "if it
   cannot be sure, it posts nothing".

@@ -5,7 +5,7 @@
  * for. Nothing here touches the network, and nothing is posted anywhere.
  */
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
 import { sync, clear, type Ctx } from '../lib/databranch.ts';
@@ -94,6 +94,25 @@ test('the previous run went red mid-post: the next run posts nothing until a per
   assert.equal(second.code, 1);
   assert.equal(c.posts, 1, 'the platform may have taken it; no retry');
   assert.match(second.lines, /BLOCKED bluesky test-piece[\s\S]*npm run attempt -- clear bluesky test-piece/);
+});
+
+test('after a platform fails, nothing else in that item is posted either', async () => {
+  const o = makeOrigin();
+  const dir0 = o.clone();
+  const f = join(dir0, 'queue/2026-10-22-test-piece.md');
+  writeFileSync(f, readFileSync(f, 'utf8').replace('platforms: [bluesky]', 'platforms: [bluesky, linkedin]') + '\n## linkedin\n\n> A different caption for LinkedIn.\n');
+  git(dir0, 'add', '-A');
+  git(dir0, '-c', 'user.name=h', '-c', 'user.email=h@example.com', 'commit', '-q', '-m', 'two platforms');
+  git(dir0, 'push', '-q', 'origin', 'main');
+  const calls: string[] = [];
+  const adapters = {
+    bluesky: async () => (calls.push('bluesky'), Promise.reject(new Error('503'))),
+    linkedin: async () => (calls.push('linkedin'), 'urn:1'),
+  };
+  process.env.LINKEDIN_ACCESS_TOKEN = 'x';
+  const r = await run(o, adapters);
+  assert.equal(r.code, 1);
+  assert.deepEqual(calls, ['bluesky']);
 });
 
 test('after a person clears an attempt that did not go out, the piece is tried again', async () => {

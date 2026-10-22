@@ -264,6 +264,7 @@ export async function runPublish(opts: Options, deps: Deps): Promise<number> {
         // nothing until a person has looked (see the BLOCKED line above).
         failed = true;
         allDone = false;
+        break;
       }
     }
 

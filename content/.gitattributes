@@ -1,0 +1,2 @@
+# Rows are only ever appended, by the bots and by hand: when main and content-data both add lines, keep both (ADR 0089).
+*.jsonl merge=union

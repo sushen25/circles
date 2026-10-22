@@ -44,6 +44,7 @@ export function makeOrigin(): Origin {
   writeFileSync(join(seed, 'queue', '2026-10-22-test-piece.md'), QUEUE_FILE);
   writeFileSync(join(seed, 'publish', 'ledger.jsonl'), '');
   writeFileSync(join(seed, 'analytics', 'posts.jsonl'), '');
+  writeFileSync(join(seed, '.gitattributes'), '*.jsonl merge=union\n');
   git(seed, 'add', '-A');
   git(seed, 'commit', '-q', '-m', 'seed');
   git(seed, 'push', '-q', 'origin', 'main');

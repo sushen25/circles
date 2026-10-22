@@ -104,8 +104,8 @@ jobs:
       # into a queue file and a row into publish/ledger.jsonl, and the move
       # that follows deletes from queue/ and adds to published/. `-A` with the
       # pathspec stages the deletion as well as the addition. inbox/screens/
-      # is git-ignored, so a screenshot is never staged. A rejected push is
-      # retried once on top of what is there; failing twice is red.
+      # is git-ignored, so a screenshot is never staged. A push that is not a
+      # fast-forward is red, and this run's rows are not saved.
       - id: save
         name: commit rows, replies, claims, moves and the brief to content-data
         if: ${{ always() && steps.data.outcome == 'success' }}
