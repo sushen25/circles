@@ -76,7 +76,7 @@ export default {
       { day: 24, when: 'Eve', label: 'Thu 24 Sep', time: '6:30–10:30 pm' },
     ],
     sentLine: 'Done. Your times are in.',
-    sentSub: 'Your friends only see the combined result.',
+    sentSub: 'Your friends see who can make each time, never your calendar.',
   },
   scene(p, ctx, tl, root) {
     root.classList.add('screen');
@@ -105,7 +105,7 @@ export default {
     body.appendChild(ans);
     const foot = el('div', 'ph-foot');
     const btn = el('div', 'ph-btn pri', 'Send my times');
-    foot.append(btn, el('div', 'ph-fine', 'Your friends only see a combined result. Never your calendar.'));
+    foot.append(btn, el('div', 'ph-fine', "Your friends will see who can make each suggested time. They won't see your calendar, or your whole availability with your name on it."));
     const sent = el('div', 'ph-sent');
     sent.append(el('div', 'ok', '✓ Sent'), el('div', 'big', esc(p.sentLine || 'Done. That took about 20 seconds.')), el('div', 'fine', esc(p.sentSub || "We'll tell you when it's locked in.")));
     ph.append(body, foot, sent);
