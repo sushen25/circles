@@ -1,4 +1,6 @@
 // @e2e: core
+import { randomBytes } from 'node:crypto';
+
 import { expect, test, type Page } from './fixtures';
 import { signedInAs } from './journeys';
 import {
@@ -114,7 +116,7 @@ test('the owner cancels old invitations: the old one stops, the plan already sha
   const circleId = circleOwnedBy(maya.userId, 'Sunday Crew');
   const plan = planFor(circleId, maya.userId);
   // An invitation already in a chat.
-  const old = `old${'x'.repeat(48)}`;
+  const old = randomBytes(32).toString('base64url');
   sql(`insert into public.circle_invites (circle_id, secret_hash, created_by)
        values ('${circleId}', extensions.digest('${old}', 'sha256'), '${maya.userId}')`);
 
@@ -154,5 +156,5 @@ test('the owner cancels old invitations: the old one stops, the plan already sha
   await other.getByLabel('Your name').fill('Ada');
   await other.getByRole('button', { name: 'Continue' }).click();
   await expect(other).toHaveURL(new RegExp(`/j/${plan.code}$`));
-  expect(memberNamed(circleId, 'Ada')).toBeDefined();
+  await expect.poll(() => memberNamed(circleId, 'Ada')).toBeDefined();
 });

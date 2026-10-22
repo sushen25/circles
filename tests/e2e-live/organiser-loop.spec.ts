@@ -142,7 +142,8 @@ test('five answers to a lock-in, a calendar file, the morning after, and circle 
     where plan_id = '${plan.id}' and status = 'active'`);
 
   await page.goto(`/circles/${circleId}`);
-  await expect(page.getByText('Not yet')).toBeVisible();
+  // The circle has not met: nothing to say of last time (SUS-248).
+  await expect(page.getByText('Last caught up')).toHaveCount(0);
   await expect(page.getByText(/^Did .+'s catch-up happen\?$/)).toBeVisible();
   await page.getByRole('button', { name: 'Answer' }).click();
   await page.getByRole('radio', { name: 'It happened' }).click();
@@ -150,7 +151,7 @@ test('five answers to a lock-in, a calendar file, the morning after, and circle 
   await page.getByRole('button', { name: 'Save' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/circles/${circleId}$`));
-  await expect(page.getByText('Not yet')).toHaveCount(0);
+  await expect(page.getByText('Last caught up')).toBeVisible();
   await expect(page.getByText(/^Did .+'s catch-up happen\?$/)).toHaveCount(0);
   expect(
     sql(`select last_met_at is not null from public.circles where id = '${circleId}'`)[0]![0],
