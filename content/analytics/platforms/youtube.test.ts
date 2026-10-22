@@ -480,10 +480,10 @@ describe('replies', () => {
     assert.deepEqual(await youtube.replies(VIDEO_ID), []);
   });
 
-  test('a private video with a key is an empty list and no commentThreads call', async () => {
+  test('a private video with a key alone is Unreadable, a skip for the pull, and no commentThreads call', async () => {
     withKey();
     serve([VIDEOS, () => ({ items: [] })]);
-    assert.deepEqual(await youtube.replies(VIDEO_ID), []);
+    await assert.rejects(youtube.replies(VIDEO_ID), (e: Error) => e instanceof Unreadable && /YOUTUBE_API_KEY/.test(e.message) && /private/.test(e.message));
     assert.equal(made(THREADS).length, 0);
   });
 
@@ -494,13 +494,128 @@ describe('replies', () => {
     assert.equal(made(THREADS).length, 2);
   });
 
-  test('with readonly the bearer reads a private video and its comments', async () => {
+  test('a key beside a readonly bearer: the bearer reads the video and its stats, the key reads every comment', async () => {
+    withKey();
     withOAuth();
-    serve(...oauthRoutes('youtube.readonly'), [VIDEOS, () => VIDEO], [THREADS, () => page([thread(fan1)])]);
+    const big = { ...thread(fan1, [fan2]), snippet: { videoId: VIDEO_ID, topLevelComment: fan1, totalReplyCount: 3 } };
+    serve(
+      ...oauthRoutes('youtube.upload', 'youtube.readonly', 'yt-analytics.readonly'),
+      [VIDEOS, () => VIDEO],
+      [REPORTS, reports],
+      [THREADS, () => page([big])],
+      [COMMENTS, () => ({ items: [ownReply, fan2] })],
+    );
+    const { metrics } = await youtube.metrics(VIDEO_ID);
+    assert.equal(metrics.views, 1234);
+    const out = await youtube.replies(VIDEO_ID);
+    assert.deepEqual(out.map((r) => r.id), ['c1', 'c1.r2']);
+    for (const c of made(VIDEOS)) {
+      assert.equal(c.headers.Authorization, `Bearer ${ACCESS}`);
+      assert.equal(q(c, 'key'), null);
+    }
+    for (const c of [...made(THREADS), ...made(COMMENTS)]) {
+      assert.equal(q(c, 'key'), KEY);
+      assert.equal(c.headers.Authorization, undefined, 'no bearer on a comment read');
+    }
+    assert.equal(made(THREADS).length, 1);
+    assert.equal(made(COMMENTS).length, 1);
+  });
+
+  test('a readonly bearer and no key: Unreadable naming YOUTUBE_API_KEY, and no comment call', async () => {
+    withOAuth();
+    serve(...oauthRoutes('youtube.upload', 'youtube.readonly', 'yt-analytics.readonly'), [VIDEOS, () => VIDEO]);
+    await assert.rejects(
+      youtube.replies(VIDEO_ID),
+      (e: Error) => e instanceof Unreadable && /YOUTUBE_API_KEY/.test(e.message) && /force-ssl/.test(e.message),
+    );
+    assert.equal(made(THREADS).length, 0);
+    assert.equal(made(COMMENTS).length, 0);
+  });
+
+  test('a private video the bearer can see, with a key: Unreadable, and the key is not tried', async () => {
+    withKey();
+    withOAuth();
+    const priv = { items: [{ ...VIDEO.items[0], status: { privacyStatus: 'private' } }] };
+    serve(...oauthRoutes('youtube.readonly'), [VIDEOS, () => priv]);
+    await assert.rejects(youtube.replies(VIDEO_ID), (e: Error) => e instanceof Unreadable && /YOUTUBE_API_KEY/.test(e.message) && /private/.test(e.message));
+    assert.equal(made(THREADS).length, 0);
+  });
+
+  test('the key refused on a video it cannot see is Unreadable, not a failure', async () => {
+    withKey();
+    for (const [status, why] of [
+      [403, 'forbidden'],
+      [404, 'videoNotFound'],
+    ] as const) {
+      reset();
+      serve([VIDEOS, () => VIDEO], [THREADS, () => json({ error: { code: status, message: 'no', errors: [{ reason: why, domain: 'youtube.commentThread' }] } }, status)]);
+      await assert.rejects(youtube.replies(VIDEO_ID), (e: Error) => e instanceof Unreadable && /YOUTUBE_API_KEY/.test(e.message), why);
+    }
+  });
+
+  test('a bearer refused for its scopes (403 insufficientPermissions) is Unreadable, on the threads or the paged replies', async () => {
+    withOAuth();
+    const refused = () =>
+      json(
+        {
+          error: {
+            code: 403,
+            message: 'Request had insufficient authentication scopes.',
+            errors: [{ message: 'Insufficient Permission', domain: 'global', reason: 'insufficientPermissions' }],
+            status: 'PERMISSION_DENIED',
+            details: [{ '@type': 'type.googleapis.com/google.rpc.ErrorInfo', reason: 'ACCESS_TOKEN_SCOPE_INSUFFICIENT' }],
+          },
+        },
+        403,
+      );
+    // tokeninfo says force-ssl, so the bearer is tried; Google refuses it anyway.
+    serve(...oauthRoutes('youtube.readonly', 'youtube.force-ssl'), [VIDEOS, () => VIDEO], [THREADS, refused]);
+    await assert.rejects(youtube.replies(VIDEO_ID), (e: Error) => e instanceof Unreadable && /YOUTUBE_API_KEY/.test(e.message));
+    assert.equal(made(THREADS)[0].headers.Authorization, `Bearer ${ACCESS}`);
+
+    reset();
+    const big = { ...thread(fan1, [fan2]), snippet: { videoId: VIDEO_ID, topLevelComment: fan1, totalReplyCount: 5 } };
+    serve(...oauthRoutes('youtube.readonly', 'youtube.force-ssl'), [VIDEOS, () => VIDEO], [THREADS, () => page([big])], [COMMENTS, refused]);
+    await assert.rejects(youtube.replies(VIDEO_ID), (e: Error) => e instanceof Unreadable);
+  });
+
+  test('a token that already carries force-ssl reads comments with no key', async () => {
+    withOAuth();
+    serve(...oauthRoutes('youtube.force-ssl'), [VIDEOS, () => VIDEO], [THREADS, () => page([thread(fan1)])]);
     const out = await youtube.replies(VIDEO_ID);
     assert.equal(out.length, 1);
     assert.equal(made(THREADS)[0].headers.Authorization, `Bearer ${ACCESS}`);
     assert.equal(q(made(THREADS)[0], 'key'), null);
+  });
+
+  test('no key, token or secret in any message replies() throws', async () => {
+    const messages: string[] = [];
+    const grab = async () => {
+      try {
+        await youtube.replies(VIDEO_ID);
+        assert.fail('expected a throw');
+      } catch (e) {
+        messages.push((e as Error).message);
+      }
+    };
+    const refused = (status: number, why: string) => () => json({ error: { code: status, message: `bad key=${KEY} Bearer ${ACCESS}`, errors: [{ reason: why }] } }, status);
+    const cases: [setup: () => void, routes: Route[]][] = [
+      [withKey, [[VIDEOS, () => ({ items: [] })]]],
+      [withKey, [[VIDEOS, () => VIDEO], [THREADS, refused(403, 'forbidden')]]],
+      [withKey, [[VIDEOS, () => VIDEO], [THREADS, refused(400, 'badRequest')]]],
+      [withOAuth, [...oauthRoutes('youtube.readonly'), [VIDEOS, () => VIDEO]]],
+      [withOAuth, [...oauthRoutes('youtube.force-ssl'), [VIDEOS, () => VIDEO], [THREADS, refused(403, 'insufficientPermissions')]]],
+      [withOAuth, [...oauthRoutes('youtube.upload'), [VIDEOS, () => VIDEO]]],
+    ];
+    for (const [setup, routes] of cases) {
+      for (const k of Object.keys(process.env)) if (k.startsWith('YOUTUBE_')) delete process.env[k];
+      reset();
+      setup();
+      serve(...routes);
+      await grab();
+    }
+    assert.equal(messages.length, cases.length);
+    for (const m of messages) for (const secret of [KEY, ACCESS, REFRESH, 'yt-client-secret-SECRET']) assert.ok(!m.includes(secret), `${secret} in "${m}"`);
   });
 });
 

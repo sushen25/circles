@@ -42,7 +42,9 @@ platforms, a reply in `inbox/`, a transcribed screen) waits on them.
    `yt-analytics.readonly`; replace `YOUTUBE_REFRESH_TOKEN` in `.env` and
    the secrets. Until then the API key reads the public numbers and the
    comment text; retention, traffic sources and the subscribed split come
-   only with the re-consent.
+   only with the re-consent. Keep the key after it: comments are read with
+   the key alone, because OAuth reads them only under `youtube.force-ssl`,
+   which can also edit and delete them and is never requested.
 3. **The Threads sign-in** (`threads_basic`, `threads_manage_insights`,
    `threads_read_replies`), the long-lived token into `.env` and the
    secrets. The publisher needs the same token, so this unblocks posting to
