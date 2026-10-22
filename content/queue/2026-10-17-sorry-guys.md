@@ -75,7 +75,7 @@ hashtags: #friends #melbourne #groupchat #catchup
 >
 > Reading through threads like it, the pattern isn't that people don't want to come. Agreeing in the group is easy and saying no in the group is hard, so the no happens privately a few days later and the plan falls over.
 >
-> What I'm building in Melbourne starts from that. One link in the chat, each person marks the times they'd actually be up for, and the group sees who can make each time, never anyone's calendar. Nobody is called out for not replying.
+> What I'm building in Melbourne starts from that. One link in the chat, each person marks the times they'd actually be up for, and the group sees who can make each suggested time, never anyone's calendar. Nobody is called out for not replying.
 >
 > How long has a "we should catch up" gone in your group before it actually happened?
 
