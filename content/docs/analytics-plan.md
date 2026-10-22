@@ -629,9 +629,17 @@ draft is not a post) falls inside the fortnight. Views (TikTok) is the sum
 of the latest TikTok views with n, Saves+shares /1k the median day-7 rate
 per platform with n (or "too early"), and Circles made and Plans shared stay
 blank until phase 3. With no `--fortnight` it takes the latest fortnight
-that has ended. Day 30 is counted from the first row a family appears in;
-the script prints the day-7 lift by family with n, and the kill-two,
-double-one proposal is the skill's, never the script's. The Routine is set
+that has ended and refuses when none has; an explicit one may be running,
+and says so. A row it cannot rebuild cell for cell is refused before
+anything is written. Day 30 is counted from the first row a family appears
+in (its start is day 1) and is due at the last retro before it, for the
+families with a row in the fortnight: with rows starting 20 October, that
+is the 17 November retro, for day 30 on the 18th. The script prints the
+day-7 lift by family with n; the kill-two, double-one proposal is the
+skill's, never the script's, and shrinks with fewer than three ranked
+families. A row is filled once, the morning after its fortnight ends, so
+a piece from its second week is not yet seven days old and is not in its
+day-7 median; the n says so, and the scorecard keeps the later number. The Routine is set
 up by hand in Claude Code (README, setup step 6).
 
 **Phase 5: later, by evidence.** TikTok's Display API once views are the
