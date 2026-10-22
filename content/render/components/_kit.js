@@ -9,7 +9,7 @@
  * only on purpose.
  */
 
-/** @typedef {'pop' | 'send' | 'tick' | 'thud'} CueKind */
+/** @typedef {'pop' | 'send' | 'tick' | 'thud' | 'note1' | 'note2' | 'note3' | 'note4' | 'note5' | 'note6' | 'note7' | 'note8'} CueKind */
 /** @typedef {{ at: number, kind: CueKind }} Cue */
 /**
  * @typedef {object} Ctx
@@ -39,6 +39,13 @@ export const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
 export const EASE_IN_OUT = 'cubic-bezier(0.77, 0, 0.175, 1)';
 /** iOS-like curve: a list making room for a new item (the chat stack moving up). */
 export const EASE_DRAWER = 'cubic-bezier(0.32, 0.72, 0, 1)';
+
+/** The piece's motion tone. stage.js sets it at the start of build(); components read it. */
+export const tone = { calm: false };
+/** @param {unknown} motion the skit's `motion` field: "calm", or anything else for lively */
+export function setTone(motion) {
+  tone.calm = motion === 'calm';
+}
 
 /** Characters a second a viewer reads a hook at; an opener holds at least that long (plus 0.5 s). */
 export const HOOK_CPS = 15;
@@ -91,7 +98,9 @@ export const show = (node, at, dur = 0.01) => anim(node, [{ opacity: 0 }, { opac
 export const hide = (node, at, dur = 0.01) => anim(node, [{ opacity: 1 }, { opacity: 0 }], at, dur, EASE, 'forwards');
 /** @param {Element} node @param {number} at @param {number} [dur] */
 export const pop = (node, at, dur = 0.32) =>
-  anim(node, [{ opacity: 0, transform: 'translateY(40px) scale(.92)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], at, dur, SPRING);
+  tone.calm
+    ? anim(node, [{ opacity: 0, transform: 'translateY(24px) scale(.96)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], at, dur, EASE_OUT)
+    : anim(node, [{ opacity: 0, transform: 'translateY(40px) scale(.92)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], at, dur, SPRING);
 /** @param {Element} node @param {number} at @param {number} [dur] */
 export const rise = (node, at, dur = 0.3) =>
   anim(node, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'translateY(0)' }], at, dur);

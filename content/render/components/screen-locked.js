@@ -3,7 +3,7 @@
  * The locked-in screen inside a phone: date, time, place, who is going.
  * Queue JSON: `{ "type": "screen", "screen": "locked", ... }`.
  */
-import { anim, el, esc, known, pop, rise, SPRING, str, strList } from './_kit.js';
+import { anim, EASE_OUT, el, esc, known, pop, rise, SPRING, str, strList, tone } from './_kit.js';
 
 /**
  * @typedef {{ type: 'screen', screen: 'locked', lead?: string, circle?: string, date?: string, time?: string,
@@ -88,7 +88,9 @@ export default {
 
     tl.enter(root, t);
     pop(lead, t + 0.05, 0.3);
-    anim(ph, [{ opacity: 0, transform: 'translateY(120px) scale(.96)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], t + 0.15, 0.5, SPRING);
+    const phoneIn = [{ opacity: 0, transform: 'translateY(120px) scale(.96)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }];
+    if (tone.calm) anim(ph, phoneIn, t + 0.15, 0.7, EASE_OUT);
+    else anim(ph, phoneIn, t + 0.15, 0.5, SPRING);
     tl.cue('thud', t + 0.15);
     const avAt = items.indexOf(av);
     const head = items.slice(0, avAt); // label, date, time and, when given, the place
@@ -96,7 +98,8 @@ export default {
     const avStart = t + 0.45 + head.length * 0.1 + 0.05;
     av.querySelectorAll('.a').forEach((a, i) => {
       anim(a, [{ opacity: 0, transform: 'scale(.4)' }, { opacity: 1, transform: 'scale(1)' }], avStart + i * 0.1, 0.26, SPRING);
-      tl.cue('pop', avStart + i * 0.1);
+      // calm: each mark lands one note higher
+      tl.cue(tone.calm ? /** @type {any} */ (`note${Math.min(8, i + 1)}`) : 'pop', avStart + i * 0.1);
     });
     const goingAt = avStart + people.length * 0.1;
     rise(items[avAt + 1], goingAt, 0.3); // "4 of 4 going"

@@ -37,6 +37,15 @@ const SFX: Record<Cue['kind'], string> = {
   send: "aevalsrc='0.32*(sin(2*PI*660*t)+sin(2*PI*990*t))*exp(-t*26)':d=0.2:s=44100",
   tick: "aevalsrc='0.3*sin(2*PI*1480*t)*exp(-t*70)':d=0.08:s=44100",
   thud: "aevalsrc='0.55*sin(2*PI*110*t)*exp(-t*16)':d=0.35:s=44100",
+  // the calm tone's lock-in marks: a rising F major pentatonic
+  note1: "aevalsrc='0.32*sin(2*PI*698.46*t)*exp(-t*22)':d=0.3:s=44100",
+  note2: "aevalsrc='0.32*sin(2*PI*783.99*t)*exp(-t*22)':d=0.3:s=44100",
+  note3: "aevalsrc='0.32*sin(2*PI*880.00*t)*exp(-t*22)':d=0.3:s=44100",
+  note4: "aevalsrc='0.32*sin(2*PI*1046.50*t)*exp(-t*22)':d=0.3:s=44100",
+  note5: "aevalsrc='0.32*sin(2*PI*1174.66*t)*exp(-t*22)':d=0.3:s=44100",
+  note6: "aevalsrc='0.32*sin(2*PI*1396.91*t)*exp(-t*22)':d=0.3:s=44100",
+  note7: "aevalsrc='0.32*sin(2*PI*1567.98*t)*exp(-t*22)':d=0.3:s=44100",
+  note8: "aevalsrc='0.32*sin(2*PI*1760.00*t)*exp(-t*22)':d=0.3:s=44100",
 };
 
 function ffmpeg(args: string[]) {

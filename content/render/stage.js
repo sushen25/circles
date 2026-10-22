@@ -8,7 +8,7 @@
  * each scene's poster frame (or draw the component's still() override).
  */
 import { resolve } from './components/index.js';
-import { anim, el, esc, injectCss, ms, takesCaption, Timeline } from './components/_kit.js';
+import { anim, el, esc, injectCss, ms, setTone, takesCaption, Timeline } from './components/_kit.js';
 
 export { captionErrors } from './components/_kit.js';
 
@@ -21,10 +21,11 @@ const state = { skit: null, scenes: [], roots: [] };
 const ctxFor = (skit, index) => ({ me: skit.me || null, index, count: skit.slides.length, cast: skit.cast });
 
 /**
- * @param {{ me?: string, cast?: string[], slides: any[] }} skit
+ * @param {{ me?: string, cast?: string[], motion?: string, slides: any[] }} skit
  * @returns {{ total: number, events: import('./components/_kit.js').Cue[], scenes: SceneInfo[] }}
  */
 export function build(skit) {
+  setTone(skit.motion);
   for (const n of [...state.roots, ...document.querySelectorAll('.blob, .scene')]) n.remove();
   state.scenes = [];
   state.roots = [];
