@@ -218,6 +218,17 @@ export function contentHeight(stream) {
 }
 
 /**
+ * glide() on every child of a stack. The stack itself must not move: it clips its overflow and
+ * fades its top with a mask, and both would travel with it (the top of a full chat would vanish
+ * in one frame instead of sliding out). The arriving child stays out of it: it is bottom-anchored,
+ * so it appears in its final place and only the items above it move.
+ * @param {Element} stream @param {number} at @param {number} dy @param {Element} arriving
+ */
+export function glideChildren(stream, at, dy, arriving) {
+  for (const child of stream.children) if (child !== arriving) glide(child, at, dy);
+}
+
+/**
  * A new `.scene` inserted just before `before`: for a component that plays
  * an extra full-screen card ahead of its own scene (chat's time skip).
  * @param {HTMLElement} before

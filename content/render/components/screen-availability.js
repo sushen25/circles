@@ -76,7 +76,7 @@ export default {
       { day: 24, when: 'Eve', label: 'Thu 24 Sep', time: '6:30–10:30 pm' },
     ],
     sentLine: 'Done. Your times are in.',
-    sentSub: 'Your friends see who can make each time, never your calendar.',
+    sentSub: 'Your friends see who can make each suggested time, never your calendar.',
   },
   scene(p, ctx, tl, root) {
     root.classList.add('screen');

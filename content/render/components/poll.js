@@ -9,7 +9,7 @@
  * accent. Optional trailing messages arrive behind typing bubbles, the same
  * mechanic as chat.
  */
-import { anim, contentHeight, EASE, EASE_IN_OUT, el, esc, GAP, glide, known, naturalHeight, pop, reserve, rise, SPRING, str, unreserve } from './_kit.js';
+import { anim, contentHeight, EASE, EASE_IN_OUT, el, esc, GAP, glideChildren, known, naturalHeight, pop, reserve, rise, SPRING, str, unreserve } from './_kit.js';
 
 /**
  * @typedef {{ label: string, votes: string[] }} Option
@@ -234,7 +234,7 @@ export default {
         typingH = naturalHeight(typing);
         reserve(typing, tl.now, typingH);
         pop(typing, tl.now, 0.2);
-        glide(stream, tl.now, typingH + GAP);
+        glideChildren(stream, tl.now, typingH + GAP, typing);
         tl.add(0.5);
       }
       const t = tl.now;
@@ -252,13 +252,13 @@ export default {
       }
       reserve(node, t, nodeH);
       pop(node, t, 0.3);
-      glide(stream, t, typing ? nodeH - typingH : nodeH + GAP);
+      glideChildren(stream, t, typing ? nodeH - typingH : nodeH + GAP, node);
       tl.cue(isMe ? 'send' : 'pop', t);
       tl.add(0.35 + 0.02 * m.text.length);
     });
 
     // still: a poll too long for its slide fades out under its header instead of running into it
-    if (document.body.classList.contains('still') && contentHeight(stream) > stream.clientHeight) stream.classList.add('overflows');
+    if (document.body.classList.contains('still') && contentHeight(stream) > stream.clientHeight + 40) stream.classList.add('overflows');
     tl.add(1.0);
     const end = tl.now;
     anim(stream, [{ transform: 'scale(1)' }, { transform: 'scale(1.02)' }], end - 2, 2.2, EASE_IN_OUT, 'both', 'add');

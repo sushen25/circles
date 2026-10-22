@@ -4,7 +4,7 @@
  * link card. A `when` with no digits ("Three weeks later") first plays the
  * full-screen time-skip card.
  */
-import { anim, contentHeight, EASE_IN_OUT, EASE_OUT, el, esc, GAP, glide, known, naturalHeight, pop, reserve, sceneBefore, str, unreserve } from './_kit.js';
+import { anim, contentHeight, EASE_IN_OUT, EASE_OUT, el, esc, GAP, glideChildren, known, naturalHeight, pop, reserve, sceneBefore, str, unreserve } from './_kit.js';
 import { skipCard } from './_skip.js';
 
 /**
@@ -131,7 +131,7 @@ export default {
         typingH = naturalHeight(typing);
         reserve(typing, tl.now, typingH);
         pop(typing, tl.now, 0.2);
-        glide(stream, tl.now, typingH + GAP);
+        glideChildren(stream, tl.now, typingH + GAP, typing);
         tl.add(TYPE_FOR * pace);
       }
 
@@ -159,7 +159,7 @@ export default {
       }
       reserve(node, t, nodeH);
       pop(node, t, 0.3);
-      if (k > 0) glide(stream, t, typing ? nodeH - typingH : nodeH + GAP);
+      if (k > 0) glideChildren(stream, t, typing ? nodeH - typingH : nodeH + GAP, node);
       tl.cue(m.from === me ? 'send' : 'pop', t);
       prev = m.from;
       // reading time scales with length; the last message in a scene lingers
@@ -172,7 +172,7 @@ export default {
       tl.add(hold);
     });
     // still: a chat too long for its slide fades out under its header instead of running into it
-    if (document.body.classList.contains('still') && contentHeight(stream) > stream.clientHeight) stream.classList.add('overflows');
+    if (document.body.classList.contains('still') && contentHeight(stream) > stream.clientHeight + 40) stream.classList.add('overflows');
     const end = tl.now;
     anim(stream, [{ transform: 'scale(1)' }, { transform: 'scale(1.02)' }], end - 2, 2.2, EASE_IN_OUT, 'both', 'add');
     tl.exit(root, end - 0.22);

@@ -55,6 +55,9 @@ These hold whatever the shape. The same JSON renders as a slideshow
 - Names from the cast in voice.md, first names only. Nobody is the villain.
 - Set `"me"` on the skit to the character the viewer should identify with
   (their messages render right-aligned in accent). Usually the organiser.
+- `"motion"` on the skit is optional: `"lively"` (the default) or `"calm"` (smaller pops with no
+  overshoot, a gentler beat, a slower lock-in whose marks land on rising notes). Leave it out
+  unless the founder has picked calm. Neither changes a piece's length.
 - Time stamps are allowed and are the best joke there is ("Tue 9:14 pm",
   "Sun 7:42 pm, a month on").
 - `pace`: `"fast"` for the keen-at-first chat, `"slow"` on the slide where
@@ -131,14 +134,14 @@ and numbers, not benefits. A 5-message link chat gets it to 24 s.
 Seconds are measured from gallery fixtures; your props change them, the
 check output is the truth.
 
-- `cover` {line1, line2?} ~1.5 s. Use for a written hook (count, time, role,
+- `cover` {line1, line2?} 1.5–3.0 s (reading time; at rest from frame 0 as slide 1). Use for a written hook (count, time, role,
   contrast, plain). Not for a verbatim phrase: that is `quote`.
-- `quote` {text, source} 2.5–3.5 s. Use when the hook is a real person's
+- `quote` {text, source} 2.5–3.5 s (up to 4.0 s as slide 1: at rest from frame 0, held to be read). Use when the hook is a real person's
   line: `text` verbatim from hooks.md (the check fails anything else),
   `source` the subreddit or channel ("r/daddit", "DMs", "comments"), never
   `u/` or `@`. Not for a paraphrase. Inner quotes and ellipses render as
   written; only a matching pair of outer quote marks is removed.
-- `count` {lines[{n, of}]} 1.6–2.8 s. Use when a number is the hook: one to
+- `count` {lines[{n, of}]} 1.6–2.8 s (1.8–3.0 s as slide 1: at rest from frame 0). Use when a number is the hook: one to
   three lines, every number paired with its meaning ("0", "plans"). Not for
   a number that is not in the story or in facts.md.
 - `chat` {title, when?, pace?, messages[{from, text, link?}]} about 6 s. The
@@ -146,7 +149,7 @@ check output is the truth.
   `skip`. Not for a one-on-one: that is `dm`.
 - `skip` {line, sub?} 0.9 s. Use for the biggest time jump ("Five weeks
   later", sub: the chat title). Not more than one per piece.
-- `beat` {line} 1.2–1.6 s. The emotional summary after the before, three
+- `beat` {line} 2.3–3.2 s (it holds for its reading time, caption included; the caption rises after the last word). The emotional summary after the before, three
   words at most: "Every. Single. Time." / "Sorry guys…". Never a product
   line.
 - `dm` {a, b, when?, pace?, messages} about 8.4 s alone for the slow fixture. Use for what two people

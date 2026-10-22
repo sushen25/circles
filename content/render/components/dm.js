@@ -10,7 +10,7 @@
  * its own styles and renders correctly in a piece that has no `chat` slide.
  * A `when` with no digits plays the time-skip card first, like chat.
  */
-import { anim, el, esc, GAP, glide, known, naturalHeight, pop, reserve, sceneBefore, str, unreserve } from './_kit.js';
+import { anim, el, esc, GAP, glideChildren, known, naturalHeight, pop, reserve, sceneBefore, str, unreserve } from './_kit.js';
 import { skipCard } from './_skip.js';
 import { skipsTime } from './chat.js';
 
@@ -139,7 +139,7 @@ export default {
         typingH = naturalHeight(typing);
         reserve(typing, tl.now, typingH);
         pop(typing, tl.now, 0.2);
-        glide(stream, tl.now, typingH + GAP);
+        glideChildren(stream, tl.now, typingH + GAP, typing);
         tl.add(TYPE_FOR * pace);
       }
 
@@ -158,7 +158,7 @@ export default {
       }
       reserve(node, t, nodeH);
       pop(node, t, 0.3);
-      if (k > 0) glide(stream, t, typing ? nodeH - typingH : nodeH + GAP);
+      if (k > 0) glideChildren(stream, t, typing ? nodeH - typingH : nodeH + GAP, node);
       tl.cue(m.from === me ? 'send' : 'pop', t);
       prev = m.from;
       tl.add((0.35 + 0.02 * m.text.length + (last ? 0.45 : 0)) * pace);
