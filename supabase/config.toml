@@ -452,6 +452,13 @@ EMAIL_CAPTURE_URL = "http://inbucket:8025"
 # here, so nothing invokes it until somebody asks it to.
 CRON_SECRET = "local"
 
+# Local only, for the same reason: the bearer `content-funnel` compares against
+# (ADR 0087). It is a different word from `CRON_SECRET` on purpose, so a local
+# run shows each secret refused by the other's endpoint. `dev` and `prod` each
+# get their own random value from the runbook, and the same value is a GitHub
+# secret for the content loop. Unset, the function refuses every call.
+CONTENT_FUNNEL_SECRET = "local-funnel"
+
 # Local only, and the same kind of value: the key `get-invite-link` and
 # `rotate-invite` derive invite secrets with (ADR 0029), so that a local owner
 # can be shown their link again after a reload. `dev` and `prod` each set their
@@ -515,6 +522,15 @@ verify_jwt = false
 # constant time and refuses everything while the secret is unset, which is the
 # safe direction for an endpoint nobody signs in to reach.
 [functions.process-scheduled-jobs]
+verify_jwt = false
+
+# The content loop's read of the funnel by campaign tag (ADR 0087, SUS-244). The
+# caller is a GitHub Action holding `CONTENT_FUNNEL_SECRET`, which is a shared
+# secret and not a Supabase JWT, so the gateway would refuse every legitimate
+# call and check nothing. `_shared/internal.ts` compares it in constant time,
+# refuses everything while it is unset, and refuses `CRON_SECRET` as well: the
+# job processor's secret cannot read the funnel, nor this one run the processor.
+[functions.content-funnel]
 verify_jwt = false
 
 # The two links in an email. Opened by somebody who may have no account and no
