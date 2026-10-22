@@ -1,6 +1,6 @@
 // @ts-check
 /** A one-line punch between chats: each word slams in on its own line. */
-import { anim, el, esc, known, SPRING, str } from './_kit.js';
+import { anim, el, esc, HOOK_CPS, known, SPRING, str } from './_kit.js';
 
 /** @typedef {{ type: 'beat', line: string }} Props */
 
@@ -31,9 +31,13 @@ export default {
       tl.cue('thud', t + 0.05 + i * 0.3);
     });
     tl.enter(root, t);
-    const dur = 0.05 + words.length * 0.3 + 0.6;
+    const landed = t + 0.05 + (words.length - 1) * 0.3 + 0.18; // the last word is in place
+    const caption = /** @type {any} */ (p).caption;
+    const chars = p.line.length + (typeof caption === 'string' ? caption.trim().length : 0);
+    const read = Math.max(1.2, chars / HOOK_CPS);
+    const dur = landed - t + read + 0.22; // the hold, then the 0.22 s exit
     tl.exit(root, t + dur - 0.22);
     tl.add(dur);
-    return { poster: t + dur - 0.23 };
+    return { poster: t + dur - 0.23, settled: landed };
   },
 };

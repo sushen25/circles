@@ -25,7 +25,7 @@
  * @property {string} css                      this component's own rules, injected once per page
  * @property {(props: any) => string[]} schema returns [] or human-readable errors
  * @property {P} fixture                       realistic props the gallery renders
- * @property {(props: P, ctx: Ctx, tl: Timeline, root: HTMLElement) => { poster: number }} scene
+ * @property {(props: P, ctx: Ctx, tl: Timeline, root: HTMLElement) => { poster: number, settled?: number }} scene  `settled`: when the scene's content has finished arriving; the caption pill rises after it
  * @property {(props: P, ctx: Ctx) => string} [still]  override when the poster frame is the wrong picture
  * @property {boolean} [takesCaption]          false: stage.js never draws a slide's `caption` pill on this component
  */
