@@ -1,6 +1,6 @@
 {
-  "generated": "2026-10-22T11:26:46.646Z",
-  "day": "2026-10-22",
+  "generated": "2026-10-22T20:09:39.322Z",
+  "day": "2026-10-23",
   "pieces": [
     {
       "slug": "never-lead-anywhere",
@@ -25,7 +25,7 @@
         }
       },
       "latest": {
-        "age_days": 1.2,
+        "age_days": 1.56,
         "source": "pull",
         "metrics": {
           "likes": 0,
@@ -77,7 +77,7 @@
         }
       },
       "latest": {
-        "age_days": 1.2,
+        "age_days": 1.56,
         "source": "pull",
         "metrics": {
           "views": 129,
@@ -102,6 +102,11 @@
         }
       },
       "headline": "saves_shares_per_k",
+      "first48": {
+        "views": {
+          "h24": 129
+        }
+      },
       "screens": [],
       "replies": 0,
       "hook_quotes": 0
@@ -114,35 +119,56 @@
       "archetype": "quote",
       "ages": {
         "1": {
-          "age_days": 1.2,
+          "age_days": 1.56,
           "source": "pull",
           "metrics": {
-            "views": 26,
+            "views": 27,
             "likes": 0,
-            "comments": 0
+            "comments": 0,
+            "engaged_views": 0,
+            "watch_total_s": 0,
+            "watch_avg_s": 0,
+            "watch_pct": 0,
+            "shares": 0
           },
           "rates": {
+            "saves_shares_per_k": 0,
             "comments_per_k": 0,
+            "share_rate": 0,
             "comment_rate": 0,
-            "like_rate": 0
+            "like_rate": 0,
+            "watch_pct": 0
           }
         }
       },
       "latest": {
-        "age_days": 1.2,
+        "age_days": 1.56,
         "source": "pull",
         "metrics": {
-          "views": 26,
+          "views": 27,
           "likes": 0,
-          "comments": 0
+          "comments": 0,
+          "engaged_views": 0,
+          "watch_total_s": 0,
+          "watch_avg_s": 0,
+          "watch_pct": 0,
+          "shares": 0
         },
         "rates": {
+          "saves_shares_per_k": 0,
           "comments_per_k": 0,
+          "share_rate": 0,
           "comment_rate": 0,
-          "like_rate": 0
+          "like_rate": 0,
+          "watch_pct": 0
         }
       },
       "headline": "saves_shares_per_k",
+      "first48": {
+        "views": {
+          "h24": 26
+        }
+      },
       "screens": [],
       "replies": 0,
       "hook_quotes": 0
