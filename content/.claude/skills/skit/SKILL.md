@@ -245,7 +245,7 @@ media: slideshow
         { "day": 15, "when": "Eve", "label": "Thu 15 Oct", "time": "6:30–10 pm" },
         { "day": 22, "when": "Eve", "label": "Thu 22 Oct", "time": "6:30–10 pm" }
       ],
-      "sentLine": "Done. Your times are in.", "sentSub": "Your friends only see the combined result." },
+      "sentLine": "Done. Your times are in.", "sentSub": "Your friends see who can make each time, never your calendar." },
     { "type": "screen", "screen": "locked", "lead": "Priya locks it in. Everyone gets this.",
       "circle": "Thursday crew", "date": "Thursday 22 October", "time": "7–9:30 pm",
       "place": "Nina's place", "area": "Fitzroy",

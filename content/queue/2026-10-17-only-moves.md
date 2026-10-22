@@ -48,7 +48,7 @@ media: slideshow
         { "day": 22, "when": "Eve", "label": "Thu 22 Oct", "time": "7–10 pm" },
         { "day": 29, "when": "Eve", "label": "Thu 29 Oct", "time": "7–10 pm" }
       ],
-      "sentLine": "Done. Your times are in.", "sentSub": "Your friends only see the combined result." },
+      "sentLine": "Done. Your times are in.", "sentSub": "Your friends see who can make each time, never your calendar." },
     { "type": "screen", "screen": "locked", "lead": "Priya locks it in. Everyone gets this.",
       "circle": "The usual four", "date": "Thursday 29 October", "time": "7–9:30 pm",
       "place": "Marcus's place", "area": "Thornbury",
@@ -85,7 +85,7 @@ hashtags: #friends #melbourne #groupchat #dinnerplans
 >
 > A poll doesn't fix that. It spreads the votes and hands the decision back to the same person.
 >
-> What I'm building in Melbourne starts there. One link in the chat, each person marks the times they'd actually be up for, the group sees the combined result, and one person confirms. The asking is one paste.
+> What I'm building in Melbourne starts there. One link in the chat, each person marks the times they'd actually be up for, the group sees who can make each time, and one person confirms. The asking is one paste.
 >
 > Who starts things in your group, and what would happen if they stopped for a month?
 

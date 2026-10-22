@@ -58,7 +58,7 @@ media: slideshow
         { "day": 18, "when": "Arvo", "label": "Sun 18 Oct", "time": "2–3:30 pm" },
         { "day": 22, "when": "Eve", "label": "Thu 22 Oct", "time": "7:30–8:15 pm" }
       ],
-      "sentLine": "Done. Your times are in.", "sentSub": "Your friends only see the combined result." },
+      "sentLine": "Done. Your times are in.", "sentSub": "Your friends see who can make each time, never your calendar." },
     { "type": "screen", "screen": "locked", "lead": "Harriet locks it in. Everyone gets this.",
       "circle": "Uni lot", "date": "Thursday 22 October", "time": "7:30–8:15 pm",
       "place": "Harriet's place", "area": "Northcote",
@@ -95,7 +95,7 @@ hashtags: #newparents #friendship #melbourne #groupchat
 >
 > I don't think anyone needs to try harder. The friend with the narrowest window needs a way to say what that window is, without having to argue for it in front of everyone.
 >
-> That's what I'm building in Melbourne: one link in the chat, each person marks when they're genuinely up for it, and the others only see the combined result.
+> That's what I'm building in Melbourne: one link in the chat, each person marks when they're genuinely up for it, and the others see who can make each time, never anyone's calendar.
 >
 > If you've been the friend with the newborn, what actually helped your group adjust?
 
