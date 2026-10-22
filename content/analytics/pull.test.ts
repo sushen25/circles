@@ -572,7 +572,7 @@ const FUNNEL_ENV = { WENNA_FUNNEL_URL: 'https://wenna.test/functions/v1/content-
 const EXPORT = {
   since: '2026-10-19',
   by_source_ref: {
-    'bs-never-lead-anywhere': { counters: { circles_created: 2 }, events: { plan_shared: 1, availability_submitted: 3 } },
+    'bs-never-lead-anywhere': { counters: { circles_created: 2, answers: 3 }, events: { plan_shared: 1 } },
   },
   stalled: [{ week: '2026-10-19', cohort: 'external', source: 'content', state: 'not_shared', circles: 1, oldest_hours: 30, median_hours: 30 }],
 };

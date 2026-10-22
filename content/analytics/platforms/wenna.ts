@@ -86,10 +86,11 @@ export async function fetchFunnel(opts: { url: string; secret: string; since: st
 }
 
 /**
- * Circles made is the `circles_created` counter; plans shared, answered and
- * confirmed are the `plan_shared`, `availability_submitted` and
- * `meetup_confirmed` event totals the export carries per tag. A missing number is
- * zero: the export leaves out what did not happen.
+ * The same reading the founder screen makes of a tag (`postsOf` in
+ * packages/contracts): circles made is the `circles_created` counter, plans
+ * shared the `plan_shared` event total, answered the `answers` counter and
+ * confirmed the `plans_confirmed` counter. A missing number is zero: the export
+ * leaves out what did not happen.
  */
 export function rowsOf(x: FunnelExport, date: string, at: string): { tags: FunnelRow[]; stalled: StalledRow } {
   const tags = Object.entries(x.by_source_ref)
@@ -100,8 +101,8 @@ export function rowsOf(x: FunnelExport, date: string, at: string): { tags: Funne
       from,
       circles: count(block.counters?.circles_created),
       plans_shared: count(block.events?.plan_shared),
-      answered: count(block.events?.availability_submitted),
-      confirmed: count(block.events?.meetup_confirmed),
+      answered: count(block.counters?.answers),
+      confirmed: count(block.counters?.plans_confirmed),
       raw: block,
     }));
   return { tags, stalled: { date, at, stalled: x.stalled } };

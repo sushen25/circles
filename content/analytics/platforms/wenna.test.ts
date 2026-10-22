@@ -5,7 +5,7 @@ import { configured, fetchFunnel, parseExport, rowsOf, type FunnelExport } from 
 const EXPORT: FunnelExport = {
   since: '2026-10-19',
   by_source_ref: {
-    'yt-never-lead-anywhere': { counters: { circles_created: 3, plans_created: 2 }, events: { plan_shared: 2, availability_submitted: 5, meetup_confirmed: 1 } },
+    'yt-never-lead-anywhere': { counters: { circles_created: 3, plans_created: 2, answers: 5, plans_confirmed: 1 }, events: { plan_shared: 2 } },
     'bs-open-seat': { counters: {}, events: {} },
   },
   stalled: [{ week: '2026-10-19', cohort: 'external', source: 'content', state: 'not_shared', circles: 1, oldest_hours: 30, median_hours: 30 }],
