@@ -100,10 +100,14 @@ export function MessageBubble({
 }
 
 const styles = StyleSheet.create({
-  figure: { gap: 8 },
+  // Clipped at its own edge: the tail is the one thing that hangs off, and it must
+  // never widen the page.
+  figure: { gap: 8, overflow: 'hidden' },
   label: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   labelText: { fontFamily: faceFor('Figtree', 600), flexShrink: 1 },
-  row: { alignItems: 'flex-end', paddingLeft: 48 },
+  // The tail hangs 6 px off the bubble's corner, so the row keeps 6 px for it:
+  // nothing may stick out past the column and make the page scroll sideways.
+  row: { alignItems: 'flex-end', paddingLeft: 48, paddingRight: 6 },
   bubble: {
     borderRadius: radius.card,
     borderBottomRightRadius: 4,

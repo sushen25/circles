@@ -156,6 +156,9 @@ export function Foot({ children, style, ...props }: ViewProps & { children: Reac
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    // Nothing on a screen may make the page scroll sideways: a step sliding in, a
+    // bubble's tail or a focus ring is clipped at the window's edge (SUS-247).
+    overflow: 'hidden',
   },
   /** The width every part shares: the column, centred, never wider than the window. */
   column: {

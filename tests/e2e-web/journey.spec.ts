@@ -68,7 +68,7 @@ test.describe('the named-plan journey', () => {
     await page.getByRole('button', { name: 'Next' }).click();
     await expect(page.getByText("Who's asking?")).toBeVisible();
     await page.getByLabel('First name').fill('Maya');
-    await page.getByLabel('Email').fill('maya@example.com');
+    await page.getByLabel('Email', { exact: true }).fill('maya@example.com');
     await page.getByRole('button', { name: 'Email me a code' }).click();
     await expect(page.getByText('Ask Sunday Crew.')).toBeVisible();
 
