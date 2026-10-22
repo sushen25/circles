@@ -25,15 +25,15 @@ Seed city: Melbourne.
 
 | Alternative | What they are | Where Wenna is different |
 |---|---|---|
-| The group chat poll | "When's everyone free?" and 40 replies | Wenna asks for willingness, not free/busy; one person confirms; nobody sees who said no |
-| When2meet / Doodle | Work-coded availability grids | No account for anyone, phone-first, built for recurring groups, no heat map to read |
+| The group chat poll | "When's everyone free?" and 40 replies | Wenna asks for willingness, not free/busy; one person confirms; nobody is called out for not replying |
+| When2meet / Doodle | Work-coded availability grids | No account for guests, phone-first, built for recurring groups, no heat map to read |
 | Howbout | Shared-calendar app, Gen Z, everyone installs | Guests install nothing; the host installs nothing either |
 | Partiful | Event page for parties, guests need no account | Wenna is for the recurring group, not the one-off party |
 
 ## The white space
 
 The host does not need an app either. Built for groups with a rhythm. Nobody
-is shown as having said no. That is the whole pitch; every piece of content
+is called out for not replying. That is the whole pitch; every piece of content
 dramatises one of those three.
 
 ## What success looks like
