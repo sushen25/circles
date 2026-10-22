@@ -18,11 +18,11 @@ rows, and merging the PR is the decision.
    usually done this; running it again changes nothing but the date).
 3. `npm run retro -- --write` (or `-- --fortnight <start> --write` when
    asked for a particular one). It refuses when no fortnight has ended;
-   stop there and say so, rather than filling a running one. It fills Pieces, Views (TikTok),
-   Saves+shares /1k, Circles made and Plans shared in that fortnight's rows
-   and prints them, with the day-30 lines when a family has reached day 30.
-   Never type a number into those cells yourself, and never change one the
-   script wrote.
+   stop there and say so, rather than filling a running one. It fills
+   Pieces, Views (TikTok), Saves+shares /1k, Circles made and Plans shared
+   in that fortnight's rows and prints them, with the day-30 lines for any
+   family whose day 30 falls before the next retro. Never type a number
+   into those cells yourself, and never change one the script wrote.
 4. Read `analytics/scorecard.md` and, for each of the fortnight's rows,
    write the **Result** cell as one of:
    - `supported`: the scorecard ranks the comparison the hypothesis makes
