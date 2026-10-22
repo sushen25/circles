@@ -175,6 +175,7 @@ def ic(name, size=20, color=None):
         "undo": '<path d="M4.5 12a7.5 7.5 0 1 0 2.3-5.4"/><path d="M4 4v4.5h4.5"/>',
         "people": '<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M15.5 14.2c2.6.2 5 2 5 4.8"/>',
         "chat": '<path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5v-3.5H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5z"/>',
+        "person-add": '<circle cx="9.5" cy="8.5" r="3.2"/><path d="M3.5 19c0-3 2.7-5 6-5s6 2 6 5"/><path d="M18.5 8v6M15.5 11h6"/>',
         "wifi-off": '<path d="M3 3l18 18M8.5 8.8A11 11 0 0 0 2.5 11M21.5 11a11 11 0 0 0-8-3.1M5.5 14.5a7 7 0 0 1 4.3-2.1M18.5 14.5a7 7 0 0 0-3.2-1.9M8.5 17.5a3.5 3.5 0 0 1 4.7-.5"/><circle cx="12" cy="20" r="1"/>',
     }[name]
     return f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{c}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{p}</svg>'
@@ -225,6 +226,24 @@ def sec(t): return f'<div class="btn sec">{t}</div>'
 def ter(t, plain=False):
     """The quiet action (SUS-168): the soft accent button, or with plain=True the hairline one for letting go."""
     return f'<div class="ter{" plain" if plain else ""}">{t}</div>'
+def add_someone():
+    """Add someone (SUS-248, ADR 0091): the soft accent button at the right of the members' marks."""
+    return f'<div class="ter" style="flex-shrink:0;gap:6px;padding:0 14px;">{ic("person-add",18)}Add someone</div>'
+def members_line(names=("Maya","Nina","Alex","Tom","Jess","Sam"), add=True, full=None):
+    """The members row of circle home: marks on the left, Add someone on the right whenever no plan takes answers."""
+    return between(marks(list(names)), add_someone() if add else "")
+def quiet_facts(last, nxt):
+    """Last caught up and next one: a quiet row, not a card, and only once the circle has met."""
+    return f'<div class="row" style="gap:48px;padding:0 4px;">' + stack(sm("Last caught up"), date(last, 22), gap=2) + stack(sm("Next one"), date(nxt, 22), gap=2) + '</div>'
+def share_with_line(label, line):
+    return stack(f'<div style="display:flex;"><div class="ter" style="gap:8px;padding:0 16px;">{ic("share",18)}{label}</div></div>', sm(line), gap=8)
+def bubble(parts_html, to=None, caption=None):
+    """A message as the chat will show it: tinted bubble with a tail (the MessageBubble component, SUS-247 and SUS-248)."""
+    label = f'<div class="row" style="gap:8px;">{ic("chat",16,T["ink2"])}<div class="sm" style="font-weight:600;">{to}</div></div>' if to else ""
+    cap_html = f'<div class="sm" style="text-align:right;">{caption}</div>' if caption else ""
+    return stack(label, f'<div style="display:flex;justify-content:flex-end;padding-left:48px;padding-right:6px;"><div style="background:{T["accent_soft"]};border-radius:18px;border-bottom-right-radius:4px;padding:12px 16px;font-family:Figtree;font-size:16px;line-height:24px;color:{T["ink"]};">{parts_html}</div></div>', cap_html, gap=8)
+def hl(t): return f'<span style="color:{T["accent_dark"]};font-weight:600;">{t}</span>'
+
 def card(*parts, rec=False, gap=12, pad=18):
     return f'<div class="card{" rec" if rec else ""}" style="gap:{gap}px;padding:{pad}px;">' + "\n".join(parts) + '</div>'
 def chips(*items):
@@ -694,18 +713,35 @@ S["CircleHome"] = shell(
     body(
         row('<div class="icon-sq" style="width:52px;height:52px;font-size:26px;">S</div>', stack(dl("Sunday Crew"), sm("6 members · about monthly"), gap=2)),
         card(
-            between(lbl("Finding a time"), f'<div class="sm">Replies close Tue 6 pm</div>'),
-            title("Catch up in the next 14 days"),
-            between(marks(["Maya","Nina","Tom","Jess","Alex","Sam"], waiting=("Alex",)), f'<div class="sm num">5 of 6 replied</div>'),
-            row(sec("Share the link"), gap=8),
+            stack(title("Finding a time"), sm("Replies close Tue 6 pm"), gap=4),
+            p("Catch up in the next 14 days"),
+            row(marks(["Maya","Nina","Tom","Jess","Alex","Sam"], waiting=("Alex",)), f'<div class="sm num">5 of 6 replied</div>'),
+            share_with_line("Share the plan", "Anyone new can join from it too."),
             rec=True),
-        card(
-            between(stack(lbl("Last caught up"), date("Sat 8 Aug", 22), gap=4), stack(lbl("Next one"), f'<div class="date" style="font-size:22px;">Finding a time</div>', gap=4)),
-            sm("You aim for about monthly. Early October would keep the rhythm."),
-        ),
-        between(row(marks(["Maya","Nina","Alex","Tom","Jess","Sam"]), sm("6 members")), f'<div class="row" style="gap:6px;color:{T["accent_dark"]};font-weight:600;font-size:14px;white-space:nowrap;">{ic("link",18)}Invite link</div>'),
+        quiet_facts("Sat 8 Aug", "Finding a time"),
+        # No Add someone while the plan takes answers: its own share admits new people (ADR 0022, ADR 0091).
+        divider(),
+        row(marks(["Maya","Nina","Alex","Tom","Jess","Sam"])),
     ) +
     foot(pri("See how it's looking"))
+)
+
+# Replies closed, not locked in (SUS-248): the card shares nothing, and Add someone appears with the members.
+S["CircleHomeClosed"] = shell(
+    top("", right=ic("gear", 22, T["ink2"])) +
+    body(
+        row('<div class="icon-sq" style="width:52px;height:52px;font-size:26px;">S</div>', stack(dl("Sunday Crew"), sm("6 members · about monthly"), gap=2)),
+        card(
+            stack(title("Replies closed"), sm("Time to pick one"), gap=4),
+            p("Catch up in the next 14 days"),
+            row(marks(["Maya","Nina","Tom","Jess","Alex","Sam"], waiting=("Alex",)), f'<div class="sm num">5 of 6 replied</div>'),
+            rec=True),
+        quiet_facts("Sat 8 Aug", "Finding a time"),
+        divider(),
+        members_line(),
+        sm("A member reads \u201cMaya picks a time next\u201d under the title and leads with See how it's looking."),
+    ) +
+    foot(pri("Pick a time"))
 )
 
 S["CreateCircle"] = shell(
@@ -750,7 +786,7 @@ S["Candidates"] = shell(
     top("Catch up · next 14 days", right=ic("share", 22, T["ink2"])) +
     body(
         stack(between(row(marks(["Maya","Nina","Tom","Jess","Sam","Alex"], waiting=("Alex",)), sm("5 of 6 replied")), sm("Closes Tue 6 pm")),
-              plan_actions("Share the link again", "Edit the plan"), gap=8),
+              plan_actions("Share the plan again", "Edit the plan"), gap=8),
         stack(dl("Thursday looks good for five of you."), p("Alex hasn't answered yet. You can lock a time in now or wait until Tuesday."), gap=8),
         candidate("Thu 17 Sep", "6:30–8:30 pm", "5 of 6", ["Maya","Nina","Tom","Jess","Sam"], "Alex hasn't answered", "Best attendance", rec=True),
         candidate("Sat 19 Sep", "6:30–8:30 pm", "4 of 6", ["Maya","Tom","Jess","Sam"], "Doesn't work for Nina", "One fewer, weekend"),
@@ -794,7 +830,7 @@ S["NoQuorum"] = shell(
     top("Drinks · next 7 days") +
     body(
         stack(between(marks(["Maya","Nina","Tom","Jess","Alex","Sam"]), sm("6 of 6 replied")),
-              plan_actions("Share the link again"), gap=8),
+              plan_actions("Share the plan again"), gap=8),
         stack(dl("There wasn't enough overlap this time."), p("Nothing in the next 7 days works for at least 4 of you. Here's the closest it got."), gap=8),
         candidate("Fri 11 Sep", "7–9 pm", "3 of 6", ["Maya","Nina","Jess"], "Not Alex, Tom or Sam", "Closest"),
         candidate("Sat 12 Sep", "6:30–8:30 pm", "3 of 6", ["Maya","Tom","Jess"], "Not Nina, Alex or Sam", "Also three, a day later"),
@@ -821,24 +857,38 @@ S["Outcome"] = shell(
 )
 
 S["Settings"] = shell(
-    top("Sunday Crew") +
+    top("Circle settings") +
     body(
-        dl("Circle settings"),
-        card(lbl("Invite link"), f'<div class="input num" style="font-size:14px;color:{T["ink2"]};">circles.app/join#…7f3k</div>', row(sec("Copy link"), sec("Reset link"), gap=8), sm("Resetting the link doesn't affect anyone who's already in."), gap=10),
+        dl("Who's in"),
+        card(li(marks(["Maya"], large=True), "Maya", "You · owner", right=""), divider(),
+             li(marks(["Nina"], large=True), "Nina", "Place saved · joined 3 Sep", right=f'<div class="sm">Remove</div>'), divider(),
+             li(marks(["Alex"], large=True), "Alex", "Guest · joined 3 Sep", right=f'<div class="sm">Remove</div>'), divider(),
+             li(marks(["Tom"], large=True), "Tom", "Place saved · joined 4 Sep", right=f'<div class="sm">Remove</div>'), divider(),
+             li(marks(["Jess"], large=True), "Jess", "Place saved · joined 4 Sep", right=f'<div class="sm">Remove</div>'), divider(),
+             li(marks(["Sam"], large=True), "Sam", "Place saved · joined 5 Sep", right=f'<div class="sm">Remove</div>'), gap=0, pad=6),
+        # Any member adds someone; the reset is the owner's alone (ADR 0091).
+        f'<div style="display:flex;"><div class="ter" style="gap:8px;padding:0 16px;">{ic("person-add",18)}Add someone</div></div>',
+        stack(f'<div style="display:flex;"><div class="ter plain" style="padding:0 16px;">Cancel old invitations</div></div>', sm("If one has gone somewhere it shouldn't."), gap=8),
         card(li("", "Catch up", "About monthly", right=f'<div class="sm">Change</div>'), divider(),
              li("", "Who gets nudged to plan the next one", "Take turns", right=f'<div class="sm">Change</div>'), divider(),
              li("", "Quiet asks", "On", right='<div class="toggle on"><i></i></div>'), gap=0, pad=6),
-        stack(lbl("Members"),
-              card(li(marks(["Maya"], large=True), "Maya", "You · owner", right=""), divider(),
-                   li(marks(["Nina"], large=True), "Nina", "Place saved · joined 3 Sep", right=f'<div class="sm">Remove</div>'), divider(),
-                   li(marks(["Alex"], large=True), "Alex", "Guest · joined 3 Sep", right=f'<div class="sm">Remove</div>'), divider(),
-                   li(marks(["Tom"], large=True), "Tom", "Place saved · joined 4 Sep", right=f'<div class="sm">Remove</div>'), divider(),
-                   li(marks(["Jess"], large=True), "Jess", "Place saved · joined 4 Sep", right=f'<div class="sm">Remove</div>'), divider(),
-                   li(marks(["Sam"], large=True), "Sam", "Place saved · joined 5 Sep", right=f'<div class="sm">Remove</div>'), gap=0, pad=6), gap=8),
         ter("Archive this circle", plain=True),
-        sm("You own this circle, so you can't leave it. To step away, delete your account from Account: it goes to the saved-place member who has been in it longest. A member who is not the owner sees Leave this circle here instead."),
+        sm("You own this circle, so you can't leave it. To step away, delete your account from Account: it goes to the saved-place member who has been in it longest. A member who is not the owner sees Leave this circle here instead, and neither Cancel old invitations nor Guest or Place saved beside other people."),
         gap=18)
-, minh=980)
+, minh=1180)
+
+# Cancel old invitations asks first (SUS-248): plans already shared keep working.
+S["CancelInvitations"] = shell(
+    top("Circle settings") +
+    body(
+        dl("Who's in"),
+        card(li(marks(["Maya"], large=True), "Maya", "You · owner", right=""), gap=0, pad=6),
+        sm("Behind the sheet: Add someone, then Cancel old invitations."),
+    ) +
+    f'<div style="position:absolute;left:0;right:0;bottom:0;background:{T["surface"]};border-radius:24px 24px 0 0;padding:22px;display:flex;flex-direction:column;gap:14px;box-shadow:0 -8px 30px rgba(0,0,0,.12);">' +
+    stack(title("Cancel old invitations?"), p("Add someone messages already sent stop working. Plans you've shared keep working, and everyone in Sunday Crew stays in."), gap=8) +
+    sec("Cancel them") + ter("Keep them") + '</div>'
+, minh=720)
 
 # --- Quiet spark ---
 S["SparkSetup"] = shell(
@@ -904,11 +954,12 @@ S["SparkExpired"] = shell(
 S["EmptyCircle"] = shell(
     top("", right=ic("gear", 22, T["ink2"])) +
     body(
-        row('<div class="icon-sq" style="width:52px;height:52px;font-size:26px;">S</div>', stack(dl("Sunday Crew"), sm("Just you so far"), gap=2)),
-        card(lbl("Invite link"), p("Paste this into the group chat. Friends join and answer from the link. No app needed."), f'<div class="input num" style="font-size:14px;color:{T["ink2"]};">circles.app/join#…7f3k</div>', gap=10),
-        sm("You can start a plan now, too. Anyone who joins later can still add their times."),
+        row('<div class="icon-sq" style="width:52px;height:52px;font-size:26px;">S</div>', stack(dl("Sunday Crew"), sm("1 member · about monthly"), gap=2)),
+        card(title("Just you so far"), p("Plan a catch-up and share it. Friends join from the plan.")),
+        divider(),
+        members_line(("Maya",)),
     ) +
-    foot(pri("Share invite link"), sec("Plan a catch-up anyway"))
+    foot(pri("Plan a catch-up"))
 )
 
 S["Offline"] = shell(
@@ -1128,7 +1179,16 @@ S["NoneWork"] = shell(
 S["LinkInvalid"] = shell(
     top("", back=False, right=wordmark()) +
     body(
-        stack(dxl("This link isn't active any more."), p("The circle's owner may have reset it. Ask whoever shared it for the current link. Anyone already in the circle still has their place."), gap=10),
+        stack(dxl("This link isn't active any more."), p("Ask whoever shared it for a new one."), gap=10),
+    ) +
+    foot(sec("What is Circles?"))
+)
+
+# A plan that is live but not admitting (SUS-248, ADR 0091): told whom to ask, never about a link they have not seen.
+S["PlanNotAdmitting"] = shell(
+    top("", back=False, right=wordmark()) +
+    body(
+        stack(dxl("This plan isn't taking new answers."), p("Ask someone in Sunday Crew to add you."), gap=10),
     ) +
     foot(sec("What is Circles?"))
 )
@@ -1210,22 +1270,21 @@ S["SavePlace"] = shell(
 )
 
 S["InviteCircle"] = shell(
-    top("") +
+    top("Sunday Crew") +
     body(
-        stack(dl("Now invite Sunday Crew."), p("Paste one link into the chat where everyone already is. Friends tap it, add a name, and they're in. No app, no account."), gap=8),
-        card(lbl("Your invite link"), f'<div class="input num" style="font-size:15px;color:{T["ink2"]};">circles.app/join#7f3k</div>', p("Made a Sunday Crew circle so we stop losing catch-ups in the chat. Join here, no app needed: circles.app/join#7f3k"), gap=10),
-        notice("Only people with this link can join. You can reset it any time from the circle's settings.", "shield"),
+        dl("Add someone to Sunday Crew"),
+        bubble(f'Join {hl("Sunday Crew")} on Circles so you\'re in on the next catch-up. No app needed: {hl("circles.app/join#7f3k")}', to="Their invitation", caption="They're in as soon as they add a name. No app, no account."),
     ) +
-    foot(pri("Share to group chat"), sec("Copy link"), ter("Skip for now, I'll plan first"))
+    foot(pri("Share"), ter(f'{ic("link",16)}Copy'))
 )
 
 S["CircleHomeJoining"] = shell(
     top("", right=ic("gear", 22, T["ink2"])) +
     body(
         row('<div class="icon-sq" style="width:52px;height:52px;font-size:26px;">S</div>', stack(dl("Sunday Crew"), sm("3 in so far · about monthly"), gap=2)),
-        card(between(row(marks(["Maya","Nina","Tom"]), sm("Nina and Tom just joined")), f'<div class="row" style="gap:6px;color:{T["accent_dark"]};font-weight:600;font-size:14px;white-space:nowrap;">{ic("link",18)}Share again</div>'), gap=0),
-        card(lbl("Ready when you are"), p("You don't have to wait for everyone. Start a catch-up now and anyone who joins later can still add their times."), rec=True),
-        card(between(stack(lbl("Last caught up"), f'<div class="date" style="font-size:22px;">Not yet</div>', gap=4), stack(lbl("Next one"), f'<div class="date" style="font-size:22px;">Up to you</div>', gap=4))),
+        card(title("Nina and Tom just joined"), p("You don't have to wait for everyone. Anyone who joins later can still add their times."), rec=True),
+        members_line(("Maya","Nina","Tom")),
+        sm("A member who is one of them reads \u201cYou and Tom just joined\u201d."),
     ) +
     foot(pri("Plan the first catch-up"))
 )
@@ -1236,9 +1295,9 @@ S["CircleHomeFull"] = shell(
     top("", right=ic("gear", 22, T["ink2"])) +
     body(
         row('<div class="icon-sq" style="width:52px;height:52px;font-size:26px;">T</div>', stack(dl("Thursday Lot"), sm("20 members · about monthly"), gap=2)),
-        card(row(marks(["Maya","Nina","Tom","Jess","Sam"]), sm("Thursday Lot is full (20 people)")), gap=0),
-        card(lbl("Ready when you are"), p("You don't have to wait for everyone. Start a catch-up now and anyone who joins later can still add their times."), rec=True),
-        card(between(stack(lbl("Last caught up"), f'<div class="date" style="font-size:22px;">Not yet</div>', gap=4), stack(lbl("Next one"), f'<div class="date" style="font-size:22px;">Up to you</div>', gap=4))),
+        card(title("Ready when you are"), p("You don't have to wait for everyone. Anyone who joins later can still add their times."), rec=True),
+        divider(),
+        stack(row(marks(["Maya","Nina","Tom","Jess","Sam"])), sm("Thursday Lot is full (20 people)"), gap=8),
     ) +
     foot(pri("Plan the first catch-up"))
 )
@@ -1246,14 +1305,13 @@ S["CircleHomeFull"] = shell(
 S["SettingsFull"] = shell(
     top("Thursday Lot") +
     body(
-        dl("Circle settings"),
-        card(lbl("Thursday Lot is full (20 people)"), sm("A circle holds up to 20 people. The invite link comes back once there is room."), gap=10),
+        dl("Who's in"),
+        card(li(marks(["Maya"], large=True), "Maya", "You · owner", right=""), divider(),
+             li(marks(["Nina"], large=True), "Nina", "Place saved · joined 3 Sep", right=f'<div class="sm">Remove</div>'), gap=0, pad=6),
+        card(lbl("Thursday Lot is full (20 people)"), sm("A circle holds up to 20 people. Adding someone comes back once there is room."), gap=10),
         card(li("", "Catch up", "About monthly", right=f'<div class="sm">Change</div>'), divider(),
              li("", "Who gets nudged to plan the next one", "Take turns", right=f'<div class="sm">Change</div>'), divider(),
              li("", "Quiet asks", "On", right='<div class="toggle on"><i></i></div>'), gap=0, pad=6),
-        stack(lbl("Members"),
-              card(li(marks(["Maya"], large=True), "Maya", "You · owner", right=""), divider(),
-                   li(marks(["Nina"], large=True), "Nina", "Place saved · joined 3 Sep", right=f'<div class="sm">Remove</div>'), gap=0, pad=6), gap=8),
         ter("Archive this circle", plain=True),
         gap=18)
 , minh=760)
@@ -1386,7 +1444,7 @@ S["Waiting"] = shell(
     top("Catch up · next 14 days", right=ic("share", 22, T["ink2"])) +
     body(
         stack(between(row(marks(["Maya","Nina","Alex","Tom","Jess","Sam"], waiting=("Alex","Tom","Jess","Sam")), sm("2 of 6 replied")), sm("Closes Tue 6 pm")),
-              plan_actions("Share the link again", "Edit the plan"), gap=8),
+              plan_actions("Share the plan again", "Edit the plan"), gap=8),
         stack(dl("Waiting on a few more."), p("Options appear once at least 4 people can make the same time. No need to chase anyone yet; a reminder goes to anyone who hasn't answered on Monday."), gap=8),
         card(lbl("So far"), day_row("Thu 17 Sep", "6:30–10:30 pm works for 2", [False,False,True,True,True,True,True,True,True,True]), gap=10),
         sm("Only you see this while it's incomplete. Members see the options once there are some."),
@@ -1565,9 +1623,10 @@ S["CircleHomeConfirmed"] = shell(
     top("", right=ic("gear", 22, T["ink2"])) +
     body(
         row('<div class="icon-sq" style="width:52px;height:52px;font-size:26px;">S</div>', stack(dl("Sunday Crew"), sm("6 members · about monthly"), gap=2)),
-        card(between(lbl("Locked in"), f'<div class="sm">5 going · 1 to confirm</div>'), stack(date("Thu 17 Sep", 28), f'<div class="num" style="color:{T["ink2"]};">6:30–8:30 pm · Hope St Radio</div>', gap=2), row(sec("Share"), gap=8), rec=True),
-        card(between(stack(lbl("Last caught up"), date("Sat 8 Aug", 22), gap=4), stack(lbl("Next one"), date("Thu 17 Sep", 22), gap=4))),
-        between(row(marks(["Maya","Nina","Alex","Tom","Jess","Sam"]), sm("6 members")), f'<div class="row" style="gap:6px;color:{T["accent_dark"]};font-weight:600;font-size:14px;white-space:nowrap;">{ic("link",18)}Invite link</div>'),
+        card(stack(title("Locked in"), sm("5 going · 1 to confirm"), gap=4), stack(date("Thu 17 Sep", 28), f'<div class="num" style="color:{T["ink2"]};">6:30–8:30 pm · Hope St Radio</div>', gap=2), share_with_line("Send the details", "For people already in Sunday Crew."), rec=True),
+        quiet_facts("Sat 8 Aug", "Thu 17 Sep"),
+        divider(),
+        members_line(),
     ) +
     foot(pri("Details"), ter("Plan another"))
 )
@@ -1576,9 +1635,10 @@ S["CircleHomeDue"] = shell(
     top("", right=ic("gear", 22, T["ink2"])) +
     body(
         row('<div class="icon-sq" style="width:52px;height:52px;font-size:26px;">S</div>', stack(dl("Sunday Crew"), sm("6 members · about monthly"), gap=2)),
-        card(lbl("About time for the next one"), p("It's been about a month since Sunday Crew last got together. It's Tom's turn to plan, if the group's keen. No rush."), row(sec("Snooze a month"), sec("Turn off nudges"), gap=8), gap=10),
-        card(between(stack(lbl("Last caught up"), date("Thu 17 Sep", 22), gap=4), stack(lbl("Next one"), f'<div class="date" style="font-size:22px;">Nothing yet</div>', gap=4))),
-        between(row(marks(["Maya","Nina","Alex","Tom","Jess","Sam"]), sm("6 members")), f'<div class="row" style="gap:6px;color:{T["accent_dark"]};font-weight:600;font-size:14px;white-space:nowrap;">{ic("link",18)}Invite link</div>'),
+        card(title("About time for the next one"), p("It's been about a month since Sunday Crew last got together. It's Tom's turn to plan, if the group's keen. No rush."), row(sec("Snooze a month"), sec("Turn off nudges"), gap=8), gap=10),
+        quiet_facts("Thu 17 Sep", "Nothing yet"),
+        divider(),
+        members_line(),
     ) +
     foot(pri("Plan another"))
 )
@@ -1838,7 +1898,7 @@ shares = f'''
 <div style="display:flex;flex-direction:column;gap:20px;padding:32px;">
   <div class="stack" style="gap:4px;">{lbl("Share-sheet messages · pasted into the group chat")}<div class="sm">Generated per state. The organiser never composes. The invite secret rides in the URL fragment, so chat link previews never see it.</div></div>
   <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:20px;">
-    {card(lbl("Invite to circle"), p("Made a Sunday Crew circle so we stop losing catch-ups in the chat. Join here, no app needed: circles.app/join#7f3k"))}
+    {card(lbl("Add someone"), p("Join Sunday Crew on Circles so you're in on the next catch-up. No app needed: circles.app/join#7f3k"))}
     {card(lbl("New plan"), p("When can Sunday Crew actually catch up? Mark the times you'd be up for in the next two weeks. Takes a minute: circles.app/j/7f3k"))}
     {card(lbl("Waiting"), p("We're waiting on 4 replies before picking a time: circles.app/j/7f3k"))}
     {card(lbl("Locked in"), p("Locked in: Sunday Crew, Thu 17 Sep, 6:30–8:30 pm at Hope St Radio. Thursday it is. See you then. Details and add-to-calendar: circles.app/p/8k2v"))}
@@ -2211,7 +2271,7 @@ with open(os.path.join(out, "Main.dc.html"), "w") as f:
     f.write(S["Join"])
 os.remove(os.path.join(out, "Join.dc.html"))
 
-heights = {"FounderAnalytics":2100, "CheckEmail":960, "ConfirmedGuestNudge":900, "AppSheet":900, "Availability":900, "AvailabilityPicking":980, "AvailabilityInline":1070, "AvailabilityPerDay":1070, "AvailabilityHours":1070, "AvailabilityPicker":900, "AvailabilityOneChoiceHours":1000, "AvailabilityReturning":980, "AvailabilityReturningTapped":1070, "AvailabilityOthersFirst":900, "Candidates":1170, "NoQuorum":1080, "SetTime":1500, "ConfirmReviewOwn":980, "EditLocked":980, "ConfirmedGuestMoved":900, "DeadlinePassed":960, "Settings":980, "CandidatesMember":1000, "AvailabilityOverlay":1120, "LoadingOptions":1170, "LoadingSlowEight":1170, "LoadingSlowTwenty":1170, "BusyRow":760, "BusyButtons":1300, "LoadingTiming":560, "LoadingMotion":640}
+heights = {"FounderAnalytics":2100, "CheckEmail":960, "ConfirmedGuestNudge":900, "AppSheet":900, "Availability":900, "AvailabilityPicking":980, "AvailabilityInline":1070, "AvailabilityPerDay":1070, "AvailabilityHours":1070, "AvailabilityPicker":900, "AvailabilityOneChoiceHours":1000, "AvailabilityReturning":980, "AvailabilityReturningTapped":1070, "AvailabilityOthersFirst":900, "Candidates":1170, "NoQuorum":1080, "SetTime":1500, "ConfirmReviewOwn":980, "EditLocked":980, "ConfirmedGuestMoved":900, "DeadlinePassed":960, "Settings":1180, "CancelInvitations":720, "CandidatesMember":1000, "AvailabilityOverlay":1120, "LoadingOptions":1170, "LoadingSlowEight":1170, "LoadingSlowTwenty":1170, "BusyRow":760, "BusyButtons":1300, "LoadingTiming":560, "LoadingMotion":640}
 def ab(file, x, y, page, w=W, h=None, title=None):
     d = {"file": file, "x": x, "y": y, "w": w, "h": h or heights.get(file.replace(".dc.html",""), H), "page": page}
     if title: d["title"] = title
@@ -2228,8 +2288,8 @@ pages = [{"id":"first","name":"0 · First time, organiser"},
          {"id":"system","name":"6 · States, copy and components"},
          {"id":"loading","name":"7 · Loading and busy"}]
 
-titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning member","ContinueAsAccount":"Continue as · signed in, takes a guest's place","ContinueAsAccountConfirm":"Continue as · signed in, confirm taking the place","Name":"Name","NamePlanLink":"Name · plan link","Availability":"Availability · the first-time guest lands","AvailabilityPicking":"Availability · three days tapped","AvailabilityInline":"Availability · the time of day inline","AvailabilityPerDay":"Availability · not the same every day, a time for each day","AvailabilityHours":"Availability · a day's clock, its hours on a sheet","AvailabilityPicker":"Availability · the picker for one edge","AvailabilityOneChoiceHours":"Availability · a plan with one window, its hours","AvailabilityReturning":"Availability · returning member, Use my usual days offered","AvailabilityReturningTapped":"Availability · after Use my usual days, with Undo","AvailabilityOthersFirst":"Availability · first to answer","NoneWork":"None of these dates","Sent":"Sent · one step, switch on","SentOrganiser":"Sent · the organiser, who picks","SentSwitchOff":"Sent · switch off","SentCode":"Sent · the code","SentDone":"Sent · done","SentPartial":"Sent · place saved, emails failed","SentMember":"Sent · signed in, one button","SentMemberDone":"Sent · signed in, done","SentSuppressed":"Sent · address suppressed","SentSuppressedSaved":"Sent · suppressed, after the code","CheckEmail":"Check your email · app nudge","EmailVerified":"Email verified","EmailPrefs":"Email preferences · no sign-in","EmailVerifyConfirm":"Email verify · one tap first","ReentryConfirm":"Get back in · one tap first","NudgeStop":"Stop reminders · no sign-in","NudgeStopDone":"Stop reminders · done","OrganiserStop":"Stop organiser emails · no sign-in","OrganiserStopDone":"Stop organiser emails · done","QuietStop":"Stop quiet-ask emails · no sign-in","QuietStopDone":"Stop quiet-ask emails · done","SaveAccess":"Save access · the account's other doors","CandidatesMember":"Candidates · member view","ConfirmedGuest":"Confirmed · guest","AddToCalendar":"Add to calendar sheet","RescheduledGuest":"Rescheduled · guest","CancelledGuest":"Cancelled · guest","WasThere":"Attendance · morning after","LinkInvalid":"Invite link inactive",
-          "SignIn":"Sign in · returning organiser","SavePlace":"3 · Who's asking · the gate","EnterCode":"4 · The code","EnterCodeSettingUp":"4 · The code · setting up","EnterCodeFailed":"4 · The code · set-up failed","FirstPlanAdjust":"2 · Adjust the plan","PlanSharedDone":"5 · The share, done","YourName":"Your name · only when the gate did not supply one","FirstCircle":"1 · Who it is for · no account","InviteCircle":"Invite the circle","CircleHomeJoining":"Circle home · people joining","FirstPlan":"2 · Which evenings · no account","EmptyCirclesList":"Circles · first run","CirclesList":"Circles list","CircleHome":"Circle home · finding a time","CircleHomeConfirmed":"Circle home · locked in","CircleHomeDue":"Circle home · about time","CreateCircle":"Create circle","ChooseMode":"Choose how to start","PlanSetup":"Plan setup","CustomWindow":"Custom window","PlanShared":"5 · The share · paste to chat","Waiting":"Waiting · no options yet","Candidates":"Candidates · partial replies","DeadlinePassed":"Replies closed · no decision","EditPlan":"Edit plan · reconfirm warning","ConfirmReview":"Confirm review","ConfirmedOrg":"Confirmed · organiser","ChangeTime":"Ask for new times","SetTime":"Set the time yourself","ConfirmReviewOwn":"Confirm review · a time of your own","EditLocked":"Edit this plan · locked in","ConfirmedGuestMoved":"Confirmed · guest, moved","CancelPlan":"Cancel plan","CancelledOrg":"Cancelled · organiser","NoQuorum":"No quorum","Outcome":"Did it happen?","PlanAnother":"Plan another · prefilled","Settings":"Circle settings","NotificationSettings":"Notification settings","Account":"Account","DeleteAccount":"Account · delete, step one","DeleteAccountSure":"Account · delete, step two","Privacy":"Privacy","Diagnostics":"Founder diagnostics","FounderAnalytics":"Founder analytics",
+titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning member","ContinueAsAccount":"Continue as · signed in, takes a guest's place","ContinueAsAccountConfirm":"Continue as · signed in, confirm taking the place","Name":"Name","NamePlanLink":"Name · plan link","Availability":"Availability · the first-time guest lands","AvailabilityPicking":"Availability · three days tapped","AvailabilityInline":"Availability · the time of day inline","AvailabilityPerDay":"Availability · not the same every day, a time for each day","AvailabilityHours":"Availability · a day's clock, its hours on a sheet","AvailabilityPicker":"Availability · the picker for one edge","AvailabilityOneChoiceHours":"Availability · a plan with one window, its hours","AvailabilityReturning":"Availability · returning member, Use my usual days offered","AvailabilityReturningTapped":"Availability · after Use my usual days, with Undo","AvailabilityOthersFirst":"Availability · first to answer","NoneWork":"None of these dates","Sent":"Sent · one step, switch on","SentOrganiser":"Sent · the organiser, who picks","SentSwitchOff":"Sent · switch off","SentCode":"Sent · the code","SentDone":"Sent · done","SentPartial":"Sent · place saved, emails failed","SentMember":"Sent · signed in, one button","SentMemberDone":"Sent · signed in, done","SentSuppressed":"Sent · address suppressed","SentSuppressedSaved":"Sent · suppressed, after the code","CheckEmail":"Check your email · app nudge","EmailVerified":"Email verified","EmailPrefs":"Email preferences · no sign-in","EmailVerifyConfirm":"Email verify · one tap first","ReentryConfirm":"Get back in · one tap first","NudgeStop":"Stop reminders · no sign-in","NudgeStopDone":"Stop reminders · done","OrganiserStop":"Stop organiser emails · no sign-in","OrganiserStopDone":"Stop organiser emails · done","QuietStop":"Stop quiet-ask emails · no sign-in","QuietStopDone":"Stop quiet-ask emails · done","SaveAccess":"Save access · the account's other doors","CandidatesMember":"Candidates · member view","ConfirmedGuest":"Confirmed · guest","AddToCalendar":"Add to calendar sheet","RescheduledGuest":"Rescheduled · guest","CancelledGuest":"Cancelled · guest","WasThere":"Attendance · morning after","LinkInvalid":"Link inactive",
+          "SignIn":"Sign in · returning organiser","SavePlace":"3 · Who's asking · the gate","EnterCode":"4 · The code","EnterCodeSettingUp":"4 · The code · setting up","EnterCodeFailed":"4 · The code · set-up failed","FirstPlanAdjust":"2 · Adjust the plan","PlanSharedDone":"5 · The share, done","YourName":"Your name · only when the gate did not supply one","FirstCircle":"1 · Who it is for · no account","InviteCircle":"Add someone","CircleHomeJoining":"Circle home · people joining","FirstPlan":"2 · Which evenings · no account","EmptyCirclesList":"Circles · first run","CirclesList":"Circles list","CircleHome":"Circle home · finding a time","CircleHomeClosed":"Circle home · replies closed","CancelInvitations":"Circle settings · cancel old invitations","PlanNotAdmitting":"Plan not taking new answers","CircleHomeConfirmed":"Circle home · locked in","CircleHomeDue":"Circle home · about time","CreateCircle":"Create circle","ChooseMode":"Choose how to start","PlanSetup":"Plan setup","CustomWindow":"Custom window","PlanShared":"5 · The share · paste to chat","Waiting":"Waiting · no options yet","Candidates":"Candidates · partial replies","DeadlinePassed":"Replies closed · no decision","EditPlan":"Edit plan · reconfirm warning","ConfirmReview":"Confirm review","ConfirmedOrg":"Confirmed · organiser","ChangeTime":"Ask for new times","SetTime":"Set the time yourself","ConfirmReviewOwn":"Confirm review · a time of your own","EditLocked":"Edit this plan · locked in","ConfirmedGuestMoved":"Confirmed · guest, moved","CancelPlan":"Cancel plan","CancelledOrg":"Cancelled · organiser","NoQuorum":"No quorum","Outcome":"Did it happen?","PlanAnother":"Plan another · prefilled","Settings":"Circle settings · who's in","NotificationSettings":"Notification settings","Account":"Account","DeleteAccount":"Account · delete, step one","DeleteAccountSure":"Account · delete, step two","Privacy":"Privacy","Diagnostics":"Founder diagnostics","FounderAnalytics":"Founder analytics",
           "SparkSetup":"Quiet ask · setup","SparkWaiting":"Quiet ask · initiator waiting","InterestPrompt":"Interest prompt · member","ThresholdRole":"Threshold reached · initiator","Volunteer":"Started quietly · keen member","SparkOpenedMember":"Started quietly · other member","SparkExpired":"Expired · initiator",
           "PushAsk":"Push permission · contextual","CalendarExplain":"Calendar · before permission","CalendarPick":"Calendar · pick calendars","AvailabilityOverlay":"Availability · calendar overlay","CalendarDenied":"Calendar · denied",
           "ConversionMap":"Guest → app · the map","ConfirmedGuestNudge":"Locked in · reminder nudge","AppSheet":"App sheet · four things a browser can't do","ReattachedNudge":"Rejoined · save your place","SecondSent":"Second response · app nudge","AfterAttendance":"After attendance · start a circle","InitiateGate":"Wants to organise · sign in first","AppLanding":"App first open · linked",
@@ -2246,7 +2306,7 @@ def grid(names, page, per_row=6, y0=0):
 boards = []
 grid(["Main","ContinueAs","Name","Availability","NoneWork","Sent",
       "CheckEmail","EmailVerified","EmailPrefs","NudgeStop","NudgeStopDone","SaveAccess","CandidatesMember","ConfirmedGuest",
-      "AddToCalendar","RescheduledGuest","CancelledGuest","WasThere","LinkInvalid","ConfirmedGuestMoved",
+      "AddToCalendar","RescheduledGuest","CancelledGuest","WasThere","LinkInvalid","PlanNotAdmitting","ConfirmedGuestMoved",
       "AvailabilityPicking","AvailabilityInline","AvailabilityPerDay","AvailabilityHours","AvailabilityPicker","AvailabilityOneChoiceHours","AvailabilityReturning","AvailabilityReturningTapped",
       "AvailabilityOthersFirst",
       "SentSwitchOff","SentCode","SentDone","SentPartial",
@@ -2268,7 +2328,8 @@ grid(["EmptyCirclesList","CirclesList","CreateCircle","InviteCircle","CircleHome
       "DeadlinePassed","EditPlan","ConfirmReview","ConfirmedOrg","CircleHomeConfirmed","ChangeTime",
       "CancelPlan","CancelledOrg","NoQuorum","Outcome","CircleHomeDue","PlanAnother",
       "Settings","NotificationSettings","Account","DeleteAccount","DeleteAccountSure","Privacy","Diagnostics",
-      "SetTime","ConfirmReviewOwn","EditLocked","FounderAnalytics","CircleHomeFull","SettingsFull"], "organiser")
+      "SetTime","ConfirmReviewOwn","EditLocked","FounderAnalytics","CircleHomeFull","SettingsFull",
+      "CircleHomeClosed","CancelInvitations"], "organiser")
 grid(["SparkSetup","SparkWaiting","InterestPrompt","ThresholdRole","Volunteer","SparkOpenedMember","SparkExpired","SparkNobody"], "quiet")
 grid(["PushAsk","CalendarExplain","CalendarPick","AvailabilityOverlay","CalendarDenied"], "native")
 boards.append(ab("ConversionMap.dc.html", 0, 0, "convert", w=1400, h=1100, title=titles["ConversionMap"]))

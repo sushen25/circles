@@ -169,11 +169,20 @@
       "w": 390,
       "h": 844,
       "page": "guest",
-      "title": "Invite link inactive"
+      "title": "Link inactive"
+    },
+    {
+      "file": "PlanNotAdmitting.dc.html",
+      "x": 480,
+      "y": 3900,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Plan not taking new answers"
     },
     {
       "file": "ConfirmedGuestMoved.dc.html",
-      "x": 480,
+      "x": 960,
       "y": 3900,
       "w": 390,
       "h": 900,
@@ -182,7 +191,7 @@
     },
     {
       "file": "AvailabilityPicking.dc.html",
-      "x": 960,
+      "x": 1440,
       "y": 3900,
       "w": 390,
       "h": 980,
@@ -191,7 +200,7 @@
     },
     {
       "file": "AvailabilityInline.dc.html",
-      "x": 1440,
+      "x": 1920,
       "y": 3900,
       "w": 390,
       "h": 1070,
@@ -200,7 +209,7 @@
     },
     {
       "file": "AvailabilityPerDay.dc.html",
-      "x": 1920,
+      "x": 2400,
       "y": 3900,
       "w": 390,
       "h": 1070,
@@ -209,8 +218,8 @@
     },
     {
       "file": "AvailabilityHours.dc.html",
-      "x": 2400,
-      "y": 3900,
+      "x": 0,
+      "y": 5200,
       "w": 390,
       "h": 1070,
       "page": "guest",
@@ -218,7 +227,7 @@
     },
     {
       "file": "AvailabilityPicker.dc.html",
-      "x": 0,
+      "x": 480,
       "y": 5200,
       "w": 390,
       "h": 900,
@@ -227,7 +236,7 @@
     },
     {
       "file": "AvailabilityOneChoiceHours.dc.html",
-      "x": 480,
+      "x": 960,
       "y": 5200,
       "w": 390,
       "h": 1000,
@@ -236,7 +245,7 @@
     },
     {
       "file": "AvailabilityReturning.dc.html",
-      "x": 960,
+      "x": 1440,
       "y": 5200,
       "w": 390,
       "h": 980,
@@ -245,7 +254,7 @@
     },
     {
       "file": "AvailabilityReturningTapped.dc.html",
-      "x": 1440,
+      "x": 1920,
       "y": 5200,
       "w": 390,
       "h": 1070,
@@ -254,7 +263,7 @@
     },
     {
       "file": "AvailabilityOthersFirst.dc.html",
-      "x": 1920,
+      "x": 2400,
       "y": 5200,
       "w": 390,
       "h": 900,
@@ -263,8 +272,8 @@
     },
     {
       "file": "SentSwitchOff.dc.html",
-      "x": 2400,
-      "y": 5200,
+      "x": 0,
+      "y": 6500,
       "w": 390,
       "h": 844,
       "page": "guest",
@@ -272,7 +281,7 @@
     },
     {
       "file": "SentCode.dc.html",
-      "x": 0,
+      "x": 480,
       "y": 6500,
       "w": 390,
       "h": 844,
@@ -281,7 +290,7 @@
     },
     {
       "file": "SentDone.dc.html",
-      "x": 480,
+      "x": 960,
       "y": 6500,
       "w": 390,
       "h": 844,
@@ -290,7 +299,7 @@
     },
     {
       "file": "SentPartial.dc.html",
-      "x": 960,
+      "x": 1440,
       "y": 6500,
       "w": 390,
       "h": 844,
@@ -299,7 +308,7 @@
     },
     {
       "file": "SentMember.dc.html",
-      "x": 1440,
+      "x": 1920,
       "y": 6500,
       "w": 390,
       "h": 844,
@@ -308,7 +317,7 @@
     },
     {
       "file": "SentMemberDone.dc.html",
-      "x": 1920,
+      "x": 2400,
       "y": 6500,
       "w": 390,
       "h": 844,
@@ -317,8 +326,8 @@
     },
     {
       "file": "SentSuppressed.dc.html",
-      "x": 2400,
-      "y": 6500,
+      "x": 0,
+      "y": 7800,
       "w": 390,
       "h": 844,
       "page": "guest",
@@ -326,7 +335,7 @@
     },
     {
       "file": "SentSuppressedSaved.dc.html",
-      "x": 0,
+      "x": 480,
       "y": 7800,
       "w": 390,
       "h": 844,
@@ -335,7 +344,7 @@
     },
     {
       "file": "SentOrganiser.dc.html",
-      "x": 480,
+      "x": 960,
       "y": 7800,
       "w": 390,
       "h": 844,
@@ -344,7 +353,7 @@
     },
     {
       "file": "NamePlanLink.dc.html",
-      "x": 960,
+      "x": 1440,
       "y": 7800,
       "w": 390,
       "h": 844,
@@ -353,7 +362,7 @@
     },
     {
       "file": "ContinueAsAccount.dc.html",
-      "x": 1440,
+      "x": 1920,
       "y": 7800,
       "w": 390,
       "h": 844,
@@ -362,7 +371,7 @@
     },
     {
       "file": "ContinueAsAccountConfirm.dc.html",
-      "x": 1920,
+      "x": 2400,
       "y": 7800,
       "w": 390,
       "h": 844,
@@ -646,7 +655,7 @@
       "w": 390,
       "h": 844,
       "page": "organiser",
-      "title": "Invite the circle"
+      "title": "Add someone"
     },
     {
       "file": "CircleHomeJoining.dc.html",
@@ -815,9 +824,9 @@
       "x": 1920,
       "y": 3900,
       "w": 390,
-      "h": 980,
+      "h": 1180,
       "page": "organiser",
-      "title": "Circle settings"
+      "title": "Circle settings \u00b7 who's in"
     },
     {
       "file": "NotificationSettings.dc.html",
@@ -926,6 +935,24 @@
       "h": 844,
       "page": "organiser",
       "title": "Circle settings \u00b7 full"
+    },
+    {
+      "file": "CircleHomeClosed.dc.html",
+      "x": 2400,
+      "y": 6500,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Circle home \u00b7 replies closed"
+    },
+    {
+      "file": "CancelInvitations.dc.html",
+      "x": 0,
+      "y": 7800,
+      "w": 390,
+      "h": 720,
+      "page": "organiser",
+      "title": "Circle settings \u00b7 cancel old invitations"
     },
     {
       "file": "SparkSetup.dc.html",
