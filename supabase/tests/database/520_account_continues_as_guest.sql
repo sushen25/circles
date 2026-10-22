@@ -11,7 +11,7 @@
 -- anonymous.
 
 begin;
-select plan(22);
+select plan(25);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -63,6 +63,8 @@ select pg_temp.make_user('52000000-0000-0000-0000-000000000005', 'Jess');
 select pg_temp.make_user('52000000-0000-0000-0000-000000000006', 'Sam on the laptop');
 select pg_temp.make_user('52000000-0000-0000-0000-000000000007', 'Ben', true);
 select pg_temp.make_user('52000000-0000-0000-0000-000000000008', 'Zed', true);
+select pg_temp.make_user('52000000-0000-0000-0000-000000000009', 'Una');
+select pg_temp.make_user('52000000-0000-0000-0000-00000000000a', 'Una the guest', true);
 
 select pg_temp.act_as('52000000-0000-0000-0000-000000000001');
 create temporary table fixture as
@@ -287,11 +289,42 @@ select throws_ok(
   'no live plan, no pick'
 );
 
--- The per-circle hourly limit counts an account's moves as a guest's.
+-- An account that was in the circle and left can take its guest place: the old
+-- row makes room (as claim_identity does), and an active member still cannot.
 select pg_temp.act_as_postgres();
 select set_config('circles.in_transition', 'on', true);
 update public.plans set state = 'collecting' where id = pg_temp.plan_id();
 select set_config('circles.in_transition', 'off', true);
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '52000000-0000-0000-0000-000000000009', 'Una');
+update public.circle_members set status = 'removed'
+where circle_id = pg_temp.circle_id() and user_id = '52000000-0000-0000-0000-000000000009';
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '52000000-0000-0000-0000-00000000000a', 'Una');
+
+select pg_temp.act_as('52000000-0000-0000-0000-000000000009');
+select is(
+  (select id from public.reattach_member(pg_temp.circle_id(), '52000000-0000-0000-0000-00000000000a')),
+  pg_temp.circle_id(),
+  'an account that once left the circle can take its guest place'
+);
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from public.circle_members
+   where circle_id = pg_temp.circle_id() and user_id = '52000000-0000-0000-0000-000000000009'
+     and status = 'active' and display_name_snapshot = 'Una'),
+  1,
+  'and holds exactly one active place there'
+);
+select is(
+  (select count(*)::integer from public.circle_members
+   where circle_id = pg_temp.circle_id() and user_id = '52000000-0000-0000-0000-000000000009'),
+  1,
+  'with no removed row left beside it'
+);
+
+-- The per-circle hourly limit counts an account's moves as a guest's.
+select pg_temp.act_as_postgres();
 select public.take_rate_token(
   'reattach_circle_sql', extensions.digest(pg_temp.circle_id()::text, 'sha256'), 20, interval '1 hour')
 from generate_series(1, 20);

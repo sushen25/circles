@@ -101,6 +101,16 @@ the same trust as a guest has today. No extra proof.
   ([ADR 0048](0048-the-consent-sentence-is-the-one-string-that-lives-in-config.md)).
   The guest's emailed re-entry links are retired, since the place is now a saved
   one. `pgTAP` 520 asserts the contact and the consent moving.
+- **An account that once left the circle** can still take a guest's place. Its
+  old, removed row is cleared to make room, as `claim_identity` does for the
+  same person coming back (`private.discard_membership_rows`); only an active
+  membership is `already_member`. The same account could already come back by
+  "I'm new here" while a plan is asking, so this opens nothing new.
+- **A residual case, accepted.** A guest who gave an address, then signs up with
+  a different one and takes their place from the list, can have that place taken
+  back to a guest session if they later open their *old* emailed link signed
+  out: the link names an address the account does not hold (ADR 0049, decision
+  6). The place is a guest's again and the account can pick it once more.
 - **Analytics.** The client event is `member_reattached` with a third `source`,
   `list_account`, declared in the catalogue before it is emitted, so the
   funnel can tell an account's claim from a guest's pick. It carries the circle

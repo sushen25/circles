@@ -235,9 +235,23 @@ begin
   -- actually want is the session they are already holding.
   if exists (
     select 1 from public.circle_members m
-    where m.circle_id = target_circle and m.user_id = caller
+    where m.circle_id = target_circle and m.user_id = caller and m.status = 'active'
   ) then
     raise exception 'already_member' using errcode = 'unique_violation';
+  end if;
+
+  -- An account that was in this circle and left (or was removed) still has its
+  -- old row, and the key is (circle, user): there is room for one. As in
+  -- `claim_identity`, the residue that would collide goes, and the row is
+  -- deleted to make room for the place being taken (ADR 0088). A guest never
+  -- meets this: every new browser is a new identity.
+  if exists (
+    select 1 from public.circle_members m
+    where m.circle_id = target_circle and m.user_id = caller and m.status <> 'active'
+  ) then
+    perform private.discard_membership_rows(target_circle, caller, target);
+    delete from public.circle_members m
+    where m.circle_id = target_circle and m.user_id = caller and m.status <> 'active';
   end if;
 
   -- No cap on how often a membership moves (ADR 0078, which removed ADR 0006's
