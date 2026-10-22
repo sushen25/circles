@@ -48,7 +48,7 @@ media: slideshow
         { "day": 18, "when": "Eve", "label": "Fri 18 Sep", "time": "7–10:30 pm" },
         { "day": 24, "when": "Eve", "label": "Thu 24 Sep", "time": "6:30–10:30 pm" }
       ],
-      "sentLine": "Done. That took about 20 seconds.", "sentSub": "Your friends only see the combined result." },
+      "sentLine": "Done. That took about 20 seconds.", "sentSub": "Your friends see who can make each time, never your calendar." },
     { "type": "screen", "screen": "locked", "lead": "Someone locks it in. Everyone gets this.",
       "circle": "Thursday crew", "date": "Thursday 17 September", "time": "6:30–8:30 pm",
       "place": "Hope St Radio", "area": "Brunswick East",
