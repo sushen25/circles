@@ -678,12 +678,7 @@ test('on a desktop window the "Setting up" wait sits in the same centred column 
   const sideways = await page.evaluate(
     'document.documentElement.scrollWidth - document.documentElement.clientWidth',
   );
-  const offenders = await page.evaluate(() =>
-    [...document.querySelectorAll('*')]
-      .filter((el) => el.getBoundingClientRect().right > document.documentElement.clientWidth)
-      .map((el) => el.tagName + '.' + String(el.className).slice(0, 60)),
-  );
-  expect(sideways, offenders.join(' | ')).toBeLessThanOrEqual(0);
+  expect(sideways).toBeLessThanOrEqual(0);
 
   await expect(page.getByText('Ask Sunday Crew.')).toBeVisible({ timeout: 20_000 });
 });
