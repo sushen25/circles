@@ -6,6 +6,7 @@ import {
   Button,
   ButtonRow,
   Card,
+  CompactButton,
   CircleHeader,
   DateText,
   Foot,
@@ -107,9 +108,10 @@ export function CircleHomeConfirmedScreen({
           </Stack>
           <Stack>
             <ButtonRow>
-              <Button
+              <CompactButton
                 label={t('circleHomeConfirmed', 'send_the_details')}
-                variant="secondary"
+                icon="share"
+                tone="accent"
                 onPress={onShare}
               />
             </ButtonRow>

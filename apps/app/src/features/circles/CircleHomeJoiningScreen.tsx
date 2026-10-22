@@ -109,7 +109,7 @@ export function CircleHomeJoiningScreen({
       <Body>
         <CircleHeader name={circleName} color={color} subtitle={subtitle} />
         {prompt}
-        <Card recommended>
+        <Card>
           <Title accessibilityLiveRegion="polite">
             {joined ?? t('circleHomeJoining', 'ready_when_you_are')}
           </Title>

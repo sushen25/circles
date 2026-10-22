@@ -6,6 +6,7 @@ import {
   Button,
   ButtonRow,
   Card,
+  CompactButton,
   CircleHeader,
   Foot,
   Marks,
@@ -162,9 +163,10 @@ export function CircleHomeScreen({
           {onSharePlan === undefined ? null : (
             <Stack>
               <ButtonRow>
-                <Button
+                <CompactButton
                   label={t('circleHome', 'share_the_plan')}
-                  variant="secondary"
+                  icon="share"
+                  tone="accent"
                   onPress={onSharePlan}
                 />
               </ButtonRow>
