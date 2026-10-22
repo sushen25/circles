@@ -6,7 +6,8 @@
 -- cannot drift apart:
 --
 --   * `public.reattach_member(circle, member)` — the Continue-as list. Granted
---     to `authenticated`; the caller is `auth.uid()`.
+--     to `authenticated`; the caller is `auth.uid()`, a guest or, since
+--     ADR 0088, a signed-in account.
 --   * `public.reattach_with_token(user, token digest)` — the emailed re-entry
 --     link. The service role's: the Edge Function hashes the token and passes
 --     the verified caller. The digest is therefore not a way in on its own
@@ -55,45 +56,43 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
 
-  -- A saved-place identity does not reattach: it signs in. §10 — "if the
-  -- membership belongs to a permanent identity, the page offers that identity's
-  -- sign-in instead".
+  -- A saved-place identity may pick from the list, as a guest may (ADR 0088):
+  -- somebody who answered as a guest and later signed in takes their own place
+  -- onto their account. What it may not do is use somebody else's emailed link.
+  -- The link proves an address and is the rightful member's own way back
+  -- (§10: "if the membership belongs to a permanent identity, the page offers
+  -- that identity's sign-in instead").
   --
-  -- Three records of the same fact on the list path (two on the token path,
-  -- where the JWT is the service role's and not the person's), and the strictest wins, which is the rule
-  -- this function already applies to the *target* and had no business not
-  -- applying to the caller. `auth_is_permanent()` reads the JWT, and a JWT
-  -- outlives the event it describes: `linkIdentity` converts the user in place,
-  -- so an access token issued minutes earlier keeps `is_anonymous: true` for the
-  -- rest of its hour (§14) while `auth.users` and `profiles` have already moved
-  -- on. For that hour the stale token was enough to take a *second* guest
-  -- membership and attach it to a saved place, where Continue-as can never move
-  -- it again.
-  if ((select auth.uid()) = caller and public.auth_is_permanent())
+  -- Three records of the same fact (two on the token path, where the JWT is the
+  -- service role's and not the person's), and the strictest wins.
+  -- `auth_is_permanent()` reads the JWT, and a JWT outlives the event it
+  -- describes: `linkIdentity` converts the user in place, so an access token
+  -- issued minutes earlier keeps `is_anonymous: true` for the rest of its hour
+  -- (§14) while `auth.users` and `profiles` have already moved on.
+  if p_reentry_token_hash is not null and (
+    ((select auth.uid()) = caller and public.auth_is_permanent())
     or exists (select 1 from public.profiles p where p.user_id = caller and p.is_permanent)
     or exists (
       select 1 from auth.users u where u.id = caller and not coalesce(u.is_anonymous, true)
     )
-  then
+  ) then
     -- With one exception: the emailed link, opened by the account its membership
     -- now belongs to (§10: "if the browser already holds the right identity, it
     -- simply routes to the plan"). `linkIdentity` keeps the user id, so the token
     -- still names them. Nothing moves and nothing is spent. Anybody else signed in
     -- is refused, and the client can tell the two apart.
-    if p_reentry_token_hash is not null then
-      select c.* into chosen
-      from private.email_action_tokens t
-      join public.circle_members m
-        on m.circle_id = t.membership_circle_id and m.user_id = t.membership_user_id
-      join public.circles c on c.id = t.membership_circle_id
-      where t.token_hash = p_reentry_token_hash
-        and t.purpose = 'reentry'
-        and t.membership_user_id = caller
-        and m.status = 'active';
+    select c.* into chosen
+    from private.email_action_tokens t
+    join public.circle_members m
+      on m.circle_id = t.membership_circle_id and m.user_id = t.membership_user_id
+    join public.circles c on c.id = t.membership_circle_id
+    where t.token_hash = p_reentry_token_hash
+      and t.purpose = 'reentry'
+      and t.membership_user_id = caller
+      and m.status = 'active';
 
-      if found then
-        return chosen;
-      end if;
+    if found then
+      return chosen;
     end if;
 
     raise exception 'caller_is_permanent' using errcode = 'insufficient_privilege';
@@ -311,7 +310,7 @@ end;
 $$;
 
 comment on function private.reattach_member_core(uuid, uuid, uuid, bytea) is
-  'Moves a guest membership and everything scoped to it onto p_caller, from the Continue-as list (a circle and a member) or an emailed re-entry token digest (ADR 0006): only in an active circle, and on the list path only while one of its plans is live (ADR 0059); a per-circle hourly limit on the list path; no cap on how often one membership moves (ADR 0078); never onto a saved-place member, but a valid token takes a place back from a saved account whose own address is not the link''s (ADR 0049, decision 6). Called only by reattach_member and reattach_with_token, which say who p_caller is.';
+  'Moves a guest membership and everything scoped to it onto p_caller, from the Continue-as list (a circle and a member) or an emailed re-entry token digest (ADR 0006): only in an active circle, and on the list path only while one of its plans is live (ADR 0059); a per-circle hourly limit on the list path; no cap on how often one membership moves (ADR 0078); onto a guest or, from the list, onto a signed-in account (ADR 0088); never takes a saved-place member''s place, but a valid token takes a place back from a saved account whose own address is not the link''s (ADR 0049, decision 6). Called only by reattach_member and reattach_with_token, which say who p_caller is.';
 
 revoke all on function private.reattach_member_core(uuid, uuid, uuid, bytea) from public;
 revoke all on function private.reattach_member_core(uuid, uuid, uuid, bytea) from anon, authenticated;
