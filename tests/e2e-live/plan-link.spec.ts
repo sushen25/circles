@@ -166,8 +166,8 @@ test("an account takes a guest's place, with its answer, even once the plan has 
   page,
 }) => {
   // SUS-245: Tom answered as a guest, then signed up. On a plan past its deadline
-  // join-plan admits nobody, and the account used to end at "You need the invite
-  // link to join" while a guest on the same link could still pick Tom.
+  // join-plan admits nobody, and the account used to end at "ask for the invite
+  // link" while a guest on the same link could still pick Tom.
   const crew = sundayCrew();
   const tomAsGuest = guestWhoAnswered(crew, 'Tom');
   planStopsAsking(crew, 'deadline_passed');
@@ -189,7 +189,7 @@ test("an account takes a guest's place, with its answer, even once the plan has 
   await page.getByRole('button', { name: "Yes, I'm Tom" }).click();
 
   await expect(page.getByText('Have you answered this before?')).toHaveCount(0);
-  await expect(page.getByText('You need the invite link to join.')).toHaveCount(0);
+  await expect(page.getByText("This plan isn't taking new answers.")).toHaveCount(0);
   const member = memberNamed(crew.circleId, 'Tom');
   expect(member?.userId, "the place is the account's now").toBe(tom.userId);
   expect(member?.anonymous).toBe(false);
@@ -201,7 +201,7 @@ test('a plan that is not asking ends at one place, and a link that is not live a
   browser,
 }) => {
   // A plan past its deadline is still live (ADR 0049): the person gives a name and
-  // is told to ask for the invite. A cancelled plan, a quiet ask still gathering
+  // is told whom to ask (ADR 0091). A cancelled plan, a quiet ask still gathering
   // interest and a code that does not exist are not live, and share one end state
   // with no name step: "this link isn't active". The server refuses all four
   // joins with one `invite_inactive`, and nothing is let in either way.
@@ -220,7 +220,10 @@ test('a plan that is not asking ends at one place, and a link that is not live a
 
     if (how === 'deadline_passed') {
       await typeName(page, 'Ada');
-      await expect(page.getByText('You need the invite link to join.'), how).toBeVisible();
+      await expect(page.getByText("This plan isn't taking new answers."), how).toBeVisible();
+      await expect(page.getByText('Ask someone in Sunday Crew to add you.'), how).toBeVisible();
+      // Never told about a link they have not seen (ADR 0091).
+      await expect(page.getByText(/invite link/i), how).toHaveCount(0);
       live.push(await page.locator('body').innerText());
     } else {
       await expect(page.getByText("This link isn't active any more."), how).toBeVisible();

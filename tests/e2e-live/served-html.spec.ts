@@ -18,7 +18,8 @@ import { accountToSignInTo, latestCodeFor, memberNamed, stackConfig, sundayCrew 
 
 /** Copy a refusal is written in. None of it may be in HTML that knows nobody. */
 const REFUSALS = [
-  'You need the invite link',
+  "This plan isn't taking new answers",
+  "You're not in this circle",
   'Open the invite link again',
   'This link has expired',
   "This link isn't active any more",

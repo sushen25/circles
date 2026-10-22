@@ -23,14 +23,12 @@ test('The Big Table, at the cap, says so on its home, in settings and on the inv
 
   await page.goto(`/circles/${BIG_TABLE}`);
   await expect(page.getByText('The Big Table is full (20 people)')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Share again' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Invite link' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add someone' })).toHaveCount(0);
   await expect(page.getByText(/in so far/)).toHaveCount(0);
 
   await page.goto(`/circles/${BIG_TABLE}/settings`);
   await expect(page.getByText('The Big Table is full (20 people)')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Copy link' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Reset link' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add someone' })).toHaveCount(0);
 
   await page.goto(`/circles/${BIG_TABLE}/invite`);
   await expect(page.getByText('The Big Table is full (20 people)')).toBeVisible();
