@@ -405,6 +405,17 @@ describe('an account that is not a member, in a circle that has guests (ADR 0088
     expect(track).not.toHaveBeenCalled();
   });
 
+  it('a failed Yes closes the sheet and leaves the list', async () => {
+    reattachFromList.mockRejectedValue(refusal('target_is_permanent'));
+    arrive();
+
+    await tap(screen.findByRole('button', { name: /Alex/ }));
+    await tap(screen.findByRole('button', { name: "Yes, I'm Alex" }));
+
+    await waitFor(() => expect(screen.queryByText("Take Alex's place in Sunday Crew?")).toBeNull());
+    expect(screen.getByRole('button', { name: /Alex/ })).toBeTruthy();
+  });
+
   it('"Not me" goes back to the list with nothing sent and no event', async () => {
     arrive();
 

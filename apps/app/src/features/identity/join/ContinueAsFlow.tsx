@@ -211,6 +211,12 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
   }
 
   const byKey = new Map<string, GuestMemberOption>(listed.map((m) => [m.member_user_id, m]));
+  // Only while the guest is still listed and the circle's name is known: a place claimed
+  // elsewhere meanwhile, or a title reading "in ?", is not something to confirm.
+  const claimOpen =
+    claiming !== undefined && byKey.has(claiming.member_user_id) && title !== undefined
+      ? claiming
+      : undefined;
 
   const pick = async (member: GuestMemberOption) => {
     let key = keys.current.get(member.member_user_id);
@@ -287,11 +293,11 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
         onBack={back}
       />
       <ClaimPlaceSheet
-        name={claiming?.display_name}
+        name={claimOpen?.display_name}
         circleName={title ?? ''}
         busy={busyKey !== undefined}
         onYes={() => {
-          if (claiming !== undefined) void pick(claiming);
+          if (claimOpen !== undefined) void pick(claimOpen);
         }}
         onDismiss={() => setClaiming(undefined)}
       />
