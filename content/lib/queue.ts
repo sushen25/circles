@@ -38,6 +38,8 @@ export type Frontmatter = {
   media: 'slideshow' | 'none' | string;
   /** Per-platform post ids written back after publishing. */
   published?: Record<string, string>;
+  /** Seconds as the video build measured them (lib/measure.ts setTiming): total, before, after, slides. */
+  timing?: Record<string, string>;
 };
 
 /**

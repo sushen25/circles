@@ -10,6 +10,11 @@
 # under content/, so the commit runs nothing else (ADR 0081). Nothing here
 # posts.
 #
+# After the pull, `npm run scorecard` rebuilds analytics/scorecard.json and
+# scorecard.md from every row, and `npm run brief` rewrites
+# content/context/learned.md from the scorecard, for /hooks and /skit to read
+# the next morning. Both read files only.
+#
 # The pull step is allowed to fail so the commit step still runs: a Meta token
 # inside seven days of expiry, or a configured platform that failed on every
 # post, exits 1 after writing, and the last step turns that into a red job on
@@ -69,7 +74,16 @@ jobs:
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           YOUTUBE_CHANNEL_ID: ${{ vars.YOUTUBE_CHANNEL_ID }}
-      - name: commit rows, replies, claims and moves
+      # Allowed to fail for the same reason as the pull: the rows are worth
+      # committing even when the tables built from them are not.
+      - id: scorecard
+        run: npm run scorecard
+        continue-on-error: true
+      - id: brief
+        if: steps.scorecard.outcome == 'success'
+        run: npm run brief
+        continue-on-error: true
+      - name: commit rows, replies, claims, moves and the brief
         run: |
           git config user.name "wenna-content bot"
           git config user.email "bot@wenna.app"
@@ -79,7 +93,7 @@ jobs:
           # the pathspec stages the deletion as well as the addition, and a
           # directory pathspec never fails on a file that does not exist yet.
           # inbox/screens/ is git-ignored, so a screenshot is never staged.
-          git add -A -- analytics inbox queue published publish
+          git add -A -- analytics inbox queue published publish context/learned.md
           git diff --cached --quiet || git commit -m "content: analytics $(date -u +%Y-%m-%d)"
           # content-publish.yml has its own concurrency group and may push to
           # main while this job runs; a non-fast-forward push would lose this
@@ -87,8 +101,9 @@ jobs:
           # rebase is clean.
           git pull --rebase origin main
           git push
-      - name: fail when the pull did
-        # Red on the Actions page for an expiring token or a platform that
-        # failed on every post, after the rows are committed, never instead.
-        if: steps.pull.outcome == 'failure'
+      - name: fail when the pull, the scorecard or the brief did
+        # Red on the Actions page for an expiring token, a platform that
+        # failed on every post, or a scorecard or brief that would not build,
+        # after the rows are committed, never instead.
+        if: steps.pull.outcome == 'failure' || steps.scorecard.outcome == 'failure' || steps.brief.outcome == 'failure'
         run: exit 1

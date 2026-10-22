@@ -546,3 +546,22 @@ test('parseFlags and carriesTag', () => {
   assert.equal(carriesTag('see wenna.app/?from=yt-only-moves-again', 'yt-only-moves'), false);
   assert.equal(carriesTag('see wenna.app', 'yt-only-moves'), false);
 });
+
+test('the nightly run writes a features row for a published piece, once; --series and --only do not', async () => {
+  const t = setup();
+  const skit = '\n```json\n{ "hook": "h", "slides": [ { "type": "cover", "line1": "a" }, { "type": "end", "line": "b", "url": "wenna.app" } ] }\n```\n';
+  writeFileSync(t.queuePath, readFileSync(t.queuePath, 'utf8') + skit);
+  const features = join(t.dirs.analytics, 'features.jsonl');
+
+  await t.run({ bluesky: fake('bluesky') }, { series: true });
+  await t.run({ bluesky: fake('bluesky') }, { only: 'bluesky' });
+  assert.equal(existsSync(features), false);
+
+  await t.run({ bluesky: fake('bluesky') });
+  await t.run({ bluesky: fake('bluesky') });
+  const rows = readJsonl<{ slug: string; posted: Record<string, unknown> }>(features);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].slug, SLUG);
+  assert.deepEqual(Object.keys(rows[0].posted).sort(), ['bluesky', 'instagram']);
+  assert.ok(t.log.includes(`feat  ${SLUG} (no timing yet)`));
+});

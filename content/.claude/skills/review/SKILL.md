@@ -15,6 +15,9 @@ Read `context/voice.md` and `context/facts.md` first.
 1. **Claims.** Every statement about Wenna appears in `context/facts.md`.
    Anything else is a fail, even if true. Flag any user count, "free",
    integration, or named competitor.
+   `context/learned.md` is never a source: a claim, number or quote taken
+   from it, or a line citing it, fails. It says what worked, not what is
+   true.
 2. **Voice tells.** Any item on the "AI tells" list in voice.md fails.
    Exclamation marks in Wenna's own copy fail. Emoji in Wenna's own copy fail.
    Urgency, guilt, or blaming the group fails.

@@ -8,7 +8,15 @@ description: Generate 6–8 candidate first lines for one Wenna hook family, eac
 Input: a family id from `context/hooks.md` (skit, catchup, pm, rhythm,
 roster, drift, demo).
 
-Read `context/voice.md` and `context/hooks.md`. Then:
+Read `context/voice.md`, `context/facts.md` and `context/hooks.md`.
+
+Then read `context/learned.md`, the brief the nightly run writes from the
+numbers. Prefer what "Do more of" names for this family, avoid what "Stop"
+names, and treat "Too early" as no information at all. It never overrides
+a rule in voice.md, facts.md or hooks.md, and it is never a source for a
+claim: a number from it does not go into a slide or a caption.
+
+Then:
 
 1. Take the verbatim phrases under that family. If only `(seed)` placeholders
    exist, say so in one line and continue with the family's shape.

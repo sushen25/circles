@@ -25,6 +25,9 @@
  * so the Action still commits what it got and somebody notices. Nothing
  * here posts, edits or deletes on any platform: every call is a read.
  * TikTok has no module yet; its numbers arrive by `npm run hand -- …`.
+ * The nightly run also appends a features.jsonl row for any published piece
+ * whose measure is new or changed (analytics/features.ts); that reads files
+ * only.
  */
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -49,6 +52,7 @@ import {
 import { NotConfigured, Unreadable, env as realEnv, type PlatformModule, type RecentPost } from './platforms/module.ts';
 import { claim } from './claim.ts';
 import { writeReplies, type ReplyEntry } from './inbox.ts';
+import { writeFeatures } from './features.ts';
 
 export type Flags = {
   /** the two-hourly run: posts under SERIES_HOURS old, into series.jsonl, nothing else */
@@ -181,6 +185,7 @@ export async function runPull(opts: {
     series: join(dirs.analytics, 'series.jsonl'),
     account: join(dirs.analytics, 'account.jsonl'),
     seen: join(dirs.analytics, 'replies-seen.json'),
+    features: join(dirs.analytics, 'features.jsonl'),
   };
 
   const write = (path: string, row: unknown, what: string) => {
@@ -364,6 +369,12 @@ export async function runPull(opts: {
       }
     }
     if (claimed) ledger = readLedger(dirs.ledger);
+  }
+
+  // What each published piece is (features.jsonl), from the files alone: no platform is asked, so --only leaves it out.
+  if (!flags.only) {
+    const f = writeFeatures({ items, ledger, path: paths.features, now, dry: flags.dry, log });
+    summary.failures += f.failures;
   }
 
   // Tier 1 rows, and the replies on each post.
