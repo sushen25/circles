@@ -41,7 +41,14 @@ export const CreatePlanRequest = Mutation.extend({
    */
   title: z.string().trim().min(1).max(60),
   category: z.enum(['catch_up', 'dinner', 'drinks', 'coffee', 'activity']).default('catch_up'),
-  preset: z.enum(['tonight', 'this_weekend', 'next_7_days', 'next_14_days', 'custom']),
+  preset: z.enum([
+    'tonight',
+    'this_weekend',
+    'next_7_days',
+    'next_14_days',
+    'next_28_days',
+    'custom',
+  ]),
   /** Required by `custom`, ignored otherwise: the dates the person picked. */
   custom: DateWindow.optional(),
   /**
@@ -64,7 +71,9 @@ export const CreatePlanRequest = Mutation.extend({
     return;
   }
   if (request.stop_time === undefined) refuse('stop_time', 'A quiet ask needs a stop time.');
-  if (request.preset === 'custom') refuse('preset', 'A quiet ask picks one of four windows.');
+  if (request.preset === 'custom' || request.preset === 'next_28_days') {
+    refuse('preset', 'A quiet ask picks one of four windows.');
+  }
   for (const field of ['custom', 'quorum', 'required_member_ids', 'response_deadline'] as const) {
     if (request[field] !== undefined) refuse(field, 'A quiet ask has no organiser to choose this.');
   }

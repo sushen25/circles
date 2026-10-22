@@ -202,7 +202,6 @@ test('"I was there" on the circle\'s first meetup: a guest starts a circle of th
   await page.getByLabel('Your email').fill(address);
   await page.getByRole('button', { name: 'Send me a code' }).click();
   await page.getByLabel('Code', { exact: true }).fill(await latestCodeFor(address));
-  await page.getByRole('button', { name: 'Continue' }).click();
 
   await expect(page).toHaveURL(/\/circles\/create$/);
   await page.getByLabel('Circle name').fill('Book Club');

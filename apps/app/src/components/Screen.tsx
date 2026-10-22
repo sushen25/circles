@@ -6,7 +6,8 @@ import { hit, layout, size, space } from '@circles/tokens';
 
 import { BrandMark } from './Brand';
 import { Icon } from './Icon';
-import { Title } from './Text';
+import { ProgressLine } from './ProgressLine';
+import { Small, Title } from './Text';
 import { InvertProvider, usePalette } from './theme';
 
 /**
@@ -74,10 +75,37 @@ type TopBarProps = {
   left?: ReactNode;
   /** The small mark in the middle, on the screens that are home (the circles list). */
   mark?: boolean | undefined;
+  /**
+   * Where the person is in a run of steps: "1 of 3" beside the title, and a 2 px
+   * line under the bar that grows to `at / total` (SUS-247). The words are the
+   * caller's, since a component holds none.
+   */
+  step?: { at: number; total: number; label: string; spoken: string } | undefined;
 };
 
-export function TopBar({ title, onBack, backLabel = 'Go back', right, left, mark }: TopBarProps) {
+export function TopBar({
+  title,
+  onBack,
+  backLabel = 'Go back',
+  right,
+  left,
+  mark,
+  step,
+}: TopBarProps) {
   const palette = usePalette();
+  // The count sits in the middle when there is nothing else there (the first
+  // screen's wordmark has a Sign in on its right), and at the right otherwise.
+  const counted =
+    step === undefined ? null : (
+      <Small aria-label={step.spoken} accessibilityLiveRegion="polite">
+        {step.label}
+      </Small>
+    );
+  const middle = title ? (
+    <Title style={{ color: palette.ink2 }}>{title}</Title>
+  ) : right !== undefined ? (
+    counted
+  ) : null;
 
   return (
     <View style={styles.topRow}>
@@ -91,10 +119,11 @@ export function TopBar({ title, onBack, backLabel = 'Go back', right, left, mark
         ) : (
           <View style={styles.topAction} />
         )}
-        {title ? <Title style={{ color: palette.ink2 }}>{title}</Title> : null}
+        {middle}
         {!title && mark ? <BrandMark size={24} /> : null}
-        <View style={[styles.topAction, styles.topRight]}>{right}</View>
+        <View style={[styles.topAction, styles.topRight]}>{right ?? counted}</View>
       </View>
+      {step === undefined ? null : <ProgressLine fraction={step.at / step.total} />}
     </View>
   );
 }
@@ -134,11 +163,12 @@ const styles = StyleSheet.create({
     maxWidth: layout.column,
   },
   topRow: {
-    alignItems: 'center',
+    alignItems: 'stretch',
   },
   top: {
     width: '100%',
     maxWidth: layout.column,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

@@ -76,7 +76,7 @@ describe('the organiser draft', () => {
 
   it('keeps the same keys for the same request, so a resumed finish is the same finish', async () => {
     const first = await saveDraft({ circleName: 'Sunday Crew' }, NOW);
-    const again = await saveDraft({ way: 'ask', proceed: true }, NOW + 1_000);
+    const again = await saveDraft({ proceed: true }, NOW + 1_000);
 
     expect(again.draft.keys).toEqual(first.draft.keys);
   });
@@ -130,7 +130,71 @@ describe('the organiser draft', () => {
     expect(globalThis.localStorage.getItem(DRAFT_KEY)).toBeNull();
     // And the next draft starts clean, in the new format.
     expect((await saveDraft({ circleName: 'Sunday Crew' }, NOW + 2_000)).created).toBe(true);
-    expect(await readDraft(NOW + 3_000)).toMatchObject({ v: 2, plan: DEFAULT_PLAN });
+    expect(await readDraft(NOW + 3_000)).toMatchObject({ v: 3, plan: DEFAULT_PLAN });
+  });
+
+  it('reads a version 2 record as a draft with no answer, and keeps everything else', async () => {
+    const circle = globalThis.crypto.randomUUID();
+    const plan = globalThis.crypto.randomUUID();
+    globalThis.localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({
+        v: 2,
+        updatedAt: NOW,
+        circleName: 'Sunday Crew',
+        cadence: 'weekly',
+        plan: { category: 'catch_up', preset: 'next_14_days', duration: 120 },
+        way: 'invite',
+        proceed: true,
+        circleCounted: true,
+        keys: { circle, plan },
+      }),
+    );
+
+    const read = await readDraft(NOW + 1_000);
+    expect(read).toMatchObject({
+      v: 3,
+      circleName: 'Sunday Crew',
+      cadence: 'weekly',
+      plan: { preset: 'next_14_days' },
+      proceed: true,
+      circleCounted: true,
+      keys: { circle, plan },
+    });
+    expect(read?.answer).toBeUndefined();
+    // The way on left the first run: it is not carried into the new record.
+    expect(read).not.toHaveProperty('way');
+    // The answer has its own key from the first read, and it stays the same one.
+    expect(read?.keys.answer).toBeTruthy();
+    const saved = await saveDraft({ circleName: 'Sunday Crew' }, NOW + 2_000);
+    expect(saved.created).toBe(false);
+    expect(saved.draft.keys.answer).toBe(read?.keys.answer);
+  });
+
+  it('holds the organiser answer, and makes a new answer key when it or the plan changes', async () => {
+    const first = await saveDraft({ circleName: 'Sunday Crew' }, NOW);
+    expect(first.draft.answer).toBeUndefined();
+
+    const picked = await saveDraft(
+      { answer: { days: ['2026-10-27', '2026-10-29'], band: 'evenings' } },
+      NOW + 1_000,
+    );
+    expect(picked.draft.keys.answer).not.toBe(first.draft.keys.answer);
+    expect(picked.draft.keys.plan).toBe(first.draft.keys.plan);
+    expect(await readDraft(NOW + 2_000)).toMatchObject({
+      answer: { days: ['2026-10-27', '2026-10-29'], band: 'evenings' },
+    });
+
+    // The same answer written again is the same request.
+    const same = await saveDraft(
+      { answer: { band: 'evenings', days: ['2026-10-27', '2026-10-29'] } },
+      NOW + 3_000,
+    );
+    expect(same.draft.keys.answer).toBe(picked.draft.keys.answer);
+
+    // A different plan is a different question, so a different answer.
+    const longer = await saveDraft({ plan: { ...DEFAULT_PLAN, duration: 180 } }, NOW + 4_000);
+    expect(longer.draft.keys.answer).not.toBe(same.draft.keys.answer);
   });
 
   it('makes a new plan key for any change to the setup, and keeps it when nothing changed', async () => {
@@ -141,7 +205,7 @@ describe('the organiser draft', () => {
 
     // The same setup, written again with its fields in another order.
     const again = await saveDraft(
-      { plan: { duration: 180, preset: 'next_14_days', category: 'catch_up' } },
+      { plan: { duration: 180, preset: 'next_28_days', category: 'catch_up' } },
       NOW + 2_000,
     );
     expect(again.draft.keys.plan).toBe(longer.draft.keys.plan);
@@ -163,7 +227,7 @@ describe('the organiser draft', () => {
   it('forgets that the circle was counted when the circle changes', async () => {
     await saveDraft({ circleName: 'Sunday Crew' }, NOW);
     await saveDraft({ circleCounted: true }, NOW);
-    expect((await saveDraft({ way: 'ask' }, NOW + 1_000)).draft.circleCounted).toBe(true);
+    expect((await saveDraft({ proceed: true }, NOW + 1_000)).draft.circleCounted).toBe(true);
     expect((await saveDraft({ circleName: 'Sunday Club' }, NOW + 2_000)).draft.circleCounted).toBe(
       false,
     );

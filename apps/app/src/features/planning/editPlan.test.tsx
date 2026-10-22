@@ -78,7 +78,7 @@ describe('editing the dates', () => {
     const [, sent] = previewRevision.mock.calls.at(-1) as [string, Planning.Revision];
     expect(sent).toEqual({
       window: { start: '2026-09-15', end: '2026-09-21' },
-      responseDeadline: '2026-09-16T00:00:00.000Z',
+      responseDeadline: '2026-09-16T08:00:00.000Z',
     });
     expect(saveRevision).not.toHaveBeenCalled();
   });
@@ -291,7 +291,7 @@ describe('changing a locked-in time', () => {
     expect(previewRevision.mock.calls.at(-1)?.[1]).toMatchObject({
       reopen: true,
       window: { start: '2026-09-18', end: '2026-10-01' },
-      responseDeadline: '2026-09-18T00:00:00.000Z',
+      responseDeadline: '2026-09-18T08:00:00.000Z',
     });
     fireEvent.click(ask);
     await waitFor(() => expect(track).toHaveBeenCalledWith('plan_rescheduled', IDS));

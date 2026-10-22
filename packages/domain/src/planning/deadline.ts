@@ -18,6 +18,7 @@ import {
   instant,
   isAfter,
 } from '../shared/instant.js';
+import { addDays } from '../shared/local-date.js';
 import { type Zone, fromLocal, offsetMinutes, toLocal } from '../shared/zone.js';
 import type { PlanTiming, WindowPreset } from './types.js';
 
@@ -121,6 +122,25 @@ export function ceilToLocalHour(value: Instant, z: Zone): Instant {
   return rounded;
 }
 
+/**
+ * The hour the day-based defaults land on: 6 pm on the plan's own clock, when a
+ * group chat is awake and a deadline reads as a time somebody picked (ADR 0090,
+ * which amends ADR 0076's rounding up to the hour).
+ */
+export const REPLY_HOUR = 18;
+
+/**
+ * 6 pm, `days` calendar days after the day the plan is made, on the plan's own
+ * clock: a plan made on Thursday morning with a three-day default closes on
+ * Sunday at 6 pm, "about three days out" and never on an odd hour. The calendar
+ * day, not 24-hour multiples, so a daylight-saving change still lands on the
+ * hour people were shown.
+ */
+export function replyTime(createdAt: Instant, days: number, zone: Zone): Instant {
+  const today = toLocal(createdAt, zone).date;
+  return fromLocal(addDays(today, days), REPLY_HOUR * HOUR, zone);
+}
+
 function uncappedDefault(
   preset: WindowPreset,
   createdAt: Instant,
@@ -135,13 +155,14 @@ function uncappedDefault(
       );
     case 'this_weekend':
     case 'next_7_days':
-      return clampDeadline(ceilToLocalHour(addMinutes(createdAt, 24 * HOUR), zone), latestStart);
+      return clampDeadline(replyTime(createdAt, 1, zone), latestStart);
     case 'next_14_days':
-      return clampDeadline(ceilToLocalHour(addMinutes(createdAt, 72 * HOUR), zone), latestStart);
+    case 'next_28_days':
+      return clampDeadline(replyTime(createdAt, 3, zone), latestStart);
     case 'custom':
       // A custom window is whatever the person chose, so it gets the middle
       // default rather than a guess based on its length.
-      return clampDeadline(ceilToLocalHour(addMinutes(createdAt, 24 * HOUR), zone), latestStart);
+      return clampDeadline(replyTime(createdAt, 1, zone), latestStart);
   }
 }
 

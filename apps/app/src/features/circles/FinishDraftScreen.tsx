@@ -7,6 +7,7 @@ import {
   Notice,
   Screen,
   Small,
+  Tertiary,
   TopBar,
   useLoadingHold,
 } from '../../components';
@@ -29,9 +30,12 @@ export type FinishDraftProps = {
   onRetry?: (() => void) | undefined;
   /** For `too_late` and `time_passed`: back to the plan's card, to pick a time that is still open. */
   onChangeTime?: (() => void) | undefined;
+  /** Under Try again, for a failure that is not about the time: what was chosen is kept there. */
+  onBackToPlan?: (() => void) | undefined;
 };
 
-function problemCopy(problem: FinishDraftProblem, circle: string): string {
+/** What a failed finish says, to this screen and to the code step the gate makes it in. */
+export function finishProblemWords(problem: FinishDraftProblem, circle: string): string {
   switch (problem) {
     case 'too_many_tries':
       return t('finish', 'too_many_tries');
@@ -52,6 +56,7 @@ export function FinishDraftScreen({
   reference,
   onRetry,
   onChangeTime,
+  onBackToPlan,
 }: FinishDraftProps) {
   // A problem that arrives just after the skeleton appeared waits out its minimum display.
   const waiting = useLoadingHold(problem === undefined);
@@ -71,7 +76,7 @@ export function FinishDraftScreen({
       <Body>
         <Stack>
           <DisplayL>{circleName}</DisplayL>
-          <Notice kind="warn">{problemCopy(problem, circleName)}</Notice>
+          <Notice kind="warn">{finishProblemWords(problem, circleName)}</Notice>
           {reference === undefined ? null : (
             <Small>{t('finish', 'reference', { reference })}</Small>
           )}
@@ -81,7 +86,10 @@ export function FinishDraftScreen({
         {problem === 'too_late' || problem === 'time_passed' ? (
           <Button label={t('finish', 'change_the_time')} onPress={onChangeTime} />
         ) : (
-          <Button label={t('finish', 'try_again')} onPress={onRetry} />
+          <>
+            <Button label={t('finish', 'try_again')} onPress={onRetry} />
+            <Tertiary label={t('firstRun', 'back_to_the_plan')} onPress={onBackToPlan} />
+          </>
         )}
       </Foot>
     </Screen>

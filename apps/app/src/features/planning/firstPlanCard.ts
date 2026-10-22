@@ -22,6 +22,7 @@ const DURATION: Record<number, () => string> = {
 
 const WINDOW_TITLE: Partial<Record<WindowPreset, () => string>> = {
   next_14_days: () => t('firstPlan', 'catch_up_next_14_days'),
+  next_28_days: () => t('firstPlan', 'catch_up_next_28_days'),
   this_weekend: () => t('firstPlan', 'catch_up_this_weekend'),
   tonight: () => t('firstPlan', 'catch_up_tonight'),
 };

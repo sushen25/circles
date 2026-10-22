@@ -15,7 +15,6 @@ async function signInByCode(page: Page, email: string): Promise<void> {
   await page.getByRole('button', { name: 'Send me a code' }).click();
   await expect(page.getByText(`Sent to ${email}.`, { exact: false })).toBeVisible();
   await page.getByLabel('Code', { exact: true }).fill(await latestCodeFor(email));
-  await page.getByRole('button', { name: 'Continue' }).click();
 }
 
 /** A guest already in the circle, who joined some time ago. */

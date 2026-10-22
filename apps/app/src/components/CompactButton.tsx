@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View, type PressableProps } from 'react-native';
 import { faceFor, hit, radius } from '@circles/tokens';
 
 import { SPINNER, Slow, Words, shared, useBusy, type BusyProps } from './busyParts';
+import { Crossfade } from './Crossfade';
 import { Icon, type IconName } from './Icon';
 import { Spinner } from './Spinner';
 import { usePalette } from './theme';
@@ -19,6 +20,8 @@ type CompactProps = Omit<PressableProps, 'children' | 'style'> &
     tone?: 'plain' | 'accent' | undefined;
     /** Sit in the middle of the line, as a quiet action under a primary does. */
     centered?: boolean | undefined;
+    /** A label that changes in place to confirm a tap ("Copy", "Copied") crossfades. */
+    crossfade?: boolean | undefined;
   };
 
 /**
@@ -37,6 +40,7 @@ export function CompactButton({
   icon,
   tone = 'plain',
   centered = false,
+  crossfade = false,
   disabled,
   onPress,
   ...props
@@ -68,20 +72,30 @@ export function CompactButton({
         ]}
         {...props}
       >
-        <Words
-          label={said}
-          other={view.working ? label : busyLabel}
-          style={[styles.compactLabel, { color: ink }, accent && styles.compactAccent]}
-          gap={6}
-          reserve={busy === undefined || icon !== undefined ? 0 : SPINNER.compact + 6}
-          lead={
-            view.spinner ? (
-              <Spinner size={SPINNER.compact} color={ink} />
-            ) : icon === undefined ? null : (
-              <Icon name={icon} size={16} color={ink} />
-            )
-          }
-        />
+        {crossfade ? (
+          <View style={styles.row}>
+            {icon === undefined ? null : <Icon name={icon} size={16} color={ink} />}
+            <Crossfade
+              value={said}
+              style={[styles.compactLabel, { color: ink }, accent && styles.compactAccent]}
+            />
+          </View>
+        ) : (
+          <Words
+            label={said}
+            other={view.working ? label : busyLabel}
+            style={[styles.compactLabel, { color: ink }, accent && styles.compactAccent]}
+            gap={6}
+            reserve={busy === undefined || icon !== undefined ? 0 : SPINNER.compact + 6}
+            lead={
+              view.spinner ? (
+                <Spinner size={SPINNER.compact} color={ink} />
+              ) : icon === undefined ? null : (
+                <Icon name={icon} size={16} color={ink} />
+              )
+            }
+          />
+        )}
       </Pressable>
     </Slow>
   );

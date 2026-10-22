@@ -78,7 +78,7 @@ describe('the edit request', () => {
     expect(resolved.deadlineMoved).toBe(true);
     expect(resolved.revision).toEqual({
       window: { start: '2026-09-15', end: '2026-09-21' },
-      responseDeadline: '2026-09-16T00:00:00.000Z',
+      responseDeadline: '2026-09-16T08:00:00.000Z',
     });
   });
 
@@ -99,7 +99,7 @@ describe('the edit request', () => {
     expect(resolved.ok && resolved.revision).toMatchObject({
       reopen: true,
       window: { start: '2026-09-15', end: '2026-09-28' },
-      responseDeadline: '2026-09-18T00:00:00.000Z',
+      responseDeadline: '2026-09-18T08:00:00.000Z',
     });
   });
 });

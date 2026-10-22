@@ -8,9 +8,9 @@ import type * as CircleData from '../../data/circles';
 import type * as Planning from '../../data/planning';
 
 /**
- * The plan setup in its draft mode (ADR 0053): before there is a circle, every
- * "Change" on the First plan card opens the full setup, which reads the device's
- * draft and writes it back. It calls nothing on the server; the finish makes the
+ * The plan setup in its draft mode (ADR 0053): before there is a circle,
+ * **More options** in the evenings screen's Adjust opens the full setup, which
+ * reads the device's draft and writes it back. It calls nothing on the server; the finish makes the
  * plan from what the draft holds.
  */
 
@@ -93,27 +93,25 @@ beforeEach(() => {
   createPlan.mockResolvedValue({ plan_id: PLAN });
 });
 
-describe('the First plan card, before sign-in', () => {
-  it('has a Change on the window, the length and the replies, and opens the setup', async () => {
+describe('the evenings screen, before sign-in', () => {
+  it('reaches the full setup from Adjust, More options', async () => {
     await saveDraft({ circleName: 'Sunday Crew' });
     wrap(<FirstPlanDraftFlow />);
 
-    await screen.findByText('Most of the group need to make it');
-    // The quorum is "Most of the group" until there is a group: no number to set.
-    const changes = screen.getAllByRole('button', { name: 'Change' });
-    expect(changes).toHaveLength(3);
-    fireEvent.click(changes[0]!);
-    expect(push).toHaveBeenCalledWith('/circles/new/plan/setup');
-    expect(screen.getByText(/Tap anything to change it/)).toBeVisible();
+    await screen.findByText('Which evenings could you do?');
+    await tap(screen.getByRole('button', { name: 'Adjust' }));
+    await tap(await screen.findByRole('button', { name: 'More options' }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/circles/new/plan/setup'));
   });
 });
 
-describe('the card, with a slow device write', () => {
-  it('holds Ask the group until a window just picked is written, so the old plan is not written over it', async () => {
+describe('the screen, with a slow device write', () => {
+  it('writes a window just picked before it goes on, so the old plan is not written over it', async () => {
     const { sessionStorage } = await import('../../data/auth/storage');
     await saveDraft({ circleName: 'Sunday Crew' });
     wrap(<FirstPlanDraftFlow />);
-    await screen.findByText('Most of the group need to make it');
+    await screen.findByText('Which evenings could you do?');
+    fireEvent.click(screen.getAllByRole('button', { name: /, evening$/ })[3]!);
 
     const write = sessionStorage.setItem.bind(sessionStorage);
     const slow = vi.spyOn(sessionStorage, 'setItem').mockImplementation(async (key, value) => {
@@ -121,14 +119,16 @@ describe('the card, with a slow device write', () => {
       await write(key, value);
     });
     try {
-      fireEvent.click(screen.getByRole('checkbox', { name: 'This weekend' }));
-      // Held: the button is busy while the write is out, and taps do nothing.
-      expect(screen.getByRole('button', { name: /^Ask/ })).toHaveAttribute('aria-busy', 'true');
-      await waitFor(async () =>
-        expect(await readDraft()).toMatchObject({ plan: { preset: 'this_weekend' } }),
-      );
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Next 2 weeks' }));
+      // Going on while the write is out (this organiser is signed in, so it is
+      // Make the link): the draft it makes the plan from is the one with the
+      // new window in it.
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Make the link' }));
+      });
+      await waitFor(() => expect(push).toHaveBeenCalledWith('/circles/new/finish'));
       await new Promise((resolve) => setTimeout(resolve, 150));
-      expect((await readDraft())?.plan.preset).toBe('this_weekend');
+      expect((await readDraft())?.plan.preset).toBe('next_14_days');
     } finally {
       slow.mockRestore();
     }
@@ -161,7 +161,7 @@ describe('the plan setup in draft mode', () => {
 
     expect(replace).toHaveBeenCalledWith('/circles/new/plan');
     const plan = (await readDraft())!.plan;
-    expect(plan).toMatchObject({ preset: 'next_14_days', duration: 180 });
+    expect(plan).toMatchObject({ preset: 'next_28_days', duration: 180 });
     expect(plan.band).toBeDefined();
     expect(plan.band!.startMin).toBeLessThan(17 * 60);
     expect(plan.deadline).toBeDefined();
@@ -179,10 +179,10 @@ describe('the plan setup in draft mode', () => {
 
     // A reload: a fresh card, nothing held in memory but what the device kept.
     wrap(<FirstPlanDraftFlow />);
-    await screen.findByText('About 3 hours');
-    expect(screen.getByText(/^Days and evenings, /)).toBeVisible();
-    expect(screen.getByText('Replies close in 24 hours')).toBeVisible();
-    expect(screen.queryByText('Evenings and weekend days')).toBeNull();
+    expect(
+      await screen.findByText(/^Days and evenings · about 3 hours · replies close \w{3} /),
+    ).toBeVisible();
+    expect(screen.getByText('Which days could you do?')).toBeVisible();
     expect(circleHome).not.toHaveBeenCalled();
     expect(createPlan).not.toHaveBeenCalled();
   });
@@ -232,7 +232,6 @@ describe('the finish, from the edited setup', () => {
     await saveDraft({
       circleName: 'Sunday Crew',
       cadence: 'fortnightly',
-      way: 'ask',
       proceed: true,
       plan: {
         category: 'dinner',
@@ -264,14 +263,14 @@ describe('the finish, from the edited setup', () => {
   });
 
   it('sends nothing the person did not choose when the setup is the defaults', async () => {
-    await saveDraft({ circleName: 'Sunday Crew', way: 'ask', proceed: true });
+    await saveDraft({ circleName: 'Sunday Crew', proceed: true });
     wrap(<FinishDraftFlow />);
     await waitFor(() => expect(createPlan).toHaveBeenCalledTimes(1));
     expect(createPlan).toHaveBeenCalledWith(
       expect.objectContaining({
         title: 'Catch up',
         category: 'catch_up',
-        preset: 'next_14_days',
+        preset: 'next_28_days',
         daily: undefined,
         durationMinutes: undefined,
         responseDeadline: undefined,
@@ -281,7 +280,7 @@ describe('the finish, from the edited setup', () => {
 
   it('offers a way back to the card when the time chosen has gone by', async () => {
     const { FunctionError } = await import('../../data/functions');
-    await saveDraft({ circleName: 'Sunday Crew', way: 'ask', proceed: true });
+    await saveDraft({ circleName: 'Sunday Crew', proceed: true });
     createPlan.mockRejectedValueOnce(
       new FunctionError(
         { error: 'conflict', reason: 'deadline_out_of_range', message: 'x' } as never,
@@ -302,9 +301,11 @@ describe('the card falls back when the draft no longer holds', () => {
       plan: { ...DEFAULT_PLAN, duration: 180, deadline: '2020-01-01T00:00:00.000Z' },
     });
     wrap(<FirstPlanDraftFlow />);
-    await screen.findByText('About 3 hours');
-    expect(screen.getByText('Replies close in 3 days')).toBeVisible();
-    expect(within(document.body).queryByText(/Jan 2020/)).toBeNull();
+    // Kept: the length. Dropped: the deadline that has passed, for the default's.
+    expect(
+      await screen.findByText(/^Evenings · about 3 hours · replies close \w{3} 6 pm$/),
+    ).toBeVisible();
+    expect(within(document.body).queryByText(/2020/)).toBeNull();
   });
 });
 

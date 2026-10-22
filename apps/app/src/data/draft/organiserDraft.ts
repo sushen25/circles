@@ -31,6 +31,12 @@ import { newIdempotencyKey } from '../functions';
  * plan from exactly this. It has no quorum and no required people: a circle of
  * one has nobody to count, so the quorum stays the server's own (ADR 0026).
  *
+ * **So does the organiser's own answer** (`answer`, record version 3, ADR 0090):
+ * the days they picked on the plan's calendar, before there is an account. The
+ * finish submits it after `create-plan`, with a key of its own, so the plan is
+ * shared with their evenings already in it. A draft with no answer is a valid
+ * draft: "I'll add mine later", or a record from before there was one.
+ *
  * **The idempotency keys travel with it** (ADR 0016). A finish interrupted
  * after the circle was made runs again with the same keys and gets the same
  * circle and the same plan, not a second of each. A key is only good for the
@@ -51,11 +57,12 @@ export const DRAFT_PRESETS = [
   'this_weekend',
   'next_7_days',
   'next_14_days',
+  'next_28_days',
   'custom',
 ] as const;
 export const DRAFT_CATEGORIES = ['catch_up', 'dinner', 'drinks', 'coffee', 'activity'] as const;
-/** What happens once the place is saved: ask the group, or just invite people. */
-export const DRAFT_WAYS = ['ask', 'invite'] as const;
+/** The time of day the organiser's own answer covers, as Adjust offers it (SUS-247). */
+export const DRAFT_BANDS = ['evenings', 'days'] as const;
 
 const DraftPlan = z.object({
   category: z.enum(DRAFT_CATEGORIES),
@@ -78,19 +85,37 @@ const DraftPlan = z.object({
 });
 
 /**
- * The shape of the stored record. **Version 2** holds the whole plan setup;
- * version 1 held only a preset. A record of another version does not parse and
- * is read as "no draft", never crashed on.
+ * The organiser's own answer to the plan they are drafting (ADR 0090): the days
+ * they picked, and the time of day Adjust set. It is sent after `create-plan`,
+ * in the same run, so the plan is shared with their evenings already in it.
+ * `later` is "I'll add mine later": nothing picked, on purpose.
+ */
+const DraftAnswer = z.object({
+  /** Local dates, sorted, inside the plan's window. */
+  days: z.array(z.string().max(10)).max(40),
+  band: z.enum(DRAFT_BANDS).optional(),
+  later: z.boolean().optional(),
+});
+
+const Keys = z.object({ circle: IdempotencyKey, plan: IdempotencyKey, answer: IdempotencyKey });
+
+/**
+ * The shape of the stored record. **Version 3** adds the organiser's answer and
+ * its idempotency key, and drops "the way on": Just invite people leaves the
+ * first run (ADR 0090). **Version 2**, still in some browsers, is read as a
+ * draft with no answer, and gets a key for one. Version 1 held only a preset,
+ * and any other version does not parse and is read as "no draft", never crashed
+ * on.
  */
 const Draft = z.object({
-  v: z.literal(2),
+  v: z.literal(3),
   /** Epoch milliseconds of the last change: the 24 hours run from here. */
   updatedAt: z.number().int(),
   circleName: z.string().max(80),
   cadence: z.enum(DRAFT_CADENCES),
   plan: DraftPlan,
-  /** Set when Ask the group or Just invite people was chosen. */
-  way: z.enum(DRAFT_WAYS).optional(),
+  /** Absent until the organiser has picked a day or chosen to add theirs later. */
+  answer: DraftAnswer.optional(),
   /**
    * The organiser is signed in, or has just been: Your name and the finish
    * may carry on. A stale draft that somebody signs in beside — the quiet "Sign
@@ -102,18 +127,38 @@ const Draft = z.object({
    * that runs again returns the same circle, and must not count it again.
    */
   circleCounted: z.boolean().default(false),
-  keys: z.object({ circle: IdempotencyKey, plan: IdempotencyKey }),
+  keys: Keys,
 });
+
+/** What a version 2 record held: the same, with a way on and no answer. */
+const DraftV2 = z
+  .object({
+    v: z.literal(2),
+    updatedAt: z.number().int(),
+    circleName: z.string().max(80),
+    cadence: z.enum(DRAFT_CADENCES),
+    plan: DraftPlan,
+    way: z.enum(['ask', 'invite']).optional(),
+    proceed: z.boolean(),
+    circleCounted: z.boolean().default(false),
+    keys: z.object({ circle: IdempotencyKey, plan: IdempotencyKey }),
+  })
+  .transform(({ way: _way, ...rest }): z.infer<typeof Draft> => ({
+    ...rest,
+    v: 3,
+    keys: { ...rest.keys, answer: newIdempotencyKey() },
+  }));
 
 export type OrganiserDraft = z.infer<typeof Draft>;
 export type DraftCadence = (typeof DRAFT_CADENCES)[number];
 export type DraftPreset = (typeof DRAFT_PRESETS)[number];
 export type DraftPlan = z.infer<typeof DraftPlan>;
-export type DraftWay = (typeof DRAFT_WAYS)[number];
+export type DraftAnswer = z.infer<typeof DraftAnswer>;
+export type DraftBand = (typeof DRAFT_BANDS)[number];
 
-/** What a change may carry. `way` and `proceed` are set by the screens that choose them. */
+/** What a change may carry. `proceed` is set by the screens that choose it. */
 export type DraftPatch = Partial<
-  Pick<OrganiserDraft, 'circleName' | 'cadence' | 'plan' | 'way' | 'proceed' | 'circleCounted'>
+  Pick<OrganiserDraft, 'circleName' | 'cadence' | 'plan' | 'answer' | 'proceed' | 'circleCounted'>
 >;
 
 /**
@@ -151,10 +196,10 @@ function inLine<T>(turn: () => Promise<T>): Promise<T> {
   return result;
 }
 
-/** What the plan is before anything is chosen: the fortnight, two hours, the defaults. */
+/** What the plan is before anything is chosen: the next four weeks, two hours, the defaults. */
 export const DEFAULT_PLAN: DraftPlan = {
   category: 'catch_up',
-  preset: 'next_14_days',
+  preset: 'next_28_days',
   duration: 120,
 };
 
@@ -177,16 +222,29 @@ export function samePlan(a: DraftPlan, b: DraftPlan): boolean {
   return planKey(a) === planKey(b);
 }
 
+/** The same answer, whatever order it was written in. */
+function answerKey(answer: DraftAnswer | undefined): string {
+  return JSON.stringify(answer === undefined ? null : [answer.days, answer.band, answer.later]);
+}
+
 function blank(now: number): OrganiserDraft {
   return {
-    v: 2,
+    v: 3,
     updatedAt: now,
     circleName: '',
     cadence: 'monthly',
     plan: DEFAULT_PLAN,
     proceed: false,
     circleCounted: false,
-    keys: { circle: newIdempotencyKey(), plan: newIdempotencyKey() },
+    keys: newKeys(),
+  };
+}
+
+function newKeys(): OrganiserDraft['keys'] {
+  return {
+    circle: newIdempotencyKey(),
+    plan: newIdempotencyKey(),
+    answer: newIdempotencyKey(),
   };
 }
 
@@ -210,8 +268,23 @@ async function read(now: number): Promise<OrganiserDraft | null> {
   if (raw === null) return null;
   let draft: OrganiserDraft | undefined;
   try {
-    const parsed = Draft.safeParse(JSON.parse(raw));
-    draft = parsed.success ? parsed.data : undefined;
+    const value: unknown = JSON.parse(raw);
+    const parsed = Draft.safeParse(value);
+    if (parsed.success) draft = parsed.data;
+    else {
+      const old = DraftV2.safeParse(value);
+      draft = old.success ? old.data : undefined;
+      // Written back as it is read, with the time it had: its new answer key is
+      // made once, and a reload does not make another. The 24 hours do not renew.
+      if (draft !== undefined && now - draft.updatedAt < DRAFT_TTL_MS) {
+        const migrated = JSON.stringify(draft);
+        try {
+          await sessionStorage.setItem(DRAFT_KEY, migrated);
+        } catch {
+          refused = migrated;
+        }
+      }
+    }
   } catch {
     draft = undefined;
   }
@@ -245,10 +318,14 @@ async function write(
   // the plan is made in that circle; a different setup is a different plan.
   const circleChanged = next.circleName !== base.circleName || next.cadence !== base.cadence;
   const planChanged = !samePlan(next.plan, base.plan);
+  const answerChanged = answerKey(next.answer) !== answerKey(base.answer);
   if (circleChanged) {
-    next.keys = { circle: newIdempotencyKey(), plan: newIdempotencyKey() };
+    next.keys = newKeys();
     next.circleCounted = false;
-  } else if (planChanged) next.keys = { ...next.keys, plan: newIdempotencyKey() };
+  } else if (planChanged) {
+    // The answer is to this plan's days, so a new plan is a new answer too.
+    next.keys = { ...next.keys, plan: newIdempotencyKey(), answer: newIdempotencyKey() };
+  } else if (answerChanged) next.keys = { ...next.keys, answer: newIdempotencyKey() };
   const raw = JSON.stringify(next);
   cleared = false;
   try {

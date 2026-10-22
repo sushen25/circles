@@ -120,6 +120,10 @@ describe('the copy file', () => {
       'names',
       'previous',
       'tail',
+      // SUS-247's: the first run's step count, its message and its plan line.
+      'at',
+      'group',
+      'link',
       // SUS-150's: the drafted plan summarised on Save your place.
       'band',
       'duration',

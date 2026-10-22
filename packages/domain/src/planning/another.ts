@@ -50,7 +50,7 @@ export type PlanAnotherDefaults = {
   readonly durationMinutes: DurationMinutes;
   /** Undefined: nobody chose, and the server works it out (ADR 0026). */
   readonly quorum: number | undefined;
-  readonly preset: Exclude<WindowPreset, 'custom' | 'tonight'>;
+  readonly preset: Exclude<WindowPreset, 'custom' | 'tonight' | 'next_28_days'>;
   /** Undefined: the new window's own suggestion. */
   readonly daily: DailyWindow | undefined;
 };

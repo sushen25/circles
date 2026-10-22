@@ -91,7 +91,6 @@ test('a guest who meets the organiser gate keeps their membership and name, and 
   await page.getByLabel('Your email').fill(address);
   await page.getByRole('button', { name: 'Send me a code' }).click();
   await page.getByLabel('Code', { exact: true }).fill(await latestCodeFor(address));
-  await page.getByRole('button', { name: 'Continue' }).click();
 
   // Saved, the form the gate stood in for is the screen, on the same URL.
   await expect(page.getByRole('button', { name: 'Ask the group' })).toBeVisible();
@@ -176,7 +175,6 @@ test('a guest who taps "See if people are keen" meets the gate, keeps their plac
   await page.getByLabel('Your email').fill(address);
   await page.getByRole('button', { name: 'Send me a code' }).click();
   await page.getByLabel('Code', { exact: true }).fill(await latestCodeFor(address));
-  await page.getByRole('button', { name: 'Continue' }).click();
 
   // The tap she made is the tap that happens: SparkSetup, then her ask.
   await expect(page).toHaveURL(new RegExp(`/circles/${crew.circleId}/quiet/new$`));

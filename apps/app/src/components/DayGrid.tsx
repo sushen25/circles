@@ -78,13 +78,19 @@ type Props = {
    * large text, its days are tapped one at a time.
    */
   onPaint?: GridPaint | undefined;
+  /**
+   * How tall a day is, where the grid is a long run of days that must fit a
+   * phone (the first run's month is five rows, 50 px each). Absent, 60: tall
+   * enough for the tag and the figure the availability editor puts in a day.
+   */
+  cell?: number | undefined;
 };
 
 const COLUMNS = 7;
 
 export type { GridPaint };
 
-export function DayGrid({ days, weekdays, label, onToggle, dimmed = false, onPaint }: Props) {
+export function DayGrid({ days, weekdays, label, onToggle, dimmed = false, onPaint, cell }: Props) {
   const { fontScale } = useWindowDimensions();
   const [width, setWidth] = useState(0);
   // The gap gives way before the columns do: seven 44pt columns fit a 360pt
@@ -109,6 +115,7 @@ export function DayGrid({ days, weekdays, label, onToggle, dimmed = false, onPai
       wraps={wraps}
       counted={counted}
       dimmed={dimmed}
+      cell={cell}
       onPress={
         onToggle === undefined
           ? undefined
@@ -183,6 +190,7 @@ function DayButton({
   wraps,
   counted,
   dimmed,
+  cell,
   onPress,
   onLayout,
 }: {
@@ -190,6 +198,7 @@ function DayButton({
   wraps: boolean;
   counted: boolean;
   dimmed: boolean;
+  cell: number | undefined;
   onPress: (() => void) | undefined;
   onLayout?: ((event: LayoutChangeEvent) => void) | undefined;
 }) {
@@ -213,6 +222,7 @@ function DayButton({
       style={[
         styles.day,
         counted && styles.dayCounted,
+        cell !== undefined && !counted && { minHeight: cell },
         wraps && styles.dayWrapped,
         { backgroundColor: palette.surface, borderColor: palette.lineStrong },
         day.hasTimes && { backgroundColor: color.accentSoft, borderColor: color.accentSoft },

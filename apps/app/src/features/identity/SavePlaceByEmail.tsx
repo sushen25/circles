@@ -90,14 +90,14 @@ export function SavePlaceByEmail({
   const [newCodeSent, setNewCodeSent] = useState(false);
 
   if (step.kind === 'code') {
-    const confirm = async () => {
+    const confirm = async (code: string) => {
       setBusy(true);
       setCodeProblem(undefined);
       setReference(undefined);
       try {
         await savePlace({
           moment,
-          signIn: () => submitLinkCode(step.address, codeText, step.route),
+          signIn: () => submitLinkCode(step.address, code, step.route),
         });
       } catch (error) {
         if (error instanceof SavePlaceError) {
@@ -136,7 +136,7 @@ export function SavePlaceByEmail({
         newCodeSent={newCodeSent}
         resendAt={step.sentAt + RESEND_AFTER_MS}
         onCodeChange={setCodeText}
-        onContinue={() => void confirm()}
+        onContinue={(code) => void confirm(code)}
         onSendNewCode={() => {
           setCodeProblem(undefined);
           setReference(undefined);

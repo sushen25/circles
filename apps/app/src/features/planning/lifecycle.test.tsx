@@ -272,8 +272,8 @@ describe('plan setup', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'This weekend' }));
     fireEvent.click(screen.getByRole('checkbox', { name: '1.5 hrs' }));
     fireEvent.click(screen.getByRole('button', { name: 'One fewer person' }));
-    // The weekend's own deadline, before the organiser moves it.
-    expect(await screen.findByText('Replies close in 24 hours')).toBeTruthy();
+    // The weekend's own deadline, before the organiser moves it: tomorrow at 6 pm.
+    expect(await screen.findByText(/^Replies close in \d+ hours$/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Ask the group' }));
 
     await waitFor(() => expect(createPlan).toHaveBeenCalledTimes(1));
@@ -333,13 +333,13 @@ describe('plan setup', () => {
     await waitFor(() => expect(createPlan).toHaveBeenCalledTimes(1));
   });
 
-  it('shows the deadline the server will count from now, when hours have passed on the same day', async () => {
+  it('says nothing about the clock when hours pass on the same day: the deadline is 6 pm either way', async () => {
     show(<PlanSetupFlow id="sunday-crew" />);
     expect(await screen.findByText('Replies close in 3 days')).toBeTruthy();
     vi.spyOn(Date, 'now').mockReturnValue(fixture.FIXTURE_NOW + 2 * 3_600_000);
     fireEvent.click(screen.getByRole('button', { name: 'Ask the group' }));
-    expect(await screen.findByText(/^Time has moved on since you opened this/)).toBeTruthy();
-    expect(createPlan).not.toHaveBeenCalled();
+    await waitFor(() => expect(createPlan).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText(/^Time has moved on since you opened this/)).toBeNull();
   });
 
   it('hides tonight when it is too late for the meetup, rather than meaning tomorrow', async () => {

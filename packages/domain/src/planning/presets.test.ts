@@ -181,6 +181,17 @@ describe('nextDays', () => {
   });
 });
 
+describe('next_28_days', () => {
+  it('is four weeks from today, inside the thirty-day cap, in the evening band', () => {
+    const result = resolvePreset('next_28_days', THURSDAY_6PM, MELBOURNE, opts(TWO_HOURS));
+    expect(typeof result).not.toBe('string');
+    const { window, daily } = result as Exclude<typeof result, string>;
+    expect(window).toEqual({ start: localDate('2026-09-17'), end: localDate('2026-10-14') });
+    expect(windowDays(window)).toBe(28);
+    expect(daily).toEqual({ startMin: 17 * 60 + 30, endMin: 22 * 60 + 30 });
+  });
+});
+
 describe('dailyForRange', () => {
   it('uses weekend hours only when every day is a weekend day', () => {
     expect(dailyForRange(localDate('2026-09-19'), localDate('2026-09-20')).startMin).toBe(9 * 60);

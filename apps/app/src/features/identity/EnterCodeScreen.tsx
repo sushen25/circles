@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState, type ComponentProps, type ReactNode } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import {
   Body,
@@ -10,8 +11,10 @@ import {
   Notice,
   Screen,
   Small,
+  Step,
   Tertiary,
   TopBar,
+  useLeave,
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -28,8 +31,11 @@ import { t } from '../../copy';
  * - **Resend waits thirty seconds** after a code is sent (`resendAt`), with
  *   the wait on the button, so a person who has not given the email a chance to
  *   arrive does not spend the send budget on a second one.
- * - **Ten minutes** is said up front ("It works for 10 minutes."), and a code
- *   entered after that is told it has expired rather than that it is wrong.
+ * - **Ten minutes** is how long a code lives (`CODE_LIFETIME_MS`): one entered
+ *   after that is told it has expired rather than that it is wrong.
+ * - **It sends itself on the sixth digit** and has no Continue button, however
+ *   the digits got there (SUS-247). The first run gives it a `step`, so it
+ *   arrives as a step of that run does; everywhere else it simply appears.
  */
 export type EnterCodeProblem =
   | 'wrong_code'
@@ -49,8 +55,32 @@ export type EnterCodeProps = {
   newCodeSent?: boolean | undefined;
   /** Epoch milliseconds when another code may be asked for. Absent: now. */
   resendAt?: number | undefined;
+  /**
+   * The status line under the boxes while the code is being checked or the
+   * circle set up: "Checking", then "Setting up Sunday Crew". Absent while the
+   * boxes are being typed in.
+   */
+  status?: string | undefined;
+  /** The first run's top bar: the circle's name in the middle, and "3 of 3" with its line. */
+  title?: string | undefined;
+  step?: ComponentProps<typeof TopBar>['step'];
+  /**
+   * What goes in the foot when the run failed after the code was accepted and
+   * the person has a way on: Try again, Back to the plan, Change the time.
+   * Their words and their actions are the flow's.
+   */
+  foot?: ReactNode;
+  /** Said under the boxes instead of the usual notice, where the flow has its own words. */
+  notice?: string | undefined;
+  /**
+   * The six digits, the moment the sixth is in: typed, pasted or filled by the
+   * device's one-time-code. **There is no Continue button** (SUS-247): a code
+   * is only ever sent for checking, and a button that does it for you is one
+   * more thing to find. After a refusal that left the digits in the boxes (the
+   * connection dropped), typing the last one again sends it again.
+   */
+  onContinue?: ((code: string) => void) | undefined;
   onCodeChange?: ((code: string) => void) | undefined;
-  onContinue?: (() => void) | undefined;
   onSendNewCode?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 };
@@ -108,12 +138,18 @@ export function EnterCodeScreen({
   busy = false,
   newCodeSent = false,
   resendAt,
+  status,
+  title,
+  step,
+  foot,
+  notice,
   onCodeChange,
   onContinue,
   onSendNewCode,
   onBack,
 }: EnterCodeProps) {
   const wait = useSecondsUntil(resendAt);
+  const leave = useLeave();
   // A code that was refused is of no use to anyone: clear the boxes and put the
   // cursor back in the first, so the next try is typing and not deleting six
   // digits one by one (SUS-204). `problem` is reset when the next try starts,
@@ -124,55 +160,78 @@ export function EnterCodeScreen({
     onCodeChange?.('');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only a new refusal matters
   }, [dead]);
-  const complete = code.length === 6;
   const resendDisabled = wait > 0;
+  const shown = notice ?? (problem === undefined ? undefined : problemCopy(problem));
+  const Move = step === undefined ? Fragment : Step;
 
   return (
     <Screen>
-      <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-      <Body>
-        <Stack>
-          <DisplayL>{t('enterCode', 'enter_the_code_we_emailed')}</DisplayL>
-          {address === undefined ? null : (
-            <BodyText>{t('enterCode', 'sent_to', { address })}</BodyText>
+      <TopBar
+        title={title}
+        step={step}
+        onBack={onBack === undefined ? undefined : () => leave('back', onBack)}
+        backLabel={t('common', 'back')}
+      />
+      <Move>
+        <Body>
+          <Stack>
+            <DisplayL>{t('enterCode', 'enter_the_code_we_emailed')}</DisplayL>
+            {address === undefined ? null : (
+              <BodyText>{t('enterCode', 'sent_to', { address })}</BodyText>
+            )}
+          </Stack>
+          <CodeInput
+            label={t('enterCode', 'code')}
+            value={code}
+            editable={!busy}
+            onChangeText={(text) => {
+              onCodeChange?.(text);
+              if (text.length === 6 && !busy) onContinue?.(text);
+            }}
+            autoFocus
+            refocusKey={dead}
+          />
+          <Small accessibilityLiveRegion="polite" aria-live="polite" style={styles.status}>
+            {status ?? ' '}
+          </Small>
+          {newCodeSent && problem === undefined ? (
+            <Notice>{t('enterCode', 'new_code_sent')}</Notice>
+          ) : null}
+          {shown === undefined ? null : <Notice kind="warn">{shown}</Notice>}
+          {reference === undefined ? null : (
+            <Small selectable>{t('enterCode', 'reference', { reference })}</Small>
           )}
-        </Stack>
-        <CodeInput
-          label={t('enterCode', 'code')}
-          value={code}
-          onChangeText={(text) => onCodeChange?.(text)}
-          onSubmitEditing={complete && !busy ? onContinue : undefined}
-          autoFocus
-          refocusKey={dead}
-        />
-        {newCodeSent && problem === undefined ? (
-          <Notice>{t('enterCode', 'new_code_sent')}</Notice>
-        ) : null}
-        {problem === undefined ? null : <Notice kind="warn">{problemCopy(problem)}</Notice>}
-        {reference === undefined ? null : (
-          <Small>{t('enterCode', 'reference', { reference })}</Small>
-        )}
-        <Small>{t('enterCode', 'didnt_get_it')}</Small>
-      </Body>
-      <Foot>
-        <Button
-          label={t('enterCode', 'continue')}
-          busyLabel={t('enterCode', 'checking')}
-          busy={busy}
-          onPress={onContinue}
-          disabled={!complete}
-        />
-        <Tertiary
-          label={
-            wait > 0
-              ? t('enterCode', 'send_another_in', { count: wait })
-              : t('enterCode', 'send_a_new_code')
-          }
-          disabled={resendDisabled}
-          aria-disabled={resendDisabled}
-          onPress={busy ? undefined : onSendNewCode}
-        />
-      </Foot>
+          <View style={styles.resend}>
+            <View style={styles.spam}>
+              <Small>{t('enterCode', 'not_there')}</Small>
+            </View>
+            <Tertiary
+              label={
+                wait > 0
+                  ? t('enterCode', 'send_another_in', { count: wait })
+                  : t('enterCode', 'send_another')
+              }
+              disabled={resendDisabled}
+              aria-disabled={resendDisabled}
+              onPress={busy ? undefined : onSendNewCode}
+            />
+          </View>
+          {problem !== undefined && !dead && foot === undefined && code.length === 6 ? (
+            <Button
+              label={t('enterCode', 'try_again')}
+              variant="secondary"
+              onPress={() => onContinue?.(code)}
+            />
+          ) : null}
+        </Body>
+        {foot === undefined ? null : <Foot>{foot}</Foot>}
+      </Move>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  status: { minHeight: 20 },
+  resend: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  spam: { flexShrink: 1 },
+});

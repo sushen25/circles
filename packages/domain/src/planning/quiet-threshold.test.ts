@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { ALEX, JESS, NINA, TOM } from '../scheduling/fixtures.js';
 import { addMinutes } from '../shared/instant.js';
-import { lastPossibleStart } from './deadline.js';
+import { MELBOURNE } from '../shared/fixtures.js';
+import { lastPossibleStart, replyTime } from './deadline.js';
 import { FRIDAY_MIDDAY, TOM_ASKS, quietAsk, quietPlan } from './fixtures.js';
 import { NOBODY, nextQuietStep, onThreshold } from './quiet-threshold.js';
 import { canTransition } from './state-machine.js';
@@ -59,8 +60,8 @@ describe('onThreshold', () => {
     );
     expect(plan.state).toBe('collecting');
     expect(plan.organiserUserId).toBeUndefined();
-    // This weekend: twenty-four hours from the moment it opened, not from when it was asked.
-    expect(plan.responseDeadline).toBe(addMinutes(wednesday, DAY));
+    // This weekend: tomorrow at 6 pm, counted from the moment it opened, not from when it was asked.
+    expect(plan.responseDeadline).toBe(replyTime(wednesday, 1, MELBOURNE));
     expect(plan.responseDeadline).toBeLessThanOrEqual(lastPossibleStart(plan));
     expect([...initialResponders].sort()).toEqual([JESS, NINA, TOM].sort());
   });

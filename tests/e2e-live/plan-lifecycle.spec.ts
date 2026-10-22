@@ -37,10 +37,9 @@ test('the full setup makes the plan it showed, and an edit names who it asks aga
   await page.getByRole('checkbox', { name: 'Dinner' }).click();
   await page.getByRole('checkbox', { name: 'Next 7 days' }).click();
   await page.getByRole('checkbox', { name: '1.5 hrs' }).click();
-  // The default deadline is rounded up to the next whole hour (SUS-204), so
-  // it is 24 to 25 hours away and the label, rounded to the nearest hour,
-  // reads either, depending on the minute the test runs.
-  await expect(page.getByText(/^Replies close in 2[45] hours$/)).toBeVisible();
+  // The default deadline is tomorrow at 6 pm (ADR 0090), so it is some hours
+  // away, and how many depends on the hour the test runs.
+  await expect(page.getByText(/^Replies close in \d+ hours$/)).toBeVisible();
   await page.getByRole('button', { name: 'Ask the group' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/circles/${circleId}/plan/[^/]+/shared$`));

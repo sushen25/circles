@@ -149,11 +149,11 @@ after the code) shows a line that promises nothing. The gallery's `?state=member
 
 **Real since S1-22:** `/circles/new` (`FirstCircleFlow`; a draft since ADR 0053, and `create-circle` is called by `FinishDraftFlow`),
 `/circles/[id]/invite` (`InviteCircleFlow`) and `/circles/[id]` (`CircleHomeFlow`).
-**Since SUS-150 (ADR 0053)** the first run drafts on the device and creates nothing until the place is saved: `/circles/new` → `/circles/new/plan` → `/circles/new/save` (the gate) → `/name` → `/circles/new/finish`, which makes the circle and the plan and goes to the plan's share screen. A signed-in organiser skips the gate and Your name. The draft is `data/draft`. **Change** on the card opens `/circles/new/plan/setup` (`PlanSetupDraftFlow`): the plan setup over the draft, with no quorum or required people, which saves into the draft and sends nothing.
+**Since SUS-247 (ADR 0090)** the first run is four screens to the share: `/circles/new` (who it is for, `FirstCircleScreen`) → `/circles/new/plan` (which evenings, `FirstEveningsScreen` with the `AdjustSheet`) → `/circles/new/save` (who's asking, `WhosAskingScreen`, and the code, `EnterCodeScreen`, both driven by `SignInFlow` in its gate form) → the share (`FirstShareScreen`, reached with `?first=answered|later`). It drafts on the device and creates nothing until the code is accepted; then `finishDraft` (`features/circles`) makes the circle, the plan and the organiser's own answer, in that order, inside the code step. A signed-in organiser goes 1, 2 and `/circles/new/finish` (`FinishDraftFlow`, the same `finishDraft`), then the share; `/name` is only for an account with no name the gate did not supply. The draft is `data/draft`, record version 3. **More options** in Adjust opens `/circles/new/plan/setup` (`PlanSetupDraftFlow`): the plan setup over the draft, with no quorum or required people, which saves into the draft and sends nothing. The message bubble is the shared `MessageBubble` component; the steps' motion is `Step`/`useLeave` and the progress line `ProgressLine`.
 **Since S1-22b (ADR 0026)** the first run goes plan-first, then
 `/circles/[id]/plan/[planId]/shared` → the availability editor:
 the invite screen and the filling-up home are reached from circle home, from
-settings and from "Just invite people for now", and are no longer steps.
+settings, and are no longer steps ("Just invite people for now" left the first run with ADR 0090).
 The invite secret comes back from `create-circle` once and is held in memory
 (`data/circles/invite.ts`) for the invite screen; after a reload that screen
 says the link is shown only when it is made (reset is S1-23's). The circle home
@@ -268,24 +268,25 @@ there?" to whoever still owes it (`PastMeetup`), and the emailed way back in
 
 ### identity
 
-| Artboard                           | Route                                 | Component                |
-| ---------------------------------- | ------------------------------------- | ------------------------ |
-| `Account.dc.html`                  | `/settings/account`                   | `AccountScreen`          |
-| `ContinueAs.dc.html`               | `/join/continue`                      | `ContinueAsScreen`       |
-| `ContinueAsAccount.dc.html`        | `/join/continue` (signed in)          | `ContinueAsScreen`       |
-| `ContinueAsAccountConfirm.dc.html` | `/join/continue` (signed in, sheet)   | `ClaimPlaceSheet`        |
-| `DeleteAccount.dc.html`            | `/settings/account` (sheet, step one) | `DeleteAccountSheet`     |
-| `DeleteAccountSure.dc.html`        | `/settings/account` (sheet, step two) | `DeleteAccountSheet`     |
-| `Diagnostics.dc.html`              | `/settings/diagnostics`               | `DiagnosticsScreen`      |
-| `EnterCode.dc.html`                | `/sign-in` (code step)                | `EnterCodeScreen`        |
-| `LinkInvalid.dc.html`              | `/join/invalid`                       | `LinkInvalidScreen`      |
-| `Main.dc.html`                     | `/join`                               | `MainScreen`             |
-| `Name.dc.html`                     | `/join/name`                          | `NameScreen`             |
-| `Privacy.dc.html`                  | `/settings/privacy`                   | `PrivacyScreen`          |
-| `SaveAccess.dc.html`               | `/j/[code]/save-access`               | `SaveAccessScreen`       |
-| `SignIn.dc.html`                   | `/sign-in`                            | `SignInScreen`           |
-| `SavePlace.dc.html`                | `/circles/new/save`                   | `SignInScreen` (`place`) |
-| `YourName.dc.html`                 | `/name`                               | `YourNameScreen`         |
+| Artboard                                                | Route                                 | Component            |
+| ------------------------------------------------------- | ------------------------------------- | -------------------- |
+| `Account.dc.html`                                       | `/settings/account`                   | `AccountScreen`      |
+| `ContinueAs.dc.html`                                    | `/join/continue`                      | `ContinueAsScreen`   |
+| `ContinueAsAccount.dc.html`                             | `/join/continue` (signed in)          | `ContinueAsScreen`   |
+| `ContinueAsAccountConfirm.dc.html`                      | `/join/continue` (signed in, sheet)   | `ClaimPlaceSheet`    |
+| `DeleteAccount.dc.html`                                 | `/settings/account` (sheet, step one) | `DeleteAccountSheet` |
+| `DeleteAccountSure.dc.html`                             | `/settings/account` (sheet, step two) | `DeleteAccountSheet` |
+| `Diagnostics.dc.html`                                   | `/settings/diagnostics`               | `DiagnosticsScreen`  |
+| `EnterCode.dc.html`                                     | `/sign-in` (code step)                | `EnterCodeScreen`    |
+| `LinkInvalid.dc.html`                                   | `/join/invalid`                       | `LinkInvalidScreen`  |
+| `Main.dc.html`                                          | `/join`                               | `MainScreen`         |
+| `Name.dc.html`                                          | `/join/name`                          | `NameScreen`         |
+| `Privacy.dc.html`                                       | `/settings/privacy`                   | `PrivacyScreen`      |
+| `SaveAccess.dc.html`                                    | `/j/[code]/save-access`               | `SaveAccessScreen`   |
+| `SignIn.dc.html`                                        | `/sign-in`                            | `SignInScreen`       |
+| `SavePlace.dc.html`                                     | `/circles/new/save`                   | `WhosAskingScreen`   |
+| `EnterCodeSettingUp.dc.html`, `EnterCodeFailed.dc.html` | `/circles/new/save` (code step)       | `EnterCodeScreen`    |
+| `YourName.dc.html`                                      | `/name`                               | `YourNameScreen`     |
 
 **Real since S1-22:** `/` (`WelcomeFlow`; since ADR 0053 the first circle for somebody with no saved place, and its loading and error states for an account being sent on), `/sign-in` (`SignInFlow`, which
 drives `SignInScreen` and `EnterCodeScreen` on one route so the address never
@@ -312,29 +313,31 @@ artboard, like `/terms`.
 
 ### planning
 
-| Artboard                    | Route                                     | Component                 |
-| --------------------------- | ----------------------------------------- | ------------------------- |
-| `CancelledGuest.dc.html`    | `/p/[code]/cancelled`                     | `CancelledGuestScreen`    |
-| `CancelledOrg.dc.html`      | `/circles/[id]/plan/[planId]/cancelled`   | `CancelledOrgScreen`      |
-| `CancelPlan.dc.html`        | `/circles/[id]/plan/[planId]/cancel`      | `CancelPlanScreen`        |
-| `ChangeTime.dc.html`        | `/circles/[id]/plan/[planId]/change-time` | `ChangeTimeScreen`        |
-| `ChooseMode.dc.html`        | `/circles/[id]/plan/mode`                 | `ChooseModeScreen`        |
-| `CustomWindow.dc.html`      | `/circles/[id]/plan/window`               | `CustomWindowScreen`      |
-| `EditPlan.dc.html`          | `/circles/[id]/plan/[planId]/edit`        | `EditPlanScreen`          |
-| `FirstPlan.dc.html`         | `/circles/[id]/plan/new`                  | `FirstPlanScreen`         |
-| `InterestPrompt.dc.html`    | `/circles/[id]/quiet/interest`            | `InterestPromptScreen`    |
-| `PlanAnother.dc.html`       | `/circles/[id]/plan/another`              | `PlanAnotherScreen`       |
-| `PlanSetup.dc.html`         | `/circles/[id]/plan/setup`                | `PlanSetupScreen`         |
-| `PlanShared.dc.html`        | `/circles/[id]/plan/[planId]/shared`      | `PlanSharedScreen`        |
-| `RescheduledGuest.dc.html`  | `/p/[code]/rescheduled`                   | `RescheduledGuestScreen`  |
-| `SparkExpired.dc.html`      | `/circles/[id]/quiet/expired`             | `SparkExpiredScreen`      |
-| `SparkOpenedMember.dc.html` | `/circles/[id]/quiet/opened`              | `SparkOpenedMemberScreen` |
-| `SparkSetup.dc.html`        | `/circles/[id]/quiet/new`                 | `SparkSetupScreen`        |
-| `SparkWaiting.dc.html`      | `/circles/[id]/quiet/waiting`             | `SparkWaitingScreen`      |
-| `ThresholdRole.dc.html`     | `/circles/[id]/quiet/threshold`           | `ThresholdRoleScreen`     |
-| `Volunteer.dc.html`         | `/circles/[id]/quiet/volunteer`           | `VolunteerScreen`         |
+| Artboard                    | Route                                       | Component                                          |
+| --------------------------- | ------------------------------------------- | -------------------------------------------------- |
+| `CancelledGuest.dc.html`    | `/p/[code]/cancelled`                       | `CancelledGuestScreen`                             |
+| `CancelledOrg.dc.html`      | `/circles/[id]/plan/[planId]/cancelled`     | `CancelledOrgScreen`                               |
+| `CancelPlan.dc.html`        | `/circles/[id]/plan/[planId]/cancel`        | `CancelPlanScreen`                                 |
+| `ChangeTime.dc.html`        | `/circles/[id]/plan/[planId]/change-time`   | `ChangeTimeScreen`                                 |
+| `ChooseMode.dc.html`        | `/circles/[id]/plan/mode`                   | `ChooseModeScreen`                                 |
+| `CustomWindow.dc.html`      | `/circles/[id]/plan/window`                 | `CustomWindowScreen`                               |
+| `EditPlan.dc.html`          | `/circles/[id]/plan/[planId]/edit`          | `EditPlanScreen`                                   |
+| `FirstPlan.dc.html`         | `/circles/new/plan`                         | `FirstEveningsScreen`                              |
+| `FirstPlanAdjust.dc.html`   | `/circles/new/plan` (Adjust)                | `AdjustSheet`                                      |
+| `PlanSharedDone.dc.html`    | `/circles/[id]/plan/[planId]/shared?first=` | `FirstShareScreen`                                 |
+| `InterestPrompt.dc.html`    | `/circles/[id]/quiet/interest`              | `InterestPromptScreen`                             |
+| `PlanAnother.dc.html`       | `/circles/[id]/plan/another`                | `PlanAnotherScreen`                                |
+| `PlanSetup.dc.html`         | `/circles/[id]/plan/setup`                  | `PlanSetupScreen`                                  |
+| `PlanShared.dc.html`        | `/circles/[id]/plan/[planId]/shared`        | `PlanSharedScreen`, `FirstShareScreen` (first run) |
+| `RescheduledGuest.dc.html`  | `/p/[code]/rescheduled`                     | `RescheduledGuestScreen`                           |
+| `SparkExpired.dc.html`      | `/circles/[id]/quiet/expired`               | `SparkExpiredScreen`                               |
+| `SparkOpenedMember.dc.html` | `/circles/[id]/quiet/opened`                | `SparkOpenedMemberScreen`                          |
+| `SparkSetup.dc.html`        | `/circles/[id]/quiet/new`                   | `SparkSetupScreen`                                 |
+| `SparkWaiting.dc.html`      | `/circles/[id]/quiet/waiting`               | `SparkWaitingScreen`                               |
+| `ThresholdRole.dc.html`     | `/circles/[id]/quiet/threshold`             | `ThresholdRoleScreen`                              |
+| `Volunteer.dc.html`         | `/circles/[id]/quiet/volunteer`             | `VolunteerScreen`                                  |
 
-**Real since S1-22:** `/circles/[id]/plan/new` (`FirstPlanFlow`, through
+**Real since S1-22:** `/circles/[id]/plan/new` (`FirstPlanFlow` and `FirstPlanScreen`, the card for a circle that has no plan, which kept its earlier layout; through
 `create-plan` with the `next_14_days` preset and nothing else, so the server
 resolves the quorum when the plan is made) and
 `/circles/[id]/plan/[planId]/shared` (`PlanSharedFlow`, `newPlanMessage` with

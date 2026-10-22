@@ -49,7 +49,7 @@ describe('the chat on the page is the product’s own', () => {
       }),
       url,
     );
-    expect(sent).toContain('When can Sunday Crew actually catch up?');
+    expect(sent).toContain('When can Sunday Crew actually catch up');
     expect(words).toContain(sent.replace(/\s+/g, ' '));
   });
 

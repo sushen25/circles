@@ -11,8 +11,8 @@ import { expect, test } from '@playwright/test';
  */
 const JOURNEY = [
   { path: '/start', expect: /Who do you keep meaning to see/i },
-  { path: '/circles/new/plan', expect: /Your first catch-up/i },
-  { path: '/circles/new/save', expect: /Your plan's ready/i },
+  { path: '/circles/new/plan', expect: /Which evenings could you do/i },
+  { path: '/circles/new/save', expect: /Who's asking/i },
   { path: '/name', expect: /What should friends call you/i },
   { path: '/circles', expect: /Your circles|New circle/i },
   { path: '/circles/sunday-crew', expect: /Sunday Crew/i },
@@ -51,20 +51,25 @@ test.describe('the named-plan journey', () => {
     });
   }
 
-  test('walks the first run by tapping: circle, plan, save your place, name, share', async ({
+  test('walks the first run by tapping: group, evenings, who is asking, share', async ({
     page,
   }) => {
     await page.goto('/start');
 
-    // First circle → plan → the gate → Your name → the plan's share screen, each
-    // by its own primary action (ADR 0053): no sign-in comes before the plan.
-    await page.getByRole('button', { name: /^Create/ }).click();
-    await expect(page.getByText('Your first catch-up')).toBeVisible();
-    await page.getByRole('button', { name: 'Ask the group' }).click();
-    await expect(page.getByText("Your plan's ready. Save your place.")).toBeVisible();
-    await page.getByRole('button', { name: 'Send me a code' }).click();
-    await expect(page.getByText('What should friends call you?')).toBeVisible();
-    await page.getByRole('button', { name: 'Continue' }).click();
+    // Who → evenings → who's asking → the plan's share screen, each by its own
+    // primary action (ADR 0053, ADR 0090): no sign-in comes before the evenings.
+    await page.getByLabel('Who do you keep meaning to see?').fill('Sunday Crew');
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page.getByText('Which evenings could you do?')).toBeVisible();
+    await page
+      .getByRole('button', { name: /, evening$/ })
+      .first()
+      .click();
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page.getByText("Who's asking?")).toBeVisible();
+    await page.getByLabel('First name').fill('Maya');
+    await page.getByLabel('Email').fill('maya@example.com');
+    await page.getByRole('button', { name: 'Email me a code' }).click();
     await expect(page.getByText('Ask Sunday Crew.')).toBeVisible();
 
     expect(page.url()).not.toContain('/gallery');

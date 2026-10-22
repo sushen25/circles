@@ -44,22 +44,22 @@ describe('every preset gives the deadline spec §5.3 documents', () => {
     expect(deadlineOf({ preset: 'tonight', duration: 60 }, later)).toBe('2026-09-15T12:30:00.000Z');
   });
 
-  it('this weekend and next 7 days: 24 hours', () => {
-    const tomorrow = new Date(TUESDAY_10AM + 24 * HOUR).toISOString();
-    expect(deadlineOf({ preset: 'this_weekend' })).toBe(tomorrow);
-    expect(deadlineOf({ preset: 'next_7_days' })).toBe(tomorrow);
+  // Tuesday 15 September, 10 am in Melbourne. Every day-based default is 6 pm
+  // on the plan's own clock (ADR 0090): 18:00 at +10 is 08:00Z.
+  it('this weekend and next 7 days: tomorrow at 6 pm', () => {
+    expect(deadlineOf({ preset: 'this_weekend' })).toBe('2026-09-16T08:00:00.000Z');
+    expect(deadlineOf({ preset: 'next_7_days' })).toBe('2026-09-16T08:00:00.000Z');
   });
 
-  it('next 14 days: 72 hours', () => {
-    expect(deadlineOf({ preset: 'next_14_days' })).toBe(
-      new Date(TUESDAY_10AM + 72 * HOUR).toISOString(),
-    );
+  it('next 14 days and next 28 days: 6 pm on the third day after', () => {
+    expect(deadlineOf({ preset: 'next_14_days' })).toBe('2026-09-18T08:00:00.000Z');
+    expect(deadlineOf({ preset: 'next_28_days' })).toBe('2026-09-18T08:00:00.000Z');
   });
 
-  it('custom: 24 hours, never after the last possible start', () => {
+  it('custom: tomorrow at 6 pm, never after the last possible start', () => {
     expect(
       deadlineOf({ preset: 'custom', custom: { start: '2026-09-20', end: '2026-09-21' } }),
-    ).toBe(new Date(TUESDAY_10AM + 24 * HOUR).toISOString());
+    ).toBe('2026-09-16T08:00:00.000Z');
     // Today only, evenings, two hours: the last start is 8:30 pm tonight,
     // which is sooner than tomorrow morning.
     expect(

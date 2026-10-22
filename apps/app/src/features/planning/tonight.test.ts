@@ -100,14 +100,15 @@ describe('this weekend, by the day it is made', () => {
     const plan = resolved({ preset: 'this_weekend' }, SATURDAY_10AM);
     expect(plan.window).toEqual({ start: '2026-09-19', end: '2026-09-20' });
     expect(plan.band).toEqual({ startMin: 9 * 60, endMin: 22 * 60 + 30 });
-    expect(plan.deadline).toBe('2026-09-20T00:00:00.000Z');
+    // Tomorrow at 6 pm, on the plan's own clock (ADR 0090).
+    expect(plan.deadline).toBe('2026-09-20T08:00:00.000Z');
   });
 
-  it('on a Monday: the coming Saturday and Sunday, replies in a day', () => {
+  it('on a Monday: the coming Saturday and Sunday, replies close Tuesday at 6 pm', () => {
     const plan = resolved({ preset: 'this_weekend' }, MONDAY_10AM);
     expect(plan.window).toEqual({ start: '2026-09-19', end: '2026-09-20' });
-    expect(plan.deadline).toBe('2026-09-15T00:00:00.000Z');
-    expect(closesIn(plan.deadline, MONDAY_10AM)).toBe('Replies close in 24 hours');
+    expect(plan.deadline).toBe('2026-09-15T08:00:00.000Z');
+    expect(closesIn(plan.deadline, MONDAY_10AM)).toBe('Replies close in 32 hours');
   });
 
   it('tonight on a Saturday is still this evening, from the next half hour', () => {

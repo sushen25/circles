@@ -133,9 +133,11 @@ export const EN_SHARE_TEMPLATES: ShareTemplates = {
     `Made a ${circleName} circle so we stop losing catch-ups in the chat. ` +
     `Join here, no app needed: ${url}`,
 
+  // Eighteen words, where it was twenty-seven (SUS-247, ADR 0090): friends skim
+  // the chat too. A window that is not the default goes in the first sentence.
   newPlan: ({ circleName, windowPhrase, url }) =>
-    `When can ${circleName} actually catch up? Mark the times you'd be up for` +
-    `${windowPhrase === undefined ? '' : ` ${windowPhrase}`}. Takes a minute: ${url}`,
+    `When can ${circleName} actually catch up${windowPhrase === undefined ? '' : ` ${windowPhrase}`}? ` +
+    `Pick the times you'd be up for, no app needed: ${url}`,
 
   waiting: ({ remaining, url }) =>
     `We're waiting on ${remaining} ${remaining === 1 ? 'reply' : 'replies'} ` +

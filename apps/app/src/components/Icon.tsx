@@ -27,7 +27,8 @@ export type IconName =
   | 'eye-off'
   | 'people'
   | 'wifi-off'
-  | 'undo';
+  | 'undo'
+  | 'chat';
 
 type Props = {
   name: IconName;
@@ -103,4 +104,7 @@ const paths: Record<IconName, Shape[]> = {
     { kind: 'circle', cx: 12, cy: 20, r: 1 },
   ],
   undo: ['M4.5 12a7.5 7.5 0 1 0 2.3-5.4', 'M4 4v4.5h4.5'],
+  chat: [
+    'M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5v-3.5H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5z',
+  ],
 };

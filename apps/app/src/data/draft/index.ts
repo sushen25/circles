@@ -5,7 +5,7 @@ export {
   DRAFT_KEY,
   DRAFT_PRESETS,
   DRAFT_TTL_MS,
-  DRAFT_WAYS,
+  DRAFT_BANDS,
   clearDraft,
   readDraft,
   samePlan,
@@ -16,7 +16,8 @@ export type {
   DraftPatch,
   DraftPlan,
   DraftPreset,
-  DraftWay,
+  DraftAnswer,
+  DraftBand,
   OrganiserDraft,
 } from './organiserDraft';
 export {

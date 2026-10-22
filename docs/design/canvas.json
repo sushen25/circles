@@ -493,7 +493,7 @@
       "w": 390,
       "h": 844,
       "page": "first",
-      "title": "First circle \u00b7 no account"
+      "title": "1 \u00b7 Who it is for \u00b7 no account"
     },
     {
       "file": "FirstPlan.dc.html",
@@ -502,47 +502,83 @@
       "w": 390,
       "h": 844,
       "page": "first",
-      "title": "First plan \u00b7 no account"
+      "title": "2 \u00b7 Which evenings \u00b7 no account"
     },
     {
-      "file": "SavePlace.dc.html",
+      "file": "FirstPlanAdjust.dc.html",
       "x": 960,
       "y": 0,
       "w": 390,
       "h": 844,
       "page": "first",
-      "title": "Save your place \u00b7 the gate, before the share"
+      "title": "2 \u00b7 Adjust the plan"
     },
     {
-      "file": "EnterCode.dc.html",
+      "file": "SavePlace.dc.html",
       "x": 1440,
       "y": 0,
       "w": 390,
       "h": 844,
       "page": "first",
-      "title": "Enter code"
+      "title": "3 \u00b7 Who's asking \u00b7 the gate"
     },
     {
-      "file": "YourName.dc.html",
+      "file": "EnterCode.dc.html",
       "x": 1920,
       "y": 0,
       "w": 390,
       "h": 844,
       "page": "first",
-      "title": "Your name \u00b7 after sign-in"
+      "title": "4 \u00b7 The code"
     },
     {
-      "file": "PlanShared.dc.html",
+      "file": "EnterCodeSettingUp.dc.html",
       "x": 2400,
       "y": 0,
       "w": 390,
       "h": 844,
       "page": "first",
-      "title": "Plan shared \u00b7 paste to chat"
+      "title": "4 \u00b7 The code \u00b7 setting up"
+    },
+    {
+      "file": "EnterCodeFailed.dc.html",
+      "x": 0,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "first",
+      "title": "4 \u00b7 The code \u00b7 set-up failed"
+    },
+    {
+      "file": "PlanShared.dc.html",
+      "x": 480,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "first",
+      "title": "5 \u00b7 The share \u00b7 paste to chat"
+    },
+    {
+      "file": "PlanSharedDone.dc.html",
+      "x": 960,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "first",
+      "title": "5 \u00b7 The share, done"
+    },
+    {
+      "file": "YourName.dc.html",
+      "x": 1440,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "first",
+      "title": "Your name \u00b7 only when the gate did not supply one"
     },
     {
       "file": "Availability.dc.html",
-      "x": 0,
+      "x": 1920,
       "y": 1300,
       "w": 390,
       "h": 900,
@@ -551,7 +587,7 @@
     },
     {
       "file": "Sent.dc.html",
-      "x": 480,
+      "x": 2400,
       "y": 1300,
       "w": 390,
       "h": 844,
@@ -560,8 +596,8 @@
     },
     {
       "file": "CircleHome.dc.html",
-      "x": 960,
-      "y": 1300,
+      "x": 0,
+      "y": 2600,
       "w": 390,
       "h": 844,
       "page": "first",
@@ -569,8 +605,8 @@
     },
     {
       "file": "SignIn.dc.html",
-      "x": 1440,
-      "y": 1300,
+      "x": 480,
+      "y": 2600,
       "w": 390,
       "h": 844,
       "page": "first",
@@ -1267,7 +1303,7 @@
       "y": -210,
       "w": 900,
       "page": "first",
-      "text": "First time, organiser, in reading order, with no account until the plan is ready (ADR 0053). Row 1: first circle (name + loose cadence only) \u2192 first plan with defaults accepted in one tap \u2192 Save your place (the gate) \u2192 the email's code \u2192 name (time zone from the phone) \u2192 the plan's link ready for the chat.\nRow 2: the organiser's own times \u2192 sent \u2192 circle home with the plan live; then Sign in, for a returning organiser, who never meets the draft.\nThe first thing shared is a plan, not an invite (ADR 0026): one link, carrying the question, and whoever taps it joins on the way in. The invite link and the filling-up home are still screens, on the organiser page, reached from circle home or from 'Just invite people for now'.\nTwo typed inputs and one sign-in before the first real result; the sign-in is the third screen, never the first. No permissions, no photo, no contacts, no calendar. Apple and Google sit under the email button once SUS-77 lands."
+      "text": "First time, organiser, in reading order, with no account until the code (ADR 0053, ADR 0090). Row 1: who it is for (one field, the message filling in) \u2192 which evenings (the window chips, the guests' grid, the plan in one line, Adjust) \u2192 who's asking (first name and email) \u2192 the code (sends itself on the sixth digit; the circle, the plan and the organiser's own answer are made inside it) \u2192 the share \u2192 its done state with the source question.\nA signed-in organiser goes 1, 2, share: the primary of the evenings screen is Make the link. Each screen holds a heading, one control and at most one short line; the 2 px line under the top bar and 1 of 3 say where the person is; nothing animates on arrival at the share.\nThe first thing shared is a plan, not an invite (ADR 0026). The invite link and the filling-up home are still screens, on the organiser page, reached from circle home. Four typed inputs: the group's name, a first name, an email and the code. No permissions, no photo, no contacts, no calendar. Apple and Google sit under the email button once SUS-77 lands."
     },
     {
       "id": "first-note-sso",
