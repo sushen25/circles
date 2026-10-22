@@ -11,7 +11,7 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0003](./0003-domain-events-via-postgres-outbox.md) | Publish domain events through a Postgres outbox drained by cron, not database webhooks | accepted |
 | [0004](./0004-organiser-requires-permanent-identity.md) | Organising a plan requires a saved place (permanent identity); responding never does | accepted |
 | [0005](./0005-willing-windows-retained-12-months.md) | Retain willing windows for 12 months for members of active circles | accepted |
-| [0006](./0006-continue-as-reattachment-without-owner-approval.md) | "Continue as" reattaches a guest membership without owner approval | accepted (amended by 0078) |
+| [0006](./0006-continue-as-reattachment-without-owner-approval.md) | "Continue as" reattaches a guest membership without owner approval | accepted (amended by 0078, 0088) |
 | [0007](./0007-pnpm-monorepo-with-shared-domain-package.md) | One pnpm monorepo with a pure `packages/domain` shared by the client and Edge Functions | accepted (amended by 0075) |
 | [0008](./0008-react-email-templates-in-edge-functions.md) | Render email templates with React Email inside Edge Functions | accepted |
 | [0009](./0009-half-hour-availability-cells-with-a-scrolling-row.md) | Availability cells are half an hour each, and the day row scrolls | accepted |
@@ -27,7 +27,7 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0019](./0019-consent-is-recorded-when-it-is-given.md) | Consent is recorded when it is given, and a preferences link does not expire on use | accepted |
 | [0020](./0020-the-verification-token-is-minted-by-the-sender.md) | The verification token is minted by whoever sends the email | accepted |
 | [0021](./0021-the-link-preview-is-not-rate-limited.md) | The link preview is not rate-limited; the code space is the control | accepted |
-| [0022](./0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md) | A plan link admits new members while the plan is taking answers | accepted (amended by 0026, 0035, 0064) |
+| [0022](./0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md) | A plan link admits new members while the plan is taking answers | accepted (amended by 0026, 0035, 0064, 0088) |
 | [0023](./0023-emailed-tokens-travel-in-the-fragment.md) | Emailed tokens travel in the URL fragment | accepted |
 | [0024](./0024-availability-days-first-then-a-time-once.md) | Availability is answered days first, then a time once | accepted (amended by 0068) |
 | [0025](./0025-the-preferences-link-is-minted-with-each-email.md) | The preferences link is minted with each email, and both footer links open it | accepted (amended by 0029, 0067, 0069) |
@@ -92,3 +92,4 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0086](./0086-youtube-is-scripted-and-tiktok-is-scripted-as-far-as-a-draft.md) | YouTube is published by script, and TikTok is scripted only as far as a draft | accepted (amends 0081) |
 | [0087](./0087-the-content-loop-reads-the-funnel-by-tag-through-a-keyed-export-counts-only.md) | The content loop reads the funnel by tag through a keyed export, counts only | proposed |
 | [0089](./0089-the-content-bots-commit-to-a-data-branch-and-a-tag-makes-a-second-post-impossible.md) | The content bots commit to a data branch, and a tag makes a second post impossible | proposed (amends 0081) |
+| [0088](./0088-a-signed-in-account-can-continue-as-a-guest.md) | A signed-in account can continue as a guest, the same as a guest can | accepted (amends 0006, 0022) |

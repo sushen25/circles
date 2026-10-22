@@ -171,7 +171,7 @@ make them impossible, not someone remembering:
 - **Quiet-ask initiator identity and individual interest answers are never
   exposed**, before or after threshold.
 - A reattachment moves a membership only within a circle the guest already
-  belongs to, never onto a saved-place member.
+  belongs to, and never takes a saved-place member's place.
 - Plan-update email consent is scoped to one plan and is never marketing consent.
 - **No client, log or analytics context ever holds a raw email address, token,
   note or event title.** A plan's short code is not a token (ADR 0022): it is
