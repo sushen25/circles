@@ -1,6 +1,6 @@
 # Analytics handover
 
-Where the content analytics work stands on 22 October 2026, what is left of
+Where the content analytics work stands on 22 October 2026 (updated the same day, once phases 3 and 4 had merged and the bots moved to a data branch), what is left of
 phase 1, and what the next phases are. The why is `analytics-plan.md`; the
 how of the running loop is `../CLAUDE.md` and `../README.md`. This file is
 the state, so whoever picks it up next, person or Routine, starts from the
@@ -15,13 +15,28 @@ right place and not from the plan's first page.
 - **Phase 2, measure, score, brief, is merged** (PR #254, 22 October,
   after two independent review rounds). What it adds is under "Phase 2"
   below; the choices it made are in the plan, under "Phase 2, as built".
-- **Phase 4, the retro, is built** on `claude/analytics-phase-4`, ahead of
-  phase 3, which waits on open point 1. Its Routine is not set up yet.
+- **Phase 3, the Wenna export, is merged** (ADR 0087 as PR #256, the build as
+  PR #257, SUS-244, 22 October): `analytics/platforms/wenna.ts` writes
+  `funnel.jsonl` (circles made and plans shared by tag, counts only) and the
+  scorecard has the two columns. It needs `WENNA_FUNNEL_URL` and
+  `CONTENT_FUNNEL_SECRET` set (the first is a repository variable, the second
+  a secret); unset, the pull says "not configured" and goes on.
+- **Phase 4, the retro, is merged** (PR #255, 22 October): `npm run retro` and
+  the `/retro` skill. Its fortnightly Routine is set up by hand in Claude Code
+  (README, setup step 6); the first run is Tuesday 3 November, the morning
+  after the first rows end.
+- **The bots no longer push to `main`** (SUS-246, ADR 0089). `main` is
+  protected, so the first nightly and series runs were rejected and their
+  rows lost (run 39722895050, 22 October). The three workflows now commit to
+  a `content-data` branch and keep one pull request open from it; the
+  founder merges it (README, "Where the bots' work goes"). Until the first
+  merge, `main` has none of the rows the pull writes, so everything below
+  that says a run "commits rows" means to that branch.
 - **The main checkout is clean.** The probes (`analytics/probe.ts`,
   `probe-extras.ts`), the 21 October draft of the plan and the `probe`
   script line are gone. `content/ads/` and its lines in `CLAUDE.md` and
   `package.json` are unrelated work in progress and were left alone.
-- Nothing in phase 3, 4 or 5 exists yet, and no ADR 0087 has been written.
+- Nothing in phase 5 exists yet. ADR 0087 is written.
 
 ## What is left of phase 1
 
@@ -58,10 +73,14 @@ platforms, a reply in `inbox/`, a transcribed screen) waits on them.
    the slide on screen (`never-lead-anywhere` has its `timing:`), which is
    the reason to transcribe it.
 5. **Watch the first night.** The Actions page after 03:15 Melbourne: the
-   run should commit rows, `features.jsonl`, the scorecard and, once phase
-   2 is merged, `context/learned.md`, and stay green. Red after committing
-   means an expiring Meta token, a platform that failed on every post, or a
-   scorecard or brief that would not build; the log line says which.
+   run should commit rows, `features.jsonl`, the scorecard and
+   `context/learned.md` to the `content-data` branch, open or update the data
+   pull request (once "Allow GitHub Actions to create and approve pull
+   requests" is on; otherwise it warns with a link), and stay green. Red after
+   committing means an expiring Meta token, a platform that failed on every
+   post, or a scorecard or brief that would not build; the log line says
+   which. Red before committing means the data branch could not be read or
+   written.
 6. **GitGuardian** flagged a "bearer token" in
    `analytics/platforms/http.test.ts`: the fixture `ya29.abc-def_ghi/jk=` in
    the redaction test. Dismiss it as a false positive.
@@ -112,30 +131,13 @@ Merged as PR #254. Next: the first night with it (item 5).
 
 ## What is left, by phase
 
-**Phase 3: the Wenna export** (main repo, SUS-244, under the full gate).
-Decide open point 1 first (counts by tag in a public repo;
-`experiments.md` already intended it). Then ADR 0087 before any code: an
-`public.content_funnel_export(p_since)` factored out of `founder_analytics`
-and executable by `service_role` only, with the Edge Function
-`content-funnel` on `_shared/internal.ts` taking its own
-`CONTENT_FUNNEL_SECRET` (the content loop's secret must never be able to
-call `process-scheduled-jobs`), `verify_jwt = false`, a rate limit from
-`take_rate_token`, pgTAP for allow and deny and for a result naming
-nothing, a handler test, the architecture's §9.1 list and the
-campaign-links runbook. Only then `analytics/platforms/wenna.ts` and
-`funnel.jsonl` on this side, and a "Circles made" and "Plans shared" pair
-of columns in the scorecard, raw counts, never rates. Done when the nightly
-run writes circles made and plans shared by tag and the scorecard shows
-them.
+**Phase 3: the Wenna export** is done (see "Where things stand"). What
+remains is the setup: the two values above, and the first night's
+`funnel.jsonl` rows.
 
-**Phase 4: retro** (built on `claude/analytics-phase-4`). `npm run retro`
-(`analytics/retro.ts`) fills a fortnight's number cells in `experiments.md`
-from `scorecard.json`, with `--write`, and prints the day-30 ranking; the
-`/retro` skill (`.claude/skills/retro/`) writes Result and Next, proposes
-the next fortnight and opens the PR. Left: merge it, then set up the
-fortnightly Routine by hand in Claude Code (README, setup step 6; the first
-run is Tuesday 3 November, the morning after the first rows end). Done when
-a fortnight's rows are filled by a PR nobody typed numbers into.
+**Phase 4: retro** is done. Left: the fortnightly Routine (README, setup
+step 6). Done when a fortnight's rows are filled by a PR nobody typed numbers
+into.
 
 **Phase 5: by evidence.** TikTok through its Business API, LinkedIn post
 analytics if LinkedIn ever matters, Reddit read-only. One module and one

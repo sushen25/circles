@@ -3,11 +3,11 @@ adr: 81
 title: "The content loop lives in the monorepo under content/, outside the gate"
 status: accepted
 date: 2026-10-20
-amended_by: [86]
+amended_by: [86, 89]
 ---
 # ADR 0081: The content loop lives in the monorepo under content/, outside the gate
 
-_Status: accepted · 20 October 2026 · which platforms a script may touch is amended by [ADR 0086](0086-youtube-is-scripted-and-tiktok-is-scripted-as-far-as-a-draft.md)_
+_Status: accepted · 20 October 2026 · which platforms a script may touch is amended by [ADR 0086](0086-youtube-is-scripted-and-tiktok-is-scripted-as-far-as-a-draft.md), and where the bot commits by [ADR 0089](0089-the-content-bots-commit-to-a-data-branch-and-a-tag-makes-a-second-post-impossible.md)_
 
 ## Context
 
@@ -41,10 +41,13 @@ demand; published media is served from `MEDIA_BASE_URL` (a bucket), never from
 this repository. Until that variable is set the publisher skips the two
 platforms that fetch by URL, as it did before.
 
-The bot commits to `main`, touching only `content/**`, from two workflows:
+The bot commits touching only `content/**`, from three workflows:
 `content-publish` (on a push that changes the queue, and on an evening
-schedule) and `content-analytics` (nightly). Because `content/**` is prose to
-the gate and ignored by the deploys, those commits run nothing else.
+schedule), `content-analytics` (nightly) and `content-series` (every two
+hours). Because `content/**` is prose to the gate and ignored by the deploys,
+those commits run nothing else. _Amended by ADR 0089: they commit to a
+`content-data` branch and the founder merges one pull request, because `main`
+is protected._
 
 ## Alternatives considered
 

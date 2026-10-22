@@ -14,6 +14,13 @@ on:
   pull_request:
   push:
     branches: [main]
+  # The content bots' pull request (ADR 0089). A push made with GITHUB_TOKEN
+  # starts no `pull_request` run, so after each push the content workflows
+  # dispatch this one on the `content-data` branch; its `check` job reports
+  # on the branch's head commit, which is what the pull request is waiting for.
+  # Anyone can also run it by hand on any branch from the Actions tab. It is
+  # judged against `main`, as a pull request is.
+  workflow_dispatch:
 
 concurrency:
   # One run per branch. A newer push makes an older run irrelevant, except on
@@ -67,8 +74,9 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
           SHA: ${{ github.sha }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            base="origin/${BASE_REF}"
+          if [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # A dispatch has no base_ref; its base is main.
+            base="origin/${BASE_REF:-main}"
             files=$(git diff --name-only "$base...HEAD" 2>/dev/null || true)
           else
             before="${BEFORE}"
