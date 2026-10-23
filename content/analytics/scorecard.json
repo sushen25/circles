@@ -1,6 +1,6 @@
 {
-  "generated": "2026-10-22T20:09:39.322Z",
-  "day": "2026-10-23",
+  "generated": "2026-10-23T19:58:03.538Z",
+  "day": "2026-10-24",
   "pieces": [
     {
       "slug": "never-lead-anywhere",
@@ -25,7 +25,7 @@
         }
       },
       "latest": {
-        "age_days": 1.56,
+        "age_days": 2.55,
         "source": "pull",
         "metrics": {
           "likes": 0,
@@ -77,28 +77,28 @@
         }
       },
       "latest": {
-        "age_days": 1.56,
+        "age_days": 2.56,
         "source": "pull",
         "metrics": {
-          "views": 129,
-          "reach": 109,
+          "views": 130,
+          "reach": 110,
           "saves": 2,
           "shares": 0,
           "likes": 1,
           "comments": 0,
-          "watch_avg_s": 6.885,
-          "watch_total_s": 805.617,
-          "skip_pct": 70
+          "watch_avg_s": 7.05,
+          "watch_total_s": 831.917,
+          "skip_pct": 69.4
         },
         "rates": {
-          "saves_shares_per_k": 15.5,
+          "saves_shares_per_k": 15.38,
           "comments_per_k": 0,
           "share_rate": 0,
-          "save_rate": 0.0155,
+          "save_rate": 0.0154,
           "comment_rate": 0,
-          "like_rate": 0.0078,
-          "watch_pct": 24.4,
-          "skip_pct": 70
+          "like_rate": 0.0077,
+          "watch_pct": 25,
+          "skip_pct": 69.4
         }
       },
       "headline": "saves_shares_per_k",
@@ -142,16 +142,16 @@
         }
       },
       "latest": {
-        "age_days": 1.56,
+        "age_days": 2.55,
         "source": "pull",
         "metrics": {
           "views": 27,
           "likes": 0,
           "comments": 0,
-          "engaged_views": 0,
-          "watch_total_s": 0,
-          "watch_avg_s": 0,
-          "watch_pct": 0,
+          "engaged_views": 7,
+          "watch_total_s": 60,
+          "watch_avg_s": 12,
+          "watch_pct": 42.53,
           "shares": 0
         },
         "rates": {
@@ -160,14 +160,15 @@
           "share_rate": 0,
           "comment_rate": 0,
           "like_rate": 0,
-          "watch_pct": 0
+          "watch_pct": 42.53
         }
       },
       "headline": "saves_shares_per_k",
       "first48": {
         "views": {
           "h24": 26
-        }
+        },
+        "bent_at_h": 38.74
       },
       "screens": [],
       "replies": 0,
@@ -178,22 +179,22 @@
   "account": [
     {
       "platform": "bluesky",
-      "date": "2026-10-21",
-      "text": "followers 10"
+      "date": "2026-10-23",
+      "text": "followers 12"
     },
     {
       "platform": "instagram",
-      "date": "2026-10-21",
-      "text": "followers 2 · reach 107 · views 124 · link taps 0 · accounts engaged 2 · reach by follow type: non_follower 107 · views by surface: reel 124"
+      "date": "2026-10-22",
+      "text": "followers 2 · reach 1 · views 1 · link taps 0 · accounts engaged 0 · reach by follow type: non_follower 1 · views by surface: reel 1"
     },
     {
       "platform": "youtube",
-      "date": "2026-10-21",
-      "text": "views 24"
+      "date": "2026-10-22",
+      "text": "views 27"
     }
   ],
   "stalled": {
-    "as_of": "2026-10-22",
+    "as_of": "2026-10-23",
     "groups": []
   },
   "groups": [],
