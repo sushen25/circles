@@ -13,8 +13,12 @@ writing anything a person will read. They are short and they are the law.
 
 ## The loop
 
-1. `/mine` — lift verbatim phrases from Reddit replies, DMs and comments into
-   `context/hooks.md`. Phrases are quoted, never invented.
+1. `/mine` — lift verbatim phrases from anything people wrote (Reddit,
+   forums, Hacker News, app reviews, replies, DMs, comments) into
+   `context/hooks.md`. Phrases are quoted, never invented. Given only a
+   family, it first searches every source `docs/listening.md` marks as
+   readable and returns what is worth lifting; Reddit comes in as pages the
+   founder pastes.
 2. `/hooks` — turn one hook family into 6–8 candidate hooks (first line of a
    slideshow or post).
 3. `/skit` — write one group-chat skit as `queue/YYYY-MM-DD-<slug>.md`, in
@@ -117,6 +121,7 @@ retry a failed post by clearing the tag without looking at the platform.
 | `lib/measure.ts` | a queue file's features (hook, slides, chats before the beat, captions per platform, Melbourne post hour) and its timing; `npm run check` and `npm run video` measure with it, and the video build writes `timing:` into the frontmatter. |
 | `inbox/` | what the loop reads next: `<date>-replies.md` from the nightly pull (handles stripped) for `/mine`; `screens/<slug>-<platform>/` for `/transcribe`, git-ignored; `done/` is where both go once read. |
 | `docs/analytics-plan.md` | why the analytics are shaped as they are: the principles, the data model, what each platform can give, the phases. Read it before changing anything under `analytics/`. |
+| `docs/listening.md` | where the loop listens: every source, how to read it, which ones turn AI agents away, the Reddit paste-back kit, and the rules for all of them. Read it before a listening pass or a `/mine` search. |
 | `experiments.md` | hypothesis · format · hook family · result · next. One row per fortnight per family. The number cells are written by `npm run retro`, Result and Next by `/retro` or a person. |
 
 ## Commands
