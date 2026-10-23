@@ -126,6 +126,8 @@ test.describe('the controls actually work', () => {
     // The clock is pinned to the week the screens show (12–23 October 2026), so
     // nothing here depends on the day the suite runs.
     await page.clock.setFixedTime(new Date('2026-10-12T09:00:00+11:00'));
+    // A frozen clock freezes the sheet's slide too (Animated reads Date), so it fades instead (SUS-250).
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/j/abc');
 
     // Alex has not answered: the first thing is the question, one line, the
