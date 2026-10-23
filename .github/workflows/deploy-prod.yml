@@ -93,7 +93,7 @@ jobs:
 
       # The full history, because the plan diffs this commit against the one
       # production was last deployed from.
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -145,7 +145,7 @@ jobs:
 
     steps:
       # The commit `plan` resolved: the dispatched one, or a rollback's tag.
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.plan.outputs.sha }}
 
@@ -310,7 +310,7 @@ jobs:
       # The dispatched commit's scripts, not the deployed one's: a rollback
       # deploys an older release, which may predate record-deployed.mjs. On a
       # forward deploy the two are the same commit.
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
       # GitHub's deployment records the dispatched commit; a rollback deployed
