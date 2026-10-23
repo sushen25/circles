@@ -104,6 +104,20 @@ export function Slow({ children, slow }: { children: ReactNode; slow: boolean })
   );
 }
 
+/**
+ * A button pressed sinks to 97% over 120 ms (SUS-250). Under reduced motion it
+ * does not move; the press still shows in its fill. The transition is the web's
+ * (react-native-web passes it through); native snaps to the size.
+ */
+export function pressed97(pressed: boolean, reduced: boolean): object {
+  return {
+    transform: [{ scale: pressed && !reduced ? 0.97 : 1 }],
+    transitionProperty: 'transform',
+    transitionDuration: '120ms',
+    transitionTimingFunction: 'ease-out',
+  };
+}
+
 /** What every button's busy and faded states share. */
 export const shared = StyleSheet.create({
   disabled: {

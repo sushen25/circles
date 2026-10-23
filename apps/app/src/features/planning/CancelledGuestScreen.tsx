@@ -5,7 +5,6 @@ import {
   Card,
   DisplayXL,
   Foot,
-  Label,
   Screen,
   Small,
   TopBar,
@@ -51,7 +50,6 @@ export function CancelledGuestScreen({
       <TopBar title={circleName} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <Stack>
-          <Label>{t('cancelledGuest', 'not_going_ahead')}</Label>
           <DisplayXL>
             {day === undefined
               ? t('cancelledGuest', 'headline_plain')

@@ -7,7 +7,6 @@ import {
   Card,
   DateText,
   Icon,
-  Label,
   ListRow,
   Marks,
   Screen,
@@ -71,14 +70,12 @@ export type CandidateCardProps = {
 export function CandidateCard({ card, highlighted, onPress, selected }: CandidateCardProps) {
   const inside = (
     <Card recommended={highlighted}>
+      {/* The rank is a quiet line beside the time, not an uppercase label above the date (SUS-250). */}
       <Between>
-        <Label>{card.rank ?? card.count}</Label>
-        {card.rank === undefined ? null : <Small>{card.count}</Small>}
-      </Between>
-      <Stack>
         <DateText>{card.date}</DateText>
-        <BodyText>{card.time}</BodyText>
-      </Stack>
+        <Small>{card.count}</Small>
+      </Between>
+      <BodyText>{card.rank === undefined ? card.time : `${card.time} · ${card.rank}`}</BodyText>
       <Stack gap={8}>
         <Marks members={card.members} max={MARKS_MAX} more={more} label={card.membersLabel} />
         {card.exception === undefined ? null : <Small>{card.exception}</Small>}

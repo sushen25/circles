@@ -66,7 +66,7 @@ const { answerable } = await import('../../data/fixtures');
 
 const PLAN = answerable.plan;
 const SWITCH = { name: `Save my place in ${PLAN.circleName}` };
-const PRIMARY = { name: 'Email me about this meetup' };
+const PRIMARY = { name: /^Email me (about this meetup|and save my place)$/ };
 
 function wrap(children: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -150,7 +150,7 @@ describe('a signed-in member with a confirmed address', () => {
     expect(requestLinkCode).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
     expect(screen.getByRole('status')).toHaveTextContent(`We'll email ${ADDRESS}`);
-    expect(screen.queryByText("Hear when it's locked in")).toBeNull();
+    expect(screen.queryByText("Hear when it's locked in?")).toBeNull();
     expect(screen.queryByText(/Check your email/i)).toBeNull();
   });
 
@@ -203,7 +203,7 @@ describe('a signed-in member with a confirmed address', () => {
     wrap(<SentFlow code={PLAN.code} />);
     await tap(screen.findByRole('button', { name: 'Not now' }));
 
-    expect(screen.queryByText("Hear when it's locked in")).toBeNull();
+    expect(screen.queryByText("Hear when it's locked in?")).toBeNull();
     expect(requestEmailUpdates).not.toHaveBeenCalled();
   });
 });

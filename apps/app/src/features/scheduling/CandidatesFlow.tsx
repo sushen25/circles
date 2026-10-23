@@ -119,7 +119,8 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
   if (data === undefined) return <CandidatesScreen state="denied" onBack={back} />;
 
   const header = headerOf(data);
-  const toEditor = () => router.push({ pathname: '/j/[code]', params: { code: data.code } });
+  const toEditor = () =>
+    router.push({ pathname: '/j/[code]', params: { code: data.code, edit: '1' } });
   // The organiser's own times, and back here afterwards rather than on the sent
   // screen: changing them is part of looking at the options (SUS-158).
   const toChangeMine = () =>

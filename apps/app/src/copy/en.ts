@@ -117,8 +117,6 @@ export const en = {
     ready_link_ios: 'Opens your Calendar',
     ready_android: 'Downloads an event file',
     ready_other: 'Downloads an event file',
-    nothing_is_added_to_anyones_calendar_without:
-      "Nothing is added to anyone's calendar without their tap.",
     /** In the row while the file is on its way; "Still working on it…" is `common.still_working`. */
     preparing: 'Getting it ready…',
     /** After the tap: the next step, named for the platform. */
@@ -202,6 +200,7 @@ export const en = {
     your_friends_see_who_can_make_each:
       "Your friends will see who can make each suggested time. They won't see your calendar, or your whole availability with your name on it.",
     send_my_times: 'Send my times',
+    send_needs_a_day: 'Tap at least one {thing} first.',
     sending: 'Sending',
     none_of_these_dates_work_for_me: 'None of these dates work for me',
     finding_the_plan: 'Finding the plan',
@@ -210,8 +209,10 @@ export const en = {
     try_again: 'Try again',
     plan_changed:
       'The plan changed, so the times you had painted were for a different question. Here are the dates being asked about now.',
-    replies_closed: 'Replies have closed for this one.',
-    replies_closed_body: 'Nothing more is needed from you. The plan will land in the group chat.',
+    replies_closed: 'Replies have closed.',
+    replies_closed_body: 'Nothing more is needed from you. A time gets picked next.',
+    replies_closed_body_named: 'Nothing more is needed from you. {name} picks a time next.',
+    see_how_its_looking: "See how it's looking",
     back: 'Back',
     too_many_tries: 'Too many tries from here just now. Wait a few minutes, then try again.',
     couldnt_send: "Something went wrong, so your times didn't go through. Please try again.",
@@ -235,7 +236,7 @@ export const en = {
     exact_hours_for: 'Exact hours, {day}',
     exact_hours_for_own: 'Exact hours, {day}, {hours}',
     back_to_choice: 'Back to {choice} instead',
-    day_hours_guidance: "Set when you're free. Add a second time if there's a gap.",
+    day_hours_guidance: "Set the hours you'd be up for. Add a second time if there's a gap.",
     usual_button: 'Use my usual days',
     usual_says: '{what}, from your last plans in this circle.',
     usual_and: '{rest} and {last}',
@@ -273,15 +274,16 @@ export const en = {
     none_of_these_afternoons_work_for_me: 'None of these afternoons work for me',
     adjust_hours: 'Adjust hours',
     hours_title: 'Your hours each {thing}',
-    free_from: 'Free from',
+    hours_from_label: 'From',
     hours_to: 'to',
-    free_from_label: 'Free from, {day}, {time}',
-    free_until_label: 'Free until, {day}, {time}',
+    // A time button names its end, not only its time, for a screen reader (SUS-250).
+    from_time_label: 'From {time}, {day}',
+    until_time_label: 'To {time}, {day}',
     remove_time: 'Remove this time, {day}, {time}',
     add_another_time: 'Add another time',
-    pick_from: 'Free from',
-    pick_until: 'Free until',
-    others_free: 'Most others are free {when}.',
+    pick_from: 'From',
+    pick_until: 'Until',
+    others_free: 'Most others can do {when}.',
     time_again: '{time}, after the clocks go back',
   },
   availabilityOverlay: {
@@ -376,9 +378,8 @@ export const en = {
     not_going_ahead: 'Not going ahead',
     headline_day: "{day}'s catch-up is off.",
     headline_plain: 'The catch-up is off.',
-    body: "It's been called off. Nothing you sent has been shared, and the circle's record isn't affected.",
-    body_named:
-      "{name} cancelled it. Nothing you sent has been shared, and the circle's record isn't affected.",
+    body: "It's been called off.",
+    body_named: '{name} called it off.',
     note_label: 'The note with it',
     note_label_named: "{name}'s note",
     note: '“{detail}”',
@@ -482,6 +483,7 @@ export const en = {
       '{name} picks one of these once replies close. You can change your times until then.',
     lead_no_organiser:
       'One of these gets picked once replies close. You can change your times until then.',
+    your_times_are_in: 'Your times are in.',
     change_my_times: 'Change my times',
     closed_note: 'Replies have closed, so times can no longer change.',
     lead_closed_organiser: 'Replies have closed. {name} picks one of these.',
@@ -833,6 +835,11 @@ export const en = {
     says: '{name} says: “{what}”',
     /** The organiser moved the time without asking anybody again (ADR 0051). */
     moved_from: 'Moved from {previous}',
+    /** The state, under the day (SUS-250): said once, in the line and not in a label above. */
+    locked_in_for: 'Locked in for {time}',
+    moved_line: 'Moved from {previous} · now {time}',
+    /** The reader first, as "You" (SUS-250). */
+    you: 'You',
     moved_unsaid: 'The time moved. Are you coming?',
     add_to_calendar: 'Add to calendar',
     i_cant_make_it_after_all: "I can't make it after all",
@@ -906,11 +913,11 @@ export const en = {
     over_body: 'Nothing is happening at this time any more.',
   },
   continueAs: {
-    have_you_answered_this_before: 'Have you answered this before?',
-    pick_your_name_to_carry_on_where:
-      'Pick your name to carry on where you left off. The circle can see when someone rejoins.',
-    pick_your_name_signed_in:
-      'Were you one of these? Pick your name and that place, with its answers, moves onto your account. The circle can see when someone rejoins.',
+    been_here_before: 'Been here before?',
+    tap_your_name_to_carry_on: 'Tap your name to carry on.',
+    // A signed-in account (ADR 0088): the pick moves that place onto it.
+    tap_your_name_signed_in:
+      'Were you one of these? Tap your name and that place moves onto your account.',
     continue_as: 'Continue as {name}',
     no_names_to_pick: "There's nobody here to continue as. If you're new, start below.",
     im_new_here: "I'm new here",
@@ -930,12 +937,15 @@ export const en = {
     claim_body: "{name}'s answers and their place in {circle} move to your account.",
     claim_yes: "Yes, I'm {name}",
     claim_no: 'Not me',
+    /** A guest's pick asks first too (SUS-250, ADR 0092): nothing moves until "Yes". */
+    carry_on_title: 'Carry on as {name}?',
+    carry_on_body: "{name}'s times in {circle} come to this phone.",
+    carry_on_yes: "Yes, I'm {name}",
   },
   /** The page behind "Get back in" in a plan-update email (ADR 0023): one tap, then the token is spent. */
   reentry: {
     get_back_in_title: 'Get back in',
-    get_back_in_body:
-      "Tap to carry on where you left off in your circle. If this wasn't you, close this page and nothing happens.",
+    get_back_in_body: "Tap to carry on where you left off. If this wasn't you, close this page.",
     get_back_in: 'Get back in',
     getting_back_in: 'Getting you back in',
   },
@@ -1459,8 +1469,7 @@ export const en = {
     link_expired: 'This link has expired.',
     link_expired_body: 'Use the link in the most recent email about the meetup.',
     open_it_again: 'Open the link from your email again.',
-    open_it_again_body:
-      "The link is cleared from the address bar once it's opened, so a reload can't use it again.",
+    open_it_again_body: 'Open the link in the email once more. Your place is still there.',
     loading: 'Finding your email preferences',
     couldnt_load: "We couldn't load your email preferences just now.",
     couldnt_change: "Something went wrong, so that didn't change. Please try again.",
@@ -1499,8 +1508,7 @@ export const en = {
     link_expired_body:
       'Use the link in the most recent email, or sign in and turn them off in notification settings.',
     open_it_again: 'Open the link from your email again.',
-    open_it_again_body:
-      "The link is cleared from the address bar once it's opened, so a reload can't use it again.",
+    open_it_again_body: 'Open the link in the email once more. Your place is still there.',
     couldnt_stop: "Something went wrong, so they weren't stopped. Please try again.",
     youre_offline: "You're offline. Connect, then try again.",
     try_again: 'Try again',
@@ -1529,11 +1537,9 @@ export const en = {
     nothing_to_send_body:
       "There's nothing to send to it right now: the meetup has finished, or you're no longer in that circle.",
     link_expired: 'This link has expired.',
-    link_expired_body:
-      'A verification link works once, for 24 hours. Open the plan from your group chat and ask for updates again.',
+    link_expired_body: 'Open the plan from your group chat instead. Your place is still there.',
     open_it_again: 'Open the link from your email again.',
-    open_it_again_body:
-      "The link is cleared from the address bar once it's opened, so a reload can't use it again.",
+    open_it_again_body: 'Open the link in the email once more. Your place is still there.',
     checking: 'Checking the link',
     couldnt_check: "We couldn't check this link just now.",
     youre_offline: "You're offline. Connect, then try again.",
@@ -1960,6 +1966,7 @@ export const en = {
     // A plan that is live but not admitting (ADR 0091): the person is told whom
     // to ask, never about a link they have not seen.
     this_plan_isnt_taking_new_answers: "This plan isn't taking new answers.",
+    this_plan_is_already_locked_in: 'This plan is already locked in.',
     ask_someone_to_add_you: 'Ask someone in {circle} to add you.',
     ask_someone_in_the_circle: 'Ask someone in the circle to add you.',
     youre_not_in_this_circle: "You're not in this circle.",
@@ -1970,7 +1977,7 @@ export const en = {
       'The page lost track of the invite. Open the link again from the chat it was shared in.',
     this_link_has_expired: 'This link has expired.',
     open_the_plan_from_the_chat:
-      'Open the plan from the group chat instead. Your place in the circle is still there.',
+      'Open the plan from your group chat instead. Your place is still there.',
     signed_in_as_someone_else: "You're signed in with a different account.",
     this_link_is_for_a_guest_place:
       'This link is for somebody’s place in a circle, and this browser is signed in to another account. Sign out here to use it.',
@@ -1983,17 +1990,14 @@ export const en = {
   },
   main: {
     brand: '{brand}',
-    youre_invited: "You're invited",
-    circle_is_finding_a_time: '{circle} is finding a time to catch up.',
-    inviter_shared_this_link:
-      "{inviter} shared this link. Pick the times you'd actually be up for. It takes about a minute, and nobody sees your calendar.",
-    someone_shared_this_link:
-      "Someone in the circle shared this link. Pick the times you'd actually be up for. It takes about a minute, and nobody sees your calendar.",
-    people_in_so_far: '{count} people are in so far',
-    one_person_in_so_far: '1 person is in so far',
-    no_account_or_app_needed_your_friends:
-      'No account or app needed. Your friends see who can make each time, never your calendar.',
-    choose_my_times: 'Choose my times',
+    // The circle's invite (SUS-250): since ADR 0091 any member sends it between plans, so it
+    // names no sharer and does not say a time is being found.
+    join_circle: 'Join {circle}',
+    circle_plans_its_catch_ups_here:
+      "{circle} plans its catch-ups here. You're in as soon as you add a name, no app or account.",
+    people_are_in: '{count} people are in',
+    one_person_is_in: '1 person is in',
+    join_the_circle: 'Join {circle}',
     what_is_brand: 'What is {brand}?',
     opening_the_invite: 'Opening the invite',
     couldnt_open_the_invite: "We couldn't open this invite just now.",
@@ -2010,13 +2014,13 @@ export const en = {
     about_a_minute_and_nobody_sees_your_calendar: 'About a minute, and nobody sees your calendar.',
     your_name: 'Your name',
     your_first_name: 'Your first name',
-    this_is_what_the_others_will_see:
-      'This is what {inviter} and the others will see next to your times.',
-    this_is_what_the_circle_will_see: 'This is what the circle will see next to your times.',
+    // What a name is for, and nothing more (ADR 0066): nobody sees it next to your times.
+    this_is_what_the_circle_will_call_you: 'This is what {circle} will call you.',
+    name_missing: 'Add your first name, up to 40 letters.',
     continue: 'Continue',
     joining: 'Joining',
     name_taken:
-      'Someone in {circle} is already called {name}. Add something to tell you apart, like “{name} B”.',
+      "Someone in {circle} is already called {name}. If that's you, go back and tap your name. If not, add an initial.",
     name_unusable: "That name won't work. A first name of up to 40 characters is fine.",
     circle_full: '{circle} already has 20 people, which is as many as a circle holds.',
     too_many_tries: 'Too many tries from here just now. Wait a few minutes, then try again.',
@@ -2077,12 +2081,10 @@ export const en = {
     none_of_these_dates_work_for_you: 'None of these dates work for you?',
     thats_useful_to_know_which_is_closer: "That's useful to know. Which is closer to the truth?",
     im_keen_just_not_these_dates: "I'm keen, just not these dates",
-    keen_body: "{name} sees you'd like to come. If the window changes, you'll be asked again.",
-    keen_body_no_organiser:
-      "The group sees you'd like to come. If the window changes, you'll be asked again.",
+    keen_body: "{name} sees you'd like to come.",
+    keen_body_no_organiser: "The group sees you'd like to come.",
     not_enough_notice: 'Not enough notice',
-    same_as_above_and_well_remember_to:
-      "Same as above, and we'll remember to give you more warning next time.",
+    same_as_above_just_more_warning: "Same as above: you'd just like more warning.",
     not_this_time: 'Not this time',
     no_reason_needed_nobody_is_told_anything:
       'No reason needed. Nobody is told anything beyond that.',
@@ -2539,21 +2541,20 @@ export const en = {
     /** "Welcome back, Nina." — the name they continued as. */
     welcome_back_name: 'Welcome back, {name}.',
     welcome_back: 'Welcome back.',
-    youve_rejoined_from_a_new_browser_and:
-      "You've rejoined from a new browser and your times are still here.",
+    your_times_are_still_here: 'Your times are still here.',
     keep_your_place_for_good: 'Keep your place for good?',
     /** Email only until Apple and Google arrive (SUS-77), so it names only email. */
     sign_in_once_with_your_email:
-      "Sign in once with your email and you'll never have to pick your name from a list again. Still no app needed.",
+      "Sign in once with your email and you won't pick your name again. Still no app.",
     save_my_place: 'Save my place',
     not_now: 'Not now',
-    carry_on_to_circle: 'Carry on to {circle}',
+    carry_on: 'Carry on',
   },
   rescheduledGuest: {
     sunday_crew: 'Sunday Crew',
     brand: '{brand}',
     change_of_plan: 'Change of plan',
-    previously: 'Previously',
+    was: 'Was',
     thu_17_sep_6_30_8_30: 'Thu 17 Sep, 6:30–8:30 pm',
     now_asking_about: 'Now asking about',
     mon_21_sun_27_sep: 'Mon 21 – Sun 27 Sep',
@@ -2561,21 +2562,17 @@ export const en = {
     not_this_time: 'Not this time',
     headline_day: '{day} is off the table. New times?',
     headline_plain: 'New times?',
-    body_named:
-      "{name} reopened the plan. Your earlier times don't carry over, so it's a fresh ask.",
-    body_plain: "The plan was reopened. Your earlier times don't carry over, so it's a fresh ask.",
+    body_named: "{name} reopened the plan. Your earlier times don't carry over.",
+    body_plain: "The plan was reopened. Your earlier times don't carry over.",
     range: '{from} – {to}',
   },
   saveAccess: {
-    keep_your_place_on_every_device: 'Keep your place on every device',
-    sign_in_with_your_email:
-      "Sign in with your email and you'll never have to rejoin {circle} from a new phone or browser. It's optional.",
+    keep_your_place_on_every_device: 'Keep your place for good',
+    sign_in_with_your_email: "One code by email, and you won't pick your name from a list again.",
     your_email: 'Your email',
     you_example_com: 'you@example.com',
-    well_send_a_one_time_code_this:
-      "We'll send a one-time code. This is an account, so it's separate from meetup emails. It doesn't subscribe you to anything.",
     not_an_address: "That doesn't look like an email address.",
-    send_me_a_code: 'Send me a code',
+    email_me_a_code: 'Email me a code',
     sending: 'Sending',
     not_now: 'Not now',
     already_saved: 'Your place is already saved.',
@@ -2606,23 +2603,22 @@ export const en = {
     thanks_answer_in: 'Thanks, {name}. Your answer is in.',
     thanks_times_in_anonymous: 'Thanks. Your times are in.',
     thanks_answer_in_anonymous: 'Thanks. Your answer is in.',
-    organiser_picks:
-      '{name} will pick a time once replies close on {day}. The plan will land in the group chat.',
+    organiser_picks: '{name} picks a time once replies close {when}.',
     // The organiser reads the plan from the other side: they pick, so it does not say a name (SUS-196).
     you_pick: "You'll pick a time once replies close on {day}. Options appear as people answer.",
-    time_gets_picked:
-      'A time gets picked once replies close on {day}. The plan will land in the group chat.',
+    time_gets_picked: 'A time gets picked once replies close {when}.',
     // The one-step card (SUS-162): an address, the sentence, a switch, one button.
-    hear_when_its_locked_in: "Hear when it's locked in",
+    hear_when_its_locked_in: "Hear when it's locked in?",
     your_email: 'Your email',
     you_example_com: 'you@example.com',
     not_an_address: "That doesn't look like an email address.",
     email_me_about_this_meetup: 'Email me about this meetup',
+    email_me_and_save_my_place: 'Email me and save my place',
     save_my_place: 'Save my place in {circle}',
     // The switch on (SUS-190, ADR 0067): an account is made, and the reminders can be stopped from their email.
     makes_an_account:
-      'This makes you an account in {brand}, so you can get back in from any phone. Reminders about catching up can be stopped from the email itself.',
-    nothing_is_saved: 'Nothing is saved.',
+      'Makes you an account, so any phone gets you back in. Reminders to plan the next one can be stopped from the email.',
+    your_place_stays_on_this_phone: 'Your place stays on this phone.',
     kept_and_updates_on:
       "Done. We'll email {address} about this meetup, and your place in {circle} is saved: sign in with that address on any phone to get back to it.",
     // One button for a signed-in member (SUS-164): their confirmed address, no field.
@@ -2646,6 +2642,9 @@ export const en = {
     try_again: 'Try again',
     see_my_answer: 'Change my answer',
     see_how_its_looking: "See how it's looking",
+    your_days: 'The days you sent',
+    your_answer: 'Your answer',
+    im_easy_chip: "I'm easy",
   },
   setTime: {
     /**

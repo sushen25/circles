@@ -43,7 +43,9 @@ test('/v: opening the verification link verifies nothing; the tap does, and a se
   const address = addressFor('ren');
   await page.getByLabel('Your email').fill(address);
   await page.getByRole('switch', { name: /^Save my place in/ }).click();
-  await page.getByRole('button', { name: 'Email me about this meetup' }).click();
+  await page
+    .getByRole('button', { name: /^Email me (about this meetup|and save my place)$/ })
+    .click();
   await expect(page.getByText('Check your email.')).toBeVisible();
   const link = linkIn(await letterTo(address, /^Turn on updates/), '/v', baseURL!);
 

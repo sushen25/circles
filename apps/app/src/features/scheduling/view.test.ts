@@ -90,7 +90,7 @@ describe('a candidate card', () => {
     expect(first?.label).toContain('Best attendance');
     expect(first?.label).toContain('5 of 6');
     expect(first?.label).toContain('6:30–8:30 pm');
-    expect(first?.label).toContain('Maya, Nina and 3 others can make it');
+    expect(first?.label).toContain('You, Nina and 3 others can make it');
     expect(second?.label).toContain("Doesn't work for Nina · Alex hasn't answered");
   });
 

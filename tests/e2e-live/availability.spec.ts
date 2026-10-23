@@ -27,7 +27,7 @@ import {
 /** Joins as `name` and waits for the editor. Returns the new member's user id. */
 async function arriveAs(page: Page, crew: Scenario, name: string): Promise<string> {
   await page.goto(`/j/${crew.planCode}`);
-  await page.getByLabel('Your name').fill(name);
+  await page.getByLabel('Your first name').fill(name);
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(
     page.getByRole('heading', { name: /^Which (evenings|days) could work\?$/ }),
@@ -61,10 +61,10 @@ const sameForEvery = (page: Page) => page.getByRole('button', { name: 'Same for 
 const pill = (page: Page, name: string) => page.getByRole('radio', { name, exact: true });
 /** The first day's clock, which opens that day's From – to pairs on a sheet. */
 const firstClock = (page: Page) => page.getByRole('button', { name: /^Exact hours, / }).first();
-/** A From or To button of the open day, by what it says now ("Free from, Monday 14 September, 5:30 pm"). */
+/** A From or To button of the open day, by what it says now ("From 5:30 pm, Monday 14 September"). */
 const timeButton = (page: Page, which: 'from' | 'to', time: string) =>
   page.getByRole('button', {
-    name: new RegExp(`^Free ${which === 'from' ? 'from' : 'until'}, .*, ${time}$`),
+    name: new RegExp(`^${which === 'from' ? 'From' : 'To'} ${time}, `),
   });
 /** Opens that button's picker and chooses a time from it. */
 async function pick(page: Page, which: 'from' | 'to', now: string, time: string) {
@@ -142,7 +142,7 @@ test('what is set with From and to is what is stored, in two windows, and it com
   await page.getByRole('button', { name: 'Add another time' }).click();
   await pick(page, 'from', '7:00 pm', '7:30 pm');
   await page.getByRole('button', { name: 'Done', exact: true }).click();
-  await expect(page.getByRole('button', { name: /^Free from, / })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^From \\d/ })).toHaveCount(0);
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}/sent$`));
 
@@ -297,7 +297,7 @@ test("a clock's sheet goes Back to the choice the day had, and clears its exact 
   await firstClock(page).click();
   await pick(page, 'to', '10:30 pm', '9:00 pm');
   await page.getByRole('button', { name: 'Back to Evening instead' }).click();
-  await expect(page.getByRole('button', { name: /^Free from, / })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^From \\d/ })).toHaveCount(0);
   await expect(pill(page, 'Evening')).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page).toHaveURL(new RegExp(`/sent$`));
@@ -342,7 +342,7 @@ test('on a wide window the hours sheet and A time for each day sit in the centre
 
   // Beside the sheet is still the scrim: a tap there dismisses it, as Done does.
   await page.mouse.click(10, 790);
-  await expect(page.getByRole('button', { name: /^Free from, / })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^From \\d/ })).toHaveCount(0);
   const sideways = await page.evaluate(
     'document.documentElement.scrollWidth - document.documentElement.clientWidth',
   );
@@ -413,7 +413,7 @@ test('"not enough notice" is its own answer, not a decline', async ({ page }) =>
 
   await page.getByRole('button', { name: 'None of these evenings work for me' }).click();
   await expect(page.getByText("Maya sees you'd like to come.", { exact: false })).toBeVisible();
-  await page.getByRole('button', { name: 'Not enough notice' }).click();
+  await page.getByRole('button', { name: /^Not enough notice\./ }).click();
 
   await expect(page).toHaveURL(new RegExp(`/sent$`));
   expect(answerOf(crew.planId, ren)).toEqual({ status: 'more_notice', windows: [] });
@@ -431,7 +431,7 @@ test('a plan past its deadline, still marked collecting, says replies have close
   planStopsAsking(crew, 'deadline_passed');
   await page.reload();
 
-  await expect(page.getByText('Replies have closed for this one.')).toBeVisible();
+  await expect(page.getByText('Replies have closed.')).toBeVisible();
 });
 
 test('A time for each day is part of the first screen: the address does not change, and a draft whose days differ reopens on it', async ({

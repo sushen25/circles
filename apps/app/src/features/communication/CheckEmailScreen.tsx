@@ -4,7 +4,6 @@ import {
   Button,
   DisplayXL,
   Foot,
-  Label,
   Notice,
   Screen,
   Small,
@@ -63,10 +62,9 @@ export function CheckEmailScreen({
 }: CheckEmailProps) {
   return (
     <Screen>
-      <TopBar onBack={onBack} backLabel={t('common', 'back')} />
+      <TopBar title={circleName} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <Stack>
-          {circleName === undefined ? null : <Label>{circleName}</Label>}
           <DisplayXL>{t('checkEmail', 'check_your_email')}</DisplayXL>
           <BodyText>
             {address === undefined

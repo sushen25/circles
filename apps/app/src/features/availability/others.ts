@@ -51,7 +51,7 @@ export function dayLabel(label: string, free: number, selected: boolean): string
 }
 
 /**
- * One line about the others for an open day (SUS-206): "Most others are free
+ * One line about the others for an open day (SUS-206): "Most others can do
  * 2–4 pm and 6–8 pm". The stretches are the domain's (`freeStretches`) over the
  * same per-half-hour counts the cells used to show; this only says them, and
  * says nothing at all when nobody else is free that day.

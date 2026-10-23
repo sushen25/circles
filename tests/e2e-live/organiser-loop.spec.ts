@@ -76,7 +76,7 @@ test('five answers to a lock-in, a calendar file, the morning after, and circle 
 
   // The options match the scenario: 6:30–8:30 pm, five of six, Alex named.
   await page.goto(`/circles/${circleId}/plan/${plan.id}/candidates`);
-  await expect(page.getByText('Best attendance')).toBeVisible();
+  await expect(page.getByText(/Best attendance/)).toBeVisible();
   await expect(page.getByText('5 of 6').first()).toBeVisible();
   await expect(page.getByText('5 of 6 replied')).toBeVisible();
   await expect(page.getByText("Alex hasn't answered").first()).toBeVisible();

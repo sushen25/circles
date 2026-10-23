@@ -15,6 +15,7 @@ vi.mock('expo-router', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), canGoBack: () => true }),
   useFocusEffect: () => undefined,
   useIsFocused: () => true,
+  useLocalSearchParams: () => ({}),
 }));
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));

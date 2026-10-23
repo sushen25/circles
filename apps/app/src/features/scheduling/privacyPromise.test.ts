@@ -36,11 +36,6 @@ const promises: PromiseSentence[] = [
     text: en.availability.your_friends_see_who_can_make_each,
   },
   {
-    id: 'join page notice',
-    kind: 'sees_and_not_sees',
-    text: en.main.no_account_or_app_needed_your_friends,
-  },
-  {
     id: '/privacy, your calendar',
     kind: 'sees_and_not_sees',
     text: en.legal.privacy_calendar_body,

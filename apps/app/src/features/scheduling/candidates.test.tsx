@@ -21,6 +21,7 @@ vi.mock('expo-router', () => ({
   useRouter: () => ({ push, replace, dismissTo, back: vi.fn(), canGoBack: () => true }),
   useFocusEffect: () => undefined,
   useIsFocused: () => focused.current,
+  useLocalSearchParams: () => ({}),
 }));
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
@@ -78,7 +79,7 @@ describe('the organiser, with options', () => {
     show(organiser());
 
     expect(await screen.findByText('Thursday looks good for five of you.')).toBeTruthy();
-    expect(screen.getByText('Best attendance')).toBeTruthy();
+    expect(screen.getByText(/· Best attendance$/)).toBeTruthy();
     expect(screen.getByText('5 of 6')).toBeTruthy();
     expect(screen.getByText("Alex hasn't answered")).toBeTruthy();
     expect(screen.getByText("Doesn't work for Nina · Alex hasn't answered")).toBeTruthy();
@@ -234,7 +235,7 @@ describe('the organiser, with no overlap', () => {
 
     expect(await screen.findByText("There wasn't enough overlap this time.")).toBeTruthy();
     expect(screen.getByText(/Nothing in the window works for at least 4 of you/)).toBeTruthy();
-    expect(screen.getByText('Closest')).toBeTruthy();
+    expect(screen.getAllByText(/· Closest$/).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /^Lower to 3 people\./ })).toBeTruthy();
   });
 

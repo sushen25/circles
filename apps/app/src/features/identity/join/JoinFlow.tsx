@@ -87,13 +87,12 @@ export function JoinFlow() {
     return <LinkInvalidScreen reason="inactive" onBack={back} />;
   }
 
-  const { circle_name, inviter_name, member_initials } = preview.data;
+  const { circle_name, member_initials } = preview.data;
 
   return (
     <MainScreen
       invite={{
         circleName: circle_name,
-        inviterName: inviter_name,
         memberInitials: member_initials,
       }}
       busy={starting}

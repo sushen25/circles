@@ -23,7 +23,7 @@ import {
  * never promised a letter. The server's allow and deny is pgTAP 350's.
  */
 
-const PRIMARY = 'Email me about this meetup';
+const PRIMARY = /^Email me (about this meetup|and save my place)$/;
 
 /** A guest saves their place through the card's code, which leaves them signed in with a confirmed address. */
 async function savesAPlace(page: Page, crew: Scenario, name: string, address: string) {

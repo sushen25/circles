@@ -62,7 +62,6 @@ export function PlanNameFlow({
   return (
     <NameScreen
       circleName={circleName}
-      inviterName={null}
       forAccount={forAccount}
       fromPlanLink
       value={step.name}

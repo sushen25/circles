@@ -12,7 +12,7 @@ import {
   Title,
   Toggle,
 } from '../../components';
-import { Row } from '../../components/layout';
+import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
 
 export type SentProblem =
@@ -95,12 +95,10 @@ export function SentCard({
       ) : (
         <Small>{t('sent', 'well_email_you_at', { address: confirmedEmail })}</Small>
       )}
-      {/* What is recorded is what is shown: `CONSENT.text`, never a copy key (ADR 0019). */}
-      <Small>{CONSENT.text}</Small>
       {savePlace === undefined ? null : (
         <SettingRow
           title={t('sent', 'save_my_place', { circle: circleName ?? '' })}
-          detail={t('sent', savePlace ? 'makes_an_account' : 'nothing_is_saved')}
+          detail={t('sent', savePlace ? 'makes_an_account' : 'your_place_stays_on_this_phone')}
         >
           <Toggle
             value={savePlace}
@@ -109,17 +107,25 @@ export function SentCard({
           />
         </SettingRow>
       )}
-      {/* Where an address is asked for, whatever the switch says: who it is for, and the policies (SUS-190, S4-05). */}
-      <LegalLine onTerms={onTerms} onPrivacy={onPrivacy} />
+      {/* The fine print together, as the last thing before the button. What is recorded is
+          what is shown: `CONSENT.text`, never a copy key (ADR 0019). The 18+ line is
+          for the one that makes an account, and for where there is no switch (S4-05). */}
+      <Stack gap={8}>
+        <Small>{CONSENT.text}</Small>
+        {savePlace === false ? null : <LegalLine onTerms={onTerms} onPrivacy={onPrivacy} />}
+      </Stack>
       {problem === undefined ? null : <Notice kind="warn">{problemCopy(problem)}</Notice>}
       {reference === undefined ? null : <Small>{t('sent', 'reference', { reference })}</Small>}
       <Button
-        label={t('sent', 'email_me_about_this_meetup')}
+        label={t(
+          'sent',
+          savePlace === true ? 'email_me_and_save_my_place' : 'email_me_about_this_meetup',
+        )}
         busyLabel={t('sent', 'sending')}
         busy={busy}
         onPress={onSubmit}
       />
-      <Tertiary label={t('sent', 'not_now')} onPress={onNotNow} />
+      <Tertiary label={t('sent', 'not_now')} tone="plain" onPress={onNotNow} />
     </Card>
   );
 }

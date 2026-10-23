@@ -9,7 +9,7 @@ import {
   type LayoutChangeEvent,
 } from 'react-native';
 
-import { color, faceFor, hit, radius } from '@circles/tokens';
+import { color, faceFor, hit, radius, space } from '@circles/tokens';
 
 import { type GridPaint, useDayStroke } from './useDayStroke';
 import { Icon } from './Icon';
@@ -18,6 +18,15 @@ import { usePalette } from './theme';
 
 /** The gap between days, where there is room for it. */
 const GAP = 5;
+
+/**
+ * Under this window width the grid spends less on gutters and gaps so that
+ * seven 44pt days fit (SUS-250): the screen's 22pt gutter gives way to 16 and
+ * the gap to 3, which is 326pt of 328 at 360pt wide.
+ */
+const NARROW = 380;
+const NARROW_GUTTER = 16;
+const NARROW_GAP = 3;
 
 /**
  * The plan's days as a calendar, Monday first: tap every day that could work,
@@ -91,7 +100,9 @@ const COLUMNS = 7;
 export type { GridPaint };
 
 export function DayGrid({ days, weekdays, label, onToggle, dimmed = false, onPaint, cell }: Props) {
-  const { fontScale } = useWindowDimensions();
+  const { fontScale, width: screenWidth } = useWindowDimensions();
+  const narrow = screenWidth < NARROW;
+  const bleed = narrow ? space.gutter - NARROW_GUTTER : 0;
   const [width, setWidth] = useState(0);
   // The gap gives way before the columns do: seven 44pt columns fit a 360pt
   // phone's content width with a point to spare between them, and a 390pt one
@@ -99,7 +110,8 @@ export function DayGrid({ days, weekdays, label, onToggle, dimmed = false, onPai
   // columns is what a phone at ordinary text size gets, and what a server
   // render should show.
   const column = hit * Math.max(1, fontScale);
-  const gap = width > 0 ? Math.min(GAP, (width - COLUMNS * column) / (COLUMNS - 1)) : GAP;
+  const room = narrow ? NARROW_GAP : GAP;
+  const gap = width > 0 ? Math.min(room, (width - COLUMNS * column) / (COLUMNS - 1)) : room;
   const wraps = gap < 1;
   // Room for the figure in the corner, on every day alike so the rows line up.
   const counted = days.some((day) => day.others !== undefined);
@@ -136,7 +148,7 @@ export function DayGrid({ days, weekdays, label, onToggle, dimmed = false, onPai
 
   let body;
   if (wraps) {
-    body = <View style={styles.wrap}>{days.map(button)}</View>;
+    body = <View style={[styles.wrap, { gap: room }]}>{days.map(button)}</View>;
   } else {
     const weeks = Math.ceil((Math.max(...days.map((d) => d.slot), 0) + 1) / COLUMNS);
     const bySlot = new Map(days.map((day, index) => [day.slot, index]));
@@ -160,7 +172,7 @@ export function DayGrid({ days, weekdays, label, onToggle, dimmed = false, onPai
 
   return (
     <View
-      style={[styles.grid, dimmed && styles.dimmed]}
+      style={[styles.grid, bleed > 0 && { marginHorizontal: -bleed }, dimmed && styles.dimmed]}
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
     >
       {wraps ? null : (
@@ -176,7 +188,7 @@ export function DayGrid({ days, weekdays, label, onToggle, dimmed = false, onPai
         ref={stroke?.ref}
         role="group"
         aria-label={label}
-        style={[styles.days, stroke !== undefined && styles.paintable]}
+        style={[styles.days, { gap }, stroke !== undefined && styles.paintable]}
         {...(stroke?.handlers ?? {})}
       >
         {body}
@@ -237,7 +249,7 @@ function DayButton({
       ) : null}
       {day.others === undefined ? null : (
         <View style={styles.others} aria-hidden>
-          <Icon name="people" size={11} color={figure} />
+          <Icon name="people" size={10} color={figure} />
           <Text style={[styles.othersText, { color: figure }]}>{day.others}</Text>
         </View>
       )}
@@ -267,8 +279,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.chip,
     borderWidth: 1,
   },
-  // 66 rather than 60, so the figure in the corner clears the date.
-  dayCounted: { minHeight: 66, paddingTop: 15, paddingBottom: 3 },
+  // 68 rather than 60, so the figure in the corner clears the date.
+  dayCounted: { minHeight: 68, paddingTop: 17, paddingBottom: 3 },
   dayWrapped: {
     flexGrow: 1,
     flexBasis: 96,
@@ -277,16 +289,17 @@ const styles = StyleSheet.create({
   tick: { position: 'absolute', top: 2, right: 3 },
   others: {
     position: 'absolute',
-    top: 4,
-    left: 5,
+    top: 3,
+    left: 4,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 1,
   },
+  // 13, not 11: a figure the size of the tag was hard to read (SUS-250).
   othersText: {
     fontFamily: faceFor('Figtree', 600),
-    fontSize: 11,
-    lineHeight: 12,
+    fontSize: 13,
+    lineHeight: 14,
     fontVariant: ['tabular-nums'],
   },
   number: {

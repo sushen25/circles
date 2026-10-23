@@ -121,16 +121,13 @@ export function ContinueAsScreen({
     <Screen>
       <TopBar title={circleName} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
-        <DisplayL>{t('continueAs', 'have_you_answered_this_before')}</DisplayL>
+        <DisplayL>{t('continueAs', 'been_here_before')}</DisplayL>
         {options.length === 0 ? (
           <BodyText>{t('continueAs', 'no_names_to_pick')}</BodyText>
         ) : (
           <>
             <BodyText>
-              {t(
-                'continueAs',
-                signedIn ? 'pick_your_name_signed_in' : 'pick_your_name_to_carry_on_where',
-              )}
+              {t('continueAs', signedIn ? 'tap_your_name_signed_in' : 'tap_your_name_to_carry_on')}
             </BodyText>
             <Card>
               {options.map((option, index) => (
@@ -157,7 +154,12 @@ export function ContinueAsScreen({
         {problem?.kind === 'saved_place' ? (
           <Button label={t('continueAs', 'sign_in')} onPress={onSignIn} />
         ) : null}
-        <Button label={t('continueAs', 'im_new_here')} variant="secondary" onPress={onImNewHere} />
+        {/* The way in for a newcomer is the primary; Sign in takes it only when a saved place was picked. */}
+        <Button
+          label={t('continueAs', 'im_new_here')}
+          variant={problem?.kind === 'saved_place' ? 'secondary' : 'primary'}
+          onPress={onImNewHere}
+        />
         {signedIn || problem?.kind === 'saved_place' ? null : (
           <Tertiary label={t('continueAs', 'i_have_an_account')} onPress={onSignIn} />
         )}

@@ -54,7 +54,7 @@ export function ReattachedNudgeScreen({
               ? t('reattachedNudge', 'welcome_back')
               : t('reattachedNudge', 'welcome_back_name', { name })}
           </DisplayL>
-          <BodyText>{t('reattachedNudge', 'youve_rejoined_from_a_new_browser_and')}</BodyText>
+          <BodyText>{t('reattachedNudge', 'your_times_are_still_here')}</BodyText>
         </Stack>
         <Card>
           <Row>
@@ -62,17 +62,13 @@ export function ReattachedNudgeScreen({
           </Row>
           <BodyText>{t('reattachedNudge', 'sign_in_once_with_your_email')}</BodyText>
           <Row>
-            <Button label={t('reattachedNudge', 'save_my_place')} onPress={onNext} />
+            <Tertiary label={t('reattachedNudge', 'save_my_place')} onPress={onNext} />
+            <Tertiary label={t('reattachedNudge', 'not_now')} tone="plain" onPress={onNotNow} />
           </Row>
-          <Tertiary label={t('reattachedNudge', 'not_now')} onPress={onNotNow} />
         </Card>
       </Body>
       <Foot>
-        <Button
-          label={t('reattachedNudge', 'carry_on_to_circle', { circle: circleName })}
-          variant="secondary"
-          onPress={onCarryOn}
-        />
+        <Button label={t('reattachedNudge', 'carry_on')} onPress={onCarryOn} />
       </Foot>
     </Screen>
   );

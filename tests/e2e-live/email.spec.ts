@@ -40,7 +40,9 @@ test('the verification email’s link verifies the address, in a browser with no
 
   await page.getByLabel('Your email').fill(address);
   await page.getByRole('switch', { name: /^Save my place in/ }).click();
-  await page.getByRole('button', { name: 'Email me about this meetup' }).click();
+  await page
+    .getByRole('button', { name: /^Email me (about this meetup|and save my place)$/ })
+    .click();
   await expect(page.getByText('Check your email.')).toBeVisible();
   await expect(page.getByText(`We sent a link to ${address}.`, { exact: false })).toBeVisible();
   expect(emailContactOf(ren)).toBe('pending');
@@ -122,7 +124,9 @@ test('one step: the switch on saves the place and turns on the updates, with one
     'aria-checked',
     'true',
   );
-  await page.getByRole('button', { name: 'Email me about this meetup' }).click();
+  await page
+    .getByRole('button', { name: /^Email me (about this meetup|and save my place)$/ })
+    .click();
   await expect(page.getByText('Enter the code we emailed')).toBeVisible();
 
   await page.getByLabel('Code', { exact: true }).fill(await latestCodeFor(address));
@@ -131,7 +135,7 @@ test('one step: the switch on saves the place and turns on the updates, with one
   await expect(page.getByRole('status')).toContainText(
     `Done. We'll email ${address} about this meetup`,
   );
-  await expect(page.getByText("Hear when it's locked in")).toHaveCount(0);
+  await expect(page.getByText("Hear when it's locked in?")).toHaveCount(0);
   expect(isAnonymousUser(ren), 'the same identity, now an account').toBe(false);
   expect(memberNamed(crew.circleId, 'Ren')?.userId).toBe(ren);
   // A confirmed sign-in address is its own proof: verified, subscribed, nothing sent.

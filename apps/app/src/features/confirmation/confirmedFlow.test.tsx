@@ -277,9 +277,7 @@ describe('the calendar sheet', () => {
     show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
     await tap(screen.findByRole('button', { name: 'Add to calendar' }));
     expect(track).toHaveBeenCalledWith('calendar_add_opened', { ...IDS, surface: 'web' });
-    expect(
-      screen.getByText("Nothing is added to anyone's calendar without their tap."),
-    ).toBeTruthy();
+    expect(screen.queryByText(/Nothing is added/)).toBeNull();
     expect(screen.queryByText(/Google/)).toBeNull();
 
     await waitFor(() => expect(row().getAttribute('aria-busy')).not.toBe('true'));

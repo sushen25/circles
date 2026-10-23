@@ -62,9 +62,14 @@ const guestMembersFor = vi.fn();
 const planAccess = vi.fn();
 const reattachFromList = vi.fn();
 const circleNameForCode = vi.fn();
+let previewLockedIn = false;
 vi.mock('../../../data/membership', () => ({
   planAccess: (...args: unknown[]) => planAccess(...args),
   circleNameForCode: (...args: unknown[]) => circleNameForCode(...args),
+  planPreviewForCode: async (...args: unknown[]) => {
+    const name = (await circleNameForCode(...args)) as string | null;
+    return name === null ? null : { circleName: name, lockedIn: previewLockedIn };
+  },
   guestMembersFor: (...args: unknown[]) => guestMembersFor(...args),
   joinPlan: (...args: unknown[]) => joinPlan(...args),
   askToPlan: (...args: unknown[]) => askToPlan(...args),
@@ -113,7 +118,7 @@ function arrive() {
 }
 
 async function type(name: string) {
-  const input = await screen.findByLabelText('Your name');
+  const input = await screen.findByLabelText('Your first name');
   fireEvent.change(input, { target: { value: name } });
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
@@ -142,6 +147,7 @@ beforeEach(() => {
   setParams({});
   planAccess.mockResolvedValue({ membership: 'not_member' });
   circleNameForCode.mockResolvedValue('Sunday Crew');
+  previewLockedIn = false;
   guestMembersFor.mockResolvedValue({ kind: 'listed', members: [ALEX] });
 });
 
@@ -150,7 +156,7 @@ describe('a guest, in a circle that has guests', () => {
     joinPlan.mockResolvedValue(joined());
     arrive();
 
-    await screen.findByText('Have you answered this before?');
+    await screen.findByText('Been here before?');
     fireEvent.click(screen.getByRole('button', { name: "I'm new here" }));
     // The `?step=name` step carries the line too, and not the list before it.
     expect(await screen.findByText('About a minute, and nobody sees your calendar.')).toBeTruthy();
@@ -198,7 +204,7 @@ describe('a guest, in a circle that has guests', () => {
         'Too many tries from here just now. Wait a few minutes, then try again.',
       ),
     ).toBeTruthy();
-    expect(screen.getByLabelText('Your name')).toHaveValue('Ren');
+    expect(screen.getByLabelText('Your first name')).toHaveValue('Ren');
     expect(replace).not.toHaveBeenCalled();
   });
 
@@ -207,6 +213,7 @@ describe('a guest, in a circle that has guests', () => {
     arrive();
 
     fireEvent.click(await screen.findByRole('button', { name: /Alex/ }));
+    await tap(screen.findByRole('button', { name: "Yes, I'm Alex" }));
 
     expect(
       await screen.findByText(
@@ -237,7 +244,7 @@ describe('a guest, in a circle that has guests', () => {
 });
 
 describe('Back from the name step (SUS-208)', () => {
-  it('returns to "Have you answered this before?" on the same plan link, and never to the website', async () => {
+  it('returns to "Been here before?" on the same plan link, and never to the website', async () => {
     arrive();
 
     await tap(screen.findByRole('button', { name: "I'm new here" }));
@@ -246,7 +253,7 @@ describe('Back from the name step (SUS-208)', () => {
     await screen.findByText('What should the group call you?');
 
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect(await screen.findByText('Have you answered this before?')).toBeTruthy();
+    expect(await screen.findByText('Been here before?')).toBeTruthy();
     expect(replace).not.toHaveBeenCalledWith('/');
   });
 
@@ -265,12 +272,12 @@ describe('Back from the name step (SUS-208)', () => {
     guestMembersFor.mockResolvedValue({ kind: 'listed', members: [] });
     arrive();
 
-    const field = (await screen.findByLabelText('Your name')) as HTMLInputElement;
+    const field = (await screen.findByLabelText('Your first name')) as HTMLInputElement;
     fireEvent.change(field, { target: { value: 'Rne' } });
     expect(field.value).toBe('Rne');
 
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect(((await screen.findByLabelText('Your name')) as HTMLInputElement).value).toBe('');
+    expect(((await screen.findByLabelText('Your first name')) as HTMLInputElement).value).toBe('');
     expect(replace).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
   });
@@ -285,7 +292,7 @@ describe('a join that lands after Back (SUS-208)', () => {
     await tap(screen.findByRole('button', { name: "I'm new here" }));
     await type('Ren');
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    await screen.findByText('Have you answered this before?');
+    await screen.findByText('Been here before?');
 
     await act(async () => finish(joined()));
     expect(dismiss).not.toHaveBeenCalled();
@@ -302,7 +309,7 @@ describe('a guest, on a link that is no longer live', () => {
 
     expect(await screen.findByText("This link isn't active any more.")).toBeTruthy();
     expect(screen.queryByText('What should the group call you?')).toBeNull();
-    expect(screen.queryByText('Have you answered this before?')).toBeNull();
+    expect(screen.queryByText('Been here before?')).toBeNull();
     expect(joinPlan).not.toHaveBeenCalled();
   });
 });
@@ -319,13 +326,13 @@ describe('a guest whose circle lookup fails', () => {
 });
 
 describe('a guest, in a circle with no guests', () => {
-  it('never sees "Have you answered this before?": there is nobody to be', async () => {
+  it('never sees "Been here before?": there is nobody to be', async () => {
     guestMembersFor.mockResolvedValue({ kind: 'listed', members: [] });
     joinPlan.mockResolvedValue(joined());
     arrive();
 
     await screen.findByText('What should the group call you?');
-    expect(screen.queryByText('Have you answered this before?')).toBeNull();
+    expect(screen.queryByText('Been here before?')).toBeNull();
     // SUS-203: the effort and the privacy line, with no organiser and no plan named.
     expect(screen.getByText('About a minute, and nobody sees your calendar.')).toBeTruthy();
 
@@ -338,7 +345,7 @@ describe('the moment after joining', () => {
   it('holds the loading state, rather than offering the person themselves to continue as', async () => {
     // Between the join and the gate re-reading membership, the page still
     // thinks they are outside — and the guest list, read again, now holds their
-    // own name. The live suite caught "Have you answered this before?" flashing up with Ren
+    // own name. The live suite caught "Been here before?" flashing up with Ren
     // on it, on Ren's way in.
     guestMembersFor.mockResolvedValue({ kind: 'listed', members: [] });
     joinPlan.mockResolvedValue(joined());
@@ -356,7 +363,7 @@ describe('the moment after joining', () => {
     });
 
     expect(await screen.findByText('Finding the circle')).toBeTruthy();
-    expect(screen.queryByText('Have you answered this before?')).toBeNull();
+    expect(screen.queryByText('Been here before?')).toBeNull();
   });
 });
 
@@ -374,7 +381,7 @@ describe('an account that is not a member, in a circle that has guests (ADR 0088
     });
     arrive();
 
-    await screen.findByText('Have you answered this before?');
+    await screen.findByText('Been here before?');
     expect(screen.queryByRole('button', { name: 'I have an account' })).toBeNull();
 
     await tap(screen.findByRole('button', { name: /Alex/ }));
@@ -427,7 +434,7 @@ describe('an account that is not a member, in a circle that has guests (ADR 0088
 
     await waitFor(() => expect(screen.queryByText("Take Alex's place in Sunday Crew?")).toBeNull());
     expect(screen.getByRole('button', { name: /Alex/ })).toBeTruthy();
-    expect(screen.getByText('Have you answered this before?')).toBeTruthy();
+    expect(screen.getByText('Been here before?')).toBeTruthy();
     expect(reattachFromList).not.toHaveBeenCalled();
     expect(track).not.toHaveBeenCalledWith('member_reattached', expect.anything());
   });
@@ -480,10 +487,10 @@ describe('an account that is not a member, in a circle that has guests (ADR 0088
     await tap(screen.findByRole('button', { name: "I'm new here" }));
     expect(push).toHaveBeenCalledWith({ pathname: `/p/${CODE}`, params: { step: 'name' } });
     await screen.findByRole('button', { name: 'Join Sunday Crew as Maya' });
-    expect(screen.queryByLabelText('Your name')).toBeNull();
+    expect(screen.queryByLabelText('Your first name')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect(await screen.findByText('Have you answered this before?')).toBeTruthy();
+    expect(await screen.findByText('Been here before?')).toBeTruthy();
 
     await tap(screen.findByRole('button', { name: "I'm new here" }));
     await tap(screen.findByRole('button', { name: 'Join Sunday Crew as Maya' }));
@@ -512,7 +519,7 @@ describe('an account that is not a member, in a circle with no guests', () => {
     arrive();
 
     const button = await screen.findByRole('button', { name: 'Join Sunday Crew as Maya' });
-    expect(screen.queryByText('Have you answered this before?')).toBeNull();
+    expect(screen.queryByText('Been here before?')).toBeNull();
 
     await act(async () => {
       fireEvent.click(button);
@@ -636,7 +643,7 @@ describe('"I have an account" (ADR 0022, SUS-80)', () => {
   it('is offered beside the list, and signs in with a way back to this plan link', async () => {
     arrive();
 
-    await screen.findByText('Have you answered this before?');
+    await screen.findByText('Been here before?');
     fireEvent.click(screen.getByRole('button', { name: 'I have an account' }));
 
     expect(push).toHaveBeenCalledWith({ pathname: '/sign-in', params: { next: `/p/${CODE}` } });
@@ -647,7 +654,7 @@ describe('"I have an account" (ADR 0022, SUS-80)', () => {
     where.pathname = `/j/${CODE}`;
     arrive();
 
-    await screen.findByLabelText('Your name');
+    await screen.findByLabelText('Your first name');
     fireEvent.click(screen.getByRole('button', { name: 'I have an account' }));
 
     expect(push).toHaveBeenCalledWith({ pathname: '/sign-in', params: { next: `/j/${CODE}` } });
@@ -660,7 +667,112 @@ describe('"I have an account" (ADR 0022, SUS-80)', () => {
     arrive();
 
     await tap(screen.findByRole('button', { name: 'Join Sunday Crew' }));
-    await screen.findByLabelText('Your name');
+    await screen.findByLabelText('Your first name');
     expect(screen.queryByRole('button', { name: 'I have an account' })).toBeNull();
+  });
+});
+
+describe("a guest's pick asks first (SUS-250, ADR 0092)", () => {
+  it('opens "Carry on as Alex?" on a tap, and sends nothing and records nothing', async () => {
+    arrive();
+
+    await tap(screen.findByRole('button', { name: /Alex/ }));
+
+    expect(await screen.findByText('Carry on as Alex?')).toBeTruthy();
+    expect(screen.getByText("Alex's times in Sunday Crew come to this phone.")).toBeTruthy();
+    expect(screen.getByRole('button', { name: "Yes, I'm Alex" })).toBeTruthy();
+    expect(reattachFromList).not.toHaveBeenCalled();
+    expect(track).not.toHaveBeenCalledWith('member_reattached', expect.anything());
+  });
+
+  it('"Not me" closes it, still sending nothing', async () => {
+    arrive();
+
+    await tap(screen.findByRole('button', { name: /Alex/ }));
+    await tap(screen.findByRole('button', { name: 'Not me' }));
+
+    await waitFor(() => expect(screen.queryByText('Carry on as Alex?')).toBeNull());
+    expect(screen.getByText('Been here before?')).toBeTruthy();
+    expect(reattachFromList).not.toHaveBeenCalled();
+  });
+
+  it('"Yes" moves the place, and the event says it was a guest\'s pick', async () => {
+    reattachFromList.mockImplementation(async () => {
+      planAccess.mockResolvedValue({ membership: 'member', needsAsking: false });
+      return { circle: { id: CIRCLE_ID, name: 'Sunday Crew' } };
+    });
+    arrive();
+
+    await tap(screen.findByRole('button', { name: /Alex/ }));
+    await tap(screen.findByRole('button', { name: "Yes, I'm Alex" }));
+
+    await waitFor(() => expect(reattachFromList).toHaveBeenCalledTimes(1));
+    expect(track).toHaveBeenCalledWith('member_reattached', {
+      source: 'list',
+      circle_id: CIRCLE_ID,
+    });
+  });
+
+  it('makes "I\'m new here" the primary, and "I have an account" the quiet one', async () => {
+    arrive();
+
+    await screen.findByText('Been here before?');
+    expect(screen.getByText('Tap your name to carry on.')).toBeTruthy();
+    expect(screen.queryByText(/can see when someone rejoins/)).toBeNull();
+    expect(screen.getByRole('button', { name: "I'm new here" })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'I have an account' })).toBeTruthy();
+  });
+});
+
+describe('a locked-in plan before a name (SUS-250, ADR 0054)', () => {
+  it('turns a newcomer away without asking for a name', async () => {
+    previewLockedIn = true;
+    arrive();
+
+    await tap(screen.findByRole('button', { name: "I'm new here" }));
+
+    expect(await screen.findByText('This plan is already locked in.')).toBeTruthy();
+    expect(screen.getByText('Ask someone in Sunday Crew to add you.')).toBeTruthy();
+    expect(screen.queryByLabelText('Your first name')).toBeNull();
+    expect(joinPlan).not.toHaveBeenCalled();
+  });
+
+  it('still lists the guests, so somebody coming back can carry on', async () => {
+    previewLockedIn = true;
+    arrive();
+
+    expect(await screen.findByText('Been here before?')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Alex/ })).toBeTruthy();
+  });
+});
+
+describe('the name step (SUS-250)', () => {
+  beforeEach(() => guestMembersFor.mockResolvedValue({ kind: 'listed', members: [] }));
+
+  it('says what to add when Continue is pressed empty, and what the circle calls you', async () => {
+    arrive();
+
+    await screen.findByLabelText('Your first name');
+    expect(screen.getByText('This is what Sunday Crew will call you.')).toBeTruthy();
+    expect(screen.queryByText(/next to your times/)).toBeNull();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    });
+
+    expect(screen.getByText('Add your first name, up to 40 letters.')).toBeTruthy();
+    expect(joinPlan).not.toHaveBeenCalled();
+  });
+
+  it('points a taken name back to the list, not to a duplicate', async () => {
+    joinPlan.mockRejectedValue(refusal('duplicate_name'));
+    arrive();
+
+    await type('Nina');
+
+    expect(
+      await screen.findByText(
+        "Someone in Sunday Crew is already called Nina. If that's you, go back and tap your name. If not, add an initial.",
+      ),
+    ).toBeTruthy();
   });
 });

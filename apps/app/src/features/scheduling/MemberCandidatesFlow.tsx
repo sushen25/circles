@@ -1,5 +1,5 @@
 import type { CircleId, PlanId } from '@circles/contracts';
-import { useIsFocused, useRouter } from 'expo-router';
+import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
 import { track } from '../../analytics/track';
@@ -36,7 +36,9 @@ function FixtureMember() {
     <MemberView
       data={data}
       header={headerOf(data)}
-      onChangeMyTimes={() => router.push('/j/pnsundaycr')}
+      onChangeMyTimes={() =>
+        router.push({ pathname: '/j/[code]', params: { code: 'pnsundaycr', edit: '1' } })
+      }
       onBack={() => router.back()}
     />
   );
@@ -44,6 +46,8 @@ function FixtureMember() {
 
 function LiveMember({ code }: { code: string }) {
   const router = useRouter();
+  // Set by the chat link's hand-off (`AnsweredGate`): the guest has answered, and is told so first.
+  const { arrived } = useLocalSearchParams<{ arrived?: string }>();
   const query = useCandidates({ code });
   const data = query.data ?? undefined;
   const { share, outcome: shareOutcome } = useShareReminder(data);
@@ -112,9 +116,10 @@ function LiveMember({ code }: { code: string }) {
     <MemberView
       data={data}
       header={headerOf(data)}
+      yourTimesAreIn={arrived === '1'}
       onChangeMyTimes={
         data.repliesOpen
-          ? () => router.push({ pathname: '/j/[code]', params: { code } })
+          ? () => router.push({ pathname: '/j/[code]', params: { code, edit: '1' } })
           : undefined
       }
       // Any member may forward the link while the plan takes answers (SUS-132).

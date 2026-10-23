@@ -4,7 +4,7 @@ import type { Member } from '../../components';
 import { t } from '../../copy';
 import type { CandidateRow, PlanCandidates } from '../../data/scheduling';
 import { nameList } from './names';
-import { marksOf, namesOf, phrase } from './sentences';
+import { marksOf, namesWithYou, phrase } from './sentences';
 import { dateOf, timeOf } from './words';
 
 /**
@@ -80,11 +80,11 @@ export function exceptionOf(data: PlanCandidates, row: CandidateRow): string | u
   if (data.responded === null) return undefined;
 
   const replied = new Set(data.responded);
-  const unavailable = namesOf(
+  const unavailable = namesWithYou(
     data,
     missing.filter((id) => replied.has(id)),
   );
-  const unanswered = namesOf(
+  const unanswered = namesWithYou(
     data,
     missing.filter((id) => !replied.has(id)),
   );
@@ -113,8 +113,11 @@ export function cardOf(
     date: dateOf(row.startsAt, data.zone),
     time: timeOf(row.startsAt, row.endsAt, data.zone),
     members: marksOf(data, row.availableUserIds),
-    membersLabel:
-      phrase(nameList(namesOf(data, row.availableUserIds)), 'can') ?? t('candidates', 'can_nobody'),
+    // The reader is "you" in the sentence (SUS-250), and a sentence starts with a capital.
+    membersLabel: sentenceCase(
+      phrase(nameList(namesWithYou(data, row.availableUserIds)), 'can') ??
+        t('candidates', 'can_nobody'),
+    ),
     exception: exceptionOf(data, row),
     label: '',
     recommended: options.recommended,
@@ -127,6 +130,10 @@ export function cardOf(
       .filter((part): part is string => part !== undefined)
       .join('. '),
   };
+}
+
+function sentenceCase(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /** The options on offer. Rank 1 is recommended and gets the accent border. */

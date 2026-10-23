@@ -79,10 +79,10 @@ function open(step: 'times' | 'none' = 'times'): QueryClient {
   return client;
 }
 
-/** A day's From or To button ("Free from, Monday 14 September, 5:30 pm"), by what it says now. */
+/** A day's From or To button ("From 5:30 pm, Monday 14 September"), by what it says now. */
 const timeButton = (which: 'from' | 'to', weekday: string, time: string) =>
   screen.getByRole('button', {
-    name: new RegExp(`^Free ${which === 'from' ? 'from' : 'until'}, ${weekday}.*, ${time}$`),
+    name: new RegExp(`^${which === 'from' ? 'From' : 'To'} ${time}, ${weekday}`),
   });
 /** Opens that button's picker and chooses a time from it. */
 const pick = (which: 'from' | 'to', weekday: string, now: string, time: string) => {
@@ -163,7 +163,7 @@ describe('painting and sending', () => {
     expect(screen.getAllByText('6:30–10 pm').length).toBeGreaterThan(0);
     backToAnswer();
     // The sheet is gone and the day says its hours, in its row.
-    expect(screen.queryByRole('button', { name: /^Free from/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^From \\d/ })).toBeNull();
     expect(screen.getByText('6:30–10 pm')).toBeInTheDocument();
     await send();
 
@@ -206,8 +206,14 @@ describe('painting and sending', () => {
     // The guidance line is what says why: tap a day. There is no answer block yet.
     expect(screen.getByText('Tap or drag across the evenings.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Adjust hours' })).toBeNull();
+    // Pressed anyway, it says why instead of doing nothing (SUS-250).
+    expect(screen.queryByText('Tap at least one evening first.')).toBeNull();
+    fireEvent.click(screen.getByTestId('waiting-press'));
+    expect(screen.getByText('Tap at least one evening first.')).toBeInTheDocument();
+    expect(submitAnswer).not.toHaveBeenCalled();
     fireEvent.click(dayButton('Monday', 14));
     expect(screen.getByRole('button', { name: 'Send my times' })).toBeEnabled();
+    expect(screen.queryByText('Tap at least one evening first.')).toBeNull();
   });
 
   it("sends I'm easy as flexible, with no windows, even with times painted underneath", async () => {
@@ -471,12 +477,12 @@ describe('days first, then a time once (ADR 0068)', () => {
 
     byTheHalfHour('Tuesday');
     expect(
-      screen.getByText("Set when you're free. Add a second time if there's a gap."),
+      screen.getByText("Set the hours you'd be up for. Add a second time if there's a gap."),
     ).toBeInTheDocument();
     pick('from', 'Tuesday', '5:30 pm', '6:00 pm');
     backToAnswer();
     // The sheet is gone; the row says its hours and has no choice selected.
-    expect(screen.queryByRole('button', { name: /^Free from/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^From \\d/ })).toBeNull();
     expect(within(dayRow('Tuesday')).getByText('6–10:30 pm')).toBeInTheDocument();
     expect(
       within(dayRow('Tuesday'))
@@ -493,7 +499,7 @@ describe('days first, then a time once (ADR 0068)', () => {
       'true',
     );
     expect(dayButton('Thursday', 17)).toHaveAccessibleName(/, 5:30–10:30 pm$/);
-    expect(screen.queryByRole('button', { name: /^Free from/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^From \\d/ })).toBeNull();
 
     // A day that had hours of its own has no choice to go back to.
     byTheHalfHour('Tuesday');
@@ -506,7 +512,7 @@ describe('days first, then a time once (ADR 0068)', () => {
     await screen.findByText('Which days could work?');
     // The days differ, so the block is already the list.
     await differing();
-    expect(screen.queryAllByRole('button', { name: /^Free from/ })).toHaveLength(0);
+    expect(screen.queryAllByRole('button', { name: /^From \\d/ })).toHaveLength(0);
 
     byTheHalfHour('Monday');
     pick('from', 'Monday', '6:30 pm', '5:30 pm');
@@ -516,7 +522,7 @@ describe('days first, then a time once (ADR 0068)', () => {
       'aria-checked',
       'true',
     );
-    expect(screen.queryAllByRole('button', { name: /^Free from/ })).toHaveLength(0);
+    expect(screen.queryAllByRole('button', { name: /^From \\d/ })).toHaveLength(0);
 
     // Wednesday's own hours become the evening; Monday's are left as they were.
     fireEvent.click(within(dayRow('Wednesday')).getByRole('radio', { name: 'Evening' }));
@@ -780,7 +786,7 @@ describe('round 2', () => {
     });
     open();
 
-    await screen.findByText('Replies have closed for this one.');
+    await screen.findByText('Replies have closed.');
   });
 
   it('resends a send in flight even when the server answer is newer than the draft', async () => {
@@ -969,7 +975,7 @@ describe('when the server says no', () => {
     answerMonday();
     await send();
 
-    await screen.findByText('Replies have closed for this one.');
+    await screen.findByText('Replies have closed.');
   });
 
   it('asks the plan to include somebody who joined after it was made, then sends again', async () => {
@@ -1042,7 +1048,9 @@ describe('none of these dates', () => {
   ])('"%s" sends %s, with no windows', async (label, status) => {
     open('none');
 
-    const option = await screen.findByRole('button', { name: label });
+    const option = await screen.findByRole('button', {
+      name: new RegExp(`^${label.replace(/'/g, '.')}\\.`),
+    });
     await act(async () => {
       fireEvent.click(option);
     });
@@ -1059,9 +1067,7 @@ describe('none of these dates', () => {
   it('names the organiser as the person who sees "keen"', async () => {
     open('none');
 
-    await screen.findByText(
-      "Maya sees you'd like to come. If the window changes, you'll be asked again.",
-    );
+    await screen.findByText("Maya sees you'd like to come.");
   });
 });
 

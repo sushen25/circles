@@ -70,8 +70,8 @@ test('a guest screen that cannot load says to reload and to open the link again'
 }) => {
   const crew = sundayCrew();
   await page.goto(`/join#${crew.secret}`);
-  await page.getByRole('button', { name: 'Choose my times' }).click();
-  await page.getByLabel('Your name').fill('Nina');
+  await page.getByRole('button', { name: 'Join Sunday Crew' }).click();
+  await page.getByLabel('Your first name').fill('Nina');
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page.getByText('Which evenings could work?')).toBeVisible();
 

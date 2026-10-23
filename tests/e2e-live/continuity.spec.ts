@@ -24,12 +24,12 @@ import {
  */
 
 /**
- * Records whether "Have you answered this before?" was ever on screen, not only whether it
+ * Records whether "Been here before?" was ever on screen, not only whether it
  * is gone by the time the test looks. A string, because it runs in the page and
  * the test project is compiled without the DOM library.
  */
 const WATCH_FOR_THE_LIST = `new MutationObserver(() => {
-  if (document.body && document.body.innerText.includes('Have you answered this before?')) window.sawList = true;
+  if (document.body && document.body.innerText.includes('Been here before?')) window.sawList = true;
 }).observe(document, { subtree: true, childList: true, characterData: true });`;
 
 test('with storage cleared, the plan link offers the guests by name and one tap restores the answer', async ({
@@ -41,14 +41,17 @@ test('with storage cleared, the plan link offers the guests by name and one tap 
 
   await page.goto(`/p/${crew.planCode}`);
 
-  await expect(page.getByText('Have you answered this before?')).toBeVisible();
+  await expect(page.getByText('Been here before?')).toBeVisible();
   const tomsRow = page.getByRole('button', { name: 'Continue as Tom' });
   await expect(tomsRow).toBeVisible();
   // Guests only: Maya has a saved place and can never be reattached to (ADR 0006).
   await expect(page.getByRole('button', { name: 'Continue as Maya' })).toHaveCount(0);
 
   await tomsRow.click();
-  await expect(page.getByText('Have you answered this before?')).toHaveCount(0);
+  // Nothing moves on the tap (SUS-250): the guest is asked first.
+  await expect(page.getByText('Carry on as Tom?')).toBeVisible();
+  await page.getByRole('button', { name: "Yes, I'm Tom" }).click();
+  await expect(page.getByText('Been here before?')).toHaveCount(0);
 
   // The membership and its answer moved to this browser's new identity…
   const now = memberNamed(crew.circleId, 'Tom');
@@ -58,7 +61,7 @@ test('with storage cleared, the plan link offers the guests by name and one tap 
   expect(answerOf(crew.planId, now!.userId)?.status).toBe('flexible');
 
   // …and the editor opens on it, rather than on a blank answer.
-  await page.goto(`/j/${crew.planCode}`);
+  await page.goto(`/j/${crew.planCode}?edit=1`);
   await expect(page.getByRole('switch', { name: "I'm easy" })).toHaveAttribute(
     'aria-checked',
     'true',
@@ -78,7 +81,7 @@ test("a cancelled plan's link no longer offers the guests: it says it is not act
   await page.goto(`/p/${crew.planCode}`);
 
   await expect(page.getByText("This link isn't active any more.")).toBeVisible();
-  await expect(page.getByText('Have you answered this before?')).toHaveCount(0);
+  await expect(page.getByText('Been here before?')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Continue as Tom' })).toHaveCount(0);
 
   // Tom's place is exactly where it was.
@@ -136,7 +139,7 @@ test('times waiting on the phone go when the person comes back to the tab', asyn
   // §"update the visibility state"), so `window` hears it — this pins that.
   const crew = sundayCrew();
   await page.goto(`/j/${crew.planCode}`);
-  await page.getByLabel('Your name').fill('Ren');
+  await page.getByLabel('Your first name').fill('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page.getByText('Which evenings could work?')).toBeVisible();
   const ren = memberNamed(crew.circleId, 'Ren')!.userId;

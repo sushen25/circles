@@ -63,7 +63,7 @@ export function NoneWorkScreen({
     {
       status: 'more_notice',
       title: t('noneWork', 'not_enough_notice'),
-      body: t('noneWork', 'same_as_above_and_well_remember_to'),
+      body: t('noneWork', 'same_as_above_just_more_warning'),
     },
     {
       status: 'not_this_time',
@@ -84,7 +84,8 @@ export function NoneWorkScreen({
           <Pressable
             key={option.status}
             role="button"
-            aria-label={option.title}
+            // The name carries what the card says under its title, so a screen reader hears the choice whole.
+            aria-label={`${option.title}. ${option.body}`}
             aria-busy={sending === option.status}
             disabled={sending !== undefined}
             onPress={() => onChoose?.(option.status)}

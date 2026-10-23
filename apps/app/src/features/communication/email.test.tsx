@@ -137,7 +137,7 @@ describe('Sent', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
 
-    expect(screen.queryByText("Hear when it's locked in")).toBeNull();
+    expect(screen.queryByText("Hear when it's locked in?")).toBeNull();
     expect(requestEmailUpdates).not.toHaveBeenCalled();
     expect(track.mock.calls.map(([name]) => name)).toEqual(['email_updates_offered']);
     expect(recordAnswer).toHaveBeenCalledWith(
@@ -152,7 +152,7 @@ describe('Sent', () => {
     wrap(<SentFlow code={PLAN.code} />);
     await screen.findByText('Thanks, Nina. Your times are in.');
 
-    expect(screen.queryByText("Hear when it's locked in")).toBeNull();
+    expect(screen.queryByText("Hear when it's locked in?")).toBeNull();
     expect(track.mock.calls.map(([name]) => name)).not.toContain('email_updates_offered');
   });
 
@@ -161,13 +161,15 @@ describe('Sent', () => {
     wrap(<SentFlow code={PLAN.code} />);
 
     // After the one retry `useNudge` allows.
-    expect(await screen.findByText("Hear when it's locked in")).toBeVisible();
+    expect(await screen.findByText("Hear when it's locked in?")).toBeVisible();
   });
 
   it('refuses what is not an address before asking the server', async () => {
     wrap(<SentFlow code={PLAN.code} />);
     fireEvent.change(await screen.findByLabelText('Your email'), { target: { value: 'nina@' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Email me about this meetup' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /^Email me (about this meetup|and save my place)$/ }),
+    );
 
     await screen.findByText("That doesn't look like an email address.");
     expect(requestEmailUpdates).not.toHaveBeenCalled();
@@ -184,11 +186,15 @@ describe('Sent', () => {
     switchOff();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Email me about this meetup' }));
+      fireEvent.click(
+        screen.getByRole('button', { name: /^Email me (about this meetup|and save my place)$/ }),
+      );
     });
     await screen.findByText('Ref R1');
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Email me about this meetup' }));
+      fireEvent.click(
+        screen.getByRole('button', { name: /^Email me (about this meetup|and save my place)$/ }),
+      );
     });
 
     const [first, second] = requestEmailUpdates.mock.calls.map(([options]) => options);
@@ -212,14 +218,18 @@ describe('a stale consent version (ADR 0048)', () => {
     switchOff();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Email me about this meetup' }));
+      fireEvent.click(
+        screen.getByRole('button', { name: /^Email me (about this meetup|and save my place)$/ }),
+      );
     });
 
     await screen.findByText(/wording on this page was out of date, so nothing was sent/);
     // Not unprompted: the notice has to be readable, and the person may have moved on.
     expect(reloadCopy).not.toHaveBeenCalled();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Email me about this meetup' }));
+      fireEvent.click(
+        screen.getByRole('button', { name: /^Email me (about this meetup|and save my place)$/ }),
+      );
     });
     expect(reloadCopy).toHaveBeenCalledTimes(1);
     expect(requestEmailUpdates).toHaveBeenCalledTimes(1);
@@ -235,7 +245,7 @@ describe('the organiser answering their own plan (ADR 0026)', () => {
 
     // An account already hears about this plan (§5.8); asking it to subscribe
     // is asking for what it has.
-    expect(screen.queryByText("Hear when it's locked in")).toBeNull();
+    expect(screen.queryByText("Hear when it's locked in?")).toBeNull();
     expect(track.mock.calls.map(([name]) => name)).not.toContain('email_updates_offered');
 
     fireEvent.click(screen.getByRole('button', { name: "See how it's looking" }));
@@ -260,7 +270,7 @@ describe('the organiser answering their own plan (ADR 0026)', () => {
     Object.assign(session, { status: 'guest', userId: 'nina', isAnonymous: true });
     wrap(<SentFlow code={PLAN.code} />);
     await screen.findByText(/Your times are in\./);
-    expect(screen.getByText(/^Maya will pick a time once replies close on \w+\./)).toBeVisible();
+    expect(screen.getByText(/^Maya picks a time once replies close \w+ /)).toBeVisible();
     expect(screen.queryByText(/You'll pick a time/)).toBeNull();
   });
 
@@ -273,16 +283,18 @@ describe('the organiser answering their own plan (ADR 0026)', () => {
     wrap(<SentFlow code={PLAN.code} />);
     await screen.findByText(/Your times are in\./);
 
-    expect(screen.getByText("Hear when it's locked in")).toBeVisible();
-    expect(screen.queryByRole('button', { name: "See how it's looking" })).toBeNull();
+    expect(screen.getByText("Hear when it's locked in?")).toBeVisible();
+    // A member's way on is the options (spec §5.6); the organiser's is their circle.
+    expect(screen.getByRole('button', { name: "See how it's looking" })).toBeVisible();
   });
 
   it('still offers a guest the email card and no way into the circle', async () => {
     wrap(<SentFlow code={PLAN.code} />);
     await screen.findByText(/Your times are in\./);
 
-    expect(screen.getByText("Hear when it's locked in")).toBeVisible();
-    expect(screen.queryByRole('button', { name: "See how it's looking" })).toBeNull();
+    expect(screen.getByText("Hear when it's locked in?")).toBeVisible();
+    // A member's way on is the options (spec §5.6); the organiser's is their circle.
+    expect(screen.getByRole('button', { name: "See how it's looking" })).toBeVisible();
   });
 });
 
@@ -294,7 +306,9 @@ describe('round 1', () => {
     });
     switchOff();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Email me about this meetup' }));
+      fireEvent.click(
+        screen.getByRole('button', { name: /^Email me (about this meetup|and save my place)$/ }),
+      );
     });
 
     expect(push).toHaveBeenCalled();
@@ -328,7 +342,7 @@ describe('round 2', () => {
     wrap(<SentFlow code={PLAN.code} />);
     await screen.findByText('Thanks, Nina. Your times are in.');
 
-    await waitFor(() => expect(screen.queryByText("Hear when it's locked in")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Hear when it's locked in?")).toBeNull());
     expect(track.mock.calls.filter(([name]) => name === 'email_updates_offered')).toHaveLength(1);
   });
 });

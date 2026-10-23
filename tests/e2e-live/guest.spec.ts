@@ -31,15 +31,16 @@ test('from the chat to Sent in a name and five taps, and the email offer decline
 
   await page.goto(`/join#${crew.secret}`);
 
-  // Before any prompt: the circle, who shared it, who is in so far (§5.1).
-  await expect(page.getByText('Sunday Crew is finding a time to catch up.')).toBeVisible();
-  await expect(page.getByText(/^Maya shared this link\./)).toBeVisible();
-  await expect(page.getByText('1 person is in so far')).toBeVisible();
+  // Before any prompt: the circle and who is in (§5.1). It names no sharer (SUS-250):
+  // any member can send the invite, and the link cannot say who did.
+  await expect(page.getByText(/^Sunday Crew plans its catch-ups here\./)).toBeVisible();
+  await expect(page.getByText('1 person is in')).toBeVisible();
+  await expect(page.getByText(/shared this link/)).toHaveCount(0);
   // The fragment is gone from the address bar as soon as it has been read.
   expect(page.url()).not.toContain('#');
 
-  await page.getByRole('button', { name: 'Choose my times' }).click();
-  await page.getByLabel('Your name').fill('Nina');
+  await page.getByRole('button', { name: 'Join Sunday Crew' }).click();
+  await page.getByLabel('Your first name').fill('Nina');
   await page.getByRole('button', { name: 'Continue' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
@@ -70,9 +71,9 @@ test('from the chat to Sent in a name and five taps, and the email offer decline
   expect(answer?.windows).toHaveLength(3);
 
   // The offer is an offer: one tap and it is gone, and nothing is kept.
-  await expect(page.getByText("Hear when it's locked in")).toBeVisible();
+  await expect(page.getByText("Hear when it's locked in?")).toBeVisible();
   await page.getByRole('button', { name: 'Not now' }).click();
-  await expect(page.getByText("Hear when it's locked in")).toHaveCount(0);
+  await expect(page.getByText("Hear when it's locked in?")).toHaveCount(0);
   expect(emailContactOf(nina!.userId)).toBeUndefined();
   await expectNoPrompts(page, dialogs);
 });

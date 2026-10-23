@@ -6,7 +6,6 @@ import {
   DisplayL,
   DisplayXL,
   Foot,
-  Label,
   Loading,
   Notice,
   Screen,
@@ -124,10 +123,9 @@ export function EmailVerifiedScreen({
 
   return (
     <Screen>
-      <TopBar />
+      <TopBar title={first.circleName} />
       <Body>
         <Stack>
-          <Label>{first.circleName}</Label>
           <DisplayXL>
             {plans.length === 1
               ? t('emailVerified', 'youll_hear_about_this_meetup_by_email')

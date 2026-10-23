@@ -4,10 +4,11 @@ title: "A signed-in account can continue as a guest, the same as a guest can"
 status: accepted
 date: 2026-10-22
 amends: [6, 22]
+amended_by: [92]
 ---
 # ADR 0088: A signed-in account can continue as a guest, the same as a guest can
 
-_Status: accepted · 22 October 2026 · amends [ADR 0006](0006-continue-as-reattachment-without-owner-approval.md) and [ADR 0022](0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md) (decision 3)_
+_Status: accepted · 22 October 2026 · a guest is asked too: [ADR 0092](0092-a-guests-pick-from-the-list-asks-first-and-the-sent-card-says-less.md) · amends [ADR 0006](0006-continue-as-reattachment-without-owner-approval.md) and [ADR 0022](0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md) (decision 3)_
 
 ## Context
 

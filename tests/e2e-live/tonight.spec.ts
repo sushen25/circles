@@ -134,7 +134,7 @@ test('a returning guest opens a new plan with nothing tapped, and the usual days
     .getByRole('button', { name: /^Exact hours, / })
     .first()
     .click();
-  await page.getByRole('button', { name: /^Free from, .*, 5:30 pm$/ }).click();
+  await page.getByRole('button', { name: /^From 5:30 pm, / }).click();
   await page.getByRole('radio', { name: '6:00 pm', exact: true }).click();
   await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(page.getByText('Filled in from your usual days.')).toHaveCount(0);

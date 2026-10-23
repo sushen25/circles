@@ -6,7 +6,6 @@ import {
   Button,
   DisplayXL,
   Foot,
-  Label,
   Notice,
   Screen,
   Tertiary,
@@ -16,6 +15,7 @@ import {
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
+import { DayChips, type SentDay } from './DayChips';
 import { SentCard, type SentProblem } from './SentCard';
 import { LoadFailed } from '../system/LoadFailed';
 
@@ -54,8 +54,10 @@ export type SentProps = {
   circleName?: string | undefined;
   /** "Thanks, Nina. Your times are in." */
   headline?: string | undefined;
-  /** "Maya will pick a time once replies close on Tuesday…" */
+  /** "Maya picks a time once replies close Thu 6 pm." */
   body?: string | undefined;
+  /** The days sent, with how many can make each (SUS-250); absent when the answer is not days. */
+  days?: readonly SentDay[] | undefined;
   /** False once dismissed: Not now is final for this visit. */
   offerEmail?: boolean | undefined;
   email?: string | undefined;
@@ -86,6 +88,11 @@ export type SentProps = {
   onNotNow?: (() => void) | undefined;
   onChangeAnswer?: (() => void) | undefined;
   /**
+   * A guest's way to the options (spec §5.6), under the card. The foot is left
+   * clear for SUS-170's "Something off? Tell me", which is not built here.
+   */
+  onSeeOptions?: (() => void) | undefined;
+  /**
    * The organiser's way on, which is their circle: they asked this question
    * and have just answered it, so the screen ends at the plan finding a time
    * rather than at an offer meant for a guest (ADR 0026).
@@ -100,6 +107,7 @@ export function SentScreen({
   circleName,
   headline,
   body,
+  days,
   offerEmail = true,
   email = '',
   problem,
@@ -116,6 +124,7 @@ export function SentScreen({
   onSubmit,
   onNotNow,
   onChangeAnswer,
+  onSeeOptions,
   onSeeCircle,
   onRetry,
   onBack,
@@ -144,8 +153,10 @@ export function SentScreen({
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <Stack>
-          {circleName === undefined ? null : <Label>{circleName}</Label>}
           {headline === undefined ? null : <DisplayXL>{headline}</DisplayXL>}
+          {days === undefined || days.length === 0 ? null : (
+            <DayChips days={days} label={t('sent', 'your_days')} />
+          )}
           {body === undefined ? null : <BodyText>{body}</BodyText>}
         </Stack>
         {/* Always mounted, so a screen reader hears the line arrive. */}
@@ -177,6 +188,9 @@ export function SentScreen({
             onNotNow={onNotNow}
           />
         ) : null}
+        {onSeeOptions === undefined ? null : (
+          <Tertiary label={t('sent', 'see_how_its_looking')} onPress={onSeeOptions} />
+        )}
         {onChangeAnswer === undefined ? null : (
           <Tertiary label={t('sent', 'see_my_answer')} onPress={onChangeAnswer} />
         )}

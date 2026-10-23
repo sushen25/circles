@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { color, faceFor, radius } from '@circles/tokens';
 
@@ -9,7 +9,7 @@ import { usePalette } from './theme';
  * A row of pills that is one choice (SUS-236, ADR 0079): a radiogroup, one pill
  * selected. The large size is the first screen's "Evening · Daytime · Any
  * time"; the small is the same choices on a day's row, 40px tall beside a
- * round button. Selection is the fill and the border and `aria-checked`; the
+ * round button, and wrapping under the day when they would not fit whole. Selection is the fill and the border and `aria-checked`; the
  * label says the rest.
  */
 export type Pill = {
@@ -32,6 +32,9 @@ type Props = {
 export function Pills({ pills, label, size = 'large', disabled = false, onChoose }: Props) {
   const palette = usePalette();
   const small = size === 'small';
+  // At large text the words wrap inside their pill rather than being cut off.
+  const { fontScale } = useWindowDimensions();
+  const lines = fontScale > 1.3 ? 2 : 1;
   return (
     <View role="radiogroup" aria-label={label} style={[styles.row, small && styles.rowSmall]}>
       {pills.map((pill) => {
@@ -55,7 +58,7 @@ export function Pills({ pills, label, size = 'large', disabled = false, onChoose
             ]}
           >
             <Text
-              numberOfLines={1}
+              numberOfLines={lines}
               style={[
                 small ? styles.textSmall : styles.textLarge,
                 { color: palette.ink, fontFamily: faceFor('Figtree', pill.on ? 600 : 500) },
@@ -72,7 +75,8 @@ export function Pills({ pills, label, size = 'large', disabled = false, onChoose
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 8 },
-  rowSmall: { flex: 1, gap: 6 },
+  // Wide enough for "Evening", "Daytime" and "Any" whole: narrower than this the row wraps under the day.
+  rowSmall: { flex: 1, minWidth: 200, gap: 6 },
   pill: {
     flex: 1,
     borderWidth: 1.5,

@@ -5,7 +5,6 @@ import {
   Card,
   DisplayXL,
   Foot,
-  Label,
   Screen,
   Small,
   Tertiary,
@@ -59,7 +58,6 @@ export function RescheduledGuestScreen({
       <TopBar title={circleName} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <Stack>
-          <Label>{t('rescheduledGuest', 'change_of_plan')}</Label>
           <DisplayXL>
             {day === undefined
               ? t('rescheduledGuest', 'headline_plain')
@@ -73,7 +71,7 @@ export function RescheduledGuestScreen({
         </Stack>
         <Card>
           <Stack>
-            <Small>{t('rescheduledGuest', 'previously')}</Small>
+            <Small>{t('rescheduledGuest', 'was')}</Small>
             <BodyText style={struck}>{previously}</BodyText>
           </Stack>
           <Stack>
@@ -84,7 +82,11 @@ export function RescheduledGuestScreen({
       </Body>
       <Foot>
         <Button label={t('rescheduledGuest', 'choose_my_times')} onPress={onNext} />
-        <Tertiary label={t('rescheduledGuest', 'not_this_time')} onPress={onNotThisTime} />
+        <Tertiary
+          label={t('rescheduledGuest', 'not_this_time')}
+          tone="plain"
+          onPress={onNotThisTime}
+        />
       </Foot>
     </Screen>
   );

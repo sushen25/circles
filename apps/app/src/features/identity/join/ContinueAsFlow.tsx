@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { track } from '../../../analytics/track';
 import { useSession } from '../../../data/auth/session';
 import { newIdempotencyKey } from '../../../data/functions';
-import { circleNameForCode, guestMembersFor, reattachFromList } from '../../../data/membership';
+import { guestMembersFor, planPreviewForCode, reattachFromList } from '../../../data/membership';
 import { ClaimPlaceSheet } from '../ClaimPlaceSheet';
 import { ContinueAsScreen, type ContinueProblem } from '../ContinueAsScreen';
 import { LinkInvalidScreen } from '../LinkInvalidScreen';
@@ -17,7 +17,7 @@ import { nameStepBack, NAME_STEP, nameStepPushed, rememberNameStepPushed } from 
 import { PlanNameFlow } from './PlanNameFlow';
 
 /**
- * "Have you answered this before?" (ADR 0006, spec §5.1, §6.2), and "I'm new
+ * "Been here before?" (ADR 0006, spec §5.1, §6.2), and "I'm new
  * here" (ADR 0022).
  *
  * Shown in place of a plan page when a session holds no membership of its
@@ -39,7 +39,7 @@ import { PlanNameFlow } from './PlanNameFlow';
  *   that is cancelled, expired or long past, and for an archived circle), and
  *   the list for such a code is empty for the same reason (ADR 0049).
  * - **A circle with no guests skips the question.** There is nobody to be, so
- *   "Have you answered this before?" would be a question with one answer.
+ *   "Been here before?" would be a question with one answer.
  */
 export type ContinueAsFlowProps = {
   code: ShortCode;
@@ -47,7 +47,7 @@ export type ContinueAsFlowProps = {
   arrivedWithoutSession: boolean;
   /**
    * The membership moved or was made; the gate should ask again. `'list'` when
-   * it was a pick from "Have you answered this before?" — the one reattach the "save your
+   * it was a pick from "Been here before?" — the one reattach the "save your
    * place" prompt follows (S2-07).
    */
   onReattached: (via?: 'list') => void;
@@ -60,7 +60,7 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
   const haveAccount = useHaveAccount();
 
   const [busyKey, setBusyKey] = useState<string | undefined>();
-  // The guest an account has tapped and not yet confirmed (SUS-245): nothing is sent until "Yes".
+  // The guest somebody has tapped and not yet confirmed (SUS-245, SUS-250): nothing is sent until "Yes".
   const [claiming, setClaiming] = useState<GuestMemberOption | undefined>();
   const [problem, setProblem] = useState<ContinueProblem | undefined>();
   const [reference, setReference] = useState<string | undefined>();
@@ -76,7 +76,7 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
   /**
    * Joined, and waiting for the gate to notice. Until it re-reads membership
    * this page still thinks they are outside, and the list — read again — now
-   * holds their own name: "Have you answered this before?" offering them themselves, for a
+   * holds their own name: "Been here before?" offering them themselves, for a
    * moment, on the way in. So it holds the loading state instead.
    */
   const [joinedHere, setJoinedHere] = useState(false);
@@ -88,13 +88,17 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
     if (arrivedWithoutSession) track('session_missing_on_return', {});
   }, [arrivedWithoutSession]);
 
-  const circleName = useQuery({
-    queryKey: ['circle-name-for-code', code],
-    queryFn: () => circleNameForCode(code),
+  const preview = useQuery({
+    queryKey: ['plan-preview-for-code', code],
+    queryFn: () => planPreviewForCode(code),
     // Not for ever: the name is also the answer to "is this link still live?", and a
     // plan can be cancelled, expire or pass the fourteen days while a tab is open.
     staleTime: 30_000,
   });
+  const circleName = {
+    ...preview,
+    data: preview.data === undefined ? undefined : (preview.data?.circleName ?? null),
+  };
 
   const guests = useQuery({
     // The user is part of the key because the list is read *as* them, and the
@@ -174,6 +178,14 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
   // could join nobody.
   if (circleName.data === null) {
     return <LinkInvalidScreen reason="plan_inactive" onBack={back} />;
+  }
+
+  // A plan the preview already says is locked in turns newcomers away (ADR 0022,
+  // ADR 0054), so the name step is replaced by the refusal: nobody types a name
+  // to be told no. The list stays, for somebody coming back. Replies closed but
+  // not locked in is only known from the join, which still asks for a name.
+  if ((imNew || nobodyToBe) && preview.data?.lockedIn === true) {
+    return <LinkInvalidScreen reason="locked_in" circleName={title} onBack={back} />;
   }
 
   // An account that is new here joins as itself, in one tap (ADR 0022). Its
@@ -290,9 +302,8 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
         onPick={(option) => {
           const member = byKey.get(option.key);
           if (member === undefined) return;
-          // An account is asked first: a wrong tap would otherwise move somebody's place.
-          if (signedIn) setClaiming(member);
-          else void pick(member);
+          // Asked first, an account and a guest alike: a wrong tap would otherwise move somebody's place.
+          setClaiming(member);
         }}
         onImNewHere={openNameStep}
         onSignIn={haveAccount}
@@ -302,6 +313,7 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
         name={claimOpen?.display_name}
         circleName={title ?? ''}
         busy={busyKey !== undefined}
+        forAccount={signedIn}
         onYes={() => {
           if (claimOpen !== undefined) void pick(claimOpen);
         }}

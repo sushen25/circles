@@ -151,7 +151,7 @@ describe('the organiser gate', () => {
       target: { value: 'nina@example.com' },
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Send me a code' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Email me a code' }));
     });
     await act(async () => {
       fireEvent.change(await screen.findByLabelText('Code'), { target: { value: '123456' } });
@@ -217,7 +217,7 @@ describe('Keep your place for good?', () => {
       { moment: 'reattached_save_place', planId: 'thu-17' },
       expect.any(String),
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Carry on to Sunday Crew' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Carry on' }));
     expect(done).toHaveBeenCalled();
     expect(recordAnswer).toHaveBeenCalledWith(
       { moment: 'reattached_save_place', planId: 'thu-17' },
@@ -243,7 +243,7 @@ describe('Keep your place for good?', () => {
       target: { value: 'kit@example.com' },
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Send me a code' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Email me a code' }));
     });
     await act(async () => {
       fireEvent.change(await screen.findByLabelText('Code'), { target: { value: '123456' } });

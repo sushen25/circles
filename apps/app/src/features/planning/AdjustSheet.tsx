@@ -20,7 +20,7 @@ import {
  * setup, in its draft mode, where the dates, the exact hours, the kind of plan
  * and who has to be there are.
  *
- * It rises on the drawer curve in 200 ms and leaves in 160 (`Sheet`'s
+ * It rises on the drawer curve in 240 ms and leaves in 180 (`Sheet`'s
  * `drawer`). What is picked is written to the draft as it is picked, so there
  * is nothing to confirm: **Done** only closes.
  */

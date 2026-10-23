@@ -111,7 +111,7 @@ test('a name typed the moment the field appears is the name that is sent', async
   await page.goto(`/j/${crew.planCode}`, { waitUntil: 'commit' });
   // No wait for hydration (there is none in `fixtures.ts` any more): the
   // moment Playwright can type into a field, it does, as a fast thumb would.
-  const name = page.getByLabel('Your name');
+  const name = page.getByLabel('Your first name');
   await name.pressSequentially('Ren');
   await expect(name, 'what was typed is still in the field').toHaveValue('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();

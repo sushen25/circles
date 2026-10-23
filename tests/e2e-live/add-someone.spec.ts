@@ -83,8 +83,8 @@ test('a member adds someone between plans, and the friend joins from what they s
     .innerText();
   const friend = await (await browser.newContext()).newPage();
   await friend.goto(invitation.slice(invitation.indexOf('/join#')));
-  await friend.getByRole('button', { name: 'Choose my times' }).click();
-  await friend.getByLabel('Your name').fill('Ren');
+  await friend.getByRole('button', { name: 'Join Sunday Crew' }).click();
+  await friend.getByLabel('Your first name').fill('Ren');
   await friend.getByRole('button', { name: 'Continue' }).click();
   await expect(friend).toHaveURL(new RegExp(`/circles/${circleId}$`));
   expect(memberNamed(circleId, 'Ren')?.anonymous).toBe(true);
@@ -170,7 +170,7 @@ test('the owner cancels old invitations: the old one stops, the plan already sha
   // …and the plan that was shared still lets a newcomer in.
   const other = await (await browser.newContext()).newPage();
   await other.goto(`/j/${plan.code}`);
-  await other.getByLabel('Your name').fill('Ada');
+  await other.getByLabel('Your first name').fill('Ada');
   await other.getByRole('button', { name: 'Continue' }).click();
   await expect(other).toHaveURL(new RegExp(`/j/${plan.code}$`));
   await expect.poll(() => memberNamed(circleId, 'Ada')).toBeDefined();

@@ -308,19 +308,17 @@ S = {}
 S["Join"] = shell(
     top("", back=False, right=wordmark()) +
     body(
-        lbl("You're invited"),
-        dxl("Sunday Crew is finding a time to catch up."),
-        p("Maya shared this link. Pick the times you'd actually be up for. It takes about a minute, and nobody sees your calendar."),
-        row(marks(["Maya","Alex","Tom","Jess","Sam"]), sm("5 people are in so far")),
-        notice("No account or app needed. Your friends see who can make each time, never your calendar."),
+        dxl("Join Sunday Crew"),
+        p("Sunday Crew plans its catch-ups here. You're in as soon as you add a name, no app or account."),
+        row(marks(["Maya","Alex","Tom","Jess","Sam"]), sm("5 people are in")),
     ) +
-    foot(pri("Choose my times"), ter("What is Circles?"), LEGAL_LINE)
+    foot(pri("Join Sunday Crew"), ter("What is Circles?"), LEGAL_LINE)
 )
 
 S["ContinueAs"] = shell(
     top("Sunday Crew") +
     body(
-        stack(dl("Have you answered this before?"), p("Pick your name to carry on where you left off. Maya can see when someone rejoins."), gap=10),
+        stack(dl("Been here before?"), p("Tap your name to carry on."), gap=10),
         card(
             li(marks(["Nina"], large=True), "Nina", "Joined 3 Sep"),
             divider(),
@@ -342,7 +340,7 @@ S["ContinueAs"] = shell(
 S["ContinueAsAccount"] = shell(
     top("Sunday Crew") +
     body(
-        stack(dl("Have you answered this before?"), p("Were you one of these? Pick your name and that place, with its answers, moves onto your account. The circle can see when someone rejoins."), gap=10),
+        stack(dl("Been here before?"), p("Were you one of these? Tap your name and that place moves onto your account."), gap=10),
         card(
             li(marks(["Alex"], large=True), "Alex", "Joined 3 Sep"),
             divider(),
@@ -356,8 +354,8 @@ S["Name"] = shell(
     top("Sunday Crew") +
     body(
         stack(dl("What should the group call you?"), p("Just a first name is fine. No email, no password."), gap=10),
-        inp("Your first name", ph=True),
-        sm("This is what Maya and the others will see next to your times."),
+        stack(lbl("Your first name"), inp("Your first name", ph=True), gap=8),
+        sm("This is what Sunday Crew will call you."),
     ) +
     foot(pri("Continue"), LEGAL_LINE)
 )
@@ -367,9 +365,9 @@ S["Name"] = shell(
 S["NamePlanLink"] = shell(
     top("Sunday Crew") +
     body(
-        stack(dl("What should the group call you?"), p("Just a first name is fine. No email, no password."), p("About a minute, and nobody sees your calendar."), gap=10),
-        inp("Your first name", ph=True),
-        sm("This is what the circle will see next to your times."),
+        stack(dl("What should the group call you?"), p("About a minute, and nobody sees your calendar."), gap=10),
+        stack(lbl("Your first name"), inp("Your first name", ph=True), gap=8),
+        sm("This is what Sunday Crew will call you."),
     ) +
     foot(pri("Continue"), ter("I have an account"), LEGAL_LINE)
 )
@@ -521,7 +519,7 @@ def hours_block(pairs, bar, others=None, remove=False, ticks=("9 am", "3 pm", "1
         + (f'<span style="width:44px;display:flex;justify-content:center;">{ic("x", 16, T["ink2"])}</span>' if remove else "") + '</div>'
         for a, b in pairs)
     fills = "".join(f'<i style="left:{s_*100:.1f}%;width:{(e_-s_)*100:.1f}%;"></i>' for s_, e_ in bar)
-    return (sm("Set when you're free. Add a second time if there's a gap.") + lbl("Free from") + rows + ter("Add another time")
+    return (sm("Set the hours you'd be up for. Add a second time if there's a gap.") + lbl("From") + rows + ter("Add another time")
             + f'<div class="stack" style="gap:4px;"><div class="hbar">{fills}</div><div class="ticks"><span>{ticks[0]}</span><span>{ticks[1]}</span><span>{ticks[2]}</span></div></div>'
             + (sm(others) if others else ""))
 
@@ -542,7 +540,7 @@ def hours_sheet(day, hours, body_, back=None):
             + body_ + pri("Done") + (ter(back, plain=True) if back else "") + '</div>')
 
 S["AvailabilityHours"] = guest_answer(tile_grid(selected=(15, 17, 19), counts=OTHERS_DAYS), GUIDE, line=PER_DAY, send_on=True, minh=1070,
-    sheet=hours_sheet("Thu 17", "6 – 9:30 pm", hours_block([("6:00 pm", "9:30 pm")], [(18/27, 25/27)], others="Most others are free 6–8 pm."), back="Back to Evening instead"))
+    sheet=hours_sheet("Thu 17", "6 – 9:30 pm", hours_block([("6:00 pm", "9:30 pm")], [(18/27, 25/27)], others="Most others can do 6–8 pm."), back="Back to Evening instead"))
 
 # 4a · The picker for one edge: the plan's band for that day, half-hour steps,
 # nothing outside it, and a To only after its From.
@@ -551,7 +549,7 @@ S["AvailabilityPicker"] = shell(
         PER_DAY, gap=14) + '</div>'
     + hours_sheet("Thu 17", "12 – 4 pm", hours_block([("12:00 pm", "4:00 pm")], [(6/27, 14/27)]))
     + f'<div style="position:absolute;left:0;right:0;bottom:0;background:{T["ground"]};border-radius:22px 22px 0 0;border-top:1px solid {T["line"]};padding:8px 22px 28px;display:flex;flex-direction:column;gap:10px;">'
-    + f'<div style="width:40px;height:4px;border-radius:999px;background:{T["line"]};margin:0 auto 6px;"></div>' + date("Free until", 24)
+    + f'<div style="width:40px;height:4px;border-radius:999px;background:{T["line"]};margin:0 auto 6px;"></div>' + date("Until", 24)
     + "".join(f'<div class="choice{" on" if t_ == "4:00 pm" else ""}" style="min-height:44px;"><span class="c1" style="font-size:16px;">{t_}</span></div>' for t_ in ["12:30 pm", "1:00 pm", "1:30 pm", "4:00 pm", "4:30 pm"]) + '</div>',
     minh=900, css=AV_CSS + PILL_CSS)
 
@@ -592,7 +590,7 @@ CONSENT_2026_10_06 = "Only about this meetup: when it's locked in, moved, called
 
 # The switch on says an account is made and that the catch-up reminders carry their own stop
 # (SUS-190, ADR 0067). Not the consent sentence: that one is recorded and versioned; this is a notice.
-SENT_ACCOUNT_LINE = "This makes you an account in Wenna, so you can get back in from any phone. Reminders about catching up can be stopped from the email itself."
+SENT_ACCOUNT_LINE = "Makes you an account, so any phone gets you back in. Reminders to plan the next one can be stopped from the email."
 
 def sent_card(address="", switch="on", member=None):
     """The one-step card. `switch` is "on", "off" or None (no switch: the place is already saved).
@@ -602,73 +600,73 @@ def sent_card(address="", switch="on", member=None):
     if switch is not None:
         on = switch == "on"
         rows.append(between(
-            stack(title("Save my place in Sunday Crew"), sm(SENT_ACCOUNT_LINE if on else "Nothing is saved."), gap=2),
+            stack(title("Save my place in Sunday Crew"), sm(SENT_ACCOUNT_LINE if on else "Your place stays on this phone."), gap=2),
             f'<div class="toggle{" on" if on else ""}"><i></i></div>'))
     return card(
-        row(ic("mail", 20, T["ink2"]), title("Hear when it's locked in")),
+        row(ic("mail", 20, T["ink2"]), title("Hear when it's locked in?")),
         sm(f"We'll email you at {member}.") if member else (inp(address, ph=False) if address else inp("you@example.com", ph=True)),
-        sm(CONSENT_2026_10_06),
         *rows,
-        # Where an address is asked for, whatever the switch says (S4-05).
-        LEGAL_LINE,
-        pri("Email me about this meetup"),
+        # The fine print together; the 18+ line goes with the switch off, where no account is made (SUS-250).
+        sm(CONSENT_2026_10_06),
+        *([] if switch == "off" else [LEGAL_LINE]),
+        pri("Email me and save my place" if switch == "on" else "Email me about this meetup"),
         ter("Not now"),
     )
 
 def sent_head(organiser=False):
     # The organiser is the one who picks, so their own screen says "you" (SUS-196).
-    line = "You'll pick a time once replies close on Tuesday. Options appear as people answer." if organiser else "Maya will pick a time once replies close on Tuesday. The plan will land in the group chat."
-    return stack(lbl("Sunday Crew"), dxl("Thanks, Maya. Your times are in." if organiser else "Thanks, Nina. Your times are in."), p(line), gap=10)
+    line = "You'll pick a time once replies close on Tuesday. Options appear as people answer." if organiser else "Maya picks a time once replies close Tue 6 pm."
+    days = "" if organiser else '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + "".join(f'<div class="chip" style="min-height:40px;padding:0 14px;border-radius:12px;background:{T["accent_soft"]};color:{T["accent_dark"]};display:flex;align-items:center;gap:8px;font-weight:600;">{d} {ic("people", 13, T["accent_dark"])} {n}</div>' for d, n in (("Tue 15", 3), ("Thu 17", 5), ("Sat 19", 4))) + '</div>'
+    return stack(dxl("Thanks, Maya. Your times are in." if organiser else "Thanks, Nina. Your times are in."), days, p(line), gap=10)
 
-S["Sent"] = shell(top("", back=False, right=wordmark()) + body(sent_head(), sent_card(), ter("Change my answer")))
+S["Sent"] = shell(top("", back=False, right=wordmark()) + body(sent_head(), sent_card(), ter("See how it's looking")))
 
 # The switch off: today's path, the verification link and no account.
 # The organiser's own: no email card, and the way on is the circle.
 S["SentOrganiser"] = shell(top("", back=False, right=wordmark()) + body(sent_head(organiser=True), ter("Change my answer")) + foot(pri("See how it's looking")))
 
-S["SentSwitchOff"] = shell(top("", back=False, right=wordmark()) + body(sent_head(), sent_card("nina@example.com", switch="off"), ter("Change my answer")))
+S["SentSwitchOff"] = shell(top("", back=False, right=wordmark()) + body(sent_head(), sent_card("nina@example.com", switch="off"), ter("See how it's looking")))
 
 # Done: the place is saved and this plan's updates are on. A live region.
 S["SentDone"] = shell(top("", back=False, right=wordmark()) + body(
     sent_head(),
     notice("Done. We'll email nina@example.com about this meetup, and your place in Sunday Crew is saved: sign in with that address on any phone to get back to it.", "check", "ok"),
-    ter("Change my answer")))
+    ter("See how it's looking")))
 
 # Partial failure: signed in, the emails did not turn on. The card returns for the emails alone.
 S["SentPartial"] = shell(top("", back=False, right=wordmark()) + body(
     sent_head(),
     notice("Your place is saved. We couldn't turn on the emails; try again.", "shield", "warn"),
     sent_card("nina@example.com", switch=None),
-    ter("Change my answer")))
+    ter("See how it's looking")))
 
 # A signed-in member with a confirmed address (SUS-164): their address as text, the
 # sentence directly above one button. No field, no switch, no other address (ADR 0055).
-S["SentMember"] = shell(top("", back=False, right=wordmark()) + body(sent_head(), sent_card(member="nina@example.com", switch=None), ter("Change my answer")))
+S["SentMember"] = shell(top("", back=False, right=wordmark()) + body(sent_head(), sent_card(member="nina@example.com", switch=None), ter("See how it's looking")))
 
 # Done for the member: one line, a live region. The place was already saved.
 S["SentMemberDone"] = shell(top("", back=False, right=wordmark()) + body(
     sent_head(),
     notice("Done. We'll email nina@example.com about this meetup.", "check", "ok"),
-    ter("Change my answer")))
+    ter("See how it's looking")))
 
 # The owner of a suppressed address (it bounced, or asked to stop) is told the
 # truth, and promised nothing: on the member's one button, and after the code.
 S["SentSuppressed"] = shell(top("", back=False, right=wordmark()) + body(
     sent_head(),
     notice("We can't send email to nina@example.com right now, so check the plan here.", "shield", "warn"),
-    ter("Change my answer")))
+    ter("See how it's looking")))
 S["SentSuppressedSaved"] = shell(top("", back=False, right=wordmark()) + body(
     sent_head(),
     notice("Your place is saved. We can't send email to nina@example.com right now, so check the plan here.", "shield", "warn"),
-    ter("Change my answer")))
+    ter("See how it's looking")))
 
 S["ConfirmedGuest"] = shell(
     top("Sunday Crew", back=False, right=ic("share", 22, T["invert_ink"])) +
     body(
-        lbl("Locked in"),
-        stack(f'<div class="date" style="font-size:40px;line-height:1.05;">Thursday<br>17 September</div>', f'<div class="num" style="font-family:Newsreader,Georgia,serif;font-size:26px;color:{T["invert_accent"]};">6:30–8:30 pm</div>', gap=8),
+        stack(f'<div class="date" style="font-size:40px;line-height:1.05;">Thursday<br>17 September</div>', f'<div class="num" style="font-family:Newsreader,Georgia,serif;font-size:26px;color:{T["invert_accent"]};">Locked in for 6:30–8:30 pm</div>', gap=8),
         stack(row(ic("pin", 18, T["invert_ink2"]), title("Hope St Radio")), p("Brunswick East · <a href=\"#\" style=\"color:#E8A07A\">Open in Maps</a>"), gap=6),
-        card(between(stack(title("5 going · 1 to confirm"), sm("Maya, Nina, Tom, Jess, Sam · Alex to confirm"), gap=2), marks(["Maya","Nina","Tom","Jess","Sam","Alex"], waiting=("Alex",))),
+        card(between(stack(title("5 going · 1 to confirm"), sm("You, Maya, Tom, Jess and Sam going · Alex to confirm"), gap=2), marks(["Maya","Nina","Tom","Jess","Sam","Alex"], waiting=("Alex",))),
              divider(),
              between(stack(title("You're going"), sm("Tap below if that changes"), gap=2), ic("check", 22, T["invert_accent"]))),
         p("Maya says: “Table's booked under my name. Come hungry.”"),
@@ -1135,11 +1133,11 @@ S["QuietStopDone"] = shell(
 S["SaveAccess"] = shell(
     top("Sunday Crew") +
     body(
-        stack(dl("Keep your place on every device"), p("Sign in with your email and you'll never have to rejoin Sunday Crew from a new phone or browser. It's optional."), gap=8),
+        stack(dl("Keep your place for good"), p("One code by email, and you won't pick your name from a list again."), gap=8),
         stack(lbl("Your email"), inp("nina@example.com"), gap=8),
-        sm("We'll send a one-time code. This is an account, so it's separate from meetup emails. It doesn't subscribe you to anything."),
+        sm(SENT_ACCOUNT_LINE), LEGAL_LINE,
     ) +
-    foot(pri("Send me a code"), ter("Not now"))
+    foot(pri("Email me a code"), ter("Not now"))
 )
 
 S["AddToCalendar"] = shell(
@@ -1149,7 +1147,6 @@ S["AddToCalendar"] = shell(
     + stack(title("Add Thursday to your calendar"), sm("Thu 17 Sep, 6:30–8:30 pm · Hope St Radio"), gap=2)
     + card(li(ic("cal", 22, T["accent_dark"]), "Apple or device calendar", "Downloads an .ics file"), divider(),
            li(ic("cal", 22, T["accent_dark"]), "Google Calendar", "Opens Google Calendar with the details filled in"), gap=0, pad=6)
-    + sm("Nothing is added to anyone's calendar without their tap.")
     + sec("Cancel") + '</div>'
 )
 
@@ -1170,7 +1167,7 @@ S["NoneWork"] = shell(
     body(
         stack(dl("None of these dates work for you?"), p("That's useful to know. Which is closer to the truth?"), gap=8),
         card(row(ic("clock", 22, T["accent_dark"]), title("I'm keen, just not these dates")), p("Maya sees you'd like to come. If the window changes, you'll be asked again."), rec=True),
-        card(row(ic("clock", 22, T["ink2"]), title("Not enough notice")), p("Same as above, and we'll remember to give you more warning next time.")),
+        card(row(ic("clock", 22, T["ink2"]), title("Not enough notice")), p("Same as above: you'd just like more warning.")),
         card(row(ic("x", 22, T["ink2"]), title("Not this time")), p("No reason needed. Nobody is told anything beyond that.")),
     ) +
     foot(ter("Back to my times"))
@@ -1196,7 +1193,7 @@ S["PlanNotAdmitting"] = shell(
 S["CancelledGuest"] = shell(
     top("Sunday Crew", back=False, right=wordmark()) +
     body(
-        stack(lbl("Not going ahead"), dxl("Thursday's catch-up is off."), p("Maya cancelled it. Nothing you sent has been shared, and the circle's record isn't affected."), gap=10),
+        stack(dxl("Thursday's catch-up is off."), p("Maya called it off."), gap=10),
         card(stack(sm("Maya's note"), p("“Work thing came up, sorry all. Will try again in October.”"), gap=4)),
     ) +
     foot(sec("Back to Sunday Crew"))
@@ -1205,8 +1202,8 @@ S["CancelledGuest"] = shell(
 S["RescheduledGuest"] = shell(
     top("Sunday Crew", back=False, right=wordmark()) +
     body(
-        stack(lbl("Change of plan"), dxl("Thursday is off the table. New times?"), p("Maya reopened the plan for the week after. Your earlier times don't carry over, so it's a fresh ask."), gap=10),
-        card(between(stack(sm("Previously"), f'<div class="num" style="text-decoration:line-through;color:{T["ink3"]};">Thu 17 Sep, 6:30–8:30 pm</div>', gap=2), ic("x", 18, T["ink3"])), between(stack(sm("Now asking about"), title("Mon 21 – Sun 27 Sep"), gap=2), ic("chev", 18, T["ink3"]))),
+        stack(dxl("Thursday is off the table. New times?"), p("Maya reopened the plan. Your earlier times don't carry over."), gap=10),
+        card(between(stack(sm("Was"), f'<div class="num" style="text-decoration:line-through;color:{T["ink3"]};">Thu 17 Sep, 6:30–8:30 pm</div>', gap=2), ic("x", 18, T["ink3"])), between(stack(sm("Now asking about"), title("Mon 21 – Sun 27 Sep"), gap=2), ic("chev", 18, T["ink3"]))),
     ) +
     foot(pri("Choose my times"), ter("Not this time"))
 )
@@ -1941,10 +1938,10 @@ S["AppSheet"] = shell(
 S["ReattachedNudge"] = shell(
     top("Sunday Crew") +
     body(
-        stack(dl("Welcome back, Nina."), p("You've rejoined from a new browser and your times are still here. Maya can see you rejoined."), gap=8),
-        nudge_card("Keep your place for good?", "Sign in once with your email, Apple or Google and you'll never have to pick your name from a list again. Still no app needed.", "Save my place", icon="shield"),
+        stack(dl("Welcome back, Nina."), p("Your times are still here."), gap=8),
+        nudge_card("Keep your place for good?", "Sign in once with your email and you won't pick your name again. Still no app.", "Save my place", icon="shield"),
     ) +
-    foot(sec("Carry on to Sunday Crew"))
+    foot(pri("Carry on"))
 )
 
 S["SecondSent"] = shell(
@@ -2166,7 +2163,6 @@ def cal_sheet(*parts):
         f'<div style="width:40px;height:4px;border-radius:999px;background:{T["line"]};margin:0 auto 6px;"></div>'
         + stack(title("Add Thursday to your calendar"), sm("Thu 17 Sep, 6:30–8:30 pm · Hope St Radio"), gap=2)
         + "".join(parts)
-        + sm("Nothing is added to anyone's calendar without their tap.")
         + sec("Cancel") + '</div>',
         css=LB_CSS)
 def cal_ready(sub): return card(li(row_icon, CAL_TITLE, sub), gap=0, pad=6)

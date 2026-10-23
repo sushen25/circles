@@ -64,7 +64,7 @@ test.describe('an organiser whose phone is in London', () => {
     await answersIn(page, plan.code);
 
     await page.goto(`/circles/${circleId}/plan/${plan.id}/candidates`);
-    await expect(page.getByText('Best attendance')).toBeVisible();
+    await expect(page.getByText(/Best attendance/)).toBeVisible();
     await expect(page.getByText(NOTE)).toBeVisible();
 
     await page.getByRole('button', { name: /^Review / }).click();
@@ -90,7 +90,7 @@ test.describe('a member whose phone is in Melbourne', () => {
     // Ren is new: joins from the plan link and answers, which runs the engine.
     await page.goto(`/p/${crew.planCode}`);
     await page.getByRole('button', { name: "I'm new here" }).click();
-    await page.getByLabel('Your name').fill('Ren');
+    await page.getByLabel('Your first name').fill('Ren');
     await page.getByRole('button', { name: 'Continue' }).click();
     await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
     await expect(page.getByText(NOTE)).toHaveCount(0);

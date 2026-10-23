@@ -4,7 +4,6 @@ import {
   Button,
   Card,
   DisplayXL,
-  Label,
   Screen,
   Tertiary,
   Title,
@@ -50,10 +49,9 @@ export function AfterAttendanceScreen({
 }: AfterAttendanceProps) {
   return (
     <Screen>
-      <TopBar onBack={onBack} backLabel={t('common', 'back')} />
+      <TopBar title={date} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <Stack>
-          <Label>{t('afterAttendance', 'label', { circle: circleName, date })}</Label>
           <DisplayXL accessibilityLiveRegion="polite">
             {t('afterAttendance', 'glad_it_happened')}
           </DisplayXL>

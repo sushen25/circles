@@ -11,7 +11,7 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0003](./0003-domain-events-via-postgres-outbox.md) | Publish domain events through a Postgres outbox drained by cron, not database webhooks | accepted |
 | [0004](./0004-organiser-requires-permanent-identity.md) | Organising a plan requires a saved place (permanent identity); responding never does | accepted |
 | [0005](./0005-willing-windows-retained-12-months.md) | Retain willing windows for 12 months for members of active circles | accepted |
-| [0006](./0006-continue-as-reattachment-without-owner-approval.md) | "Continue as" reattaches a guest membership without owner approval | accepted (amended by 0078, 0088) |
+| [0006](./0006-continue-as-reattachment-without-owner-approval.md) | "Continue as" reattaches a guest membership without owner approval | accepted (amended by 0078, 0088, 0092) |
 | [0007](./0007-pnpm-monorepo-with-shared-domain-package.md) | One pnpm monorepo with a pure `packages/domain` shared by the client and Edge Functions | accepted (amended by 0075) |
 | [0008](./0008-react-email-templates-in-edge-functions.md) | Render email templates with React Email inside Edge Functions | accepted |
 | [0009](./0009-half-hour-availability-cells-with-a-scrolling-row.md) | Availability cells are half an hour each, and the day row scrolls | accepted |
@@ -71,7 +71,7 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0064](./0064-join-limits-charge-the-person-asking-and-a-members-call-is-free.md) | Join limits charge the person asking, and a member's call is free | accepted (amends 0022) |
 | [0065](./0065-co-members-see-the-circles-name-for-a-member-and-nothing-else.md) | Co-members see the circle's name for a member and nothing else of their name: no view of account names, and a rename leaves every circle alone | accepted (amended by 0070; amends 0032) |
 | [0066](./0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md) | The group sees who can make each option, and nobody sees anyone's whole availability | accepted (amends 0045) |
-| [0067](./0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md) | Every cadence nudge carries a stop link that needs no sign-in, and the Sent card says an account is made | accepted (amended by 0069; amends 0027, 0055) |
+| [0067](./0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md) | Every cadence nudge carries a stop link that needs no sign-in, and the Sent card says an account is made | accepted (amended by 0069, 0092; amends 0027, 0055) |
 | [0068](./0068-a-tapped-day-has-a-time-and-the-answer-is-one-line.md) | A tapped day already has a time, and the answer is one line: the first screen asks only which days | accepted (amended by 0077, 0079; amends 0024, 0037) |
 | [0069](./0069-every-account-holder-letter-carries-a-stop-link-that-needs-no-sign-in.md) | Every letter to an account holder carries a stop link that needs no sign-in | accepted (amends 0025, 0029, 0038, 0067) |
 | [0070](./0070-a-member-changes-the-name-a-circle-calls-them-from-circle-settings.md) | A member changes the name a circle calls them from circle settings, and the new name shows everywhere, plans already locked in included | accepted (amends 0065) |
@@ -91,7 +91,8 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0085](./0085-a-first-plan-nobody-answers-gets-one-question-and-one-letter-from-the-founder.md) | A first plan nobody answers gets one question and one letter from the founder, a support letter capped at one per circle | accepted |
 | [0086](./0086-youtube-is-scripted-and-tiktok-is-scripted-as-far-as-a-draft.md) | YouTube is published by script, and TikTok is scripted only as far as a draft | accepted (amends 0081) |
 | [0087](./0087-the-content-loop-reads-the-funnel-by-tag-through-a-keyed-export-counts-only.md) | The content loop reads the funnel by tag through a keyed export, counts only | proposed |
-| [0088](./0088-a-signed-in-account-can-continue-as-a-guest.md) | A signed-in account can continue as a guest, the same as a guest can | accepted (amends 0006, 0022) |
+| [0088](./0088-a-signed-in-account-can-continue-as-a-guest.md) | A signed-in account can continue as a guest, the same as a guest can | accepted (amended by 0092; amends 0006, 0022) |
 | [0089](./0089-the-content-bots-commit-to-a-data-branch-and-a-tag-makes-a-second-post-impossible.md) | The content bots commit to a data branch, and a tag makes a second post impossible | proposed (amends 0081) |
 | [0090](./0090-the-first-run-is-four-screens-to-the-share-and-the-organiser-answers-first.md) | The first run is four screens to the share, and the organiser answers their own plan first | accepted (amends 0026, 0053, 0076, 0084) |
 | [0091](./0091-circle-home-offers-one-way-into-the-chat-at-a-time-and-any-member-can-add-someone.md) | Circle home offers one way into the chat at a time, and any member can add someone | accepted (amends 0022, 0028) |
+| [0092](./0092-a-guests-pick-from-the-list-asks-first-and-the-sent-card-says-less.md) | A guest's pick from the list asks first, the Sent card says less, and the hours sheet stops saying free | accepted (amends 0006, 0067, 0088) |
