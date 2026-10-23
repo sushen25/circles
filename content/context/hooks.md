@@ -2,8 +2,9 @@
 
 Seven families. Each is a two-week experiment; `experiments.md` says which
 are live. The phrases under each family are verbatim from real people
-(Reddit replies, DMs, comments) and are the raw material for `/hooks` and
-`/skit`. `/mine` appends here; nobody paraphrases.
+(Reddit, forums, Hacker News, app reviews, replies, DMs, comments) and are
+the raw material for `/hooks` and `/skit`. `/mine` appends here; nobody
+paraphrases. Where to listen is `docs/listening.md`.
 
 ## Families
 
@@ -19,8 +20,9 @@ are live. The phrases under each family are verbatim from real people
 
 ## Phrases people actually use
 
-Format: `- "verbatim phrase" — source (sub or channel, date)`. Keep the
-quote exact, including typos. Strip usernames.
+Format: `- "verbatim phrase" — source (subreddit, forum, site or channel,
+date)`. Keep the quote exact, including typos. Strip usernames, and never
+name an app as the source (`App Store review`, not the app).
 
 ### skit
 - "Group chats never lead anywhere … because nobody feels directly called upon" — r/boardgames, 2026-10-05
