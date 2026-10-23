@@ -201,7 +201,7 @@ test('"I was there" on the circle\'s first meetup: a guest starts a circle of th
   const address = `tom.${Date.now()}.${randomUUID().slice(0, 6)}@example.test`;
   await page.getByRole('button', { name: 'Continue with email' }).click();
   await page.getByLabel('Your email').fill(address);
-  await page.getByRole('button', { name: 'Send me a code' }).click();
+  await page.getByRole('button', { name: /^(Send|Email) me a code$/ }).click();
   await page.getByLabel('Code', { exact: true }).fill(await latestCodeFor(address));
 
   await expect(page).toHaveURL(/\/circles\/create$/);

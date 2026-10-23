@@ -144,7 +144,7 @@ test('a member whose times an edit cleared is told so, on the grid and on circle
   await nina.getByRole('switch', { name: "I'm easy" }).click();
   await nina.getByRole('button', { name: 'Send my times' }).click();
   await expect(nina).toHaveURL(new RegExp(`/j/${plan.code}/sent$`));
-  await nina.goto(`/j/${plan.code}`);
+  await nina.goto(`/j/${plan.code}?edit=1`);
   await expect(nina.getByText('Which evenings could work?')).toBeVisible();
   await expect(nina.getByText(changed)).toHaveCount(0);
   await nina.goto(`/circles/${circleId}`);

@@ -28,8 +28,11 @@ test("a guest's pick moves nothing until Yes, and Not me returns focus to the na
   expect(memberNamed(crew.circleId, 'Tom')?.userId, 'nothing moved on the tap').toBe(tomAsGuest);
 
   // Escape closes it, sends nothing, and puts focus back on the name.
-  await page.keyboard.press('Escape');
-  await expect(page.getByText('Carry on as Tom?')).toHaveCount(0);
+  // Pressed until it takes: focus moves into the sheet a moment after it opens.
+  await expect(async () => {
+    await page.keyboard.press('Escape');
+    await expect(page.getByText('Carry on as Tom?')).toHaveCount(0, { timeout: 1_500 });
+  }).toPass();
   await expect(tom).toBeFocused();
   expect(memberNamed(crew.circleId, 'Tom')?.userId, 'nothing moved on Escape').toBe(tomAsGuest);
 

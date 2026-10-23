@@ -162,7 +162,7 @@ test('the organiser reaches it with real answers, and sees the closest time and 
 
   // The closest, with the people it works for and the one it does not: the
   // near-miss says who is out, and nobody is named as having let anyone down.
-  await expect(page.getByText('Closest', { exact: true })).toBeVisible();
+  await expect(page.getByText(/· Closest$/)).toBeVisible();
   await expect(page.getByText('2 of 3').first()).toBeVisible();
   await expect(page.getByText("Doesn't work for Nina").first()).toBeVisible();
 

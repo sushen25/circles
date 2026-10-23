@@ -119,8 +119,9 @@ test('three days tapped is the answer, in four taps, and it comes back as it was
     windows: [1, 3, 5].map((n) => `${dayAfter(n)} 17:30–22:30`),
   });
 
-  // The round trip: the same days and ranges when the page opens again.
-  await page.goto(`/j/${crew.planCode}`);
+  // The round trip: the same days and ranges when the editor opens again
+  // (the bare chat link opens the options for somebody who has answered).
+  await page.goto(`/j/${crew.planCode}?edit=1`);
   for (const index of [1, 3, 5]) {
     await expect(days(page).nth(index)).toHaveAccessibleName(/, 5:30–10:30\spm/);
     await expect(days(page).nth(index)).toHaveAttribute('aria-pressed', 'true');
@@ -152,7 +153,7 @@ test('what is set with From and to is what is stored, in two windows, and it com
     windows: [`${day} 17:30–18:30`, `${day} 19:30–20:00`],
   });
 
-  await page.goto(`/j/${crew.planCode}`);
+  await page.goto(`/j/${crew.planCode}?edit=1`);
   await expect(days(page).nth(0)).toHaveAttribute('aria-pressed', 'true');
   await exactHours(page);
   await expect(timeButton(page, 'from', '5:30 pm')).toBeVisible();
