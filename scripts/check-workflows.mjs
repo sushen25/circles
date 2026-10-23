@@ -56,6 +56,7 @@ import {
   unsafeRunExpressions,
   unversionedPins,
 } from './workflow-hygiene.mjs';
+import { secretScanProblems } from './secret-scan-rules.mjs';
 
 // `yaml` is a transitive dependency rather than a direct one, so resolve it the
 // way Node would from the workspace root rather than assuming a path.
@@ -726,6 +727,7 @@ const ciRules = (path, file, doc) => {
       );
     }
     checkYamlRules(doc, fail, scripts);
+    for (const problem of secretScanProblems(doc)) fail(problem);
   }
 };
 

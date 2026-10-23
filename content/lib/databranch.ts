@@ -9,7 +9,8 @@
  *                     the bots have written that is not merged yet.
  *   save <msg> <paths> commit those paths and push them to the data branch.
  *   open-pr           make sure the pull request exists, and ask for `check`
- *                     on its head (a push by GITHUB_TOKEN triggers nothing).
+ *                     on its head (a push by GITHUB_TOKEN runs no check
+ *                     without a click).
  *   attempts          the posts started and not yet in the ledger.
  *   clear <p> <slug>  forget one attempt, after looking at the platform.
  *
@@ -244,7 +245,9 @@ export function openPr(c: Ctx, repo = process.env.GITHUB_REPOSITORY ?? '<owner>/
     }
     say(c, `opened ${made.stdout.trim()}`);
   }
-  // A push made with GITHUB_TOKEN starts no workflow, and the required `check` has to be on the pull request's head.
+  // A push made with GITHUB_TOKEN starts `pull_request` runs only in a held state that needs someone to approve them
+  // (GitHub, 11 June 2026), and the required `check` has to be on the pull request's head without a click. A dispatch
+  // always runs. It runs the branch's own check.yml, which scans what the branch adds to main.
   const run = gh(['workflow', 'run', 'check.yml', '--ref', BRANCH]);
   if (run.status !== 0) warn(`could not start \`check\` on ${BRANCH} (${run.stderr}); run it from the Actions tab (check, Run workflow, branch ${BRANCH})`);
 }
