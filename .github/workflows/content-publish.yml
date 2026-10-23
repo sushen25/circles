@@ -50,7 +50,7 @@ jobs:
         with:
           # The data branch is merged with main, which needs their history.
           fetch-depth: 0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 22 }
       # Everything after this builds on the data branch. If it cannot be read
       # or main cannot be merged into it, the job stops here, red, before
