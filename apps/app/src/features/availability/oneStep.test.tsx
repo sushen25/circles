@@ -79,9 +79,9 @@ async function reachTheCode() {
 }
 
 async function enterTheCode() {
-  fireEvent.change(screen.getByLabelText('Code'), { target: { value: '123456' } });
+  // The sixth digit sends it: there is no Continue (SUS-247).
   await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.change(screen.getByLabelText('Code'), { target: { value: '123456' } });
   });
 }
 
@@ -262,7 +262,6 @@ describe('with the switch on', () => {
     );
     await reachTheCode();
     fireEvent.change(screen.getByLabelText('Code'), { target: { value: '123456' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     await act(async () => {
       finish();

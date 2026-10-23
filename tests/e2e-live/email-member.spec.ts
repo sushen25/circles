@@ -32,7 +32,6 @@ async function savesAPlace(page: Page, crew: Scenario, name: string, address: st
   await page.getByRole('button', { name: PRIMARY }).click();
   await expect(page.getByText('Enter the code we emailed')).toBeVisible();
   await page.getByLabel('Code', { exact: true }).fill(await latestCodeFor(address));
-  await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page.getByRole('status')).toContainText('about this meetup');
   return userId;
 }
@@ -107,7 +106,6 @@ test('the switch-on path ends the same way for a suppressed address', async ({ p
   await page.getByRole('button', { name: PRIMARY }).click();
   await expect(page.getByText('Enter the code we emailed')).toBeVisible();
   await page.getByLabel('Code', { exact: true }).fill(await latestCodeFor(address));
-  await page.getByRole('button', { name: 'Continue' }).click();
 
   const status = page.getByRole('status');
   await expect(status).toContainText(

@@ -94,10 +94,11 @@ async function sendCodeTo(address: string) {
   });
 }
 
+/** The sixth digit sends the code: there is no Continue (SUS-247). */
 async function enter(code: string) {
-  fireEvent.change(await screen.findByLabelText('Code'), { target: { value: code } });
+  const field = await screen.findByLabelText('Code');
   await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.change(field, { target: { value: code } });
   });
 }
 
@@ -137,7 +138,7 @@ afterEach(() => {
 describe('the front door', () => {
   it('is the first circle with a quiet Sign in, and no sign-in before it (ADR 0053)', async () => {
     wrap(<WelcomeFlow />);
-    expect(await screen.findByLabelText('Circle name')).toBeVisible();
+    expect(await screen.findByLabelText('Who do you keep meaning to see?')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Continue with email' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -198,43 +199,189 @@ describe('the front door', () => {
   });
 });
 
-describe('Save your place, the gate of the first run (ADR 0053)', () => {
-  const place = {
-    circle: 'Sunday Crew',
-    kind: 'plan' as const,
-    title: 'Catch up · next 14 days',
-    detail: 'Evenings · about 2 hours',
-  };
+describe("Who's asking and the code, the gate of the first run (ADR 0053, ADR 0090)", () => {
+  const WENT = { kind: 'go' as const, to: '/circles/c1/plan/p1/shared' };
 
-  it('says the plan is ready and summarises it, and links the terms', async () => {
-    wrap(<SignInFlow gate={{ place, onPassed: async () => undefined }} />);
-    expect(await screen.findByText("Your plan's ready. Save your place.")).toBeVisible();
-    expect(screen.getByText('Catch up · next 14 days')).toBeVisible();
+  function gateWith(onPassed: () => Promise<unknown> = async () => WENT) {
+    return {
+      circle: 'Sunday Crew',
+      onPassed: onPassed as never,
+      onBackToPlan: vi.fn(),
+    };
+  }
+
+  async function fillTheGate(name = 'Maya', address = ADDRESS) {
+    fireEvent.change(await screen.findByLabelText('First name'), { target: { value: name } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: address } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Email me a code' }));
+    });
+  }
+
+  it('asks a first name and an email, and nothing else, and links the terms', async () => {
+    wrap(<SignInFlow gate={gateWith()} />);
+    expect(await screen.findByText("Who's asking?")).toBeVisible();
+    expect(screen.getByLabelText('First name')).toBeVisible();
+    expect(screen.getByLabelText('Email')).toBeVisible();
+    // No summary of the plan, no paragraph about why, no time zone (ADR 0090).
+    expect(screen.queryByText(/Save your place/)).toBeNull();
+    expect(screen.queryByText(/Catch up/)).toBeNull();
+    expect(screen.queryByText(/zone/i)).toBeNull();
+    // One progress count, "3 of 3", beside the circle's name.
+    expect(screen.getByText('3 of 3')).toBeVisible();
     fireEvent.click(screen.getByRole('link', { name: 'terms' }));
     fireEvent.click(screen.getByRole('link', { name: 'privacy' }));
     expect(push.mock.calls).toEqual([['/terms'], ['/privacy']]);
   });
 
-  it('goes on to make the circle once the code is through, telling the draft first', async () => {
+  it('says what is wrong under each field, together, and sends nothing', async () => {
+    wrap(<SignInFlow gate={gateWith()} />);
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('button', { name: 'Email me a code' }));
+    });
+    expect(screen.getByText('Add your first name, up to 40 characters.')).toBeVisible();
+    expect(screen.getByText('Add your email, so we can send the code.')).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText('First name'), { target: { value: 'Maya' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'maya' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Email me a code' }));
+    });
+    expect(screen.queryByText('Add your first name, up to 40 characters.')).toBeNull();
+    expect(screen.getByText("That doesn't look like an email address.")).toBeVisible();
+    expect(auth.requestSignInCode).not.toHaveBeenCalled();
+  });
+
+  it('names the profile once the code is accepted, then makes what was drafted, in that order', async () => {
     Object.assign(session, { status: 'saved', userId: 'maya' });
-    auth.ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Australia/Melbourne' });
-    const onPassed = vi.fn().mockResolvedValue(undefined);
-    wrap(<SignInFlow gate={{ place, onPassed }} />);
-    await sendCodeTo(ADDRESS);
+    const order: string[] = [];
+    auth.bootstrapProfile.mockImplementation(async () => void order.push('name'));
+    const onPassed = vi.fn(async () => {
+      order.push('made');
+      return WENT;
+    });
+    wrap(<SignInFlow gate={gateWith(onPassed)} />);
+    await fillTheGate('  Maya  ');
     await enter('123456');
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/new/finish'));
-    expect(onPassed).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/c1/plan/p1/shared'));
+    expect(order).toEqual(['name', 'made']);
+    // The name the gate asked for, tidied, and nothing else: Your name is skipped.
+    expect(auth.bootstrapProfile).toHaveBeenCalledWith({ name: 'Maya' });
+    expect(replace).not.toHaveBeenCalledWith('/name');
+    expect(track).toHaveBeenCalledWith('account_completed', { provider: 'email' });
+    expect(auth.requestSignInCode).toHaveBeenCalledWith(ADDRESS);
+  });
+
+  it("leaves a returning account's own name alone", async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya' });
+    auth.ownProfile.mockResolvedValue({ name: 'Maya Q', zone: 'Australia/Melbourne' });
+    const onPassed = vi.fn(async () => WENT);
+    wrap(<SignInFlow gate={gateWith(onPassed)} />);
+    await fillTheGate('Someone Else');
+    await enter('123456');
+
+    await waitFor(() => expect(onPassed).toHaveBeenCalledTimes(1));
+    expect(auth.bootstrapProfile).not.toHaveBeenCalled();
+    expect(track).not.toHaveBeenCalledWith('account_completed', expect.anything());
+  });
+
+  it('says Checking, then Setting up the circle, while it works, and goes on the moment the code is in', async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya' });
+    let finish: (value: unknown) => void = () => undefined;
+    const onPassed = vi.fn(() => new Promise((resolve) => (finish = resolve)));
+    wrap(<SignInFlow gate={gateWith(onPassed)} />);
+    await fillTheGate();
+    await enter('123456');
+
+    expect(await screen.findByText('Setting up Sunday Crew')).toBeVisible();
+    // No Continue to press, before or after.
+    expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
+    await act(async () => finish(WENT));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/c1/plan/p1/shared'));
+  });
+
+  it('keeps what was chosen when the set-up fails, with a reference, Try again and a way back to the plan', async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya' });
+    const gate = gateWith(
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          kind: 'problem',
+          problem: 'couldnt_set_up',
+          reference: 'K7M2Q9XA',
+        })
+        .mockResolvedValueOnce(WENT),
+    );
+    wrap(<SignInFlow gate={gate} />);
+    await fillTheGate();
+    await enter('123456');
+
+    expect(
+      await screen.findByText(/^Something went wrong, so Sunday Crew wasn't set up/),
+    ).toBeVisible();
+    expect(screen.getByText('Ref K7M2Q9XA')).toBeVisible();
+    expect(replace).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to the plan' }));
+    expect(gate.onBackToPlan).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    });
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/c1/plan/p1/shared'));
+    // The code was used once: trying again is the set-up, not another sign-in.
+    expect(auth.submitSignInCode).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers Change the time when the time went by while they signed in', async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya' });
+    const gate = gateWith(async () => ({ kind: 'problem', problem: 'time_passed' }));
+    wrap(<SignInFlow gate={gate} />);
+    await fillTheGate();
+    await enter('123456');
+
+    expect(await screen.findByText(/^The time you chose has gone by/)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Change the time' }));
+    expect(gate.onBackToPlan).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+  });
+
+  it('reads a connection that dropped during the set-up as offline, and offers Try again', async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya' });
+    wrap(
+      <SignInFlow
+        gate={gateWith(async () => {
+          throw Object.assign(new Error('x'), { name: 'AuthRetryableFetchError', status: 0 });
+        })}
+      />,
+    );
+    await fillTheGate();
+    await enter('123456');
+    expect(await screen.findByText("You're offline. Connect, then try again.")).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
+  });
+
+  it('empties the boxes after a wrong code and keeps the circle for the next try', async () => {
+    const onPassed = vi.fn(async () => WENT);
+    wrap(<SignInFlow gate={gateWith(onPassed)} />);
+    await fillTheGate();
+    auth.submitSignInCode.mockRejectedValueOnce(
+      Object.assign(new Error('x'), { name: 'AuthApiError', status: 400, code: 'otp_expired' }),
+    );
+    await enter('123456');
+    expect(await screen.findByText(/^That code didn't work|^That code has expired/)).toBeVisible();
+    expect(screen.getByLabelText('Code')).toHaveValue('');
+    expect(onPassed).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
   });
 
   describe('"How did you hear about {brand}?" is not here (SUS-171)', () => {
-    it('is not asked at the gate: it is the last step of the first run, after the circle exists', async () => {
+    it('is not asked at the gate: it comes after the share', async () => {
       Object.assign(session, { status: 'saved', userId: 'maya' });
-      auth.ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Australia/Melbourne' });
-      wrap(<SignInFlow gate={{ place, onPassed: vi.fn().mockResolvedValue(undefined) }} />);
-      await sendCodeTo(ADDRESS);
+      wrap(<SignInFlow gate={gateWith()} />);
+      await fillTheGate();
       await enter('123456');
-      await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/new/finish'));
+      await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/c1/plan/p1/shared'));
       expect(screen.queryByText(QUESTION)).toBeNull();
       expect(askToShow).not.toHaveBeenCalled();
       expect(track.mock.calls.filter(([name]) => name === 'organiser_source')).toEqual([]);
@@ -250,15 +397,6 @@ describe('Save your place, the gate of the first run (ADR 0053)', () => {
       await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles'));
       expect(askToShow).not.toHaveBeenCalled();
     });
-  });
-
-  it('asks a new account its name first', async () => {
-    Object.assign(session, { status: 'saved', userId: 'maya' });
-    askToShow.mockResolvedValue({ suppressed: true, reason: 'already_shown' });
-    wrap(<SignInFlow gate={{ place, onPassed: async () => undefined }} />);
-    await sendCodeTo(ADDRESS);
-    await enter('123456');
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/name'));
   });
 
   it('is never what an ordinary sign-in does: a returning organiser is not handed a draft', async () => {
@@ -329,7 +467,7 @@ describe('signing in by email', () => {
 
     expect(auth.requestSignInCode).toHaveBeenCalledWith(ADDRESS);
     expect(track).toHaveBeenCalledWith('account_started', {});
-    expect(await screen.findByText(`Sent to ${ADDRESS}. It works for 10 minutes.`)).toBeVisible();
+    expect(await screen.findByText(`Sent to ${ADDRESS}.`)).toBeVisible();
     expect(JSON.stringify([push.mock.calls, replace.mock.calls])).not.toContain(ADDRESS);
   });
 
@@ -340,10 +478,22 @@ describe('signing in by email', () => {
     const field = await screen.findByLabelText('Code');
     fireEvent.change(field, { target: { value: '4 8-2 9x17 55' } });
     expect(field).toHaveValue('482917');
-    expect(screen.getByRole('button', { name: 'Continue' })).not.toHaveAttribute(
-      'aria-disabled',
-      'true',
-    );
+    // The sixth digit sent it: there is no Continue to press (SUS-247).
+    expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
+    await waitFor(() => expect(auth.submitSignInCode).toHaveBeenCalledWith(ADDRESS, '482917'));
+  });
+
+  it('sends the code once, on the sixth digit, and not before it', async () => {
+    wrap(<SignInFlow />);
+    await sendCodeTo(ADDRESS);
+    const field = await screen.findByLabelText('Code');
+
+    fireEvent.change(field, { target: { value: '48291' } });
+    expect(auth.submitSignInCode).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.change(field, { target: { value: '482917' } });
+    });
+    expect(auth.submitSignInCode).toHaveBeenCalledTimes(1);
   });
 
   it('waits thirty seconds before another code can be sent', async () => {
@@ -359,7 +509,7 @@ describe('signing in by email', () => {
       vi.advanceTimersByTime(31_000);
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Send a new code' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Send another' }));
     });
     expect(auth.requestSignInCode).toHaveBeenCalledTimes(2);
   });
@@ -459,7 +609,7 @@ describe('signing in by email', () => {
     await act(async () => {
       vi.advanceTimersByTime(31_000);
     });
-    const resend = screen.getByRole('button', { name: 'Send a new code' });
+    const resend = screen.getByRole('button', { name: 'Send another' });
     await act(async () => {
       fireEvent.click(resend);
       fireEvent.click(resend);

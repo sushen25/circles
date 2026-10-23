@@ -1,19 +1,18 @@
 import {
   BrandLockup,
   Body,
-  BodyText,
   Button,
-  Chip,
-  Chips,
   DisplayL,
+  type Go,
   Foot,
   Input,
-  Label,
+  MessageBubble,
   Notice,
   Screen,
-  Small,
+  Step,
   Tertiary,
   TopBar,
+  useStepMotion,
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -21,145 +20,124 @@ import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
 
 /**
- * FirstCircle — `docs/design/FirstCircle.dc.html` (spec §5.1 step 4).
+ * FirstCircle — screen 1 of the first run (SUS-247, spec §5.1): one question,
+ * "Who do you keep meaning to see?", and under the field the first line of the
+ * message their group will get, filling in as they type. Nothing is created
+ * and nothing is chosen but a name: cadence left the first run (ADR 0090), and a
+ * new circle stays monthly.
  *
- * A name and a loose cadence, and nothing else: the circle's name is the
- * second and last typed input on the way to an invite link. The button says
- * what it will make, in the person's own words, once they have typed some.
+ * The heading is the field's label, so the screen has one question and says it
+ * once. The primary is **Next**, because nothing is made yet.
  */
 export type CircleCadence = 'weekly' | 'fortnightly' | 'monthly' | 'two_monthly' | 'none';
 
-export type FirstCircleProblem = 'name_unusable' | 'too_many_tries' | 'couldnt_create' | 'offline';
+export type FirstCircleProblem = 'name_unusable';
 
 export type FirstCircleProps = {
   fixture?: Fixture | undefined;
   state?: ScreenState | undefined;
   name?: string | undefined;
-  cadence?: CircleCadence | undefined;
   problem?: FirstCircleProblem | undefined;
-  reference?: string | undefined;
-  busy?: boolean | undefined;
+  /** How many screens this run has before the share: 3 for a new organiser, 2 once signed in. */
+  steps?: 2 | 3 | undefined;
   onNameChange?: ((name: string) => void) | undefined;
-  onCadenceChange?: ((cadence: CircleCadence) => void) | undefined;
-  /** The screen's one decision. */
-  onNext?: (() => void) | undefined;
+  /**
+   * The screen's one decision. The flow validates, and calls `go` with the
+   * navigation once it may, so the step leaves only when it is really going.
+   */
+  onNext?: ((go: Go) => void) | undefined;
   onBack?: (() => void) | undefined;
   /**
    * The front door of the first run, for somebody with no account (ADR 0053):
-   * the wordmark in the top bar, a quiet Sign in for a returning organiser, and
-   * a line saying nothing is asked of them yet. Absent, this is the same form
-   * reached from the circles list, with a way back.
+   * the wordmark in the top bar and a quiet Sign in for a returning organiser.
+   * Absent, this is the same form reached from the circles list, with a way
+   * back.
    */
   onSignIn?: (() => void) | undefined;
 };
 
-const CADENCES: readonly [CircleCadence, () => string][] = [
-  ['weekly', () => t('firstCircle', 'weekly')],
-  ['fortnightly', () => t('firstCircle', 'fortnightly')],
-  ['monthly', () => t('firstCircle', 'monthly')],
-  ['two_monthly', () => t('firstCircle', 'every_two_months')],
-  ['none', () => t('firstCircle', 'no_goal')],
-];
-
-function problemCopy(problem: FirstCircleProblem): string {
-  switch (problem) {
-    case 'name_unusable':
-      return t('firstCircle', 'name_unusable');
-    case 'too_many_tries':
-      return t('firstCircle', 'too_many_tries');
-    case 'couldnt_create':
-      return t('firstCircle', 'couldnt_create');
-    case 'offline':
-      return t('firstCircle', 'youre_offline');
-  }
+/** "1 of 3", for the top bar of any screen in the run. */
+export function stepOf(at: number, total: number) {
+  return {
+    at,
+    total,
+    label: t('firstRun', 'step_of', { at, total }),
+    spoken: t('firstRun', 'step_spoken', { at, total }),
+  };
 }
 
 export function FirstCircleScreen({
   name = '',
-  cadence = 'monthly',
   problem,
-  reference,
-  busy = false,
+  steps = 3,
   onNameChange,
-  onCadenceChange,
   onNext,
   onBack,
   onSignIn,
 }: FirstCircleProps) {
+  const motion = useStepMotion();
+  const leave = motion.leave;
   const typed = name.trim().replace(/\s+/g, ' ');
+  const group = typed === '' ? t('firstRun', 'preview_group_empty') : typed;
+  const link = t('firstRun', 'preview_link');
 
   return (
     <Screen>
-      {onSignIn === undefined ? (
-        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-      ) : (
-        <TopBar
-          left={<BrandLockup size={22} />}
-          title={t('firstCircle', 'step_1_of_2')}
-          right={
+      <TopBar
+        left={onSignIn === undefined ? undefined : <BrandLockup size={22} />}
+        onBack={onBack === undefined ? undefined : () => leave('back', onBack)}
+        backLabel={t('common', 'back')}
+        step={stepOf(1, steps)}
+        right={
+          onSignIn === undefined ? undefined : (
             <Tertiary
               label={t('firstCircle', 'sign_in')}
               accessibilityHint={t('firstCircle', 'sign_in_hint')}
               onPress={onSignIn}
             />
-          }
-        />
-      )}
-      <Body>
-        <Stack>
-          {onSignIn === undefined ? <Label>{t('firstCircle', 'step_1_of_2')}</Label> : null}
-          <DisplayL>{t('firstCircle', 'who_do_you_keep_meaning_to_see')}</DisplayL>
-          <BodyText>{t('firstCircle', 'a_circle_is_one_group_of_friends')}</BodyText>
-        </Stack>
-        <Stack>
-          <Label>{t('firstCircle', 'circle_name')}</Label>
-          <Input
-            aria-label={t('firstCircle', 'circle_name')}
-            placeholder={t('firstCircle', 'circle_name_hint')}
-            autoFocus
-            value={name}
-            onChangeText={onNameChange}
-            autoCapitalize="words"
-            maxLength={40}
-            onSubmitEditing={onNext}
+          )
+        }
+      />
+      <Step motion={motion}>
+        <Body>
+          <Stack gap={14}>
+            <DisplayL nativeID="group-heading">
+              {t('firstCircle', 'who_do_you_keep_meaning_to_see')}
+            </DisplayL>
+            <Input
+              aria-labelledby="group-heading"
+              placeholder={t('firstRun', 'group_hint')}
+              autoFocus
+              value={name}
+              onChangeText={onNameChange}
+              autoCapitalize="words"
+              maxLength={40}
+              returnKeyType="next"
+              onSubmitEditing={() => onNext?.((navigate) => leave('forward', navigate))}
+            />
+            {problem === undefined ? null : (
+              <Notice kind="warn">{t('firstRun', 'group_unusable')}</Notice>
+            )}
+          </Stack>
+          <MessageBubble
+            to={
+              typed === ''
+                ? t('firstRun', 'preview_to_empty')
+                : t('firstRun', 'preview_to', { group })
+            }
+            message={t('firstRun', 'preview_first_line', { group, link })}
+            mark={[group, link]}
+            hollow={typed === '' ? [group] : []}
+            caption={t('firstRun', 'preview_caption')}
           />
-        </Stack>
-        <Stack>
-          <Label>{t('firstCircle', 'how_often_would_you_like_to_catch')}</Label>
-          <Chips>
-            {CADENCES.map(([value, label]) => (
-              <Chip
-                key={value}
-                label={label()}
-                selected={cadence === value}
-                onPress={() => onCadenceChange?.(value)}
-              />
-            ))}
-          </Chips>
-          <Small>{t('firstCircle', 'a_loose_aim_not_a_rule_nobody')}</Small>
-        </Stack>
-        {problem === undefined ? null : <Notice kind="warn">{problemCopy(problem)}</Notice>}
-        {reference === undefined ? null : (
-          <Small>{t('firstCircle', 'reference', { reference })}</Small>
-        )}
-      </Body>
-      <Foot>
-        <Button
-          label={
-            typed === ''
-              ? t('firstCircle', 'create_circle')
-              : t('firstCircle', 'create_named', { name: typed })
-          }
-          busyLabel={t('firstCircle', 'creating')}
-          busy={busy}
-          onPress={onNext}
-        />
-        <Small>
-          {onSignIn === undefined
-            ? t('firstCircle', 'you_can_change_anything_later')
-            : t('firstCircle', 'no_account_yet')}
-        </Small>
-      </Foot>
+        </Body>
+        <Foot>
+          <Button
+            label={t('firstRun', 'next')}
+            onPress={() => onNext?.((navigate) => leave('forward', navigate))}
+          />
+        </Foot>
+      </Step>
     </Screen>
   );
 }

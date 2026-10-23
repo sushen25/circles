@@ -240,9 +240,8 @@ describe('the switch-on path, for an address that turns out to be suppressed', (
     fireEvent.change(await screen.findByLabelText('Your email'), { target: { value: ADDRESS } });
     await tapPrimary();
     await screen.findByText('Enter the code we emailed');
-    fireEvent.change(screen.getByLabelText('Code'), { target: { value: '123456' } });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+      fireEvent.change(screen.getByLabelText('Code'), { target: { value: '123456' } });
     });
   }
 

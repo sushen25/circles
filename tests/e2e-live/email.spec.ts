@@ -126,7 +126,6 @@ test('one step: the switch on saves the place and turns on the updates, with one
   await expect(page.getByText('Enter the code we emailed')).toBeVisible();
 
   await page.getByLabel('Code', { exact: true }).fill(await latestCodeFor(address));
-  await page.getByRole('button', { name: 'Continue' }).click();
 
   // Back on Sent, one line, and the card is gone.
   await expect(page.getByRole('status')).toContainText(

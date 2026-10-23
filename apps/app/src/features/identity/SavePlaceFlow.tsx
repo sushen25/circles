@@ -1,26 +1,31 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { track } from '../../analytics/track';
 import { t } from '../../copy';
-import { deviceTimeZone, guard, useSession } from '../../data/auth';
-import { useOrganiserDraft } from '../circles/useOrganiserDraft';
-import { draftCard } from '../planning/draftPlan';
-import { FINISH_PATH } from './afterSignIn';
+import { guard, useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
-import { SignInFlow } from './SignInFlow';
-import { SignInScreen } from './SignInScreen';
+import { readDraft } from '../../data/draft';
+import { finishDraft, firstShare } from '../circles/finishDraft';
+import { useOrganiserDraft } from '../circles/useOrganiserDraft';
+import { FINISH_PATH } from './afterSignIn';
+import { SignInFlow, type GateOutcome } from './SignInFlow';
 import { WelcomeScreen } from './WelcomeScreen';
+import { WhosAskingScreen } from './WhosAskingScreen';
 
 /**
- * `/circles/new/save` — **Save your place**, the organiser gate of the first run
- * (spec §5.1, ADR 0053). After the plan is drafted and before it is shared: "Your
- * plan's ready. Save your place", with the plan summarised so that nothing feels
- * lost. It is the ordinary email-and-code sign-in (`SignInFlow`), in its gate
- * wording; Apple and Google join it with SUS-77.
+ * `/circles/new/save` — **Who's asking?** and the code, the organiser gate of
+ * the first run (spec §5.1, ADR 0053, ADR 0090). Screens 3 and 4: a first name
+ * with an email, then the six digits, and when the code is accepted the name is
+ * saved and what was drafted is made, inside the code step. Nothing was created
+ * before it, so a person who leaves leaves nothing.
  *
- * It needs a draft with a way chosen. Without one (an expired draft, a typed
- * address) it goes back to the first circle. With a saved place already — the
+ * It is the ordinary email-and-code sign-in (`SignInFlow`), in its gate form;
+ * Apple and Google join it with SUS-77.
+ *
+ * It needs a draft with a circle's name. Without one (an expired draft, a typed
+ * address) it goes back to the first screen. With a saved place already — the
  * person signed in and came back to this screen — it goes straight on.
  *
  * `organiser_gate_shown` is counted once, when the form is drawn for somebody
@@ -31,22 +36,19 @@ export function SavePlaceFlow() {
   return hasBackend() ? <LiveSavePlace /> : <FixtureSavePlace />;
 }
 
-/** No backend: the gallery and the fixture journey, which carry on to Your name. */
+/** No backend: the gallery and the fixture journey, which carry on to the share. */
 function FixtureSavePlace() {
   const router = useRouter();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   return (
-    <SignInScreen
-      place={{
-        circle: t('firstPlan', 'sunday_crew'),
-        kind: 'plan',
-        title: t('firstPlan', 'catch_up_next_14_days'),
-        detail: t('savePlace', 'detail', {
-          band: t('firstPlan', 'evenings_and_weekend_days'),
-          duration: t('firstPlan', 'about_2_hours'),
-          closes: t('firstPlan', 'tue_15_sep_6_pm'),
-        }),
-      }}
-      onNext={() => router.push('/name')}
+    <WhosAskingScreen
+      circleName={t('firstPlan', 'sunday_crew')}
+      name={name}
+      email={email}
+      onNameChange={setName}
+      onEmailChange={setEmail}
+      onSendCode={(go) => go(() => router.push('/circles/sunday-crew/plan/thu-17/shared'))}
       onTerms={() => router.push('/terms')}
       onPrivacy={() => router.push('/privacy')}
       onBack={() => router.back()}
@@ -56,6 +58,7 @@ function FixtureSavePlace() {
 
 function LiveSavePlace() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const session = useSession();
   const { loaded, draft, save } = useOrganiserDraft();
   const signedIn = guard({ route: 'saved', session }).kind === 'allow';
@@ -64,10 +67,8 @@ function LiveSavePlace() {
   // screen flips the session underneath `SignInFlow`, which is already sending
   // them on; only an arrival with a place already saved is sent on from here.
   const [arrivedSignedIn, setArrivedSignedIn] = useState<boolean | undefined>();
-  // The moment this screen was opened: the plan's words are about then.
-  const [openedAt] = useState(() => Date.now());
 
-  const missing = loaded && (draft === null || draft.way === undefined);
+  const missing = loaded && (draft === null || draft.circleName.trim() === '');
   const ready = loaded && !missing && !session.isLoading;
   // Adjusted while rendering, so no frame of the form is drawn for somebody who
   // is about to be sent on.
@@ -90,39 +91,27 @@ function LiveSavePlace() {
     track('organiser_gate_shown', {});
   }, [ready, skip, arrivedSignedIn]);
 
-  const place = useMemo(() => {
-    if (draft === null || draft.way === undefined) return undefined;
-    if (draft.way === 'invite') {
-      return {
-        circle: draft.circleName,
-        kind: 'invite' as const,
-        title: draft.circleName,
-        detail: t('savePlace', 'just_the_invite'),
-      };
-    }
-    const words = draftCard(draft.plan, deviceTimeZone() ?? 'UTC', openedAt).words;
-    return {
-      circle: draft.circleName,
-      kind: 'plan' as const,
-      title: words.window,
-      detail: t('savePlace', 'detail', {
-        band: words.band,
-        duration: words.duration,
-        closes: words.closesAt,
-      }),
-    };
-  }, [draft, openedAt]);
-
-  if (!ready || arrivedSignedIn === undefined || skip || place === undefined)
+  if (!ready || arrivedSignedIn === undefined || skip || draft === null) {
     return <WelcomeScreen state="loading" />;
+  }
 
   return (
     <SignInFlow
       gate={{
-        place,
-        onPassed: async () => {
+        circle: draft.circleName,
+        onBackToPlan: () => router.replace('/circles/new/plan'),
+        onPassed: async (): Promise<GateOutcome> => {
+          // The draft may have gone while the code was typed (a day, or another tab).
+          if ((await readDraft()) === null) return { kind: 'go', to: '/circles/new' };
           await save({ proceed: true });
           track('organiser_gate_passed', {});
+          const outcome = await finishDraft();
+          if (outcome.kind === 'no_draft') return { kind: 'go', to: '/circles/new' };
+          if (outcome.kind === 'needs_name') return { kind: 'go', to: '/name' };
+          void queryClient.invalidateQueries({
+            queryKey: ['circle-home', outcome.finished.circleId],
+          });
+          return { kind: 'go', to: firstShare(outcome.finished) };
         },
       }}
     />

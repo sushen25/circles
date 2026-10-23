@@ -153,9 +153,8 @@ describe('the organiser gate', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Send me a code' }));
     });
-    fireEvent.change(await screen.findByLabelText('Code'), { target: { value: '123456' } });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+      fireEvent.change(await screen.findByLabelText('Code'), { target: { value: '123456' } });
     });
 
     await waitFor(() => expect(saved).toHaveBeenCalled());
@@ -246,9 +245,8 @@ describe('Keep your place for good?', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Send me a code' }));
     });
-    fireEvent.change(await screen.findByLabelText('Code'), { target: { value: '123456' } });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+      fireEvent.change(await screen.findByLabelText('Code'), { target: { value: '123456' } });
     });
 
     expect(

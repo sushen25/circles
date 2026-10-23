@@ -3,6 +3,7 @@ import {
   EN_PREVIEW_TEMPLATES,
   EN_SHARE_TEMPLATES,
   FORTNIGHT_DAYS,
+  isWeekend,
   localDate,
   newPlanMessage,
   ogDescription,
@@ -22,6 +23,8 @@ import { appOrigin } from '../../data/links/origin';
 import { planDetails, planLink, planToShare, type PlanToShare } from '../../data/planning';
 import { copyText, shareMessage } from '../../platform/share';
 import { isOffline } from '../identity/join/failure';
+import { SourceCard } from '../identity/SourceCard';
+import { FirstShareScreen } from './FirstShareScreen';
 import { justReopened } from './messages';
 import { PlanSharedScreen } from './PlanSharedScreen';
 import { whenWords } from './when';
@@ -41,25 +44,44 @@ import { whenWords } from './when';
  * `plan_shared` is recorded when the message leaves — by the sheet or by a
  * copy — with the plan's id and never its code.
  */
+export type FirstRun = {
+  /** The organiser's own times are in the plan, or they chose to add them later. */
+  answer: 'answered' | 'later';
+  /** The arrival was on a tagged link, which answers the source question (SUS-240). */
+  tagged: boolean;
+};
+
 export function PlanSharedFlow({
   id,
   planId,
   again = false,
+  first,
 }: {
   id: string;
   planId: string;
   /** After an edit that asks everyone again, or "Change the time" (S1-26). */
   again?: boolean | undefined;
+  /** Arrived from the first run: the redesigned share (SUS-247, ADR 0090). */
+  first?: FirstRun | undefined;
 }) {
   return hasBackend() ? (
-    <LivePlanShared id={id} planId={planId} again={again} />
+    <LivePlanShared id={id} planId={planId} again={again} first={first} />
   ) : (
-    <FixturePlanShared />
+    <FixturePlanShared first={first !== undefined} />
   );
 }
 
-function FixturePlanShared() {
+function FixturePlanShared({ first }: { first: boolean }) {
   const router = useRouter();
+  if (first) {
+    return (
+      <FirstShareScreen
+        message={t('planShared', 'first_run_message_example')}
+        onHome={() => router.push('/circles/sunday-crew')}
+        onBack={() => router.back()}
+      />
+    );
+  }
   return (
     <PlanSharedScreen
       // The editor, as the live flow's is: on fixtures this screen's action
@@ -70,18 +92,38 @@ function FixturePlanShared() {
   );
 }
 
-/** "in the next two weeks" for the first-run fortnight; nothing for any other window. */
+/**
+ * "in the next two weeks" for a fortnight and "this weekend" for a weekend;
+ * nothing for any other window, the month included: the message says "catch
+ * up" and the link says when (ADR 0090, rule 10).
+ */
 function windowPhrase(plan: PlanToShare): string | undefined {
   // A fortnight with gaps in it is not "the next two weeks" (ADR 0047).
   if (plan.days !== undefined) return undefined;
-  const days = windowDays({ start: localDate(plan.windowStart), end: localDate(plan.windowEnd) });
-  return days === FORTNIGHT_DAYS ? t('planShared', 'in_the_next_two_weeks') : undefined;
+  const start = localDate(plan.windowStart);
+  const end = localDate(plan.windowEnd);
+  const days = windowDays({ start, end });
+  if (days === FORTNIGHT_DAYS) return t('planShared', 'in_the_next_two_weeks');
+  if (days <= 2 && isWeekend(start) && isWeekend(end)) return t('planShared', 'this_weekend');
+  return undefined;
 }
 
-function LivePlanShared({ id, planId, again }: { id: string; planId: string; again: boolean }) {
+function LivePlanShared({
+  id,
+  planId,
+  again,
+  first,
+}: {
+  id: string;
+  planId: string;
+  again: boolean;
+  first: FirstRun | undefined;
+}) {
   const router = useRouter();
   const session = useSession();
   const [outcome, setOutcome] = useState<'copied' | 'couldnt_copy' | undefined>();
+  // The share sheet has closed: the first run's share turns into "Over to {group}."
+  const [done, setDone] = useState(false);
 
   const plan = useQuery({
     queryKey: ['plan-to-share', planId, session.userId],
@@ -139,6 +181,55 @@ function LivePlanShared({ id, planId, again }: { id: string; planId: string; aga
       });
   const kind = again ? 'changed' : 'plan';
   const ids = { circle_id: data.circleId as CircleId, plan_id: data.id as PlanId };
+
+  if (first !== undefined && !again) {
+    const copy = () => {
+      setOutcome(undefined);
+      void copyText(message).then((copied) => {
+        if (copied) track('plan_shared', ids);
+        setOutcome(copied ? 'copied' : 'couldnt_copy');
+      });
+    };
+    return (
+      <FirstShareScreen
+        circleName={data.circleName}
+        message={message}
+        link={link}
+        closes={t('planShared', 'closes_first_run', {
+          deadline: whenWords(data.responseDeadline, data.zone),
+        })}
+        done={done}
+        outcome={outcome}
+        addMine={first.answer === 'later'}
+        source={<SourceCard tagged={first.tagged} enabled={done} />}
+        onCopy={copy}
+        onShare={() => {
+          setOutcome(undefined);
+          void shareMessage(message).then((result) => {
+            if (result === 'failed') {
+              setOutcome('couldnt_copy');
+              return;
+            }
+            if (result === 'sheet' || result === 'dismissed') {
+              track('share_opened', { ...ids, kind });
+            }
+            if (result === 'sheet' || result === 'copied') track('plan_shared', ids);
+            if (result === 'copied') setOutcome('copied');
+            // The sheet has closed, whichever way: the message is out, or the
+            // organiser has let it go, and either way there is nothing left to
+            // do here but go on.
+            setDone(true);
+          });
+        }}
+        onAddMine={() => router.push({ pathname: '/j/[code]', params: { code: data.code } })}
+        onShareAgain={() => {
+          setOutcome(undefined);
+          setDone(false);
+        }}
+        onHome={() => router.replace({ pathname: '/circles/[id]', params: { id } })}
+      />
+    );
+  }
 
   return (
     <PlanSharedScreen

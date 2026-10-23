@@ -24,6 +24,8 @@ type Props = {
   onPress?: (() => void) | undefined;
   /** Shown but not in play, and said so: not a checkbox that silently does nothing. */
   disabled?: boolean | undefined;
+  /** Less padding, for a row of three that has to fit a phone: the first run's windows. */
+  compact?: boolean | undefined;
 };
 
 export function Chip({
@@ -33,6 +35,7 @@ export function Chip({
   selected = false,
   onPress,
   disabled = false,
+  compact = false,
 }: Props) {
   const palette = usePalette();
   const ink = selected ? palette.onAccent : palette.ink;
@@ -51,6 +54,7 @@ export function Chip({
       style={[
         styles.chip,
         detail !== undefined && styles.twoLine,
+        compact && styles.compact,
         { backgroundColor: palette.surface, borderColor: palette.lineStrong },
         selected && { backgroundColor: palette.accent, borderColor: palette.accent },
       ]}
@@ -95,6 +99,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.chip,
     borderWidth: 1,
   },
+  compact: { paddingHorizontal: 12, gap: 4 },
   // Grows with its text rather than clipping it at 200% type.
   twoLine: {
     height: undefined,

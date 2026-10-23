@@ -28,8 +28,11 @@ import { fromLocal, toLocal } from '../shared/zone.js';
 import { lastPossibleStart } from './deadline.js';
 import type { PlanTiming, WindowPreset } from './types.js';
 
-/** A quiet ask picks from four windows; a custom one is a named plan's (spec §5.4). */
-export type QuietPreset = Exclude<WindowPreset, 'custom'>;
+/**
+ * A quiet ask picks from four windows; a custom one, and the first run's
+ * four-week "Monthly", are a named plan's (spec §5.4).
+ */
+export type QuietPreset = Exclude<WindowPreset, 'custom' | 'next_28_days'>;
 
 export const QUIET_PRESETS: readonly QuietPreset[] = [
   'tonight',

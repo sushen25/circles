@@ -44,6 +44,7 @@ export const PRESETS: readonly WindowPreset[] = [
   'this_weekend',
   'next_7_days',
   'next_14_days',
+  'next_28_days',
   'custom',
 ];
 
@@ -272,5 +273,6 @@ export const WINDOW_EVENT = {
   this_weekend: 'weekend',
   next_7_days: 'next_week',
   next_14_days: 'next_two_weeks',
+  next_28_days: 'next_28_days',
   custom: 'custom',
 } as const satisfies Record<WindowPreset, string>;

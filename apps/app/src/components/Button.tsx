@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, type PressableProps } from 'react-native';
+import { Fragment } from 'react';
+import { Pressable, StyleSheet, View, type PressableProps } from 'react-native';
 
 import { color, faceFor, hit, radius, shadow, size } from '@circles/tokens';
 
@@ -15,6 +16,15 @@ type ButtonProps = Omit<PressableProps, 'children' | 'style'> &
   BusyProps & {
     label: string;
     variant?: 'primary' | 'secondary';
+    /**
+     * Unavailable to a screen reader and to the keyboard, as a disabled button
+     * is, but a tap or a click on it still reaches `onPress`: for a decision
+     * that is waiting on something the screen then names when it is pressed
+     * ("Pick at least one evening first"), which a plain disabled button
+     * cannot say. The press is caught by a cover that assistive technology
+     * never sees, so what it hears is a button that is not available yet.
+     */
+    waiting?: boolean | undefined;
   };
 
 export function Button({
@@ -22,6 +32,7 @@ export function Button({
   busyLabel,
   busy,
   variant = 'primary',
+  waiting = false,
   disabled,
   onPress,
   ...props
@@ -32,40 +43,61 @@ export function Button({
   const view = useBusy(busy, onPress);
   const said = view.working ? (busyLabel ?? label) : label;
   const ink = primary ? palette.onAccent : inverted ? palette.ink : palette.ink2;
-  const faded = disabled === true && !view.working;
+  const faded = (disabled === true || waiting) && !view.working;
+  // Only a button that is waiting needs the cover over it, and so a frame for it.
+  const Wrap = waiting ? View : Fragment;
 
   return (
     <Slow slow={view.slow}>
-      <Pressable
-        role="button"
-        aria-label={said}
-        aria-busy={view.working}
-        aria-disabled={Boolean(disabled) && !view.working}
-        disabled={disabled && !view.working}
-        onPress={view.onPress}
-        style={({ pressed }) => [
-          styles.button,
-          primary
-            ? { backgroundColor: palette.accent, boxShadow: inverted ? undefined : shadow.elevated }
-            : {
-                backgroundColor: inverted ? 'transparent' : palette.surface,
-                borderWidth: 1,
-                borderColor: palette.lineStrong,
-              },
-          pressed && !view.working && !primary && { backgroundColor: palette.line },
-          pressed && !view.working && primary && !inverted && { backgroundColor: color.accentDark },
-          faded && styles.disabled,
-        ]}
-        {...props}
-      >
-        <Words
-          label={said}
-          other={view.working ? label : busyLabel}
-          style={[styles.label, { color: ink }]}
-          lead={view.spinner ? <Spinner color={ink} /> : null}
-          reserve={busy === undefined ? 0 : SPINNER.button + 10}
-        />
-      </Pressable>
+      <Wrap>
+        <Pressable
+          role="button"
+          aria-label={said}
+          aria-busy={view.working}
+          aria-disabled={faded}
+          disabled={faded}
+          onPress={view.onPress}
+          style={({ pressed }) => [
+            styles.button,
+            primary
+              ? {
+                  backgroundColor: palette.accent,
+                  boxShadow: inverted ? undefined : shadow.elevated,
+                }
+              : {
+                  backgroundColor: inverted ? 'transparent' : palette.surface,
+                  borderWidth: 1,
+                  borderColor: palette.lineStrong,
+                },
+            pressed && !view.working && !primary && { backgroundColor: palette.line },
+            pressed &&
+              !view.working &&
+              primary &&
+              !inverted && { backgroundColor: color.accentDark },
+            faded && styles.disabled,
+          ]}
+          {...props}
+        >
+          <Words
+            label={said}
+            other={view.working ? label : busyLabel}
+            style={[styles.label, { color: ink }]}
+            lead={view.spinner ? <Spinner color={ink} /> : null}
+            reserve={busy === undefined ? 0 : SPINNER.button + 10}
+          />
+        </Pressable>
+        {waiting && !view.working ? (
+          <Pressable
+            testID="waiting-press"
+            aria-hidden
+            focusable={false}
+            tabIndex={-1}
+            importantForAccessibility="no-hide-descendants"
+            style={StyleSheet.absoluteFill}
+            onPress={onPress}
+          />
+        ) : null}
+      </Wrap>
     </Slow>
   );
 }

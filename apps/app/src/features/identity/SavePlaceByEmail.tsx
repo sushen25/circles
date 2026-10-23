@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import {
   SavePlaceError,
@@ -88,16 +88,19 @@ export function SavePlaceByEmail({
   const [codeProblem, setCodeProblem] = useState<EnterCodeProblem | undefined>();
   const [reference, setReference] = useState<string | undefined>();
   const [newCodeSent, setNewCodeSent] = useState(false);
+  const confirming = useRef(false);
 
   if (step.kind === 'code') {
-    const confirm = async () => {
+    const confirm = async (code: string) => {
+      if (confirming.current) return;
+      confirming.current = true;
       setBusy(true);
       setCodeProblem(undefined);
       setReference(undefined);
       try {
         await savePlace({
           moment,
-          signIn: () => submitLinkCode(step.address, codeText, step.route),
+          signIn: () => submitLinkCode(step.address, code, step.route),
         });
       } catch (error) {
         if (error instanceof SavePlaceError) {
@@ -120,10 +123,12 @@ export function SavePlaceByEmail({
           );
         }
         setBusy(false);
+        confirming.current = false;
         return;
       }
       await onSaved(step.address);
       setBusy(false);
+      confirming.current = false;
     };
 
     return (
@@ -136,7 +141,7 @@ export function SavePlaceByEmail({
         newCodeSent={newCodeSent}
         resendAt={step.sentAt + RESEND_AFTER_MS}
         onCodeChange={setCodeText}
-        onContinue={() => void confirm()}
+        onContinue={(code) => void confirm(code)}
         onSendNewCode={() => {
           setCodeProblem(undefined);
           setReference(undefined);

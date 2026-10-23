@@ -188,8 +188,8 @@ describe('newPlanMessage', () => {
 
   it('is the artboard when the window is described', () => {
     expect(newPlanMessage({ ...base, windowPhrase: 'in the next two weeks' })).toBe(
-      "When can Sunday Crew actually catch up? Mark the times you'd be up for " +
-        `in the next two weeks. Takes a minute: ${LINK}`,
+      'When can Sunday Crew actually catch up in the next two weeks? ' +
+        `Pick the times you'd be up for, no app needed: ${LINK}`,
     );
   });
 
@@ -197,9 +197,15 @@ describe('newPlanMessage', () => {
     // The artboard's phrase describes one particular fortnight. Generating it
     // would be wrong for any other window, so it is the client's to supply.
     expect(newPlanMessage(base)).toBe(
-      "When can Sunday Crew actually catch up? Mark the times you'd be up for. " +
-        `Takes a minute: ${LINK}`,
+      "When can Sunday Crew actually catch up? Pick the times you'd be up for, " +
+        `no app needed: ${LINK}`,
     );
+  });
+
+  it('is eighteen words with the link, where it was twenty-seven', () => {
+    const words = newPlanMessage(base).split(/\s+/).length;
+    // The circle's name is two of them here; it is at least one for any circle.
+    expect(words).toBe(18);
   });
 });
 
@@ -239,7 +245,7 @@ describe('a message with its link taken off, for a screen that draws the link', 
     const shown = withoutLink(message, url);
     expect(shown).not.toContain(url);
     expect(shown).toBe(
-      "When can Sunday Crew actually catch up? Mark the times you'd be up for in the next two weeks. Takes a minute",
+      "When can Sunday Crew actually catch up in the next two weeks? Pick the times you'd be up for, no app needed",
     );
   });
 

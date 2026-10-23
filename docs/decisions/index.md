@@ -93,3 +93,4 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0087](./0087-the-content-loop-reads-the-funnel-by-tag-through-a-keyed-export-counts-only.md) | The content loop reads the funnel by tag through a keyed export, counts only | proposed |
 | [0088](./0088-a-signed-in-account-can-continue-as-a-guest.md) | A signed-in account can continue as a guest, the same as a guest can | accepted (amends 0006, 0022) |
 | [0089](./0089-the-content-bots-commit-to-a-data-branch-and-a-tag-makes-a-second-post-impossible.md) | The content bots commit to a data branch, and a tag makes a second post impossible | proposed (amends 0081) |
+| [0090](./0090-the-first-run-is-four-screens-to-the-share-and-the-organiser-answers-first.md) | The first run is four screens to the share, and the organiser answers their own plan first | accepted (amends 0026, 0053, 0076, 0084) |

@@ -18,7 +18,8 @@ describe('the three name screens', () => {
   it.each([
     ['the guest name screen', <NameScreen key="a" circleName="Sunday Crew" />, 'Your name'],
     ['the organiser name screen', <YourNameScreen key="b" />, 'Your name'],
-    ['the first circle screen', <FirstCircleScreen key="c" />, 'Circle name'],
+    // The heading is the field's label: one question, said once (SUS-247).
+    ['the first circle screen', <FirstCircleScreen key="c" />, 'Who do you keep meaning to see?'],
   ])('%s takes focus and hints with an instruction', (_name, screenElement, label) => {
     render(screenElement);
     const field = screen.getByLabelText(label);

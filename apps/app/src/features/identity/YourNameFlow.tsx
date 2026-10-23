@@ -116,7 +116,7 @@ function LiveYourName() {
     // the plan are made next (ADR 0053). A draft nobody carried through the gate
     // is not carried on from here.
     const draft = await readDraft().catch(() => null);
-    if (draft?.proceed === true && draft.way !== undefined) {
+    if (draft?.proceed === true) {
       router.replace(FINISH_PATH);
       return;
     }

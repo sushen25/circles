@@ -5,26 +5,21 @@ import { useEffect, useRef, useState } from 'react';
 import { guard, useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
 import { useOrganiserDraft } from './useOrganiserDraft';
-import {
-  FirstCircleScreen,
-  type CircleCadence,
-  type FirstCircleProblem,
-} from './FirstCircleScreen';
+import { FirstCircleScreen, type FirstCircleProblem } from './FirstCircleScreen';
 
 /**
- * `/circles/new`, and `/` for somebody with no saved place — the first circle
- * (spec §5.1 step 1 of 2).
+ * `/circles/new`, and `/` for somebody with no saved place — screen 1 of the
+ * first run (spec §5.1, SUS-247): who the plan is for.
  *
- * **Nothing is created here, and nobody has to sign in** (ADR 0053). The name
- * and the cadence are held on this device as a draft, and the circle is made
- * after the plan is ready and the place is saved (`FinishDraftFlow`). So there
- * is no gate on this route: anybody can type a circle's name, and the organiser
- * gate is the screen after the plan.
+ * **Nothing is created here, and nobody has to sign in** (ADR 0053). The name is
+ * held on this device as a draft, and the circle is made after the code is
+ * accepted (`finishDraft`). So there is no gate on this route: anybody can type
+ * a group's name, and the organiser gate is two screens on.
  *
  * Somebody with no saved place is at the front of the product, and sees the
- * wordmark and a quiet **Sign in** for a returning organiser. A signed-in
- * organiser arrives from their circles list and sees the same form with a way
- * back.
+ * wordmark and a quiet **Sign in** for a returning organiser, with "1 of 3". A
+ * signed-in organiser arrives from their circles list and sees the same screen
+ * with a way back and "1 of 2": they have no gate to pass.
  *
  * The draft is written as the name is typed (after a pause) and when the person
  * moves on, so a reload, or the round trip to an email code, brings it back.
@@ -36,14 +31,11 @@ export function FirstCircleFlow() {
 function FixtureFirstCircle() {
   const router = useRouter();
   const [name, setName] = useState('');
-  const [cadence, setCadence] = useState<CircleCadence>('monthly');
   return (
     <FirstCircleScreen
       name={name}
-      cadence={cadence}
       onNameChange={setName}
-      onCadenceChange={setCadence}
-      onNext={() => router.push('/circles/new/plan')}
+      onNext={(go) => go(() => router.push('/circles/new/plan'))}
       onSignIn={() => router.push('/sign-in')}
     />
   );
@@ -59,7 +51,6 @@ function LiveFirstCircle() {
   const { loaded, draft, save } = useOrganiserDraft();
 
   const [name, setName] = useState('');
-  const [cadence, setCadence] = useState<CircleCadence>('monthly');
   const [problem, setProblem] = useState<FirstCircleProblem | undefined>();
   const hydrated = useRef(false);
   const typedBeforeLoad = useRef(false);
@@ -73,7 +64,6 @@ function LiveFirstCircle() {
     hydrated.current = true;
     if (draft === null || typedBeforeLoad.current) return;
     setName(draft.circleName);
-    setCadence(draft.cadence);
   }, [loaded, draft]);
 
   // Written after the person pauses. Nothing is written for an empty form that
@@ -82,40 +72,35 @@ function LiveFirstCircle() {
   useEffect(() => {
     if (!hydrated.current || !edited.current) return;
     if (name.trim() === '' && draft === null) return;
-    pending.current = setTimeout(() => void save({ circleName: name, cadence }), SAVE_AFTER_MS);
+    pending.current = setTimeout(() => void save({ circleName: name }), SAVE_AFTER_MS);
     return () => clearTimeout(pending.current);
     // `draft` is not a dependency: writing it would write again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, cadence, loaded]);
+  }, [name, loaded]);
 
-  const next = async () => {
+  const next = async (go: (navigate: () => void) => void) => {
     const clean = normaliseDisplayName(name);
     if (!isValidDisplayName(clean)) {
       setProblem('name_unusable');
       return;
     }
     clearTimeout(pending.current);
-    await save({ circleName: clean, cadence });
-    router.push('/circles/new/plan');
+    await save({ circleName: clean });
+    go(() => router.push('/circles/new/plan'));
   };
 
   return (
     <FirstCircleScreen
       name={name}
-      cadence={cadence}
       problem={problem}
+      steps={signedIn ? 2 : 3}
       onNameChange={(text) => {
         typedBeforeLoad.current = true;
         edited.current = true;
         setName(text);
         if (problem === 'name_unusable') setProblem(undefined);
       }}
-      onCadenceChange={(value) => {
-        typedBeforeLoad.current = true;
-        edited.current = true;
-        setCadence(value);
-      }}
-      onNext={() => void next()}
+      onNext={(go) => void next(go)}
       onBack={
         signedIn ? () => (router.canGoBack() ? router.back() : router.replace('/')) : undefined
       }

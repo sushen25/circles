@@ -308,7 +308,8 @@ describe('the first plan', () => {
 
     await tap(screen.findByLabelText('This weekend'));
     expect(screen.getByText('Catch up · this weekend')).toBeVisible();
-    expect(screen.getByText('Replies close in 24 hours')).toBeVisible();
+    // Tomorrow at 6 pm, on the circle's clock (ADR 0090).
+    expect(screen.getByText(/^Replies close in \d+ hours$/)).toBeVisible();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Ask the group' }));
     });
@@ -350,8 +351,9 @@ describe('the plan message', () => {
     copyText.mockResolvedValue(true);
     wrap(<PlanSharedFlow id={CIRCLE} planId={PLAN} />);
 
-    const message = await screen.findByText(/When can Sunday Crew actually catch up\?/);
-    expect(message).toHaveTextContent('in the next two weeks');
+    const message = await screen.findByText(
+      /When can Sunday Crew actually catch up in the next two weeks\?/,
+    );
     // The link is its own line under the message, not buried inside it, and
     // the card shows what a chat will draw (S1-21's preview wording).
     expect(message).not.toHaveTextContent('https://circles.test/j/abcdefgh');

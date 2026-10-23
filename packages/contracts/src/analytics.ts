@@ -164,9 +164,9 @@ export const catalogue = {
      * the list had nowhere to put the one window every first plan uses — it
      * would have been recorded as `next_week`, which is a different question.
      * Widening an enum changes no existing event's meaning, so the version
-     * stays.
+     * stays. `next_28_days` is the first run's "Monthly" (SUS-247, ADR 0090).
      */
-    window: z.enum(['tonight', 'weekend', 'next_week', 'next_two_weeks', 'custom']),
+    window: z.enum(['tonight', 'weekend', 'next_week', 'next_two_weeks', 'next_28_days', 'custom']),
     used_defaults: z.boolean(),
     /**
      * A custom plan's shape (SUS-133, ADR 0047): whether it has gaps, and how

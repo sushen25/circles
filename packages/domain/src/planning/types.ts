@@ -71,7 +71,14 @@ export function acceptsAnswers(
 /** Intent, in the spec's words. "Catch up" is the default and covers most plans. */
 export type PlanCategory = 'catch_up' | 'dinner' | 'drinks' | 'coffee' | 'activity';
 
-export type WindowPreset = 'tonight' | 'this_weekend' | 'next_7_days' | 'next_14_days' | 'custom';
+export type WindowPreset =
+  | 'tonight'
+  | 'this_weekend'
+  | 'next_7_days'
+  | 'next_14_days'
+  /** The first run's default, "Monthly": the next four weeks (ADR 0090). */
+  | 'next_28_days'
+  | 'custom';
 
 /**
  * The calendar days the plan may land on: the first and the last, inclusive,
@@ -119,6 +126,9 @@ export const MAX_WINDOW_DAYS = 30;
  * whatever a custom window may run to (ADR 0030).
  */
 export const FORTNIGHT_DAYS = 14;
+
+/** How long the `next_28_days` preset is: four weeks, inside the thirty-day cap (ADR 0047). */
+export const MONTH_DAYS = 28;
 
 /**
  * The four fields the timing and re-ask rules actually read.

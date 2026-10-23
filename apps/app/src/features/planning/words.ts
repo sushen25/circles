@@ -34,6 +34,8 @@ export function presetLabel(preset: WindowPreset): string {
       return t('planSetup', 'next_7_days');
     case 'next_14_days':
       return t('planSetup', 'next_14_days');
+    case 'next_28_days':
+      return t('planSetup', 'next_28_days');
     case 'custom':
       return t('planSetup', 'custom');
   }

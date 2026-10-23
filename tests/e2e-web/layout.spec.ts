@@ -59,9 +59,11 @@ for (const size of SIZES) {
     }) => {
       await page.goto('/start');
       const heading = page.getByRole('heading', { name: /Who do you keep meaning to see/i });
-      const button = page.getByRole('button', { name: 'Create circle' });
+      const button = page.getByRole('button', { name: 'Next' });
       await expect(heading).toBeVisible();
       await expect(button).toBeVisible();
+      // The first run's steps slide in over 200 ms (SUS-247); measured at rest.
+      await page.waitForTimeout(500);
 
       const h = (await heading.boundingBox())!;
       const b = (await button.boundingBox())!;
