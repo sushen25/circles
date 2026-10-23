@@ -163,7 +163,7 @@ describe('painting and sending', () => {
     expect(screen.getAllByText('6:30–10 pm').length).toBeGreaterThan(0);
     backToAnswer();
     // The sheet is gone and the day says its hours, in its row.
-    expect(screen.queryByRole('button', { name: /^From \\d/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^From \d/ })).toBeNull();
     expect(screen.getByText('6:30–10 pm')).toBeInTheDocument();
     await send();
 
@@ -482,7 +482,7 @@ describe('days first, then a time once (ADR 0068)', () => {
     pick('from', 'Tuesday', '5:30 pm', '6:00 pm');
     backToAnswer();
     // The sheet is gone; the row says its hours and has no choice selected.
-    expect(screen.queryByRole('button', { name: /^From \\d/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^From \d/ })).toBeNull();
     expect(within(dayRow('Tuesday')).getByText('6–10:30 pm')).toBeInTheDocument();
     expect(
       within(dayRow('Tuesday'))
@@ -499,7 +499,7 @@ describe('days first, then a time once (ADR 0068)', () => {
       'true',
     );
     expect(dayButton('Thursday', 17)).toHaveAccessibleName(/, 5:30–10:30 pm$/);
-    expect(screen.queryByRole('button', { name: /^From \\d/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^From \d/ })).toBeNull();
 
     // A day that had hours of its own has no choice to go back to.
     byTheHalfHour('Tuesday');
@@ -512,7 +512,7 @@ describe('days first, then a time once (ADR 0068)', () => {
     await screen.findByText('Which days could work?');
     // The days differ, so the block is already the list.
     await differing();
-    expect(screen.queryAllByRole('button', { name: /^From \\d/ })).toHaveLength(0);
+    expect(screen.queryAllByRole('button', { name: /^From \d/ })).toHaveLength(0);
 
     byTheHalfHour('Monday');
     pick('from', 'Monday', '6:30 pm', '5:30 pm');
@@ -522,7 +522,7 @@ describe('days first, then a time once (ADR 0068)', () => {
       'aria-checked',
       'true',
     );
-    expect(screen.queryAllByRole('button', { name: /^From \\d/ })).toHaveLength(0);
+    expect(screen.queryAllByRole('button', { name: /^From \d/ })).toHaveLength(0);
 
     // Wednesday's own hours become the evening; Monday's are left as they were.
     fireEvent.click(within(dayRow('Wednesday')).getByRole('radio', { name: 'Evening' }));

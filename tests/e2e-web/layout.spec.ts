@@ -150,7 +150,7 @@ for (const size of SIZES) {
       await expectNoSidewaysOverflow(page);
 
       // The pairs are inside the column, and so is the picker sheet over them.
-      const until = page.getByRole('button', { name: /^To \\d.*, Tuesday/ });
+      const until = page.getByRole('button', { name: /^To \d.*, Tuesday/ });
       await expect(until).toBeVisible();
       const u = (await until.boundingBox())!;
       expect(u.x).toBeGreaterThanOrEqual(left + gutter - 1);

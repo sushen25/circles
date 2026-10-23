@@ -215,6 +215,7 @@ export function AvailabilityScreen({
   }
 
   const canSend = flexible || block !== undefined;
+  if (canSend && asked) setAsked(false);
   // While an answer is on its way nothing that would change it is live: the
   // request carries the answer as it was when Send was pressed.
   const locked = busy;

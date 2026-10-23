@@ -1997,7 +1997,6 @@ export const en = {
       "{circle} plans its catch-ups here. You're in as soon as you add a name, no app or account.",
     people_are_in: '{count} people are in',
     one_person_is_in: '1 person is in',
-    join_the_circle: 'Join {circle}',
     what_is_brand: 'What is {brand}?',
     opening_the_invite: 'Opening the invite',
     couldnt_open_the_invite: "We couldn't open this invite just now.",
@@ -2643,8 +2642,6 @@ export const en = {
     see_my_answer: 'Change my answer',
     see_how_its_looking: "See how it's looking",
     your_days: 'The days you sent',
-    your_answer: 'Your answer',
-    im_easy_chip: "I'm easy",
   },
   setTime: {
     /**

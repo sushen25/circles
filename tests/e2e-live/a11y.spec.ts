@@ -86,7 +86,7 @@ test('the availability editor has no serious accessibility violations', async ({
   await expect(page.getByRole('dialog', { name: /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/ })).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
   await page
-    .getByRole('button', { name: /^From \\d/ })
+    .getByRole('button', { name: /^From \d/ })
     .first()
     .click();
   // The picker replaces the pairs on the day's sheet: one dialog, not two.

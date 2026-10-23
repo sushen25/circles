@@ -173,7 +173,7 @@ test.describe('the controls actually work', () => {
 
     // Nothing is painted or scrolled: a day's hours are From and to buttons on
     // the sheet its clock opens.
-    await expect(page.getByRole('button', { name: /^From \\d/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^From \d/ })).toHaveCount(0);
     await page.getByRole('button', { name: /^Exact hours, Tuesday/ }).click();
     await expect(page.getByRole('checkbox', { name: / to / })).toHaveCount(0);
     await expect(
@@ -190,11 +190,11 @@ test.describe('the controls actually work', () => {
     await page.getByRole('radio', { name: '8:00 pm', exact: true }).click();
     await expect(page.getByRole('button', { name: /^To 8:00 pm, Tuesday/ })).toBeVisible();
     await page.getByRole('button', { name: 'Add another time' }).click();
-    await expect(page.getByRole('button', { name: /^From \\d.*, Tuesday/ })).toHaveCount(2);
+    await expect(page.getByRole('button', { name: /^From \d.*, Tuesday/ })).toHaveCount(2);
 
     // Done: the sheet goes and the day's row says its own hours.
     await page.getByRole('button', { name: 'Done', exact: true }).click();
-    await expect(page.getByRole('button', { name: /^From \\d/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^From \d/ })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^Exact hours, Tuesday.*, / })).toBeVisible();
   });
 

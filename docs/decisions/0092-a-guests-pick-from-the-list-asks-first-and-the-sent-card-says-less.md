@@ -62,6 +62,14 @@ more than the product did, or spent a person's attention on the wrong thing.
    reader ("From 5:30 pm", "To 10:30 pm"). Spec §5.5's quoted line changes the
    same way.
 
+4. **The invite landing drops what it could not say truthfully.** Spec §5.1's
+   "circle name, inviter's name, who is in so far, a one-sentence privacy
+   statement, and the expected effort" becomes the circle's name as the
+   heading, one sentence on what it is for, and who is in. Since ADR 0091 any
+   member sends the invite, so the link cannot name who did, and the privacy
+   promise is said on the name step and the answer screen. The button is **Join
+   {circle}**.
+
 Everything else on the guest path changed in the same ticket needs no rule: a
 guest's way to the options is spec §5.6's, an answered guest's chat link opening
 the options is what `/p/:code` already does, the locked-in refusal before a name

@@ -36,6 +36,7 @@ test("a guest's pick moves nothing until Yes, and Not me returns focus to the na
   await tom.click();
   await page.getByRole('button', { name: 'Not me' }).click();
   await expect(page.getByText('Carry on as Tom?')).toHaveCount(0);
+  await expect(tom).toBeFocused();
   expect(memberNamed(crew.circleId, 'Tom')?.userId, 'nothing moved on Not me').toBe(tomAsGuest);
 
   await tom.click();

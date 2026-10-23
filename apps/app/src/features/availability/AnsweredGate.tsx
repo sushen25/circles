@@ -53,11 +53,19 @@ function Live({ code, children }: { code: string; children: ReactNode }) {
     return <>{children}</>;
   }
   const { answer, plan } = question.data;
+  // A locked-in plan has its own screen on the plan link; the closed editor would say a time is yet to be picked.
+  if (answer !== null && (plan.state === 'confirmed' || plan.state === 'completed')) {
+    return <Redirect href={{ pathname: '/p/[code]', params: { code } }} />;
+  }
   const answered =
     answer !== null &&
     plan.acceptingAnswers &&
     draft.data?.pending === undefined &&
     (draft.data === null || !draftIsNewer(draft.data, answer));
   if (!answered) return <>{children}</>;
-  return <Redirect href={{ pathname: '/p/[code]', params: { code, arrived: '1' } }} />;
+  // "Your times are in." is true of times; the other answers are not times.
+  const times = answer.status === 'windows' || answer.status === 'flexible';
+  return (
+    <Redirect href={{ pathname: '/p/[code]', params: times ? { code, arrived: '1' } : { code } }} />
+  );
 }

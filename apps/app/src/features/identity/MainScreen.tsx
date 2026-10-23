@@ -137,7 +137,7 @@ export function MainScreen({
       </Body>
       <Foot>
         <Button
-          label={t('main', 'join_the_circle', { circle: view.circleName })}
+          label={t('main', 'join_circle', { circle: view.circleName })}
           busy={busy}
           onPress={onNext}
         />

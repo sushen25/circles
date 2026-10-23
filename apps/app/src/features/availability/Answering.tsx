@@ -324,7 +324,7 @@ export function Answering({
         onBackToMyTimes={() =>
           router.canGoBack()
             ? router.back()
-            : router.replace({ pathname: '/j/[code]', params: { code } })
+            : router.replace({ pathname: '/j/[code]', params: { code, edit: '1' } })
         }
         onBack={back}
       />

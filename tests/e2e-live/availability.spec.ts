@@ -142,7 +142,7 @@ test('what is set with From and to is what is stored, in two windows, and it com
   await page.getByRole('button', { name: 'Add another time' }).click();
   await pick(page, 'from', '7:00 pm', '7:30 pm');
   await page.getByRole('button', { name: 'Done', exact: true }).click();
-  await expect(page.getByRole('button', { name: /^From \\d/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^From \d/ })).toHaveCount(0);
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}/sent$`));
 
@@ -297,7 +297,7 @@ test("a clock's sheet goes Back to the choice the day had, and clears its exact 
   await firstClock(page).click();
   await pick(page, 'to', '10:30 pm', '9:00 pm');
   await page.getByRole('button', { name: 'Back to Evening instead' }).click();
-  await expect(page.getByRole('button', { name: /^From \\d/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^From \d/ })).toHaveCount(0);
   await expect(pill(page, 'Evening')).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page).toHaveURL(new RegExp(`/sent$`));
@@ -342,7 +342,7 @@ test('on a wide window the hours sheet and A time for each day sit in the centre
 
   // Beside the sheet is still the scrim: a tap there dismisses it, as Done does.
   await page.mouse.click(10, 790);
-  await expect(page.getByRole('button', { name: /^From \\d/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^From \d/ })).toHaveCount(0);
   const sideways = await page.evaluate(
     'document.documentElement.scrollWidth - document.documentElement.clientWidth',
   );

@@ -86,7 +86,7 @@ for (const width of [390, 375]) {
       expect(lowest).toBeGreaterThan(400); // something was measured
       expect(lowest).toBeLessThanOrEqual(812 - INSETS.bottom);
 
-      const until = page.getByRole('button', { name: /^To \\d.*, Tuesday/ });
+      const until = page.getByRole('button', { name: /^To \d.*, Tuesday/ });
       await until.click();
       const last = page.getByRole('radio').last();
       await last.scrollIntoViewIfNeeded();

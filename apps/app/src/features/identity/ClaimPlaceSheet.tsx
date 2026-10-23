@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { BodyText, Button, Sheet, Tertiary, Title } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -27,7 +29,10 @@ export function ClaimPlaceSheet({
   onYes: () => void;
   onDismiss: () => void;
 }) {
-  const shown = name ?? '';
+  // The sheet slides out after `name` is gone: keep what it said so it never reads "as ?".
+  const [last, setLast] = useState('');
+  if (name !== undefined && name !== last) setLast(name);
+  const shown = name ?? last;
   const keys = forAccount
     ? ({ title: 'claim_title', body: 'claim_body', yes: 'claim_yes' } as const)
     : ({ title: 'carry_on_title', body: 'carry_on_body', yes: 'carry_on_yes' } as const);

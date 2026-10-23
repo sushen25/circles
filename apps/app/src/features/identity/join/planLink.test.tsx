@@ -220,7 +220,7 @@ describe('a guest, in a circle that has guests', () => {
         'Too many tries from here just now. Wait a few minutes, then try again.',
       ),
     ).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Alex/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Continue as Alex' })).toBeTruthy();
     expect(replace).not.toHaveBeenCalled();
   });
 
@@ -423,7 +423,7 @@ describe('an account that is not a member, in a circle that has guests (ADR 0088
     await tap(screen.findByRole('button', { name: "Yes, I'm Alex" }));
 
     await waitFor(() => expect(screen.queryByText("Take Alex's place in Sunday Crew?")).toBeNull());
-    expect(screen.getByRole('button', { name: /Alex/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Continue as Alex' })).toBeTruthy();
   });
 
   it('"Not me" goes back to the list with nothing sent and no event', async () => {
@@ -433,7 +433,7 @@ describe('an account that is not a member, in a circle that has guests (ADR 0088
     await tap(screen.findByRole('button', { name: 'Not me' }));
 
     await waitFor(() => expect(screen.queryByText("Take Alex's place in Sunday Crew?")).toBeNull());
-    expect(screen.getByRole('button', { name: /Alex/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Continue as Alex' })).toBeTruthy();
     expect(screen.getByText('Been here before?')).toBeTruthy();
     expect(reattachFromList).not.toHaveBeenCalled();
     expect(track).not.toHaveBeenCalledWith('member_reattached', expect.anything());
@@ -469,7 +469,7 @@ describe('an account that is not a member, in a circle that has guests (ADR 0088
         'Too many tries from here just now. Wait a few minutes, then try again.',
       ),
     ).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Alex/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Continue as Alex' })).toBeTruthy();
   });
 
   it('is offered Try again, not a dead end, when the list cannot be loaded', async () => {
@@ -742,7 +742,7 @@ describe('a locked-in plan before a name (SUS-250, ADR 0054)', () => {
     arrive();
 
     expect(await screen.findByText('Been here before?')).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Alex/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Continue as Alex' })).toBeTruthy();
   });
 });
 

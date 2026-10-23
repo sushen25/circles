@@ -4,7 +4,7 @@ import type { Member } from '../../components';
 import { t } from '../../copy';
 import type { CandidateRow, PlanCandidates } from '../../data/scheduling';
 import { nameList } from './names';
-import { marksOf, namesWithYou, phrase } from './sentences';
+import { marksOf, namesOf, namesWithYou, phrase } from './sentences';
 import { dateOf, timeOf } from './words';
 
 /**
@@ -84,7 +84,8 @@ export function exceptionOf(data: PlanCandidates, row: CandidateRow): string | u
     data,
     missing.filter((id) => replied.has(id)),
   );
-  const unanswered = namesWithYou(
+  // Third person: "{name} hasn't answered" has no form for "you".
+  const unanswered = namesOf(
     data,
     missing.filter((id) => !replied.has(id)),
   );
