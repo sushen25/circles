@@ -93,17 +93,22 @@ beforeAll(async () => {
 });
 
 describe('the invite link', () => {
-  it('is shown to its owner again, and to nobody else', async () => {
+  it('is shown to any member of the circle, and to nobody outside it', async () => {
     const maya = await owner();
     const { circleId, secret } = await circleOf(maya);
 
     expect(await linkOf(maya, circleId)).toBe(secret);
 
+    // A guest member shares it too (SUS-248): anyone in the circle can Add someone.
     const nina = await guestJoining(secret, 'Nina');
-    const refused = await nina.functions.invoke('get-invite-link', {
+    expect(await linkOf(nina, circleId)).toBe(secret);
+
+    const stranger = clientFor(`stranger-${key()}`);
+    expect((await stranger.auth.signInAnonymously()).error).toBeNull();
+    const refused = await stranger.functions.invoke('get-invite-link', {
       body: { circle_id: circleId },
     });
-    expect(await refusalOf(refused.error)).toEqual({ status: 403, reason: 'not_the_owner' });
+    expect(await refusalOf(refused.error)).toEqual({ status: 403, reason: 'not_a_member' });
   });
 
   it('stops working when it is reset, and everybody already in stays in', async () => {

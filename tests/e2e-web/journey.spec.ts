@@ -288,7 +288,7 @@ test.describe('states are not routes', () => {
       ['joining', /just joined|so far/i],
       ['confirmed', /Locked in/i],
       ['due', /About time|been about/i],
-      ['empty', /first|nobody|invite/i],
+      ['empty', /Just you so far/i],
     ] as const) {
       await page.goto(`/circles/sunday-crew?state=${state}`);
       await expect(page.getByText(expected).first()).toBeVisible();

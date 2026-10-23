@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import {
   Body,
   Button,
-  ButtonRow,
   Card,
   CompactButton,
   DisplayL,
@@ -28,9 +27,10 @@ import { colorName } from './CreateCircleScreen';
 import { LoadFailed } from '../system/LoadFailed';
 
 /**
- * Settings — `docs/design/Settings.dc.html` (spec §5.2): the invite link with
- * Copy and Reset, the rhythm and who gets nudged, the reader's own quiet-asks
- * switch, the members with Remove, and Archive.
+ * Settings — `docs/design/Settings.dc.html` (spec §5.2): who is in, with **Add
+ * someone** for any member and, for the owner alone, **Cancel old invitations**
+ * (the reset, ADR 0091); then the rhythm and who gets nudged, the reader's own
+ * quiet-asks switch, and Archive.
  *
  * The owner's decisions are drawn only for the owner (`canManage`, which is the
  * domain's `mayManageCircle`); a member sees what the circle is set to and
@@ -47,30 +47,21 @@ export type SettingsMember = {
   renamable: boolean;
 };
 
-export type InviteView =
-  | { kind: 'loading' }
-  | { kind: 'shown'; display: string }
-  /** The live link cannot be shown again (ADR 0028): reset it. */
-  | { kind: 'unshowable' }
-  /** Asking for it failed: that says nothing about the link, so try again, not reset. */
-  | { kind: 'error' };
-
 export type SettingsProps = {
   fixture?: Fixture | undefined;
   state?: ScreenState | undefined;
   circleName?: string | undefined;
   canManage?: boolean | undefined;
   ownerName?: string | undefined;
-  invite?: InviteView | undefined;
   /**
-   * "Thursday Lot is full (20 people)": at the cap the link card gives way to
-   * this, since the link could only turn the next person away (ADR 0012).
+   * "Thursday Lot is full (20 people)": at the cap Add someone gives way to
+   * this, since an invitation could only turn the next person away (ADR 0012).
    */
   full?: string | undefined;
   /** What the owner can do about it; the owner's alone. */
   fullHint?: string | undefined;
-  /** What the last link action did: "Copied", "New link ready…". */
-  linkNote?: string | undefined;
+  /** What cancelling old invitations just did: "Old invitations cancelled…". */
+  inviteNote?: string | undefined;
   cadenceLabel?: string | undefined;
   policyLabel?: string | undefined;
   color?: string | undefined;
@@ -80,9 +71,10 @@ export type SettingsProps = {
   /** A write that did not land. */
   problem?: string | undefined;
   children?: ReactNode;
-  onCopyLink?: (() => void) | undefined;
-  onResetLink?: (() => void) | undefined;
-  onRetryLink?: (() => void) | undefined;
+  /** Any member's; absent at the cap and in an archived circle. */
+  onAddSomeone?: (() => void) | undefined;
+  /** The owner's alone: it cuts off every invitation already in a chat. */
+  onCancelInvitations?: (() => void) | undefined;
   onChangeCadence?: (() => void) | undefined;
   onChangePolicy?: (() => void) | undefined;
   onColorChange?: ((token: string) => void) | undefined;
@@ -150,10 +142,9 @@ export function SettingsScreen({
   circleName = t('settings', 'sunday_crew'),
   canManage = true,
   ownerName = t('settings', 'maya'),
-  invite = { kind: 'shown', display: t('settings', 'domain_join_7f3k') },
   full,
   fullHint,
-  linkNote,
+  inviteNote,
   cadenceLabel = t('settings', 'about_monthly'),
   policyLabel = t('settings', 'take_turns'),
   color = 'clay',
@@ -162,9 +153,8 @@ export function SettingsScreen({
   archived = false,
   problem,
   children,
-  onCopyLink,
-  onResetLink,
-  onRetryLink,
+  onAddSomeone,
+  onCancelInvitations,
   onChangeCadence,
   onChangePolicy,
   onColorChange,
@@ -177,7 +167,13 @@ export function SettingsScreen({
   onRetry,
   onBack,
 }: SettingsProps) {
-  const top = <TopBar title={circleName} onBack={onBack} backLabel={t('common', 'back')} />;
+  const top = (
+    <TopBar
+      title={t('settings', 'circle_settings')}
+      onBack={onBack}
+      backLabel={t('common', 'back')}
+    />
+  );
 
   const loading = useLoadingHold(state === 'loading');
   if (loading) {
@@ -207,44 +203,54 @@ export function SettingsScreen({
     <Screen>
       {top}
       <Body>
-        <DisplayL>{t('settings', 'circle_settings')}</DisplayL>
+        <DisplayL>{t('settings', 'whos_in')}</DisplayL>
         {problem === undefined ? null : <Notice kind="warn">{problem}</Notice>}
+        <Card>
+          {members.map((member, index) => (
+            <Stack key={member.userId}>
+              {index === 0 ? null : <Divider />}
+              <SettingRow title={member.name} detail={member.detail}>
+                {member.removable && onRemove !== undefined ? (
+                  <CompactButton
+                    label={t('settings', 'remove')}
+                    aria-label={t('settings', 'remove_name', { name: member.name })}
+                    onPress={() => onRemove(member.userId)}
+                  />
+                ) : null}
+                {member.renamable && onRename !== undefined ? (
+                  <CompactButton label={t('settings', 'change_my_name_here')} onPress={onRename} />
+                ) : null}
+              </SettingRow>
+            </Stack>
+          ))}
+        </Card>
         {full !== undefined ? (
           <Card>
             <Label>{full}</Label>
             {fullHint === undefined ? null : <Small>{fullHint}</Small>}
           </Card>
-        ) : canManage ? (
-          <Card>
-            <Label>{t('settings', 'invite_link')}</Label>
-            {invite.kind === 'loading' ? <Small>{t('settings', 'link_loading')}</Small> : null}
-            {invite.kind === 'shown' ? <Title>{invite.display}</Title> : null}
-            {invite.kind === 'unshowable' ? <Small>{t('settings', 'link_not_shown')}</Small> : null}
-            {invite.kind === 'error' ? (
-              <SettingRow title={t('settings', 'link_couldnt_load')}>
-                <CompactButton label={t('settings', 'try_again')} onPress={onRetryLink} />
-              </SettingRow>
-            ) : null}
-            <ButtonRow>
-              {invite.kind === 'shown' ? (
-                <Button
-                  label={t('settings', 'copy_link')}
-                  variant="secondary"
-                  onPress={onCopyLink}
-                />
-              ) : null}
-              <Button
-                label={t('settings', 'reset_link')}
-                variant="secondary"
-                onPress={onResetLink}
-              />
-            </ButtonRow>
-            {linkNote === undefined ? null : (
-              <Small accessibilityLiveRegion="polite">{linkNote}</Small>
+        ) : onAddSomeone === undefined ? null : (
+          <Stack>
+            <CompactButton
+              label={t('settings', 'add_someone')}
+              icon="person-add"
+              tone="accent"
+              onPress={onAddSomeone}
+            />
+          </Stack>
+        )}
+        {onCancelInvitations === undefined ? null : (
+          <Stack>
+            <CompactButton
+              label={t('settings', 'cancel_old_invitations')}
+              onPress={onCancelInvitations}
+            />
+            <Small>{t('settings', 'cancel_old_invitations_line')}</Small>
+            {inviteNote === undefined ? null : (
+              <Small accessibilityLiveRegion="polite">{inviteNote}</Small>
             )}
-            <Small>{t('settings', 'resetting_the_link_doesnt_affect_anyone_whos')}</Small>
-          </Card>
-        ) : null}
+          </Stack>
+        )}
         <Card>
           <SettingRow title={t('settings', 'catch_up')} detail={cadenceLabel}>
             {canManage ? (
@@ -290,31 +296,6 @@ export function SettingsScreen({
             <Small>{t('settings', 'only_the_owner', { owner: ownerName })}</Small>
           )}
         </Card>
-        <Stack>
-          <Label>{t('settings', 'members')}</Label>
-          <Card>
-            {members.map((member, index) => (
-              <Stack key={member.userId}>
-                {index === 0 ? null : <Divider />}
-                <SettingRow title={member.name} detail={member.detail}>
-                  {member.removable && onRemove !== undefined ? (
-                    <CompactButton
-                      label={t('settings', 'remove')}
-                      aria-label={t('settings', 'remove_name', { name: member.name })}
-                      onPress={() => onRemove(member.userId)}
-                    />
-                  ) : null}
-                  {member.renamable && onRename !== undefined ? (
-                    <CompactButton
-                      label={t('settings', 'change_my_name_here')}
-                      onPress={onRename}
-                    />
-                  ) : null}
-                </SettingRow>
-              </Stack>
-            ))}
-          </Card>
-        </Stack>
         {canManage && !archived ? (
           <Tertiary
             tone="plain"

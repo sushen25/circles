@@ -20,6 +20,8 @@ create extension if not exists pgtap with schema extensions;
 --      state is the most common real one and every screen has to read in it.
 --      Alex also has an account, signed in on a second device and in no circle,
 --      to claim the guest's place from (ADR 0088).
+--      While it asks, circle home offers one way into the chat, Share the plan,
+--      to Maya and to Nina alike, and no Add someone (ADR 0091, SUS-248).
 --   B. Thursday Regulars — a confirmed meetup that happened, with an outcome
 --      reported; `last_met_at` is set. Monthly, and five weeks on, so it is
 --      "About time for the next one": the first dispatcher run after a reset
@@ -29,6 +31,10 @@ create extension if not exists pgtap with schema extensions;
 --      screens break if they are going to.
 --   E. Book Club — a meetup locked in for the week after next (S1-23), so
 --      circle home's "locked in" state has something to show.
+--      There, and in B, every member sees Add someone: any active member can add
+--      someone between plans, and only Maya can cancel old invitations. (No
+--      seeded circle has an invitation to show yet: Add someone says so until
+--      its owner cancels old invitations once.)
 --
 -- Ids are deterministic (`00000000-0000-4000-8000-0000000001NN` for people,
 -- `…0a0N` for circles, `…0b0N` for plans) so a URL survives a reset. Dates are

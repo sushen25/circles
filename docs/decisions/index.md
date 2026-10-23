@@ -27,13 +27,13 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0019](./0019-consent-is-recorded-when-it-is-given.md) | Consent is recorded when it is given, and a preferences link does not expire on use | accepted |
 | [0020](./0020-the-verification-token-is-minted-by-the-sender.md) | The verification token is minted by whoever sends the email | accepted |
 | [0021](./0021-the-link-preview-is-not-rate-limited.md) | The link preview is not rate-limited; the code space is the control | accepted |
-| [0022](./0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md) | A plan link admits new members while the plan is taking answers | accepted (amended by 0026, 0035, 0064, 0088) |
+| [0022](./0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md) | A plan link admits new members while the plan is taking answers | accepted (amended by 0026, 0035, 0064, 0088, 0091) |
 | [0023](./0023-emailed-tokens-travel-in-the-fragment.md) | Emailed tokens travel in the URL fragment | accepted |
 | [0024](./0024-availability-days-first-then-a-time-once.md) | Availability is answered days first, then a time once | accepted (amended by 0068) |
 | [0025](./0025-the-preferences-link-is-minted-with-each-email.md) | The preferences link is minted with each email, and both footer links open it | accepted (amended by 0029, 0067, 0069) |
 | [0026](./0026-first-run-shares-a-plan-and-a-defaulted-quorum-follows-the-circle.md) | First run shares a plan, not an invite, and a defaulted quorum follows the circle | accepted |
 | [0027](./0027-the-organisers-auth-address-is-an-email-contact.md) | The organiser's auth address is an email contact, verified by auth | accepted (amended by 0050, 0067) |
-| [0028](./0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md) | An invite secret is derived, so its owner can see it again | accepted |
+| [0028](./0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md) | An invite secret is derived, so its owner can see it again | accepted (amended by 0091) |
 | [0029](./0029-an-organiser-turns-organiser-email-off-in-the-app.md) | An organiser turns organiser email off in the app, not by a link | accepted (amended by 0069) |
 | [0030](./0030-a-plan-may-ask-about-up-to-thirty-days.md) | A plan may ask about up to thirty days | accepted (amended by 0047) |
 | [0031](./0031-a-meetup-may-last-up-to-five-hours.md) | A meetup may last up to five hours | accepted |
@@ -94,3 +94,4 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0088](./0088-a-signed-in-account-can-continue-as-a-guest.md) | A signed-in account can continue as a guest, the same as a guest can | accepted (amends 0006, 0022) |
 | [0089](./0089-the-content-bots-commit-to-a-data-branch-and-a-tag-makes-a-second-post-impossible.md) | The content bots commit to a data branch, and a tag makes a second post impossible | proposed (amends 0081) |
 | [0090](./0090-the-first-run-is-four-screens-to-the-share-and-the-organiser-answers-first.md) | The first run is four screens to the share, and the organiser answers their own plan first | accepted (amends 0026, 0053, 0076, 0084) |
+| [0091](./0091-circle-home-offers-one-way-into-the-chat-at-a-time-and-any-member-can-add-someone.md) | Circle home offers one way into the chat at a time, and any member can add someone | accepted (amends 0022, 0028) |

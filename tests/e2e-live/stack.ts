@@ -103,7 +103,7 @@ export function mintedSecrets(): readonly Minted[] {
 
 /** Registers a secret the page is about to be handed, so the guard can look for it. */
 export function mint(value: string, kind: Minted['kind']): string {
-  // Once each: the owner's link is handed out again by `get-invite-link`.
+  // Once each: the invitation is handed out again, to any member, by `get-invite-link`.
   if (!minted.some((known) => known.value === value)) minted.push({ value, kind });
   return value;
 }

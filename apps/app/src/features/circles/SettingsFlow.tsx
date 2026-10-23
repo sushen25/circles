@@ -1,16 +1,13 @@
-import type { CircleId, IdempotencyKey } from '@circles/contracts';
+import type { IdempotencyKey } from '@circles/contracts';
 import { mayManageCircle, type Cadence, type NudgePolicy } from '@circles/domain';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 
-import { track } from '../../analytics/track';
 import { t } from '../../copy';
 import { useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
 import {
-  fetchInviteSecret,
-  heldInviteLink,
   leaveCircle,
   removeMember,
   resetInviteLink,
@@ -22,15 +19,12 @@ import {
   circleKeys,
 } from '../../data/circles';
 import { newIdempotencyKey } from '../../data/functions';
-import { appOrigin } from '../../data/links/origin';
-import { copyText } from '../../platform/share';
 import { isOffline, neverReachedServer } from '../identity/join/failure';
 import { showHomeAtOnce, type HomeChange } from './optimisticHome';
-import { SettingsScreen, type InviteView } from './SettingsScreen';
+import { SettingsScreen } from './SettingsScreen';
 import {
   cadenceLabel,
   cadenceOptions,
-  linkDisplay,
   memberRows,
   policyLabel,
   policyOf,
@@ -45,10 +39,11 @@ import { fullHint, fullLine, isFull } from './words';
  * only an active member gets here; what they may *change* is the domain's
  * `mayManageCircle`, and the server is the authority for all of it.
  *
- * - **The link**: shown again through `get-invite-link` (ADR 0028), copied,
- *   or reset through `rotate-invite`. The secret is held in memory only
- *   (`data/circles/invite.ts`); the query caches whether there is one, never
- *   the secret itself.
+ * - **Who's in, and Add someone** for any member (ADR 0091): the invitation
+ *   itself is the Add someone screen's. **Cancel old invitations**, the
+ *   owner's alone, is `rotate-invite` behind a sheet that says plans already
+ *   shared keep working. The secret is held in memory only
+ *   (`data/circles/invite.ts`), never in a query.
  * - **The owner's settings** are updates through RLS; **the reader's quiet-asks
  *   switch** is their own membership row.
  * - **Remove** goes through `remove-member`, **Archive** is the owner's update.
@@ -63,14 +58,14 @@ function FixtureSettings() {
   const router = useRouter();
   return (
     <SettingsScreen
-      onCopyLink={() => router.push('/circles/sunday-crew/invite')}
+      onAddSomeone={() => router.push('/circles/sunday-crew/invite')}
       onBack={() => router.back()}
     />
   );
 }
 
 type Asking =
-  | { kind: 'reset' }
+  | { kind: 'cancel_invitations' }
   | { kind: 'remove'; userId: string; name: string }
   | { kind: 'archive' }
   | { kind: 'leave' }
@@ -87,19 +82,8 @@ function LiveSettings({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | undefined>();
   const [sheetProblem, setSheetProblem] = useState<string | undefined>();
-  const [linkNote, setLinkNote] = useState<string | undefined>();
+  const [inviteNote, setInviteNote] = useState<string | undefined>();
   const keys = useRef(new Map<string, IdempotencyKey>());
-
-  const owner = home.data !== undefined && home.data !== null && home.data.isOwner;
-  // At the cap there is no link card, so the secret is not fetched for one.
-  const atCap = home.data !== undefined && home.data !== null && isFull(home.data);
-  // Whether the link can be shown; the secret itself stays in `invite.ts`.
-  const link = useQuery({
-    queryKey: ['invite-link-shown', id, session.userId],
-    queryFn: async () => (await fetchInviteSecret(id)) !== undefined,
-    enabled: owner && !atCap,
-    staleTime: Infinity,
-  });
 
   const back = () =>
     router.canGoBack()
@@ -157,30 +141,19 @@ function LiveSettings({ id }: { id: string }) {
     }
   };
 
-  const held = heldInviteLink(id, appOrigin());
-  const invite: InviteView =
-    held !== undefined
-      ? { kind: 'shown', display: linkDisplay(held.slice(held.indexOf('#') + 1)) }
-      : link.isFetching || link.isPending
-        ? { kind: 'loading' }
-        : link.isError
-          ? { kind: 'error' }
-          : { kind: 'unshowable' };
-
   const confirm = async () => {
     if (asking === undefined || busy) return;
     setBusy(true);
     setSheetProblem(undefined);
     try {
-      if (asking.kind === 'reset') {
+      if (asking.kind === 'cancel_invitations') {
         await resetInviteLink(id, keyFor('reset'));
         // The reset has happened: the next one is a new request. Nothing after
         // this line may fail the mutation, or a retry under a fresh key would
-        // rotate again and kill the link this one made (review round 1). The
-        // secret is already held; the refetch only refreshes the cache.
+        // rotate again and kill the invitation this one made (review round 1).
+        // The new secret is already held.
         keys.current.delete('reset');
-        setLinkNote(t('settings', 'new_link_ready'));
-        void link.refetch();
+        setInviteNote(t('settings', 'old_invitations_cancelled'));
       } else if (asking.kind === 'remove') {
         await removeMember(id, asking.userId, keyFor(`remove:${asking.userId}`));
         await refresh();
@@ -201,8 +174,8 @@ function LiveSettings({ id }: { id: string }) {
       setSheetProblem(
         neverReachedServer(error)
           ? t('settings', 'youre_offline')
-          : asking.kind === 'reset'
-            ? t('settings', 'couldnt_reset')
+          : asking.kind === 'cancel_invitations'
+            ? t('settings', 'couldnt_cancel_invitations')
             : asking.kind === 'remove'
               ? t('settings', 'couldnt_remove', { name: asking.name })
               : asking.kind === 'leave'
@@ -215,11 +188,12 @@ function LiveSettings({ id }: { id: string }) {
   };
 
   const confirmSheet =
-    asking?.kind === 'reset'
+    asking?.kind === 'cancel_invitations'
       ? {
-          title: t('settings', 'reset_title'),
-          body: t('settings', 'reset_body', { circle: data.name }),
-          confirmLabel: t('settings', 'reset_link'),
+          title: t('settings', 'cancel_invitations_title'),
+          body: t('settings', 'cancel_invitations_body', { circle: data.name }),
+          confirmLabel: t('settings', 'cancel_them'),
+          dismissLabel: t('settings', 'keep_them'),
         }
       : asking?.kind === 'remove'
         ? {
@@ -246,10 +220,9 @@ function LiveSettings({ id }: { id: string }) {
       circleName={data.name}
       canManage={canManage}
       ownerName={data.members.find((m) => m.role === 'owner')?.name ?? ''}
-      invite={invite}
       full={isFull(data) ? fullLine(data) : undefined}
       fullHint={isFull(data) && canManage ? fullHint() : undefined}
-      linkNote={linkNote}
+      inviteNote={inviteNote}
       cadenceLabel={cadenceLabel(data.cadence)}
       policyLabel={policyLabel(policyOf(data))}
       color={data.color}
@@ -257,16 +230,16 @@ function LiveSettings({ id }: { id: string }) {
       members={memberRows(data)}
       archived={data.status === 'archived'}
       problem={problem}
-      onCopyLink={() => {
-        if (held === undefined) return;
-        setLinkNote(undefined);
-        void copyText(held).then((copied) => {
-          if (copied) track('circle_invite_shared', { circle_id: id as CircleId, kind: 'copy' });
-          setLinkNote(copied ? t('settings', 'copied') : t('settings', 'couldnt_copy'));
-        });
-      }}
-      onResetLink={() => setAsking({ kind: 'reset' })}
-      onRetryLink={() => void link.refetch()}
+      onAddSomeone={
+        isFull(data) || data.status === 'archived'
+          ? undefined
+          : () => router.push({ pathname: '/circles/[id]/invite', params: { id } })
+      }
+      onCancelInvitations={
+        canManage && data.status !== 'archived'
+          ? () => setAsking({ kind: 'cancel_invitations' })
+          : undefined
+      }
       onChangeCadence={() => setAsking({ kind: 'cadence' })}
       onChangePolicy={() => setAsking({ kind: 'policy' })}
       onColorChange={(color) => void save({ color })}
@@ -304,6 +277,7 @@ function LiveSettings({ id }: { id: string }) {
         title={confirmSheet?.title ?? ''}
         body={confirmSheet?.body}
         confirmLabel={confirmSheet?.confirmLabel ?? ''}
+        dismissLabel={confirmSheet?.dismissLabel}
         busy={busy}
         problem={sheetProblem}
         onConfirm={() => void confirm()}

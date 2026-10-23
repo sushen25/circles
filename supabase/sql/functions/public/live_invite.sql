@@ -1,23 +1,25 @@
 -- ---------------------------------------------------------------------------
--- The circle's live invite, as its owner may know it (S1-23, ADR 0028).
+-- The circle's live invite, as any active member may know it (S1-23, ADR 0028;
+-- widened from the owner alone by SUS-248, Sushen's decision of 23 Oct 2026).
 --
--- `get-invite-link` shows the owner their link again. The secret is not stored
+-- `get-invite-link` shows a member the link again. The secret is not stored
 -- — only its SHA-256 is (§14) — so the Edge Function *derives* it from the
 -- invite's id with a key the database never sees, and checks the derivation
 -- against the digest before handing anything back. This is the half the
 -- database can answer: which invite is live, and what its digest is.
 --
--- The owner's alone, by the rule `issue_invite` follows: handing out the way
--- in is the one circle decision spec §5.2 gives to the owner. A member who is
--- not the owner is refused rather than answered with nothing, so the screen can
--- tell "you may not" from "there is no link".
+-- Any active member's, guests included: the invitation already reaches every
+-- member who reads the group chat, so this changes who can share it again, not
+-- who can see it. Making a new invite and cutting off old ones stay the owner's
+-- (`issue_invite`, `rotate-invite`). Anyone who is not an active member of this
+-- circle (removed, left, or in another circle) is refused rather than answered
+-- with nothing, so the screen can tell "you may not" from "there is no link".
 --
 -- **The service role's, not the client's (SUS-114).** The digest is not the
 -- secret, but it was a way in, and an owner's client has no use for it:
 -- only `get-invite-link` compares it. So that function calls this with the
--- owner it verified from the JWT as `p_user_id`, and the digest stops at the
--- server. (The owner check is `auth_is_owner`'s, restated for a caller who is
--- an argument rather than `auth.uid()`.)
+-- member it verified from the JWT as `p_user_id`, and the digest stops at the
+-- server.
 --
 -- No row when the circle has no live invite: a circle made without one (the
 -- fixtures do that) has nothing to show until the owner resets it.
@@ -32,20 +34,18 @@ set search_path = ''
 as $$
 begin
   if p_user_id is null then
-    raise exception 'live_invite requires the owner asking'
+    raise exception 'live_invite requires a member asking'
       using errcode = 'insufficient_privilege';
   end if;
 
-  -- As `auth_is_owner`, this asks for an *active* owner: an owner who has left owns
-  -- nothing, and an id that is not a circle is simply not theirs.
+  -- An *active* member of this circle: someone who has left or been removed is
+  -- refused, and an id that is not a circle is simply not theirs.
   if not exists (
     select 1
-    from public.circles c
-    join public.circle_members m
-      on m.circle_id = c.id and m.user_id = c.owner_user_id and m.status = 'active'
-    where c.id = p_circle_id and c.owner_user_id = p_user_id
+    from public.circle_members m
+    where m.circle_id = p_circle_id and m.user_id = p_user_id and m.status = 'active'
   ) then
-    raise exception 'not_the_owner' using errcode = 'insufficient_privilege';
+    raise exception 'not_a_member' using errcode = 'insufficient_privilege';
   end if;
 
   return query
@@ -56,7 +56,7 @@ end;
 $$;
 
 comment on function public.live_invite(uuid, uuid) is
-  'The id and digest of a circle''s live invite, if p_user_id owns the circle, so get-invite-link can re-derive the secret (ADR 0028). Never the secret: the database does not have it. Service role only: the digest does not reach a client (SUS-114).';
+  'The id and digest of a circle''s live invite, if p_user_id is an active member of the circle, so get-invite-link can re-derive the secret (ADR 0028). Never the secret: the database does not have it. Service role only: the digest does not reach a client (SUS-114).';
 
 revoke all on function public.live_invite(uuid, uuid) from public;
 revoke all on function public.live_invite(uuid, uuid) from anon, authenticated;

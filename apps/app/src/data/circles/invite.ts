@@ -1,16 +1,16 @@
 import { DEEP_LINK_ROUTES } from '@circles/contracts';
 
 /**
- * The circle's invite link, while this tab holds it.
+ * The circle's invitation (`/join#<secret>`), while this tab holds it.
  *
- * The secret arrives from `create-circle`, from `rotate-invite` ("Reset link")
- * or from `get-invite-link` (the owner asking for it again, ADR 0028), and only
- * its SHA-256 is stored server-side (§14). It is kept here, in memory, for the
- * screens that share it — InviteCircle, "Share again" and "Invite link" on the
- * circle home, "Copy link" in settings — and nowhere that outlives the tab: not
- * a URL, not storage, not a query key, not analytics. A reload loses it, and the
- * owner's screens ask `get-invite-link` again. Keeping it in storage would be
- * keeping a capability somewhere else to leak from.
+ * The secret arrives from `create-circle`, from `rotate-invite` ("Cancel old
+ * invitations") or from `get-invite-link` (any active member asking for it
+ * again, ADR 0028, ADR 0091), and only its SHA-256 is stored server-side (§14).
+ * It is kept here, in memory, for the screens that share it — Add someone — and
+ * nowhere that outlives the tab: not a URL, not storage, not a query key, not
+ * analytics. A reload loses it, and the Add someone screen asks `get-invite-link`
+ * again. Keeping it in storage would be keeping a capability somewhere else to
+ * leak from.
  *
  * Keyed by circle, so a second circle made in the same tab does not hand the
  * first one's link to the wrong group.

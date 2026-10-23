@@ -99,7 +99,7 @@ describe('the organiser of a first plan nobody has answered', () => {
     planCandidates.mockResolvedValue(waitingFor(47));
     show();
 
-    expect(await screen.findByText('Share the link again')).toBeTruthy();
+    expect(await screen.findByText('Share the plan again')).toBeTruthy();
     expect(screen.queryByText(QUESTION)).toBeNull();
     expect(askToShow).not.toHaveBeenCalled();
   });
@@ -110,7 +110,7 @@ describe('the organiser of a first plan nobody has answered', () => {
     );
     show();
 
-    expect(await screen.findByText('Share the link again')).toBeTruthy();
+    expect(await screen.findByText('Share the plan again')).toBeTruthy();
     expect(screen.queryByText(QUESTION)).toBeNull();
     expect(askToShow).not.toHaveBeenCalled();
   });
@@ -119,7 +119,7 @@ describe('the organiser of a first plan nobody has answered', () => {
     planCandidates.mockResolvedValue(waitingFor(60, { isFirstPlan: false }));
     show();
 
-    expect(await screen.findByText('Share the link again')).toBeTruthy();
+    expect(await screen.findByText('Share the plan again')).toBeTruthy();
     expect(screen.queryByText(QUESTION)).toBeNull();
     expect(askToShow).not.toHaveBeenCalled();
   });
@@ -129,7 +129,7 @@ describe('the organiser of a first plan nobody has answered', () => {
     planCandidates.mockResolvedValue(waitingFor(60));
     show();
 
-    expect(await screen.findByText('Share the link again')).toBeTruthy();
+    expect(await screen.findByText('Share the plan again')).toBeTruthy();
     await waitFor(() => expect(askToShow).toHaveBeenCalled());
     expect(screen.queryByText(QUESTION)).toBeNull();
   });
@@ -138,7 +138,7 @@ describe('the organiser of a first plan nobody has answered', () => {
     planCandidates.mockResolvedValue(waitingFor(60, { othersAnsweredEver: true }));
     show();
 
-    expect(await screen.findByText('Share the link again')).toBeTruthy();
+    expect(await screen.findByText('Share the plan again')).toBeTruthy();
     expect(screen.queryByText(QUESTION)).toBeNull();
     expect(askToShow).not.toHaveBeenCalled();
   });
@@ -156,7 +156,7 @@ describe('the organiser of a first plan nobody has answered', () => {
     first.unmount();
 
     render(flow);
-    expect(await screen.findByText('Share the link again')).toBeTruthy();
+    expect(await screen.findByText('Share the plan again')).toBeTruthy();
     await new Promise((resolve) => setTimeout(resolve, 30));
     expect(screen.queryByText(QUESTION)).toBeNull();
   });
@@ -200,7 +200,7 @@ describe('the organiser of a first plan nobody has answered', () => {
     show();
 
     expect(await screen.findByText(QUESTION)).toBeTruthy();
-    expect(screen.getByText('Share the link again')).toBeTruthy();
+    expect(screen.getByText('Share the plan again')).toBeTruthy();
     expect(screen.getByText('Set the time yourself')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Change my times' })).toBeTruthy();
   });

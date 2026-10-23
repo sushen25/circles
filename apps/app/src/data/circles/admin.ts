@@ -11,10 +11,12 @@ import { invokeFunction } from '../functions';
 import { keepInviteSecret } from './invite';
 
 /**
- * The owner's three functions (S1-23): the link again, a new link, and taking
- * somebody out. Each is the owner's alone and the server says so
- * (`not_the_owner`); the screens only offer them to the owner so nobody meets
- * that refusal by tapping.
+ * The circle's three functions (S1-23): the invitation again, a new one, and
+ * taking somebody out. **The first is any active member's** (ADR 0091:
+ * `get-invite-link` refuses only somebody who is not in the circle, with
+ * `not_a_member`); the other two are the owner's alone and the server says so
+ * (`not_the_owner`), and the screens only offer them to the owner so nobody
+ * meets that refusal by tapping.
  *
  * A secret that comes back is kept in memory for this tab and nowhere else
  * (`invite.ts`), exactly as `create-circle`'s is: not storage, not a URL, not a
@@ -22,9 +24,9 @@ import { keepInviteSecret } from './invite';
  */
 
 /**
- * The live link's secret, or undefined when it cannot be shown again — a link
- * made before links could be, or on a deployment without the key (ADR 0028).
- * The screen then offers a reset.
+ * The live invitation's secret, or undefined when it cannot be shown again — one
+ * made before they could be, or on a deployment without the key (ADR 0028).
+ * The screen then says so, and the owner can cancel old invitations.
  */
 export async function fetchInviteSecret(circleId: string): Promise<string | undefined> {
   const { invite_secret: secret } = await invokeFunction(
@@ -38,9 +40,10 @@ export async function fetchInviteSecret(circleId: string): Promise<string | unde
 }
 
 /**
- * "Reset link": a new secret, the old link dead. The key is the caller's, held
- * for the confirmation sheet's life, so a retry after a lost response returns
- * the same new link instead of killing it with a second reset.
+ * "Cancel old invitations": a new secret, the old invitations dead. The key is
+ * the caller's, held for the confirmation sheet's life, so a retry after a lost
+ * response returns the same new secret instead of killing it with a second
+ * reset.
  */
 export async function resetInviteLink(
   circleId: string,

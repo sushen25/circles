@@ -30,7 +30,7 @@ export function PlanActions({ onShareAgain, shareOutcome, onEditPlan }: PlanActi
       <ButtonRow>
         {onShareAgain === undefined ? null : (
           <CompactButton
-            label={t('waiting', 'share_the_link_again')}
+            label={t('waiting', 'share_the_plan_again')}
             icon="share"
             onPress={onShareAgain}
           />

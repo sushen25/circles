@@ -174,7 +174,7 @@ export function weeksSince(lastMetAt: Instant, now: Instant, z: Zone): number {
  * - `finding_a_time` — a named plan is collecting answers. It wins over a
  *   meetup already locked in, because it is the one waiting on somebody.
  * - `locked_in` — a confirmed meetup still ahead.
- * - `just_you` — nobody has joined yet: the only useful thing is the link.
+ * - `just_you` — nobody has joined yet: the plan is how friends join (ADR 0091).
  * - otherwise the cadence, in `cadenceState`'s terms: `about_time` for
  *   `due_soon`, and `never_met`, `no_goal` and `no_rush` as they are.
  *
@@ -219,8 +219,9 @@ export function circleHomeState(input: CircleHomeInput): CircleHomeState {
  * a circle has one open plan at a time, so "Plan a catch-up" beside a running
  * one would open a screen whose only job is to say no (ADR 0033, SUS-197).
  * `askedAgain` is the reader whose answer an edit cleared (SUS-130): the way
- * back to the grid leads for them. Without a live plan the primary starts one,
- * or, in a circle of one, shares the link.
+ * back to the grid leads for them. Without a live plan the primary starts one, in
+ * a circle of one as well: friends join from the plan, and adding someone is
+ * the members row's job, never the primary's (ADR 0091).
  */
 export type CircleHomePrimary =
   | 'see_how_its_looking'
@@ -228,24 +229,52 @@ export type CircleHomePrimary =
   | 'details'
   | 'plan_a_catch_up'
   | 'plan_another'
-  | 'invite';
+  /** Replies have closed and the reader is the one who picks (ADR 0091). */
+  | 'pick_a_time';
 
 export function circleHomePrimary(
   state: CircleHomeState,
-  options: { readonly askedAgain: boolean },
+  options: {
+    readonly askedAgain: boolean;
+    /** The plan is still open but no longer takes answers: the deadline has passed. */
+    readonly repliesClosed?: boolean | undefined;
+    /** The reader may decide the plan: its organiser. */
+    readonly organiser?: boolean | undefined;
+  },
 ): CircleHomePrimary {
   switch (state) {
     case 'finding_a_time':
+      // Answers are closed, so there is nothing to add: the organiser decides,
+      // everybody else watches (ADR 0091).
+      if (options.repliesClosed === true) {
+        return options.organiser === true ? 'pick_a_time' : 'see_how_its_looking';
+      }
       return options.askedAgain ? 'add_my_times' : 'see_how_its_looking';
     case 'locked_in':
       return 'details';
-    case 'just_you':
-      return 'invite';
     case 'about_time':
       return 'plan_another';
+    case 'just_you':
     case 'never_met':
     case 'no_goal':
     case 'no_rush':
       return 'plan_a_catch_up';
   }
+}
+
+/**
+ * Whether circle home offers **Add someone** (ADR 0091). Every state does,
+ * except while a plan takes answers: then the plan's own share is the way into
+ * the chat, and it admits new people itself (ADR 0022). A plan whose replies
+ * have closed admits nobody, so the circle is how somebody gets in again, and
+ * any active member may offer it (the reset stays the owner's).
+ *
+ * Whether the circle has room (ADR 0012) and whether it is archived are
+ * separate questions the screen already answers.
+ */
+export function offersAddSomeone(
+  state: CircleHomeState,
+  options: { readonly takingAnswers: boolean },
+): boolean {
+  return !(state === 'finding_a_time' && options.takingAnswers);
 }

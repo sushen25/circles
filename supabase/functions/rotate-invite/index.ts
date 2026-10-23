@@ -7,7 +7,7 @@ import { enforce } from '../_shared/rate.ts';
 import { newInvite } from '../_shared/secret.ts';
 
 /**
- * "Reset link" (spec §5.2, S1-23): a new invite secret, and the old one dead.
+ * "Cancel old invitations" (spec §5.2, S1-23): a new invite secret, and the old one dead.
  *
  * `public.issue_invite` does the whole of it — the owner's alone
  * (`not_the_owner`), revoking every earlier link in the same statement, the

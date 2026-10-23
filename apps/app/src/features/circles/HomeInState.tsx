@@ -1,5 +1,5 @@
 import type { CircleId, PlanId } from '@circles/contracts';
-import { circleHomePrimary, EN_SHARE_TEMPLATES } from '@circles/domain';
+import { circleHomePrimary, EN_SHARE_TEMPLATES, offersAddSomeone } from '@circles/domain';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -20,7 +20,7 @@ import { EmptyCircleScreen } from './EmptyCircleScreen';
 import { aboutTimeBody, homeState, lockedInWords, planMarks } from './lines';
 import { useMorningAfterCard } from './MorningAfterCard';
 import { useNudgeActions } from './useNudgeActions';
-import { useShareLink } from './useShareLink';
+import { useSharePlan } from './useSharePlan';
 import {
   cadenceWords,
   fullLine,
@@ -30,15 +30,18 @@ import {
   justJoined,
   lastCaughtUp,
   nextOne,
+  closedLine,
 } from './words';
 
 /**
  * One circle home, in whichever state the domain says it is in (spec §5.2).
  *
  * What every state shares is worked out once: the header, the members, and the
- * owner's two ways in — the invite link and settings. **The invite link is the
- * owner's alone** (`get-invite-link` refuses anybody else), so a member's home
- * has no link to offer rather than one that fails when tapped.
+ * two ways on — settings and **Add someone**. Each state offers one way into
+ * the chat at a time (ADR 0091): while a plan takes answers it is the plan's own
+ * share, and there is no Add someone; at every other time any active member can
+ * add someone (`get-invite-link` answers every member, and only resetting is
+ * the owner's), unless the circle is full.
  */
 export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => void }) {
   const router = useRouter();
@@ -75,22 +78,23 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
       </>
     );
   const nudge = useNudgeActions(home);
-  const shareLink = useShareLink(home);
+  const share = useSharePlan(home);
 
   const members = home.members.map((m) => ({ name: m.name }));
-  // At the cap the link would only turn the next person away (ADR 0012), so
-  // the home says the circle is full in place of the count and offers no way
-  // to share it. The domain decides (`canAddMember`); the home never counts.
+  // At the cap the invitation would only turn the next person away (ADR 0012),
+  // so the home says the circle is full beside the members and offers no way
+  // to add anyone. The domain decides (`canAddMember`); the home never counts.
   const full = isFull(home);
-  const memberCount = full
-    ? fullLine(home)
-    : home.members.length === 1
-      ? t('circleHome', 'one_member_count')
-      : t('circleHome', 'member_count', { count: home.members.length });
-  const invite =
-    home.isOwner && !full
+  const fullText = full ? fullLine(home) : undefined;
+  const state = homeState(home);
+  // Whether a plan is taking answers is what makes its share the way in.
+  const addSomeone =
+    !full &&
+    home.status !== 'archived' &&
+    offersAddSomeone(state, { takingAnswers: share.onSharePlan !== undefined })
       ? () => router.push({ pathname: '/circles/[id]/invite', params: { id } })
       : undefined;
+  const met = home.lastMetAt !== null;
   const settings = () => router.push({ pathname: '/circles/[id]/settings', params: { id } });
   const planNew = () => router.push({ pathname: '/circles/[id]/plan/new', params: { id } });
   // "Plan another" is the circle's second plan and after: prefilled from the
@@ -100,13 +104,11 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
     circleName: home.name,
     color: home.color,
     members,
-    memberCount,
-    onInviteLink: invite,
+    full: fullText,
+    onAddSomeone: addSomeone,
     onSettings: settings,
     onBack,
   };
-
-  const state = homeState(home);
 
   // Archived: history and the way back, and nothing that asks anybody
   // anything (spec §5.2). Checked before the states, which describe an active
@@ -117,6 +119,7 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
         {...shared}
         archived
         due={false}
+        met={met}
         subtitle={homeSubtitle(home)}
         lastCaughtUp={lastCaughtUp(home)}
         nextOne={t('circleHome', 'nothing_yet')}
@@ -130,7 +133,19 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
     // quiet screens, which offer the role to whoever may take it (§5.4).
     const unclaimed = plan.quiet === true && plan.organiserUserId === null;
     const marks = planMarks(home);
-    const primary = circleHomePrimary(state, { askedAgain: plan.askedAgain === true });
+    const organiser = home.me !== undefined && plan.organiserUserId === home.me;
+    const primary = circleHomePrimary(state, {
+      askedAgain: plan.askedAgain === true,
+      repliesClosed: share.repliesClosed,
+      organiser,
+    });
+    const seeHowItsLooking = () =>
+      router.push({
+        pathname: unclaimed
+          ? '/circles/[id]/quiet/[planId]'
+          : '/circles/[id]/plan/[planId]/candidates',
+        params: { id, planId: plan.id },
+      });
     return (
       <CircleHomeScreen
         {...shared}
@@ -138,25 +153,35 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
         planMarksLabel={marks.label}
         prompt={prompt}
         subtitle={homeSubtitle(home)}
-        label={unclaimed ? t('quiet', 'started_quietly') : undefined}
+        label={
+          unclaimed
+            ? t('quiet', 'started_quietly')
+            : share.repliesClosed
+              ? t('circleHome', 'replies_closed')
+              : t('circleHome', 'finding_a_time')
+        }
         planTitle={plan.title}
-        closes={t('circleHome', 'replies_close', {
-          deadline: whenWords(plan.responseDeadline, home.zone),
-        })}
+        closes={
+          share.repliesClosed
+            ? closedLine(home, plan.organiserUserId, organiser)
+            : t('circleHome', 'replies_close', {
+                deadline: whenWords(plan.responseDeadline, home.zone),
+              })
+        }
         replied={t('circleHome', 'replied', { count: plan.replied, total: plan.asked })}
-        askedAgain={plan.askedAgain === true ? t('circleHome', 'asked_again') : undefined}
+        // Nothing takes their times once replies have closed, so nothing asks for them.
+        askedAgain={
+          plan.askedAgain === true && !share.repliesClosed
+            ? t('circleHome', 'asked_again')
+            : undefined
+        }
+        met={met}
         lastCaughtUp={lastCaughtUp(home)}
         nextOne={nextOne(home)}
-        onShareLink={shareLink.onShareLink}
-        shareOutcome={shareLink.outcome}
-        onSeeHowItsLooking={() =>
-          router.push({
-            pathname: unclaimed
-              ? '/circles/[id]/quiet/[planId]'
-              : '/circles/[id]/plan/[planId]/candidates',
-            params: { id, planId: plan.id },
-          })
-        }
+        onSharePlan={share.onSharePlan}
+        shareOutcome={share.outcome}
+        onSeeHowItsLooking={seeHowItsLooking}
+        onPickATime={seeHowItsLooking}
         // The organiser's candidates screen has no way to the grid, so the
         // card is it (review round 2). The server has just said this reader's
         // answer is out of date, so a grid read from before the edit is too:
@@ -165,7 +190,9 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
           void queryClient.invalidateQueries({ queryKey: ['plan-to-answer', plan.code] });
           router.push({ pathname: '/j/[code]', params: { code: plan.code } });
         }}
-        primary={primary === 'add_my_times' ? 'add_my_times' : 'see_how_its_looking'}
+        primary={
+          primary === 'add_my_times' || primary === 'pick_a_time' ? primary : 'see_how_its_looking'
+        }
       />
     );
   }
@@ -202,6 +229,7 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
         date={words.date}
         detail={words.detail}
         going={words.going}
+        met={met}
         lastCaughtUp={lastCaughtUp(home)}
         shareOutcome={shareOutcome}
         onDetails={() =>
@@ -223,9 +251,10 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
         circleName={home.name}
         color={home.color}
         subtitle={t('emptyCircle', 'just_you', { what: cadenceWords(home.cadence) })}
+        members={members}
         onSettings={settings}
-        onNext={invite ?? settings}
-        onPlanACatchUp={planNew}
+        onNext={planNew}
+        onAddSomeone={addSomeone}
         onBack={onBack}
       />
     );
@@ -237,6 +266,7 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
         {...shared}
         prompt={prompt}
         due={state === 'about_time'}
+        met={met}
         subtitle={homeSubtitle(home)}
         body={aboutTimeBody(home)}
         lastCaughtUp={lastCaughtUp(home)}
@@ -258,11 +288,9 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
       subtitle={joiningSubtitle(home)}
       members={members}
       joined={justJoined(home.members, home.me)}
-      lastCaughtUp={lastCaughtUp(home)}
-      nextOne={nextOne(home)}
       firstPlan={home.lastMetAt === null}
-      full={full ? fullLine(home) : undefined}
-      onShareAgain={invite}
+      full={fullText}
+      onAddSomeone={addSomeone}
       onSettings={settings}
       onNext={planNew}
       onBack={onBack}

@@ -3,10 +3,11 @@ adr: 28
 title: "An invite secret is derived, so its owner can see it again"
 status: accepted
 date: 2026-09-23
+amended_by: [91]
 ---
 # ADR 0028: An invite secret is derived, so its owner can see it again
 
-_Status: accepted · 23 September 2026_
+_Status: accepted · 23 September 2026 · who may ask for the secret is amended by [ADR 0091](0091-circle-home-offers-one-way-into-the-chat-at-a-time-and-any-member-can-add-someone.md): every active member, not the owner alone_
 
 ## Context
 

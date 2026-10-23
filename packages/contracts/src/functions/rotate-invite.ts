@@ -4,7 +4,7 @@ import { CircleId } from '../ids.js';
 import { Mutation } from './shared.js';
 
 /**
- * `rotate-invite` — "Reset link" in circle settings (spec §5.2, S1-23).
+ * `rotate-invite` — "Cancel old invitations" in circle settings (spec §5.2, S1-23).
  *
  * Revokes the live link and issues a new one in the same statement, so the old
  * one stops working at once (redeeming it answers `invite_inactive`) while

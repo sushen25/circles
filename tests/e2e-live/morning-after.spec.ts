@@ -112,7 +112,7 @@ test('"it happened", from the emailed link, is on circle home at once', async ({
 
   await expect(page).toHaveURL(new RegExp(`/circles/${circleId}$`));
   expect(lastMetAt(circleId)).not.toBe('never');
-  await expect(page.getByText('Not yet')).toHaveCount(0);
+  await expect(page.getByText('Last caught up')).toBeVisible();
   // Answered, so not asked again.
   await expect(page.getByText(/^Did .+'s catch-up happen\?$/)).toHaveCount(0);
   expect(
@@ -130,7 +130,8 @@ test('"not sure", from the card on circle home, leaves "last caught up" alone', 
 
   await page.goto(`/circles/${circleId}`);
   await expect(page.getByText(/^Did .+'s catch-up happen\?$/)).toBeVisible();
-  await expect(page.getByText('Not yet')).toBeVisible();
+  // Not met yet, so there is no last caught up to read (SUS-248).
+  await expect(page.getByText('Last caught up')).toHaveCount(0);
   await page.getByRole('button', { name: 'Answer' }).click();
   await expect(page).toHaveURL(new RegExp(`/circles/${circleId}/plan/${plan.id}/outcome$`));
 
@@ -139,8 +140,8 @@ test('"not sure", from the card on circle home, leaves "last caught up" alone', 
   await page.getByRole('button', { name: 'Save' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/circles/${circleId}$`));
-  await expect(page.getByText('Not yet')).toBeVisible();
   await expect(page.getByText(/^Did .+'s catch-up happen\?$/)).toHaveCount(0);
+  await expect(page.getByText('Last caught up')).toHaveCount(0);
   expect(lastMetAt(circleId)).toBe('never');
   expect(
     sql(

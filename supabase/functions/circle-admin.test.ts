@@ -183,17 +183,17 @@ describe('get-invite-link', () => {
     expect(await response.json()).toEqual({ invite_secret: null });
   });
 
-  it('passes the database’s refusal through as not_the_owner', async () => {
+  it('passes the database’s refusal through as not_a_member', async () => {
     state.users = [{ id: MEMBER, is_anonymous: true }];
     state.answer = (fn) =>
       fn === 'live_invite'
-        ? { data: null, error: { code: '42501', message: 'not_the_owner' } }
+        ? { data: null, error: { code: '42501', message: 'not_a_member' } }
         : { data: null, error: null };
 
     const response = await handlers['get-invite-link'](post({ circle_id: CIRCLE }));
 
     expect(response.status).toBe(403);
-    expect(await response.json()).toMatchObject({ reason: 'not_the_owner' });
+    expect(await response.json()).toMatchObject({ reason: 'not_a_member' });
   });
 
   it('claims no idempotency key, so no record keeps the secret', async () => {

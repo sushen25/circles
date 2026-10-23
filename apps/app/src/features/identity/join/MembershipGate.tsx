@@ -166,7 +166,7 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
   if (malformed) {
-    return <LinkInvalidScreen reason="ask_for_invite" onBack={back} />;
+    return <LinkInvalidScreen reason="inactive" onBack={back} />;
   }
 
   if (access.data === undefined && savedHere.data === true) return <>{children}</>;
@@ -210,9 +210,10 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
         // The list and a plan's link are both keyed by a short code, which is
         // what a person arriving from a chat has. A circle page is reached by
         // navigating, not by a link in a chat, and a non-member has no way to
-        // learn its code — so the honest answer here is the invite, for an
-        // account and a guest alike (ADR 0022 admits through a *plan's* code).
-        return <LinkInvalidScreen reason="ask_for_invite" onBack={back} />;
+        // learn its code — so the honest answer here is to ask somebody in it,
+        // for an account and a guest alike (ADR 0022 admits through a *plan's*
+        // code, ADR 0091 words the refusal).
+        return <LinkInvalidScreen reason="not_in_circle" onBack={back} />;
       }
       // An account and a guest alike: the list, and "I'm new here". The flow
       // makes "I'm new here" an account's one-tap join (ADR 0022, ADR 0088).

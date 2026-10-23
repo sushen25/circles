@@ -195,7 +195,7 @@ select lives_ok(
 );
 
 -- ---------------------------------------------------------------------------
--- live_invite: the owner it is told about, and only for the server
+-- live_invite: the member it is told about, and only for the server
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as_service();
 select is(
@@ -209,13 +209,13 @@ select throws_ok(
   $$select * from public.live_invite(
       (select id from public.circles where name = 'Digest Crew 480'),
       '48000000-0000-0000-0000-0000000000a2')$$,
-  '42501', 'not_the_owner',
-  'but not for somebody who owns another circle'
+  '42501', 'not_a_member',
+  'but not for somebody who is not in this circle'
 );
 select throws_ok(
   $$select * from public.live_invite(
       (select id from public.circles where name = 'Digest Crew 480'), null)$$,
-  '42501', 'live_invite requires the owner asking',
+  '42501', 'live_invite requires a member asking',
   'or for nobody'
 );
 

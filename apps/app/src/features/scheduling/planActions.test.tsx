@@ -56,9 +56,9 @@ describe('SUS-161: the footer keeps the decision', () => {
   it('options: share and edit come before the first card; the nudge and change my times follow the primary', async () => {
     planCandidates.mockResolvedValue(fixture.ready);
     show(flow());
-    await screen.findByRole('button', { name: 'Share the link again' });
+    await screen.findByRole('button', { name: 'Share the plan again' });
 
-    const share = button('Share the link again');
+    const share = button('Share the plan again');
     const edit = button('Edit the plan');
     const change = button('Change my times');
     const firstCard = screen.getAllByRole('button', { name: /of 6/ })[0] as HTMLElement;
@@ -78,7 +78,7 @@ describe('SUS-161: the footer keeps the decision', () => {
       repliedCount: 6,
     });
     show(flow());
-    await screen.findByRole('button', { name: 'Share the link again' });
+    await screen.findByRole('button', { name: 'Share the plan again' });
 
     expect(screen.queryByRole('button', { name: /^Nudge/ })).toBeNull();
     expect(before(button(/^Review/), button('Change my times'))).toBe(true);
@@ -87,27 +87,27 @@ describe('SUS-161: the footer keeps the decision', () => {
   it('waiting: the plan actions come before the answers card, change my times after it', async () => {
     planCandidates.mockResolvedValue(fixture.waiting);
     show(flow());
-    await screen.findByRole('button', { name: 'Share the link again' });
+    await screen.findByRole('button', { name: 'Share the plan again' });
 
     const so = screen.getByText('So far');
-    expect(before(button('Share the link again'), so)).toBe(true);
+    expect(before(button('Share the plan again'), so)).toBe(true);
     expect(before(so, button('Change my times'))).toBe(true);
   });
 
   it('no overlap: share comes before the unlock list, change my times after it', async () => {
     planCandidates.mockResolvedValue(fixture.noQuorum);
     show(flow());
-    await screen.findByRole('button', { name: 'Share the link again' });
+    await screen.findByRole('button', { name: 'Share the plan again' });
 
     const unlock = screen.getByRole('button', { name: /^Lower to/ });
-    expect(before(button('Share the link again'), unlock)).toBe(true);
+    expect(before(button('Share the plan again'), unlock)).toBe(true);
     expect(before(unlock, button('Change my times'))).toBe(true);
   });
 
   it('says what a share did beside the button that asked, so the footer nudge is not answered offscreen', async () => {
     planCandidates.mockResolvedValue(fixture.ready);
     show(flow());
-    await tap(screen.findByRole('button', { name: 'Share the link again' }));
+    await tap(screen.findByRole('button', { name: 'Share the plan again' }));
     const copied = await screen.findByText(/^Copied/);
     expect(before(copied, button(/^Review/))).toBe(true);
 

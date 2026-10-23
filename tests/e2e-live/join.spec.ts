@@ -69,7 +69,7 @@ test('with no plan asking, a new member lands on the circle, and is let in', asy
     page.getByText('Sunday Crew', { exact: true }).filter({ visible: true }).first(),
   ).toBeVisible();
   await expect(
-    page.getByText('You need the invite link to join.').filter({ visible: true }),
+    page.getByText("This plan isn't taking new answers.").filter({ visible: true }),
   ).toHaveCount(0);
 });
 

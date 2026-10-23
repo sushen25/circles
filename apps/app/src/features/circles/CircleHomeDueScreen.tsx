@@ -7,19 +7,17 @@ import {
   ButtonRow,
   Card,
   CircleHeader,
-  DateText,
   Foot,
-  Label,
   Notice,
   Screen,
+  Title,
   TopBar,
   type Member,
 } from '../../components';
-import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
-import { MembersLine, SettingsButton } from './parts';
+import { CatchUpFacts, MembersLine, SettingsButton } from './parts';
 
 /**
  * CircleHome, between catch-ups — `docs/design/CircleHomeDue.dc.html` (spec
@@ -30,7 +28,8 @@ import { MembersLine, SettingsButton } from './parts';
  *   **Snooze a month** (the owner's) and **Turn off nudges** (the reader's own)
  *   are each drawn only when a handler is given (S2-04).
  * - **no rush / no goal**: the same home with no card — last caught up, next
- *   one, members, and "Plan a catch-up".
+ *   one, members with **Add someone** (any member's, ADR 0091), and "Plan a
+ *   catch-up".
  *
  * Never "overdue", a streak or a count of days (spec §5.9).
  */
@@ -49,11 +48,14 @@ export type CircleHomeDueProps = {
   color?: string | undefined;
   subtitle?: string | undefined;
   body?: string | undefined;
+  /** False until the circle has met. A circle between catch-ups always has. */
+  met?: boolean | undefined;
   lastCaughtUp?: string | undefined;
   nextOne?: string | undefined;
   members?: readonly Member[] | undefined;
-  memberCount?: string | undefined;
-  onInviteLink?: (() => void) | undefined;
+  /** "Thursday Lot is full (20 people)", said in place of Add someone at the cap. */
+  full?: string | undefined;
+  onAddSomeone?: (() => void) | undefined;
   onSettings?: (() => void) | undefined;
   /** The screen's one decision: plan the next one. */
   onNext?: (() => void) | undefined;
@@ -74,11 +76,12 @@ export function CircleHomeDueScreen({
   color = 'clay',
   subtitle = t('circleHomeDue', '6_members_about_monthly'),
   body = t('circleHomeDue', 'its_been_about_a_month_since_sunday'),
+  met = true,
   lastCaughtUp = t('circleHomeDue', 'thu_17_sep'),
   nextOne = t('circleHomeDue', 'nothing_yet'),
   members = fixture?.circle.members ?? [],
-  memberCount = t('circleHomeDue', '6_members'),
-  onInviteLink,
+  full,
+  onAddSomeone,
   onSettings,
   onNext,
   onBack,
@@ -102,7 +105,7 @@ export function CircleHomeDueScreen({
         {notice !== undefined && !archived ? <Notice>{notice}</Notice> : null}
         {due && !archived ? (
           <Card>
-            <Label>{t('circleHomeDue', 'about_time_for_the_next_one')}</Label>
+            <Title>{t('circleHomeDue', 'about_time_for_the_next_one')}</Title>
             <BodyText>{body}</BodyText>
             {later ? (
               <ButtonRow>
@@ -124,22 +127,11 @@ export function CircleHomeDueScreen({
             ) : null}
           </Card>
         ) : null}
-        <Card>
-          <Row>
-            <Stack>
-              <Label>{t('circleHomeDue', 'last_caught_up')}</Label>
-              <DateText>{lastCaughtUp}</DateText>
-            </Stack>
-            <Stack>
-              <Label>{t('circleHomeDue', 'next_one')}</Label>
-              <DateText>{nextOne}</DateText>
-            </Stack>
-          </Row>
-        </Card>
+        {met ? <CatchUpFacts lastCaughtUp={lastCaughtUp} nextOne={nextOne} /> : null}
         <MembersLine
           members={members}
-          memberCount={memberCount}
-          onInviteLink={archived ? undefined : onInviteLink}
+          full={archived ? undefined : full}
+          onAddSomeone={archived ? undefined : onAddSomeone}
         />
       </Body>
       <Foot>

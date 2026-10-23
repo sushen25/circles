@@ -28,7 +28,8 @@ export type IconName =
   | 'people'
   | 'wifi-off'
   | 'undo'
-  | 'chat';
+  | 'chat'
+  | 'person-add';
 
 type Props = {
   name: IconName;
@@ -106,5 +107,10 @@ const paths: Record<IconName, Shape[]> = {
   undo: ['M4.5 12a7.5 7.5 0 1 0 2.3-5.4', 'M4 4v4.5h4.5'],
   chat: [
     'M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5v-3.5H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5z',
+  ],
+  'person-add': [
+    { kind: 'circle', cx: 9.5, cy: 8.5, r: 3.2 },
+    'M3.5 19c0-3 2.7-5 6-5s6 2 6 5',
+    'M18.5 8v6M15.5 11h6',
   ],
 };

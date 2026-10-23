@@ -69,7 +69,7 @@ describe('the organiser, with only their own times in', () => {
     expect(screen.getByText(/Options appear here as friends reply/)).toBeTruthy();
     expect(screen.getByText('Just you so far.')).toBeTruthy();
     expect(screen.queryByText(/Everyone has answered/)).toBeNull();
-    expect(screen.getByText('Share the link again')).toBeTruthy();
+    expect(screen.getByText('Share the plan again')).toBeTruthy();
     expect(screen.queryByText(/enough overlap/)).toBeNull();
     expect(screen.queryByText('Close this attempt')).toBeNull();
   });

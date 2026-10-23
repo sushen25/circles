@@ -5,7 +5,7 @@ import { accountToSignInTo, circleOwnedBy, latestCodeFor, memberNamed, sql } fro
 
 /**
  * Running a circle (S1-23), against the real stack: the circles list, circle
- * settings' Reset link, and removing somebody — the screens, the functions
+ * settings' Cancel old invitations, and removing somebody — the screens, the functions
  * behind them, and the rows they leave.
  */
 
@@ -37,12 +37,12 @@ function guestIn(circleId: string, name: string): string {
   return userId;
 }
 
-test('the owner resets a link nobody can show, and removes a member, from settings', async ({
+test('the owner cancels old invitations, and removes a member, from settings', async ({
   page,
   guard,
 }) => {
   const maya = await accountToSignInTo('Maya');
-  // Made directly, with no invite: the case a reset exists for.
+  // Made directly, with no invite: the case cancelling exists for.
   const circleId = circleOwnedBy(maya.userId, 'Book Club');
   const tom = guestIn(circleId, 'Tom');
   guestIn(circleId, 'Nina');
@@ -61,14 +61,21 @@ test('the owner resets a link nobody can show, and removes a member, from settin
   await expect(page.getByText(/^Guest · joined /)).toHaveCount(2);
   await expect(page.getByText(/^Place saved · joined /)).toHaveCount(0);
 
-  await expect(page.getByText(/can't be shown again/)).toBeVisible();
-  await page.getByRole('button', { name: 'Reset link' }).click();
+  // Settings opens with who is in, then Add someone; the invitation itself is
+  // the next screen's, so nothing here draws a link or a reset (SUS-248).
+  await expect(page.getByRole('heading', { name: "Who's in" })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add someone' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /link/i })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Cancel old invitations' }).click();
   const rotated = page.waitForResponse(/\/functions\/v1\/rotate-invite$/);
   await page
-    .getByLabel('Reset the invite link?')
-    .getByRole('button', { name: 'Reset link' })
+    .getByLabel('Cancel old invitations?')
+    .getByRole('button', { name: 'Cancel them' })
     .click();
-  await expect(page.getByText('New link ready. The old one no longer works.')).toBeVisible();
+  await expect(
+    page.getByText('Old invitations cancelled. Add someone makes a new one.'),
+  ).toBeVisible();
 
   // The new secret came from the server, not a fixture, and the suite's guard
   // knows it all the same: sent anywhere, it is caught.
@@ -76,7 +83,6 @@ test('the owner resets a link nobody can show, and removes a member, from settin
   await page.evaluate(`fetch('/privacy?leak=${secret}').catch(() => undefined)`);
   await expect.poll(() => guard.found.map((leak) => leak.where)).toEqual(['url']);
   guard.forgive();
-  await expect(page.getByText(/\/join#…\S{4}$/)).toBeVisible();
   expect(
     sql(`select count(*) from public.circle_invites
          where circle_id = '${circleId}' and revoked_at is null`)[0]?.[0],

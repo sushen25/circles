@@ -157,7 +157,7 @@ export function CandidatesMemberScreen({
             <Small accessibilityLiveRegion="polite">{shareOutcome}</Small>
           )}
           {onShareLink === undefined ? null : (
-            <Tertiary label={t('waiting', 'share_the_link_again')} onPress={onShareLink} />
+            <Tertiary label={t('waiting', 'share_the_plan_again')} onPress={onShareLink} />
           )}
           {onCancelPlan === undefined ? null : (
             <Tertiary

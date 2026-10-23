@@ -6,21 +6,22 @@ import {
   Button,
   ButtonRow,
   Card,
+  CompactButton,
   CircleHeader,
   DateText,
   Foot,
-  Label,
   Screen,
   Small,
   Tertiary,
+  Title,
   TopBar,
   type Member,
 } from '../../components';
-import { Row, Stack } from '../../components/layout';
+import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
-import { MembersLine, SettingsButton } from './parts';
+import { CatchUpFacts, MembersLine, SettingsButton } from './parts';
 
 /**
  * CircleHome, locked in — `docs/design/CircleHomeConfirmed.dc.html` (spec
@@ -28,8 +29,10 @@ import { MembersLine, SettingsButton } from './parts';
  * meetup as the "next one".
  *
  * "Details" opens the confirmed screen for that plan (S1-28's) and is the
- * primary; "Share" puts the locked-in message in the group chat. "Plan
- * another" is a quiet pill beneath: nothing is waiting on it.
+ * primary; "Send the details" puts the locked-in message in the group chat, for
+ * people already in the circle (a locked-in plan's link turns newcomers away,
+ * so **Add someone** sits with the members, ADR 0091). "Plan another" is a
+ * quiet pill beneath: nothing is waiting on it.
  */
 export type CircleHomeConfirmedProps = {
   fixture?: Fixture | undefined;
@@ -43,12 +46,15 @@ export type CircleHomeConfirmedProps = {
   detail?: string | undefined;
   /** "5 going · 1 to confirm". */
   going?: string | undefined;
+  /** False until the circle has met: then there is no last caught up. */
+  met?: boolean | undefined;
   lastCaughtUp?: string | undefined;
   members?: readonly Member[] | undefined;
-  memberCount?: string | undefined;
-  /** What the last Share did, said once. */
+  /** "Thursday Lot is full (20 people)", said in place of Add someone at the cap. */
+  full?: string | undefined;
+  /** What the last Send the details did, said once. */
   shareOutcome?: string | undefined;
-  onInviteLink?: (() => void) | undefined;
+  onAddSomeone?: (() => void) | undefined;
   onSettings?: (() => void) | undefined;
   /** The screen's one decision. */
   onNext?: (() => void) | undefined;
@@ -68,11 +74,12 @@ export function CircleHomeConfirmedScreen({
   date = t('circleHomeConfirmed', 'thu_17_sep'),
   detail = t('circleHomeConfirmed', '6_30_8_30_pm_hope_st'),
   going = t('circleHomeConfirmed', '5_going_1_to_confirm'),
+  met = true,
   lastCaughtUp = t('circleHomeConfirmed', 'sat_8_aug'),
   members = fixture?.circle.members ?? [],
-  memberCount = t('circleHomeConfirmed', '6_members'),
+  full,
   shareOutcome,
-  onInviteLink,
+  onAddSomeone,
   onSettings,
   onBack,
   onDetails,
@@ -92,37 +99,32 @@ export function CircleHomeConfirmedScreen({
         {prompt}
         <Card recommended>
           <Stack>
-            <Label>{t('circleHomeConfirmed', 'locked_in')}</Label>
+            <Title>{t('circleHomeConfirmed', 'locked_in')}</Title>
             <Small>{going}</Small>
           </Stack>
           <Stack>
             <DateText>{date}</DateText>
             <BodyText>{detail}</BodyText>
           </Stack>
-          <ButtonRow>
-            <Button
-              label={t('circleHomeConfirmed', 'share')}
-              variant="secondary"
-              onPress={onShare}
-            />
-          </ButtonRow>
+          <Stack>
+            <ButtonRow>
+              <CompactButton
+                label={t('circleHomeConfirmed', 'send_the_details')}
+                icon="share"
+                tone="accent"
+                onPress={onShare}
+              />
+            </ButtonRow>
+            <Small>
+              {t('circleHomeConfirmed', 'send_the_details_line', { circle: circleName })}
+            </Small>
+          </Stack>
           {shareOutcome === undefined ? null : (
             <Small accessibilityLiveRegion="polite">{shareOutcome}</Small>
           )}
         </Card>
-        <Card>
-          <Row>
-            <Stack>
-              <Label>{t('circleHomeConfirmed', 'last_caught_up')}</Label>
-              <DateText>{lastCaughtUp}</DateText>
-            </Stack>
-            <Stack>
-              <Label>{t('circleHomeConfirmed', 'next_one')}</Label>
-              <DateText>{date}</DateText>
-            </Stack>
-          </Row>
-        </Card>
-        <MembersLine members={members} memberCount={memberCount} onInviteLink={onInviteLink} />
+        {met ? <CatchUpFacts lastCaughtUp={lastCaughtUp} nextOne={date} /> : null}
+        <MembersLine members={members} full={full} onAddSomeone={onAddSomeone} />
       </Body>
       {/* The meetup's own step leads, "Plan another" is the quiet way on
           (SUS-197). */}

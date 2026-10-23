@@ -6,10 +6,10 @@
 -- in a different circle.
 
 begin;
-select plan(44);
+select plan(46);
 
 -- SUS-114: `live_invite` is the service role's, called by `get-invite-link` with
--- the owner it verified. This is that call for whoever the test is acting as.
+-- the member it verified. This is that call for whoever the test is acting as.
 create or replace function pg_temp.live(c uuid) returns table (invite_id uuid, secret_hash bytea)
 language plpgsql as $$
 declare
@@ -124,7 +124,7 @@ select pg_temp.act_as('20000000-0000-0000-0000-000000000004');
 select public.create_circle('Book Club', 'plum', 'Australia/Melbourne', 'sus39-sam');
 
 -- ---------------------------------------------------------------------------
--- live_invite: the owner's, and nobody else's.
+-- live_invite: any active member's (SUS-248, ADR 0091), and nobody else's.
 -- ---------------------------------------------------------------------------
 
 select pg_temp.act_as('20000000-0000-0000-0000-000000000001');
@@ -140,17 +140,22 @@ select is(
 );
 
 select pg_temp.act_as('20000000-0000-0000-0000-000000000002', true);
-select throws_ok(
-  $$select * from pg_temp.live((select circle_id from fixture))$$,
-  '42501', 'not_the_owner',
-  'a member who is not the owner is refused'
+select is(
+  (select invite_id from pg_temp.live((select circle_id from fixture))),
+  '20000000-0000-0000-0000-0000000000f1'::uuid,
+  'a member who is not the owner, a guest here, is told too (SUS-248)'
+);
+select is(
+  (select secret_hash from pg_temp.live((select circle_id from fixture))),
+  extensions.digest('first-secret', 'sha256'),
+  'and gets the same digest the owner does'
 );
 
 select pg_temp.act_as('20000000-0000-0000-0000-000000000004');
 select throws_ok(
   $$select * from pg_temp.live((select circle_id from fixture))$$,
-  '42501', 'not_the_owner',
-  'and so is somebody from another circle'
+  '42501', 'not_a_member',
+  'somebody from another circle is refused'
 );
 
 select ok(
@@ -293,6 +298,14 @@ select throws_ok(
   'P0002', 'member_not_found',
   'removing him twice finds nobody the second time'
 );
+
+select pg_temp.act_as('20000000-0000-0000-0000-000000000003', true);
+select throws_ok(
+  $$select * from pg_temp.live((select circle_id from fixture))$$,
+  '42501', 'not_a_member',
+  'a member who has been removed is refused the invitation (SUS-248)'
+);
+select pg_temp.act_as('20000000-0000-0000-0000-000000000001');
 
 select pg_temp.act_as_postgres();
 select is(

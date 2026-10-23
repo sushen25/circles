@@ -166,7 +166,7 @@ describe('InviteCircle', () => {
 
     expect(await screen.findByText(`https://circles.test/join#${SECRET}`)).toBeVisible();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Share to group chat' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Share' }));
     });
 
     expect(shareMessage).toHaveBeenCalledWith(expect.stringContaining(`/join#${SECRET}`));
@@ -188,13 +188,14 @@ describe('InviteCircle', () => {
     await act(async () => {
       await tap(screen.findByRole('button', { name: 'Copy' }));
     });
-    expect(copyText).toHaveBeenCalledWith(`https://circles.test/join#${SECRET}`);
-    // The Copy button says so itself, where the tap was (ADR 0026's share screen).
-    expect(screen.getByRole('button', { name: 'Copied' })).toBeVisible();
+    // What is copied is what is shown: the whole invitation (SUS-248).
+    expect(copyText).toHaveBeenCalledWith(expect.stringContaining(`/join#${SECRET}`));
+    expect(copyText).toHaveBeenCalledWith(expect.stringMatching(/^Join Sunday Crew on /));
+    expect(await screen.findByText('Copied. Paste it into your chat.')).toBeVisible();
     expect(track).toHaveBeenCalledWith('circle_invite_shared', { circle_id: CIRCLE, kind: 'copy' });
   });
 
-  it('after a reload, asks for the owner’s link again and shows it (ADR 0028)', async () => {
+  it('after a reload, asks for the invitation again and shows it (ADR 0028)', async () => {
     fetchInviteSecret.mockImplementation((id: string) => {
       keepInviteSecret(id, SECRET);
       return Promise.resolve(SECRET);
@@ -205,12 +206,12 @@ describe('InviteCircle', () => {
     expect(fetchInviteSecret).toHaveBeenCalledWith(CIRCLE);
   });
 
-  it('says a link that cannot be shown again is gone, and offers the reset', async () => {
+  it('says an invitation that cannot be shown again is gone, and offers the owner the way to a new one', async () => {
     fetchInviteSecret.mockResolvedValue(undefined);
     wrap(<InviteCircleFlow id={CIRCLE} />);
 
     expect(await screen.findByText(/can't be shown again/)).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Share to group chat' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Share' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Open circle settings' }));
     expect(replace).toHaveBeenCalledWith({
       pathname: '/circles/[id]/settings',
@@ -218,12 +219,25 @@ describe('InviteCircle', () => {
     });
   });
 
-  it('never asks for a member who is not the owner', async () => {
+  it('asks for a member who is not the owner too, and shows it (ADR 0091)', async () => {
     circleHome.mockResolvedValue(home({ isOwner: false }));
+    fetchInviteSecret.mockImplementation((id: string) => {
+      keepInviteSecret(id, SECRET);
+      return Promise.resolve(SECRET);
+    });
+    wrap(<InviteCircleFlow id={CIRCLE} />);
+
+    expect(await screen.findByText(`https://circles.test/join#${SECRET}`)).toBeVisible();
+    expect(fetchInviteSecret).toHaveBeenCalledWith(CIRCLE);
+  });
+
+  it('tells a member who is not the owner to ask the owner when it cannot be shown again', async () => {
+    circleHome.mockResolvedValue(home({ isOwner: false }));
+    fetchInviteSecret.mockResolvedValue(undefined);
     wrap(<InviteCircleFlow id={CIRCLE} />);
 
     expect(await screen.findByText(/can't be shown again/)).toBeVisible();
-    expect(fetchInviteSecret).not.toHaveBeenCalled();
+    expect(screen.getByText(/Ask the owner to cancel old invitations/)).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Open circle settings' })).toBeNull();
   });
 });
@@ -253,7 +267,8 @@ describe('the circle home', () => {
           id: PLAN,
           code: 'abcdefgh',
           title: 'Catch up',
-          responseDeadline: '2026-09-15T08:00:00Z',
+          // Still asking whenever this runs.
+          responseDeadline: '2099-09-15T08:00:00Z',
           replied: 2,
           asked: 3,
         },

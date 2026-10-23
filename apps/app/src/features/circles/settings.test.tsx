@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { tap } from '../../test/tap';
+import { brand } from '@circles/config';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -8,9 +9,10 @@ import type * as CircleData from '../../data/circles';
 import type * as CircleHomeData from '../../data/circles/home';
 
 /**
- * Circle settings (S1-23): the owner's link shown, copied and reset; the
- * rhythm and the nudge; a member removed; the circle archived — and a member
- * who is not the owner offered none of it.
+ * Circle settings (S1-23, SUS-248): who is in, Add someone for any member and
+ * Cancel old invitations for the owner alone; the rhythm and the nudge; a
+ * member removed; the circle archived — and the Add someone screen, which any
+ * active member can open (ADR 0091).
  */
 
 const push = vi.fn();
@@ -27,8 +29,9 @@ vi.mock('../../data/auth', () => ({ useSession: () => session }));
 vi.mock('../../data/auth/session', () => ({ useSession: () => session }));
 vi.mock('../../data/links/origin', () => ({ appOrigin: () => 'https://circles.test' }));
 const copyText = vi.fn();
+const shareMessage = vi.fn();
 vi.mock('../../platform/share', () => ({
-  shareMessage: vi.fn(),
+  shareMessage: (...a: unknown[]) => shareMessage(...a),
   copyText: (...a: unknown[]) => copyText(...a),
 }));
 
@@ -129,6 +132,7 @@ beforeEach(() => {
     replace,
     track,
     copyText,
+    shareMessage,
     circleHome,
     fetchInviteSecret,
     resetInviteLink,
@@ -153,14 +157,13 @@ describe('a circle at the member cap (SUS-199)', () => {
       savedPlace: true,
     }));
 
-  it('says it is full in place of the link, and never asks for the link', async () => {
+  it('says it is full in place of Add someone, and never asks for the invitation', async () => {
     circleHome.mockResolvedValue(home({ name: 'Thursday Lot', members: twenty() }));
     wrap(<SettingsFlow id={CIRCLE} />);
 
     expect(await screen.findByText('Thursday Lot is full (20 people)')).toBeVisible();
-    expect(screen.getByText(/The invite link comes back once there is room/)).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Copy link' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Reset link' })).toBeNull();
+    expect(screen.getByText(/Adding someone comes back once there is room/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Add someone' })).toBeNull();
     expect(fetchInviteSecret).not.toHaveBeenCalled();
     // The way to make room is still here.
     expect(screen.getByRole('button', { name: 'Remove Guest 2' })).toBeVisible();
@@ -173,10 +176,10 @@ describe('a circle at the member cap (SUS-199)', () => {
     wrap(<SettingsFlow id={CIRCLE} />);
 
     expect(await screen.findByText('Thursday Lot is full (20 people)')).toBeVisible();
-    expect(screen.queryByText(/invite link comes back/)).toBeNull();
+    expect(screen.queryByText(/Adding someone comes back/)).toBeNull();
   });
 
-  it('says so on the invite screen too, with settings as the way on', async () => {
+  it('says so on the Add someone screen too, with settings as the way on', async () => {
     circleHome.mockResolvedValue(home({ name: 'Thursday Lot', members: twenty() }));
     wrap(<InviteCircleFlow id={CIRCLE} />);
 
@@ -189,38 +192,43 @@ describe('a circle at the member cap (SUS-199)', () => {
     });
   });
 
-  it('still shows the link at nineteen', async () => {
-    fetchInviteSecret.mockResolvedValue(undefined);
+  it('still offers Add someone at nineteen', async () => {
     circleHome.mockResolvedValue(home({ members: twenty().slice(0, 19) }));
     wrap(<SettingsFlow id={CIRCLE} />);
 
-    expect(await screen.findByRole('button', { name: 'Reset link' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Add someone' })).toBeVisible();
     expect(screen.queryByText(/is full/)).toBeNull();
   });
 });
 
-describe('the invite link in settings', () => {
-  it('asks for the owner’s link, shows only its end, and copies the whole of it', async () => {
-    const shown = secret();
-    fetchInviteSecret.mockImplementation((id: string) => {
-      keepInviteSecret(id, shown);
-      return Promise.resolve(shown);
-    });
-    copyText.mockResolvedValue(true);
+describe("who's in, and Add someone, in settings (SUS-248)", () => {
+  it('opens with the members, then Add someone, and shows no link or reset beside them', async () => {
     wrap(<SettingsFlow id={CIRCLE} />);
 
-    expect(await screen.findByText(new RegExp(`/join#…${shown.slice(-4)}$`))).toBeVisible();
-    expect(screen.queryByText(new RegExp(shown))).toBeNull();
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
-    });
-    expect(copyText).toHaveBeenCalledWith(`https://circles.test/join#${shown}`);
-    expect(JSON.stringify(track.mock.calls)).not.toContain(shown);
+    const heading = await screen.findByRole('heading', { name: "Who's in" });
+    const add = screen.getByRole('button', { name: 'Add someone' });
+    const cancel = screen.getByRole('button', { name: 'Cancel old invitations' });
+    const catchUp = screen.getByText('Catch up');
+    const follows = (a: Element, b: Element) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(follows(heading, screen.getByText('Nina'))).toBe(true);
+    expect(follows(screen.getByText('Jess'), add)).toBe(true);
+    expect(follows(add, cancel)).toBe(true);
+    expect(follows(cancel, catchUp)).toBe(true);
+    expect(screen.getByText("If one has gone somewhere it shouldn't.")).toBeVisible();
+    expect(screen.queryByRole('button', { name: /link/i })).toBeNull();
+    // Settings no longer asks for the secret: it is not drawn here.
+    expect(fetchInviteSecret).not.toHaveBeenCalled();
   });
 
-  it('resets it after asking, and says the old one has stopped working', async () => {
-    fetchInviteSecret.mockResolvedValue(undefined);
+  it('goes to Add someone', async () => {
+    wrap(<SettingsFlow id={CIRCLE} />);
+
+    await tap(screen.findByRole('button', { name: 'Add someone' }));
+    expect(push).toHaveBeenCalledWith({ pathname: '/circles/[id]/invite', params: { id: CIRCLE } });
+  });
+
+  it('cancels old invitations after asking, and says plans already shared keep working', async () => {
     const fresh = secret();
     resetInviteLink.mockImplementation((id: string) => {
       keepInviteSecret(id, fresh);
@@ -228,23 +236,56 @@ describe('the invite link in settings', () => {
     });
     wrap(<SettingsFlow id={CIRCLE} />);
 
-    expect(await screen.findByText(/can't be shown again/)).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Reset link' }));
-    const sheet = screen.getByLabelText('Reset the invite link?');
+    await tap(screen.findByRole('button', { name: 'Cancel old invitations' }));
+    const sheet = screen.getByLabelText('Cancel old invitations?');
+    expect(
+      within(sheet).getByText(
+        "Add someone messages already sent stop working. Plans you've shared keep working, and everyone in Sunday Crew stays in.",
+      ),
+    ).toBeVisible();
+    expect(resetInviteLink).not.toHaveBeenCalled();
     await act(async () => {
-      fireEvent.click(within(sheet).getByRole('button', { name: 'Reset link' }));
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Cancel them' }));
     });
 
     expect(resetInviteLink).toHaveBeenCalledWith(CIRCLE, expect.any(String));
-    expect(await screen.findByText('New link ready. The old one no longer works.')).toBeVisible();
-    expect(screen.getByText(new RegExp(`/join#…${fresh.slice(-4)}$`))).toBeVisible();
+    expect(
+      await screen.findByText('Old invitations cancelled. Add someone makes a new one.'),
+    ).toBeVisible();
   });
 
-  it('keeps a reset that worked as worked, even when the refresh after it fails', async () => {
+  it('keeps them when asked to', async () => {
+    wrap(<SettingsFlow id={CIRCLE} />);
+
+    await tap(screen.findByRole('button', { name: 'Cancel old invitations' }));
+    const sheet = screen.getByLabelText('Cancel old invitations?');
+    await act(async () => {
+      fireEvent.click(within(sheet).getAllByRole('button', { name: 'Keep them' }).at(-1)!);
+    });
+    expect(resetInviteLink).not.toHaveBeenCalled();
+  });
+
+  it('says so, and cancels nothing it did not, when the server refuses', async () => {
+    resetInviteLink.mockRejectedValue(new Error('rotate-invite failed'));
+    wrap(<SettingsFlow id={CIRCLE} />);
+
+    await tap(screen.findByRole('button', { name: 'Cancel old invitations' }));
+    await act(async () => {
+      fireEvent.click(
+        within(screen.getByLabelText('Cancel old invitations?')).getByRole('button', {
+          name: 'Cancel them',
+        }),
+      );
+    });
+    expect(await screen.findByText("The invitations weren't cancelled. Try again.")).toBeVisible();
+    expect(
+      screen.queryByText('Old invitations cancelled. Add someone makes a new one.'),
+    ).toBeNull();
+  });
+
+  it('keeps a cancel that worked as worked: a second one is a request of its own', async () => {
     // Round 1: the key used to be dropped before a fallible refetch, so a
     // "failed" reset retried under a fresh key and killed the link it made.
-    fetchInviteSecret.mockResolvedValueOnce(undefined);
-    fetchInviteSecret.mockRejectedValue(new Error('get-invite-link failed'));
     resetInviteLink.mockImplementation((id: string) => {
       const fresh = secret();
       keepInviteSecret(id, fresh);
@@ -252,35 +293,98 @@ describe('the invite link in settings', () => {
     });
     wrap(<SettingsFlow id={CIRCLE} />);
 
-    const reset = async () => {
-      await tap(screen.findByRole('button', { name: 'Reset link' }));
+    const cancel = async () => {
+      await tap(screen.findByRole('button', { name: 'Cancel old invitations' }));
       await act(async () => {
         fireEvent.click(
-          within(screen.getByLabelText('Reset the invite link?')).getByRole('button', {
-            name: 'Reset link',
+          within(screen.getByLabelText('Cancel old invitations?')).getByRole('button', {
+            name: 'Cancel them',
           }),
         );
       });
     };
-    await reset();
-    expect(await screen.findByText('New link ready. The old one no longer works.')).toBeVisible();
-    expect(screen.queryByText("The link didn't reset. Try again.")).toBeNull();
-
-    // A second, deliberate reset is a new request with a key of its own.
-    await reset();
+    await cancel();
+    expect(
+      await screen.findByText('Old invitations cancelled. Add someone makes a new one.'),
+    ).toBeVisible();
+    await cancel();
     const [first, second] = resetInviteLink.mock.calls.map((call) => call[1] as string);
     expect(first).not.toBe(second);
   });
 });
 
-describe('when the link cannot be asked for', () => {
-  it('says so and offers to try again, rather than calling the link lost', async () => {
+describe('Add someone, for any active member (SUS-248, ADR 0091)', () => {
+  const message = (link: string) =>
+    `Join Sunday Crew on ${brand.name} so you're in on the next catch-up. No app needed: ${link}`;
+
+  it.each([
+    ['the owner', true, 'maya'],
+    ['a member who is not the owner', false, 'nina'],
+  ])(
+    'asks for the invitation again after a reload, and shows it to %s',
+    async (_who, isOwner, me) => {
+      circleHome.mockResolvedValue(home({ isOwner, me }));
+      const shown = secret();
+      fetchInviteSecret.mockImplementation((id: string) => {
+        keepInviteSecret(id, shown);
+        return Promise.resolve(shown);
+      });
+      wrap(<InviteCircleFlow id={CIRCLE} />);
+
+      expect(
+        await screen.findByRole('heading', { name: 'Add someone to Sunday Crew' }),
+      ).toBeVisible();
+      expect(fetchInviteSecret).toHaveBeenCalledWith(CIRCLE);
+      expect(screen.getByText('Their invitation')).toBeVisible();
+      expect(screen.getByText(`https://circles.test/join#${shown}`)).toBeVisible();
+      expect(
+        screen.getByText("They're in as soon as they add a name. No app, no account."),
+      ).toBeVisible();
+      // Nothing about resets, and no button is named for a link.
+      expect(screen.queryByText(/reset/i)).toBeNull();
+      expect(screen.queryByRole('button', { name: /link/i })).toBeNull();
+    },
+  );
+
+  it('shares the invitation, and counts the share without what it said', async () => {
+    const shown = secret();
+    keepInviteSecret(CIRCLE, shown);
+    shareMessage.mockResolvedValue('sheet');
+    wrap(<InviteCircleFlow id={CIRCLE} />);
+
+    await tap(screen.findByRole('button', { name: 'Share' }));
+    expect(shareMessage).toHaveBeenCalledWith(message(`https://circles.test/join#${shown}`));
+    expect(track).toHaveBeenCalledWith('share_opened', { circle_id: CIRCLE, kind: 'invite' });
+    expect(JSON.stringify(track.mock.calls)).not.toContain(shown);
+    expect(replace).toHaveBeenCalledWith({ pathname: '/circles/[id]', params: { id: CIRCLE } });
+  });
+
+  it('copies the invitation and says so, and stays so it can be pasted and come back', async () => {
+    const shown = secret();
+    keepInviteSecret(CIRCLE, shown);
+    copyText.mockResolvedValue(true);
+    wrap(<InviteCircleFlow id={CIRCLE} />);
+
+    await tap(screen.findByRole('button', { name: 'Copy' }));
+    expect(copyText).toHaveBeenCalledWith(message(`https://circles.test/join#${shown}`));
+    expect(await screen.findByText('Copied. Paste it into your chat.')).toBeVisible();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('says when it could not copy', async () => {
+    keepInviteSecret(CIRCLE, secret());
+    copyText.mockResolvedValue(false);
+    wrap(<InviteCircleFlow id={CIRCLE} />);
+
+    await tap(screen.findByRole('button', { name: 'Copy' }));
+    expect(await screen.findByText(/We couldn't copy it here/)).toBeVisible();
+  });
+
+  it('says so and offers to try again when it cannot be asked for', async () => {
     fetchInviteSecret.mockRejectedValueOnce(new Error('get-invite-link failed'));
-    wrap(<SettingsFlow id={CIRCLE} />);
+    wrap(<InviteCircleFlow id={CIRCLE} />);
 
-    expect(await screen.findByText("We couldn't get the link just now.")).toBeVisible();
-    expect(screen.queryByText(/can't be shown again/)).toBeNull();
-
+    expect(await screen.findByText("We couldn't load this circle.")).toBeVisible();
     const shown = secret();
     fetchInviteSecret.mockImplementation((id: string) => {
       keepInviteSecret(id, shown);
@@ -289,7 +393,29 @@ describe('when the link cannot be asked for', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     });
-    expect(await screen.findByText(new RegExp(`/join#…${shown.slice(-4)}$`))).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Share' })).toBeVisible();
+  });
+
+  it('tells the owner the invitation cannot be shown again, and where to cancel old ones', async () => {
+    fetchInviteSecret.mockResolvedValue(undefined);
+    wrap(<InviteCircleFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('Sunday Crew needs a new invitation.')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Open circle settings' }));
+    expect(replace).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/settings',
+      params: { id: CIRCLE },
+    });
+  });
+
+  it('tells a member the same, and to ask the owner, with no settings to open', async () => {
+    circleHome.mockResolvedValue(home({ isOwner: false, me: 'nina' }));
+    fetchInviteSecret.mockResolvedValue(undefined);
+    wrap(<InviteCircleFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('Sunday Crew needs a new invitation.')).toBeVisible();
+    expect(screen.getByText(/Ask the owner to cancel old invitations/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Open circle settings' })).toBeNull();
   });
 });
 
@@ -390,12 +516,13 @@ describe('a member who is not the owner', () => {
     circleHome.mockResolvedValue(home({ isOwner: false, me: 'nina' }));
   });
 
-  it('sees the settings, changes none of the owner’s, and is never shown the link', async () => {
+  it('sees the settings and Add someone, and changes none of the owner’s, nor cancels invitations', async () => {
     wrap(<SettingsFlow id={CIRCLE} />);
 
     expect(await screen.findByText('Only Maya can change these.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Add someone' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Change' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Reset link' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cancel old invitations' })).toBeNull();
     expect(screen.queryByRole('button', { name: /^Remove / })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Archive this circle' })).toBeNull();
     expect(fetchInviteSecret).not.toHaveBeenCalled();

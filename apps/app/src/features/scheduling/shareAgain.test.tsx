@@ -43,7 +43,7 @@ function show(node: ReactNode) {
   return render(<QueryClientProvider client={client}>{node}</QueryClientProvider>);
 }
 const flow = () => <CandidatesFlow id="sunday-crew" planId="thu-17" which="candidates" />;
-const SHARE = { name: 'Share the link again' };
+const SHARE = { name: 'Share the plan again' };
 
 beforeEach(() => {
   vi.clearAllMocks();

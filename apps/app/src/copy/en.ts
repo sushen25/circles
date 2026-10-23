@@ -555,7 +555,8 @@ export const en = {
     catch_up_in_the_next_14_days: 'Catch up in the next 14 days',
     '5_of_6_replied': '5 of 6 replied',
     see_how_its_looking: "See how it's looking",
-    share_the_link: 'Share the link',
+    share_the_plan: 'Share the plan',
+    share_the_plan_line: 'Anyone new can join from it too.',
     link_copied: 'Copied. Paste it in the group chat.',
     link_couldnt_copy: "Couldn't copy the message. Try again.",
     last_caught_up: 'Last caught up',
@@ -565,7 +566,7 @@ export const en = {
     you_aim_for_about_monthly_early_october:
       'You aim for about monthly. Early October would keep the rhythm.',
     '6_members': '6 members',
-    invite_link: 'Invite link',
+    add_someone: 'Add someone',
     plan_a_catch_up: 'Plan a catch-up',
     about_weekly: 'about weekly',
     about_fortnightly: 'about fortnightly',
@@ -574,14 +575,18 @@ export const en = {
     no_goal_set: 'Whenever suits',
     members: '{count} members · {what}',
     one_member: '1 member · {what}',
-    member_count: '{count} members',
-    one_member_count: '1 member',
-    // At the cap (ADR 0012): said instead of the count, and the link is not offered.
+    // At the cap (ADR 0012): said beside the members, and Add someone is not offered.
     full: '{circle} is full ({count} people)',
-    full_hint:
-      'A circle holds up to {count} people. The invite link comes back once there is room.',
+    full_hint: 'A circle holds up to {count} people. Adding someone comes back once there is room.',
     full_action: 'Circle settings',
     replies_close: 'Replies close {deadline}',
+    // The card once replies have closed (ADR 0091): the organiser decides, and
+    // everybody else is told who does.
+    replies_closed: 'Replies closed',
+    time_to_pick_one: 'Time to pick one',
+    picks_a_time_next: '{name} picks a time next',
+    nobody_has_picked: 'No time has been picked yet',
+    pick_a_time: 'Pick a time',
     replied: '{count} of {total} replied',
     asked_again:
       'The plan changed, so the times you sent were cleared. Add yours again so they count.',
@@ -629,12 +634,12 @@ export const en = {
     thu_17_sep: 'Thu 17 Sep',
     '6_30_8_30_pm_hope_st': '6:30–8:30 pm · Hope St Radio',
     details: 'Details',
-    share: 'Share',
+    send_the_details: 'Send the details',
+    send_the_details_line: 'For people already in {circle}.',
     last_caught_up: 'Last caught up',
     sat_8_aug: 'Sat 8 Aug',
     next_one: 'Next one',
     '6_members': '6 members',
-    invite_link: 'Invite link',
     plan_another: 'Plan another',
     copied: 'Copied. Paste it in the group chat.',
     couldnt_copy: "Couldn't copy the message. Try again.",
@@ -652,17 +657,15 @@ export const en = {
     next_one: 'Next one',
     nothing_yet: 'Nothing yet',
     '6_members': '6 members',
-    invite_link: 'Invite link',
     plan_another: 'Plan another',
   },
   circleHomeJoining: {
     sunday_crew: 'Sunday Crew',
     '3_in_so_far_about_monthly': '3 in so far · about monthly',
     nina_and_tom_just_joined: 'Nina and Tom just joined',
-    share_again: 'Share again',
     ready_when_you_are: 'Ready when you are',
     you_dont_have_to_wait_for_everyone:
-      "You don't have to wait for everyone. Start a catch-up now and anyone who joins later can still add their times.",
+      "You don't have to wait for everyone. Anyone who joins later can still add their times.",
     last_caught_up: 'Last caught up',
     not_yet: 'Not yet',
     next_one: 'Next one',
@@ -673,7 +676,8 @@ export const en = {
     one_just_joined: '{name} just joined',
     two_just_joined: '{name} and {other} just joined',
     many_just_joined: '{name} and {count} others just joined',
-    nobody_yet: "Nobody's joined yet. Share the link in your group chat.",
+    // The reader, when they are one of the people who just joined (SUS-248).
+    you: 'You',
   },
   circlesList: {
     your_circles: 'Your circles',
@@ -1566,14 +1570,8 @@ export const en = {
   emptyCircle: {
     sunday_crew: 'Sunday Crew',
     just_you_so_far: 'Just you so far',
-    invite_link: 'Invite link',
-    paste_this_into_the_group_chat_friends:
-      'Paste this into the group chat. Friends join and answer from the link. No app needed.',
-    domain_join_7f3k: '{domain}/join#…7f3k',
-    you_can_start_a_plan_now_too:
-      'You can start a plan now, too. Anyone who joins later can still add their times.',
-    share_invite_link: 'Share invite link',
-    plan_a_catch_up_anyway: 'Plan a catch-up anyway',
+    plan_and_share: 'Plan a catch-up and share it. Friends join from the plan.',
+    plan_a_catch_up: 'Plan a catch-up',
     just_you: 'Just you so far · {what}',
   },
   emptyCirclesList: {
@@ -1803,25 +1801,24 @@ export const en = {
     sending: 'Sending…',
   },
   inviteCircle: {
-    now_invite_sunday_crew: 'Now invite Sunday Crew.',
-    paste_one_link_into_the_chat_where:
-      "Paste one link into the chat where everyone already is. Friends tap it, add a name, and they're in. No app, no account.",
-    your_invite_link: 'Your invite link',
+    add_someone_to: 'Add someone to {circle}',
+    their_invitation: 'Their invitation',
+    // What lands in the chat. Words come from the domain's `inviteMessage`;
+    // this is the fixture's copy of them.
+    join_on_brand:
+      "Join {circle} on {brand} so you're in on the next catch-up. No app needed: {domain}/join#7f3k",
     domain_join_7f3k: '{domain}/join#7f3k',
-    made_a_sunday_crew_circle_so_we:
-      'Made a Sunday Crew circle so we stop losing catch-ups in the chat. Join here, no app needed: {domain}/join#7f3k',
-    only_people_with_this_link_can_join:
-      "Only people with this link can join. You can reset it any time from the circle's settings.",
-    share_to_group_chat: 'Share to group chat',
-    copy_link: 'Copy link',
-    skip_for_now_ill_plan_first: "Skip for now, I'll plan first",
-    now_invite: 'Now invite {circle}.',
-    copied: 'Copied. Paste it into your group chat.',
-    couldnt_copy: "We couldn't copy it here. Press and hold the link to copy it yourself.",
+    theyre_in_as_soon: "They're in as soon as they add a name. No app, no account.",
+    share: 'Share',
+    copy: 'Copy',
+    copied: 'Copied. Paste it into your chat.',
+    couldnt_copy: "We couldn't copy it here. Press and hold the message to copy it yourself.",
     go_to_circle: 'Go to {circle}',
-    link_not_here: '{circle} needs a new invite link.',
-    link_shown_once:
-      "This link can't be shown again. You can make a new one in the circle's settings, and the old one stops working.",
+    needs_a_new_invitation: '{circle} needs a new invitation.',
+    shown_once_owner:
+      "This invitation can't be shown again. Cancel old invitations in the circle's settings and add someone again.",
+    shown_once_member:
+      "This invitation can't be shown again. Ask the owner to cancel old invitations in the circle's settings, then add someone again.",
     open_settings: 'Open circle settings',
     loading: 'Getting your circle',
     couldnt_load: "We couldn't load this circle.",
@@ -1959,12 +1956,15 @@ export const en = {
   linkInvalid: {
     brand: '{brand}',
     this_link_isnt_active_any_more: "This link isn't active any more.",
-    the_circles_owner_may_have_reset_it:
-      "The circle's owner may have reset it. Ask whoever shared it for the current link. Anyone already in the circle still has their place.",
     ask_for_a_new_plan_link: 'Ask whoever shared it for a new one.',
-    you_need_the_invite: 'You need the invite link to join.',
-    ask_whoever_shared_it:
-      "This page is for people already in the circle. Ask whoever shared it for the circle's invite link.",
+    // A plan that is live but not admitting (ADR 0091): the person is told whom
+    // to ask, never about a link they have not seen.
+    this_plan_isnt_taking_new_answers: "This plan isn't taking new answers.",
+    ask_someone_to_add_you: 'Ask someone in {circle} to add you.',
+    ask_someone_in_the_circle: 'Ask someone in the circle to add you.',
+    youre_not_in_this_circle: "You're not in this circle.",
+    this_page_is_for_people_in_it:
+      'This page is for people already in it. Ask someone there to add you.',
     open_the_link_again: 'Open the invite link again.',
     open_it_from_the_chat:
       'The page lost track of the invite. Open the link again from the chat it was shared in.',
@@ -2711,12 +2711,10 @@ export const en = {
   settings: {
     sunday_crew: 'Sunday Crew',
     circle_settings: 'Circle settings',
-    invite_link: 'Invite link',
-    domain_join_7f3k: '{domain}/join#…7f3k',
-    copy_link: 'Copy link',
-    reset_link: 'Reset link',
-    resetting_the_link_doesnt_affect_anyone_whos:
-      "Resetting the link doesn't affect anyone who's already in.",
+    whos_in: "Who's in",
+    add_someone: 'Add someone',
+    cancel_old_invitations: 'Cancel old invitations',
+    cancel_old_invitations_line: "If one has gone somewhere it shouldn't.",
     catch_up: 'Catch up',
     about_monthly: 'About monthly',
     change: 'Change',
@@ -2741,16 +2739,13 @@ export const en = {
     leave_this_circle: 'Leave this circle',
     owner_cant_leave:
       "You own this circle, so you can't leave it. To step away, delete your account from Account: it goes to the saved-place member who has been in it longest.",
-    link_ending: '{domain}/join#…{tail}',
-    link_loading: 'Getting the link',
-    link_couldnt_load: "We couldn't get the link just now.",
-    link_not_shown: "This link can't be shown again. Reset it to get a new one, and share that.",
-    copied: 'Copied',
-    couldnt_copy: "Couldn't copy. Try again.",
-    reset_title: 'Reset the invite link?',
-    reset_body: 'The old link stops working straight away. Everyone already in {circle} stays in.',
-    new_link_ready: 'New link ready. The old one no longer works.',
-    couldnt_reset: "The link didn't reset. Try again.",
+    cancel_invitations_title: 'Cancel old invitations?',
+    cancel_invitations_body:
+      "Add someone messages already sent stop working. Plans you've shared keep working, and everyone in {circle} stays in.",
+    cancel_them: 'Cancel them',
+    keep_them: 'Keep them',
+    old_invitations_cancelled: 'Old invitations cancelled. Add someone makes a new one.',
+    couldnt_cancel_invitations: "The invitations weren't cancelled. Try again.",
     colour: 'Colour',
     cadence_title: 'How often would you like to catch up?',
     cadence_weekly: 'About weekly',
@@ -2779,7 +2774,7 @@ export const en = {
     couldnt_remove: "{name} wasn't removed. Try again.",
     leave_title: 'Leave {circle}?',
     leave_body:
-      "You'll lose access straight away, and your answers to plans still asking are deleted. Everyone else stays. You can only come back with a new invite link.",
+      "You'll lose access straight away, and your answers to plans still asking are deleted. Everyone else stays. You can only come back if someone adds you again.",
     leave_confirm: 'Leave {circle}',
     couldnt_leave: "That didn't work, and you're still in the circle. Try again.",
     archive_title: 'Archive {circle}?',
@@ -2803,9 +2798,9 @@ export const en = {
     share_sheet_messages_pasted_into_the_group: 'Share-sheet messages · pasted into the group chat',
     generated_per_state_the_organiser_never_composes:
       'Generated per state. The organiser never composes. The invite secret rides in the URL fragment, so chat link previews never see it.',
-    invite_to_circle: 'Invite to circle',
+    invite_to_circle: 'Add someone',
     made_a_sunday_crew_circle_so_we:
-      'Made a Sunday Crew circle so we stop losing catch-ups in the chat. Join here, no app needed: {domain}/join#7f3k',
+      "Join Sunday Crew on {brand} so you're in on the next catch-up. No app needed: {domain}/join#7f3k",
     new_plan: 'New plan',
     when_can_sunday_crew_actually_catch_up:
       "When can Sunday Crew actually catch up? Mark the times you'd be up for in the next two weeks. Takes a minute: {domain}/j/7f3k",
@@ -3206,7 +3201,7 @@ export const en = {
     still_none: 'Everyone has answered. The options are being worked out.',
     only_you:
       "Only you see this while it's incomplete. Members see the options once there are some.",
-    share_the_link_again: 'Share the link again',
+    share_the_plan_again: 'Share the plan again',
     link_copied: 'Copied. Paste it in the group chat.',
     link_couldnt_copy: "Couldn't copy the message. Try again.",
     edit_the_plan: 'Edit the plan',

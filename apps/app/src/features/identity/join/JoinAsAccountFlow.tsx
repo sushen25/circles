@@ -88,7 +88,7 @@ export function JoinAsAccountFlow({ code, onJoined }: JoinAsAccountFlowProps) {
 
   // The circle is there but the plan is not taking answers: join-plan said so.
   if (inactive) {
-    return <LinkInvalidScreen reason="ask_for_invite" onBack={back} />;
+    return <LinkInvalidScreen reason="not_admitting" circleName={circleName.data} onBack={back} />;
   }
 
   if (circleName.isError || personName.isError) {

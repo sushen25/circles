@@ -7,12 +7,14 @@ import { log } from '../_shared/logging.ts';
 import { derivedInviteSecret } from '../_shared/secret.ts';
 
 /**
- * The owner's invite link, again (S1-23, ADR 0028).
+ * The circle's invite link, again, for any active member (S1-23, ADR 0028;
+ * widened from the owner alone by SUS-248).
  *
  * The database has only the live invite's digest; the secret is *derived* from
  * the invite's id under `INVITE_LINK_KEY`. So this asks the database which
- * invite is live — `live_invite`, the service role's, which answers the owner alone and refuses anybody
- * else with `not_the_owner` — derives the secret for it, and hands it back only
+ * invite is live — `live_invite`, the service role's, which answers an active
+ * member of the circle and refuses anybody else with `not_a_member` — derives
+ * the secret for it, and hands it back only
  * if its digest is the one stored. A link made before links were derived, or
  * under a different key, fails that check and comes back as `null`: the screen
  * then offers a reset, which is the only honest way to a link nobody can show.
@@ -26,7 +28,7 @@ Deno.serve(
     name: 'get-invite-link',
     schema: GetInviteLinkRequest,
     handle: async ({ body, actor, service, requestId }): Promise<GetInviteLinkResponse> => {
-      // The service role's, naming the owner it verified: the digest stops here and
+      // The service role's, naming the caller it verified: the digest stops here and
       // never reaches a client (SUS-114).
       const { data, error } = await service.rpc('live_invite', {
         p_circle_id: body.circle_id,
