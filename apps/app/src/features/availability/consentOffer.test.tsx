@@ -18,6 +18,20 @@ describe('the email offer', () => {
     expect(shown.textContent).toBe(CONSENT.text);
   });
 
+  it('shows the same sentence either way, with 18+ and the links only where an account is made', () => {
+    const { rerender } = render(<SentScreen offerEmail savePlace />);
+    expect(screen.getByText((_, node) => node?.textContent === CONSENT.text)).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Terms' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Privacy' })).toBeVisible();
+
+    rerender(<SentScreen offerEmail savePlace={false} />);
+    const shown = screen.getByText((_, node) => node?.textContent === CONSENT.text);
+    expect(shown.textContent).toBe('Emails about this meetup. Stop any time.');
+    // No account is made, so no 18+ and no links.
+    expect(document.body.textContent).not.toMatch(/18\+/);
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+
   it("shows it, byte for byte, on the signed-in member's one-button card too", () => {
     render(<SentScreen offerEmail confirmedEmail="nina@example.com" />);
 

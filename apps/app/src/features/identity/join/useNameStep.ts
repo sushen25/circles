@@ -79,7 +79,12 @@ export function useNameStep<T>({
 
   const submit = async () => {
     const displayName = normaliseDisplayName(name);
-    if (displayName === '' || busy) return;
+    if (busy) return;
+    // Pressed empty, Continue says what it needs rather than doing nothing (SUS-250).
+    if (displayName === '') {
+      setProblem('name_missing');
+      return;
+    }
     // The domain's rule, the same one the request schema applies. Asking the
     // server would get `invalid_request` with no reason — a generic error for
     // something the person can fix by typing.
@@ -130,7 +135,8 @@ export function useNameStep<T>({
     onChangeText: (text) => {
       setName(text);
       // A name being edited is no longer the name that was refused.
-      if (problem === 'name_taken' || problem === 'name_unusable') setProblem(undefined);
+      if (problem === 'name_taken' || problem === 'name_unusable' || problem === 'name_missing')
+        setProblem(undefined);
     },
     submit,
   };

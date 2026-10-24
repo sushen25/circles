@@ -11,8 +11,9 @@ import { SUBSCRIBER_KINDS } from './types.ts';
  */
 describe('the consent sentence', () => {
   it('names every plan-update letter', () => {
-    // Adding a kind to SUBSCRIBER_KINDS without reading the sentence fails here,
-    // and so does a `covers` phrase the sentence does not contain.
+    // Every plan letter is "Emails about this meetup" now, so this holds the list of kinds,
+    // not the wording: a kind added to SUBSCRIBER_KINDS fails here until somebody reads the
+    // sentence and confirms the new letter is about one meetup and carries a stop link.
     expect(Object.keys(CONSENT.covers).sort()).toEqual([...SUBSCRIBER_KINDS].sort());
     for (const kind of SUBSCRIBER_KINDS) {
       expect(CONSENT.text, kind).toContain(CONSENT.covers[kind]);
@@ -35,6 +36,7 @@ describe('the consent sentence', () => {
       '2026-09-14': '3856889b9710a73294328c72e5ff563384dcd10238dfd8a5ee3ded4b4360ad15',
       '2026-10-02': 'c359f8fd2957e5a32d4d945bab3c93bc8a1143ba08c2fdba06f23f061e7663d1',
       '2026-10-06': '38f85e9aa83f8f26e62a6bf5b7e81d2a0a2058b68f2cc8e74433fb9860959c29',
+      '2026-10-24': 'e4ce07c68fd40694a9bed8b07947dce614fd31b85925156f212254054280f9ab',
     };
     // A version dropped from the list is a record that can no longer be read.
     expect(CONSENT_VERSIONS.map((entry) => entry.version)).toEqual(Object.keys(pinned));

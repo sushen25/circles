@@ -126,6 +126,8 @@ test.describe('the controls actually work', () => {
     // The clock is pinned to the week the screens show (12–23 October 2026), so
     // nothing here depends on the day the suite runs.
     await page.clock.setFixedTime(new Date('2026-10-12T09:00:00+11:00'));
+    // A frozen clock freezes the sheet's slide too (Animated reads Date), so it fades instead (SUS-250).
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/j/abc');
 
     // Alex has not answered: the first thing is the question, one line, the
@@ -173,34 +175,28 @@ test.describe('the controls actually work', () => {
 
     // Nothing is painted or scrolled: a day's hours are From and to buttons on
     // the sheet its clock opens.
-    await expect(page.getByRole('button', { name: /^Free from, / })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^From \d/ })).toHaveCount(0);
     await page.getByRole('button', { name: /^Exact hours, Tuesday/ }).click();
     await expect(page.getByRole('checkbox', { name: / to / })).toHaveCount(0);
     await expect(
-      page.getByText("Set when you're free. Add a second time if there's a gap."),
+      page.getByText("Set the hours you'd be up for. Add a second time if there's a gap."),
     ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: /^Free from, Tuesday.*, 5:30 pm$/ }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: /^Free until, Tuesday.*, 10:30 pm$/ }),
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /^From 5:30 pm, Tuesday/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^To 10:30 pm, Tuesday/ })).toBeVisible();
 
     // The fixture's others: Tuesday's two meet from 6:30 to 9:30 pm.
-    await expect(page.getByText(/^Most others are free /)).toBeVisible();
+    await expect(page.getByText(/^Most others can do /)).toBeVisible();
 
     // Moving To to 8 pm sets the day's own hours; a second time, for a gap, is one tap away.
-    await page.getByRole('button', { name: /^Free until, Tuesday.*, 10:30 pm$/ }).click();
+    await page.getByRole('button', { name: /^To 10:30 pm, Tuesday/ }).click();
     await page.getByRole('radio', { name: '8:00 pm', exact: true }).click();
-    await expect(
-      page.getByRole('button', { name: /^Free until, Tuesday.*, 8:00 pm$/ }),
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /^To 8:00 pm, Tuesday/ })).toBeVisible();
     await page.getByRole('button', { name: 'Add another time' }).click();
-    await expect(page.getByRole('button', { name: /^Free from, Tuesday/ })).toHaveCount(2);
+    await expect(page.getByRole('button', { name: /^From \d.*, Tuesday/ })).toHaveCount(2);
 
     // Done: the sheet goes and the day's row says its own hours.
     await page.getByRole('button', { name: 'Done', exact: true }).click();
-    await expect(page.getByRole('button', { name: /^Free from, / })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^From \d/ })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^Exact hours, Tuesday.*, / })).toBeVisible();
   });
 

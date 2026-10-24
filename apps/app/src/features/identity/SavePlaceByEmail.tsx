@@ -16,6 +16,7 @@ import {
   RESEND_AFTER_MS,
   type EnterCodeProblem,
 } from './EnterCodeScreen';
+import { useLegalLinks } from './useLegalLinks';
 import { SaveAccessScreen, type SaveAccessProblem } from './SaveAccessScreen';
 
 /**
@@ -78,6 +79,7 @@ export function SavePlaceByEmail({
   onBack,
 }: SavePlaceByEmailProps) {
   const live = hasBackend();
+  const legal = useLegalLinks();
   const [step, setStep] = useState<Step>(
     start === undefined ? { kind: 'email' } : { kind: 'code', ...start },
   );
@@ -190,6 +192,8 @@ export function SavePlaceByEmail({
       }}
       onNotNow={onNotNow}
       onBack={onBack}
+      onTerms={legal.onTerms}
+      onPrivacy={legal.onPrivacy}
     />
   );
 }

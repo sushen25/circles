@@ -115,3 +115,30 @@ describe('after a move', () => {
     expect(screen.queryByText('The time moved. Are you coming?')).toBeNull();
   });
 });
+
+describe('the guest screen (SUS-250)', () => {
+  it('says the state under the day, not in a label above it, and tells somebody going so', async () => {
+    planConfirmation.mockResolvedValue(fixture.lockedInAsMember);
+    show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
+
+    expect(await screen.findByText(/^Locked in for /)).toBeTruthy();
+    expect(screen.queryByText('Locked in', { exact: true })).toBeNull();
+    expect(screen.getByText(/it is\.$/)).toBeTruthy();
+    expect(screen.getByText('See you then.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add to calendar' })).toBeTruthy();
+  });
+
+  it('asks somebody the move left to confirm to say, with no sign-off until they are going', async () => {
+    planConfirmation.mockResolvedValue({
+      ...fixture.lockedInMoved,
+      me: 'nina',
+      isOrganiser: false,
+    });
+    show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
+
+    expect(await screen.findByText(/^Moved from .* · now /)).toBeTruthy();
+    expect(screen.queryByText('See you then.')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add to calendar' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'I can make it' })).toBeTruthy();
+  });
+});

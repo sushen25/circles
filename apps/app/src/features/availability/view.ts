@@ -112,7 +112,7 @@ export type HoursView = {
   bar: { start: number; end: number }[];
   /** "9 am", "3 pm", "10:30 pm": the band's start, middle and end. */
   ticks: string[];
-  /** "Most others are free 2–4 pm and 6–8 pm"; absent when nobody else is free. */
+  /** "Most others can do 2–4 pm and 6–8 pm"; absent when nobody else is free. */
   others: string | undefined;
 };
 

@@ -24,7 +24,7 @@ async function bothAnswer(page: Page, browser: Browser, code: string): Promise<P
   const ren = await (await browser.newContext()).newPage();
   // Nobody has joined this circle from a link before, so the name comes first.
   await ren.goto(`/p/${code}`);
-  await ren.getByLabel('Your name').fill('Ren');
+  await ren.getByLabel('Your first name').fill('Ren');
   await ren.getByRole('button', { name: 'Continue' }).click();
   await expect(ren).toHaveURL(new RegExp(`/j/${code}$`));
   await sendEvenings(ren, code);
@@ -59,7 +59,7 @@ test('changing a locked-in time asks again, and a member hears Thursday is off f
 
   await ren.goto(`/p/${plan.code}`);
   await expect(ren).toHaveURL(new RegExp(`/p/${plan.code}/rescheduled$`));
-  await expect(ren.getByText('Previously')).toBeVisible();
+  await expect(ren.getByText('Was', { exact: true })).toBeVisible();
   await expect(ren.getByText(/Maya reopened the plan\./)).toBeVisible();
   await ren.getByRole('button', { name: 'Choose my times' }).click();
   await expect(ren).toHaveURL(new RegExp(`/j/${plan.code}$`));

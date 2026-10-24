@@ -42,7 +42,7 @@ async function seriousViolations(page: Page): Promise<string[]> {
 test('Join has no serious accessibility violations', async ({ page }) => {
   const crew = sundayCrew();
   await page.goto(`/join#${crew.secret}`);
-  await expect(page.getByText('Sunday Crew is finding a time to catch up.')).toBeVisible();
+  await expect(page.getByText(/^Sunday Crew plans its catch-ups here\./)).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
 });
 
@@ -51,7 +51,7 @@ test('the guest name screen opens with the cursor in the field, and no serious v
 }) => {
   const crew = sundayCrew();
   await page.goto(`/j/${crew.planCode}`);
-  const field = page.getByLabel('Your name');
+  const field = page.getByLabel('Your first name');
   await expect(field).toBeFocused();
   await expect(field).toHaveAttribute('placeholder', 'Your first name');
   expect(await seriousViolations(page)).toEqual([]);
@@ -62,7 +62,7 @@ test('the availability editor has no serious accessibility violations', async ({
   // A whole-day plan, so the pills and the rows have choices to offer.
   sql(`update public.plans set daily_start_local = 540 where id = '${crew.planId}'`);
   await page.goto(`/j/${crew.planCode}`);
-  await page.getByLabel('Your name').fill('Ren');
+  await page.getByLabel('Your first name').fill('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page.getByText('Which days could work?')).toBeVisible();
   // With a day tapped, so the answer block and its pills are in the tree...
@@ -86,7 +86,7 @@ test('the availability editor has no serious accessibility violations', async ({
   await expect(page.getByRole('dialog', { name: /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/ })).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
   await page
-    .getByRole('button', { name: /^Free from, / })
+    .getByRole('button', { name: /^From \d/ })
     .first()
     .click();
   // The picker replaces the pairs on the day's sheet: one dialog, not two.
@@ -106,7 +106,7 @@ test("the organiser's options have no serious accessibility violations", async (
   await sendEvenings(page, plan.code);
 
   await page.goto(`/circles/${circleId}/plan/${plan.id}/candidates`);
-  await expect(page.getByText('Best attendance')).toBeVisible();
+  await expect(page.getByText(/Best attendance/)).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
 });
 
@@ -154,7 +154,7 @@ test("a guest's confirmed screen has no serious accessibility violations", async
   guestWhoAnswered(crew, 'Tom');
   await page.goto(`/j/${crew.planCode}`);
   await page.getByRole('button', { name: "I'm new here" }).click();
-  await page.getByLabel('Your name').fill('Ren');
+  await page.getByLabel('Your first name').fill('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();
   await sendEvenings(page, crew.planCode);
   lockInFirstOption(crew.planId, crew.ownerId);
@@ -168,7 +168,7 @@ test("a guest's confirmed screen has no serious accessibility violations", async
 test('at 200% text, the editor cuts off none of its decisions', async ({ page }, testInfo) => {
   const crew = sundayCrew();
   await page.goto(`/j/${crew.planCode}`);
-  await page.getByLabel('Your name').fill('Ren');
+  await page.getByLabel('Your first name').fill('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page.getByText('Which evenings could work?')).toBeVisible();
   await page.getByRole('group', { name: 'Days in this plan' }).getByRole('button').first().click();

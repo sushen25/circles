@@ -15,6 +15,8 @@ import { useAttendance } from './useAttendance';
 export type OwnAnswer = {
   /** "You're going" — absent for somebody who was never asked. */
   mine: { title: string; detail: string } | undefined;
+  /** The reader has said they are going: the sign-off is for them (SUS-250). */
+  going: boolean;
   actions: AttendanceAction[];
   busy: boolean;
   problem: string | undefined;
@@ -79,6 +81,7 @@ export function useOwnAnswer(
                 ),
                 detail: t('confirmedGuest', 'say_below'),
               },
+    going: mine?.status === 'going',
     actions,
     busy: attendance.busy,
     problem: attendance.problem,

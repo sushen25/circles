@@ -27,11 +27,11 @@ import { useReducedMotion } from './wait';
  * control clear of the home indicator and the browser's toolbar (SUS-235).
  * `Screen` pads the screen behind, so nothing is padded twice.
  *
- * **`drawer`** gives it the first run's own motion (SUS-247, manifesto §5.5): it
- * rises over 200 ms on the drawer curve, `cubic-bezier(0.32, 0.72, 0, 1)`, and
- * leaves faster, in 160 ms, with the scrim fading alongside. Under reduced
- * motion it fades and does not move. Without it the sheet is the platform's own
- * slide, as every other sheet in the product is.
+ * **`drawer`**, on by default (SUS-250), is the product's sheet motion
+ * (manifesto §5.5): it rises over 240 ms on the drawer curve,
+ * `cubic-bezier(0.32, 0.72, 0, 1)`, and leaves faster, in 180 ms, with the
+ * scrim fading alongside. Under reduced motion it fades and does not move.
+ * `drawer={false}` is the platform's own slide.
  */
 type Props = {
   visible: boolean;
@@ -40,6 +40,7 @@ type Props = {
   /** What the scrim announces. Required: the component cannot know the words. */
   dismissLabel: string;
   children: ReactNode;
+  /** Default true. */
   drawer?: boolean | undefined;
 };
 
@@ -65,7 +66,7 @@ function useDrawer(visible: boolean, on: boolean) {
     }
     const moving = Animated.timing(progress, {
       toValue: visible ? 1 : 0,
-      duration: visible ? 200 : 160,
+      duration: visible ? 240 : 180,
       easing: Easing.bezier(...DRAWER_CURVE),
       useNativeDriver: Platform.OS !== 'web',
     });
@@ -78,14 +79,7 @@ function useDrawer(visible: boolean, on: boolean) {
   return { mounted: on ? mounted : visible, progress, reduced };
 }
 
-export function Sheet({
-  visible,
-  onDismiss,
-  label,
-  dismissLabel,
-  children,
-  drawer = false,
-}: Props) {
+export function Sheet({ visible, onDismiss, label, dismissLabel, children, drawer = true }: Props) {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();

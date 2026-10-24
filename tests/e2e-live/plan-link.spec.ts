@@ -26,20 +26,20 @@ import {
  */
 
 /**
- * Records whether "Have you answered this before?" was ever on screen, not just whether it
+ * Records whether "Been here before?" was ever on screen, not just whether it
  * is gone by the time the test looks. A string, because this runs in the page
  * and the test project has no DOM library.
  */
 async function watchForTheList(page: Page): Promise<void> {
   await page.addInitScript({
     content: `new MutationObserver(() => {
-      if (document.body && document.body.innerText.includes('Have you answered this before?')) window.sawList = true;
+      if (document.body && document.body.innerText.includes('Been here before?')) window.sawList = true;
     }).observe(document, { subtree: true, childList: true, characterData: true });`,
   });
 }
 
 async function typeName(page: Page, name: string): Promise<void> {
-  await page.getByLabel('Your name').fill(name);
+  await page.getByLabel('Your first name').fill(name);
   await page.getByRole('button', { name: 'Continue' }).click();
 }
 
@@ -50,7 +50,7 @@ test('a stranger taps "I\'m new here", gives a name, and is a guest the plan is 
   guestWhoAnswered(crew, 'Tom');
 
   await page.goto(`/p/${crew.planCode}`);
-  await expect(page.getByText('Have you answered this before?')).toBeVisible();
+  await expect(page.getByText('Been here before?')).toBeVisible();
   await page.getByRole('button', { name: "I'm new here" }).click();
   await typeName(page, 'Ren');
 
@@ -61,7 +61,7 @@ test('a stranger taps "I\'m new here", gives a name, and is a guest the plan is 
   expect(isParticipant(crew.planId, ren!.userId), 'and somebody the plan is asking').toBe(true);
 });
 
-test('a circle with no guests never asks "Have you answered this before?"', async ({ page }) => {
+test('a circle with no guests never asks "Been here before?"', async ({ page }) => {
   // Maya, the owner, has a saved place, so there is nobody to continue as.
   const crew = sundayCrew();
   await watchForTheList(page);
@@ -93,18 +93,18 @@ test('Back from the name step stays on the plan link, whichever Back is pressed'
   await page.goto(`/p/${crew.planCode}`);
   await page.getByRole('button', { name: "I'm new here" }).click();
   await expect(page.getByText('What should the group call you?')).toBeVisible();
-  await page.getByLabel('Your name').fill('Rne');
+  await page.getByLabel('Your first name').fill('Rne');
 
-  // The top bar's arrow returns to the step before: "Have you answered this before?".
+  // The top bar's arrow returns to the step before: "Been here before?".
   await page.getByRole('button', { name: 'Back', exact: true }).click();
-  await expect(page.getByText('Have you answered this before?')).toBeVisible();
+  await expect(page.getByText('Been here before?')).toBeVisible();
   await expect(page).toHaveURL(onThePlanLink);
 
   // The browser's Back does the same.
   await page.getByRole('button', { name: "I'm new here" }).click();
   await expect(page.getByText('What should the group call you?')).toBeVisible();
   await page.goBack();
-  await expect(page.getByText('Have you answered this before?')).toBeVisible();
+  await expect(page.getByText('Been here before?')).toBeVisible();
   await expect(page).toHaveURL(onThePlanLink);
 });
 
@@ -121,7 +121,7 @@ test('with nobody to continue as, the arrow stays on the plan link and the brows
   await page.goto('about:blank');
   await page.goto(`/j/${crew.planCode}`);
   await expect(page.getByText('What should the group call you?')).toBeVisible();
-  const field = page.getByLabel('Your name');
+  const field = page.getByLabel('Your first name');
   await field.fill('Rne');
 
   await page.getByRole('button', { name: 'Back', exact: true }).click();
@@ -151,7 +151,7 @@ test('an account that is not a member is shown the guests, and "I\'m new here" j
   await page.getByRole('button', { name: "I'm new here" }).click();
   const join = page.getByRole('button', { name: 'Join Sunday Crew as Sam' });
   await expect(join).toBeVisible();
-  await expect(page.getByLabel('Your name'), 'one tap, not the name step').toHaveCount(0);
+  await expect(page.getByLabel('Your first name'), 'one tap, not the name step').toHaveCount(0);
   await join.click();
 
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
@@ -188,7 +188,7 @@ test("an account takes a guest's place, with its answer, even once the plan has 
   await page.getByRole('button', { name: 'Continue as Tom' }).click();
   await page.getByRole('button', { name: "Yes, I'm Tom" }).click();
 
-  await expect(page.getByText('Have you answered this before?')).toHaveCount(0);
+  await expect(page.getByText('Been here before?')).toHaveCount(0);
   await expect(page.getByText("This plan isn't taking new answers.")).toHaveCount(0);
   const member = memberNamed(crew.circleId, 'Tom');
   expect(member?.userId, "the place is the account's now").toBe(tom.userId);
@@ -227,7 +227,7 @@ test('a plan that is not asking ends at one place, and a link that is not live a
       live.push(await page.locator('body').innerText());
     } else {
       await expect(page.getByText("This link isn't active any more."), how).toBeVisible();
-      await expect(page.getByLabel('Your name'), `${how} asks for no name`).toHaveCount(0);
+      await expect(page.getByLabel('Your first name'), `${how} asks for no name`).toHaveCount(0);
       dead.push(await page.locator('body').innerText());
     }
     if (how !== 'no_such_plan') {
@@ -249,7 +249,7 @@ test('somebody who joins by invite after the plan was made is asked by it on arr
   const crew = sundayCrew();
 
   await page.goto(`/join#${crew.secret}`);
-  await page.getByRole('button', { name: 'Choose my times' }).click();
+  await page.getByRole('button', { name: 'Join Sunday Crew' }).click();
   await typeName(page, 'Nina');
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
 

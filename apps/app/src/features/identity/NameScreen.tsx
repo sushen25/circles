@@ -27,13 +27,18 @@ import type { ScreenState } from '../state';
  * working leaves this screen, and the container does that.
  */
 export type NameProblem =
-  'name_taken' | 'name_unusable' | 'circle_full' | 'too_many_tries' | 'couldnt_join' | 'offline';
+  | 'name_taken'
+  | 'name_missing'
+  | 'name_unusable'
+  | 'circle_full'
+  | 'too_many_tries'
+  | 'couldnt_join'
+  | 'offline';
 
 export type NameProps = {
   fixture?: Fixture | undefined;
   state?: ScreenState | undefined;
   circleName?: string | undefined;
-  inviterName?: string | null | undefined;
   value?: string | undefined;
   /** The name the server refused, which `name_taken` quotes back. */
   refusedName?: string | undefined;
@@ -69,6 +74,8 @@ function problemCopy(problem: NameProblem, circle: string, name: string): string
   switch (problem) {
     case 'name_taken':
       return t('name', 'name_taken', { circle, name });
+    case 'name_missing':
+      return t('name', 'name_missing');
     case 'name_unusable':
       return t('name', 'name_unusable');
     case 'circle_full':
@@ -85,7 +92,6 @@ function problemCopy(problem: NameProblem, circle: string, name: string): string
 export function NameScreen({
   fixture,
   circleName = fixture?.circle.name ?? '',
-  inviterName = fixture?.circle.members[0]?.name ?? null,
   value,
   refusedName = '',
   problem,
@@ -106,20 +112,20 @@ export function NameScreen({
       <Body>
         <Stack>
           <DisplayL>{t('name', 'what_should_the_group_call_you')}</DisplayL>
+          {/* A plan link says the effort and the privacy promise (SUS-203); the invite says what a first name needs. */}
           <BodyText>
             {forAccount
               ? t('name', 'just_for_this_circle', { circle: circleName })
-              : t('name', 'just_a_first_name_is_fine_no')}
+              : fromPlanLink
+                ? t('name', 'about_a_minute_and_nobody_sees_your_calendar')
+                : t('name', 'just_a_first_name_is_fine_no')}
           </BodyText>
-          {fromPlanLink ? (
-            <BodyText>{t('name', 'about_a_minute_and_nobody_sees_your_calendar')}</BodyText>
-          ) : null}
         </Stack>
         <Stack>
-          <Label nativeID="guest-name-label">{t('name', 'your_name')}</Label>
+          <Label nativeID="guest-name-label">{t('name', 'your_first_name')}</Label>
           <Input
             accessibilityLabelledBy="guest-name-label"
-            aria-label={t('name', 'your_name')}
+            aria-label={t('name', 'your_first_name')}
             placeholder={t('name', 'your_first_name')}
             autoFocus
             value={value}
@@ -135,9 +141,7 @@ export function NameScreen({
         </Stack>
         {problem === undefined ? (
           <Small>
-            {inviterName === null
-              ? t('name', 'this_is_what_the_circle_will_see')
-              : t('name', 'this_is_what_the_others_will_see', { inviter: inviterName })}
+            {t('name', 'this_is_what_the_circle_will_call_you', { circle: circleName })}
           </Small>
         ) : (
           <Stack>
@@ -154,7 +158,6 @@ export function NameScreen({
           busyLabel={t('name', 'joining')}
           busy={busy}
           onPress={onNext}
-          disabled={value !== undefined && value.trim() === ''}
         />
         {onHaveAccount === undefined ? null : (
           <Tertiary label={t('name', 'i_have_an_account')} onPress={onHaveAccount} />

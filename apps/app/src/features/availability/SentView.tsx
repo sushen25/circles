@@ -1,15 +1,18 @@
 import type { PlanId } from '@circles/contracts';
-import { fromISO, toLocal, toParts, zone as toZone } from '@circles/domain';
+import { formatMinutesOfDay, fromISO, toLocal, toParts, zone as toZone } from '@circles/domain';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 
 import { track } from '../../analytics/track';
 import { t } from '../../copy';
 import type { AnswerablePlan, OwnAnswer } from '../../data/availability';
+import { deviceTimeFormat } from '../../platform/timeFormat';
+import { dateWords } from './days';
 import type { Nudge } from '../growth/useNudge';
 import type { OneStep, OneStepStage } from './oneStep';
 import { SentScreen, type SentOutcome } from './SentScreen';
 import { useEmailOffer } from './useEmailOffer';
+import { useSentDays } from './useSentDays';
 
 type SentViewProps = {
   code: string;
@@ -80,18 +83,21 @@ export function Sent({
       ? t('sent', gaveTimes ? 'thanks_times_in_anonymous' : 'thanks_answer_in_anonymous')
       : t('sent', gaveTimes ? 'thanks_times_in' : 'thanks_answer_in', { name });
   const day = closingDay(plan);
+  const when = closingWhen(plan);
+  const days = useSentDays({ plan, answer, userId, live });
   // The organiser is the one who picks, so their own screen says "you" (SUS-196).
   const body = organising
     ? t('sent', 'you_pick', { day })
     : plan.organiserName === null
-      ? t('sent', 'time_gets_picked', { day })
-      : t('sent', 'organiser_picks', { name: plan.organiserName, day });
+      ? t('sent', 'time_gets_picked', { when })
+      : t('sent', 'organiser_picks', { name: plan.organiserName, when });
 
   return (
     <SentScreen
       circleName={plan.circleName}
       headline={headline}
       body={body}
+      days={days}
       offerEmail={offerEmail}
       email={one.email}
       problem={problem}
@@ -111,9 +117,14 @@ export function Sent({
         offer?.dismiss();
         setDismissed(true);
       }}
+      // A guest's way to the options (spec §5.6); changing the answer is one step on, from there.
+      // The organiser's own answer has no options to see here, and keeps the way back to it.
+      onSeeOptions={
+        organising ? undefined : () => router.push({ pathname: '/p/[code]', params: { code } })
+      }
       onChangeAnswer={
-        plan.acceptingAnswers
-          ? () => router.push({ pathname: '/j/[code]', params: { code } })
+        organising && plan.acceptingAnswers
+          ? () => router.push({ pathname: '/j/[code]', params: { code, edit: '1' } })
           : undefined
       }
       onSeeCircle={
@@ -138,6 +149,12 @@ function outcomeOf(stage: OneStepStage): SentOutcome | undefined {
     default:
       return undefined;
   }
+}
+
+/** "Thu 6 pm": when replies close, on the plan's own clock, in the device's words. */
+function closingWhen(plan: AnswerablePlan): string {
+  const { date, minutesOfDay } = toLocal(fromISO(plan.responseDeadline), toZone(plan.zone));
+  return `${dateWords(date, 'short').split(' ')[0] ?? ''} ${formatMinutesOfDay(minutesOfDay, deviceTimeFormat())}`;
 }
 
 /** "Tuesday": the day replies close, on the plan's own clock, in the device's words. */

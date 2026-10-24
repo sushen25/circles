@@ -286,7 +286,15 @@ export function Answering({
   const title = titleOf(plan);
 
   if (!answerable || phase.kind === 'closed') {
-    return <AvailabilityScreen state="expired" title={title} onBack={back} />;
+    return (
+      <AvailabilityScreen
+        state="expired"
+        title={title}
+        organiserName={plan.organiserName}
+        onSeeOptions={() => router.replace({ pathname: '/p/[code]', params: { code } })}
+        onBack={back}
+      />
+    );
   }
 
   if (phase.kind === 'offline' || phase.kind === 'error') {
@@ -316,7 +324,7 @@ export function Answering({
         onBackToMyTimes={() =>
           router.canGoBack()
             ? router.back()
-            : router.replace({ pathname: '/j/[code]', params: { code } })
+            : router.replace({ pathname: '/j/[code]', params: { code, edit: '1' } })
         }
         onBack={back}
       />
@@ -328,6 +336,7 @@ export function Answering({
       title={title}
       question={questionOf(view.band, view.single)}
       noneLabel={noneOf(view.band, view.single)}
+      sendHint={t('availability', 'send_needs_a_day', { thing: thingOf(view.band) })}
       single={view.single}
       onPaintDays={paintDays}
       guide={guideOf(view.counted, view.band, view.single)}

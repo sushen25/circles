@@ -71,9 +71,7 @@ test('the organiser reviews, locks it in, and gets the message and the calendar 
   expect(confirmationOf(plan.id)).toEqual({ placeName: 'Hope St Radio', chased: 'one' });
 
   await page.getByRole('button', { name: 'Add to my calendar' }).click();
-  await expect(
-    page.getByText("Nothing is added to anyone's calendar without their tap."),
-  ).toBeVisible();
+  await expect(page.getByText(/Nothing is added/)).toHaveCount(0);
   await expect(page.getByText(/Google/)).toHaveCount(0);
   const download = await downloadCalendarFile(page);
   expect(download.suggestedFilename()).toMatch(/^sunday-crew-\d{4}-\d{2}-\d{2}\.ics$/);
@@ -88,7 +86,7 @@ test("a member lands on the confirmed screen from the plan link and says they ca
   // Ren is new: joins from the plan link and answers, which runs the engine.
   await page.goto(`/p/${crew.planCode}`);
   await page.getByRole('button', { name: "I'm new here" }).click();
-  await page.getByLabel('Your name').fill('Ren');
+  await page.getByLabel('Your first name').fill('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
   await answersIn(page, crew.planCode);

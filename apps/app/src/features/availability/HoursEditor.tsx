@@ -90,19 +90,19 @@ export function HoursEditor({ card, dimmed, onPaint }: Props) {
   return (
     <Stack gap={12}>
       <Small>{t('availability', 'day_hours_guidance')}</Small>
-      <Label>{t('availability', 'free_from')}</Label>
+      <Label>{t('availability', 'hours_from_label')}</Label>
       {hours.ranges.map((range, index) => (
         <View key={range.from} style={styles.pair}>
           <TimeButton
             label={range.fromLabel}
-            aria={t('availability', 'free_from_label', { day: card.spoken, time: range.fromLabel })}
+            aria={t('availability', 'from_time_label', { day: card.spoken, time: range.fromLabel })}
             disabled={dimmed}
             onPress={() => setPicking({ index, which: 'from' })}
           />
           <Text style={[styles.to, { color: palette.ink2 }]}>{t('availability', 'hours_to')}</Text>
           <TimeButton
             label={range.toLabel}
-            aria={t('availability', 'free_until_label', { day: card.spoken, time: range.toLabel })}
+            aria={t('availability', 'until_time_label', { day: card.spoken, time: range.toLabel })}
             disabled={dimmed}
             onPress={() => setPicking({ index, which: 'to' })}
           />

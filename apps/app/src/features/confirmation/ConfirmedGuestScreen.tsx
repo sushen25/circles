@@ -1,4 +1,7 @@
+import { Platform, Pressable, Text as RNText } from 'react-native';
+
 import {
+  Arrive,
   Body,
   BodyText,
   Button,
@@ -6,8 +9,7 @@ import {
   DateText,
   DisplayXL,
   Foot,
-  InlineLink,
-  Label,
+  usePalette,
   Marks,
   Notice,
   Screen,
@@ -40,8 +42,11 @@ export type AttendanceAction = { label: string; onPress: () => void; tone?: 'pla
 export type ConfirmedGuestProps = {
   state?: ConfirmedState | undefined;
   view?: ConfirmedView | undefined;
-  /** Absent when there is no place to find. */
+  /** Absent when there is no place to find. A real link on the web, opened by the app elsewhere. */
+  mapsHref?: string | undefined;
   onOpenMaps?: (() => void) | undefined;
+  /** The reader said they are going: only they are told "Thursday it is. See you then." */
+  going?: boolean | undefined;
   /** "You're going" — absent for somebody who was never asked. */
   mine?: { title: string; detail: string } | undefined;
   actions?: readonly AttendanceAction[] | undefined;
@@ -55,7 +60,9 @@ export type ConfirmedGuestProps = {
 export function ConfirmedGuestScreen({
   state = 'default',
   view,
+  mapsHref,
   onOpenMaps,
+  going = false,
   mine,
   actions = [],
   busy = false,
@@ -76,33 +83,34 @@ export function ConfirmedGuestScreen({
     );
   }
 
+  const deciding = mine !== undefined && !going && actions.length > 0;
+
   return (
     <Screen invert>
       <TopBar title={view.circleName} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
-        <Label>{t('confirmedGuest', 'locked_in')}</Label>
-        <Stack>
-          <DisplayXL>{view.weekday}</DisplayXL>
-          <DateText>{view.dayMonth}</DateText>
-          <BodyText>{view.time}</BodyText>
-          {view.zoneNote === undefined ? null : <Small>{view.zoneNote}</Small>}
-          {view.movedFrom === undefined ? null : <Small>{view.movedFrom}</Small>}
-        </Stack>
+        <Arrive>
+          <Stack>
+            <DisplayXL>{view.weekday}</DisplayXL>
+            <DateText>{view.dayMonth}</DateText>
+            {/* The state is the line under the heading, not a label above it. */}
+            <BodyText>{view.stateLine}</BodyText>
+            {view.zoneNote === undefined ? null : <Small>{view.zoneNote}</Small>}
+          </Stack>
+        </Arrive>
         {view.placeName === undefined && onOpenMaps === undefined ? null : (
           <Stack>
             {view.placeName === undefined ? null : <Title>{view.placeName}</Title>}
-            {onOpenMaps === undefined ? null : (
-              <BodyText>
-                <InlineLink onPress={onOpenMaps}>{t('confirmedGuest', 'open_in_maps')}</InlineLink>
-              </BodyText>
+            {onOpenMaps === undefined && mapsHref === undefined ? null : (
+              <MapsLink href={mapsHref} onPress={onOpenMaps} />
             )}
           </Stack>
         )}
         <Card>
           <Stack gap={8}>
             <Title>{view.counts}</Title>
-            <Small>{view.names}</Small>
-            <Marks members={view.members} max={MARKS_MAX} label={view.names} />
+            <Small>{view.guestNames}</Small>
+            <Marks members={view.members} max={MARKS_MAX} label={view.guestNames} />
           </Stack>
           {mine === undefined ? null : (
             <>
@@ -116,14 +124,30 @@ export function ConfirmedGuestScreen({
         </Card>
         {notice === undefined ? null : <Notice kind="warn">{notice}</Notice>}
         {view.note === undefined ? null : <BodyText>{view.note}</BodyText>}
-        <Stack gap={2}>
-          <Title>{t('confirmedOrg', 'it_is', { weekday: view.weekday })}</Title>
-          <BodyText>{t('confirmedOrg', 'see_you_then')}</BodyText>
-        </Stack>
+        {going ? (
+          <Stack gap={2}>
+            <Title>{t('confirmedOrg', 'it_is', { weekday: view.weekday })}</Title>
+            <BodyText>{t('confirmedOrg', 'see_you_then')}</BodyText>
+          </Stack>
+        ) : null}
       </Body>
       <Foot>
-        <Button label={t('confirmedGuest', 'add_to_calendar')} onPress={onAddToCalendar} />
-        {actions.map((action) => (
+        {/*
+          Somebody who has not said they are going is asked to, as the screen's one decision
+          (SUS-250); Add to calendar is for somebody who is. A reader who was never asked has
+          nothing to decide, so it stays theirs.
+        */}
+        {deciding ? (
+          <Button
+            label={actions[0]!.label}
+            busyLabel={t('confirmedGuest', 'saving')}
+            busy={busy}
+            onPress={actions[0]!.onPress}
+          />
+        ) : (
+          <Button label={t('confirmedGuest', 'add_to_calendar')} onPress={onAddToCalendar} />
+        )}
+        {(deciding ? actions.slice(1) : actions).map((action) => (
           <Tertiary
             key={action.label}
             label={action.label}
@@ -135,5 +159,36 @@ export function ConfirmedGuestScreen({
         ))}
       </Foot>
     </Screen>
+  );
+}
+
+/**
+ * "Open in Maps": a link, so it opens in a new tab, can be long-pressed and
+ * copied, and is read as a link (SUS-250). A 44 pt target, as the manifesto
+ * asks, with the words underlined like the sentence's own links.
+ */
+function MapsLink({
+  href,
+  onPress,
+}: {
+  href: string | undefined;
+  onPress: (() => void) | undefined;
+}) {
+  const palette = usePalette();
+  return (
+    <Pressable
+      role="link"
+      aria-label={t('confirmedGuest', 'open_in_maps')}
+      // On the web the anchor does the opening; elsewhere the app does.
+      onPress={Platform.OS === 'web' && href !== undefined ? undefined : onPress}
+      style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}
+      {...(href === undefined
+        ? {}
+        : ({ href, hrefAttrs: { target: '_blank', rel: 'noreferrer' } } as object))}
+    >
+      <RNText style={{ color: palette.ink, textDecorationLine: 'underline' }}>
+        {t('confirmedGuest', 'open_in_maps')}
+      </RNText>
+    </Pressable>
   );
 }

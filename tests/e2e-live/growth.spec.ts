@@ -42,13 +42,13 @@ test('no prompt of any kind on Join, Name or Availability: nothing is even asked
   const asked = nudgeRequests(page);
 
   await page.goto(`/join#${crew.secret}`);
-  await expect(page.getByText('Sunday Crew is finding a time to catch up.')).toBeVisible();
+  await expect(page.getByText(/^Sunday Crew plans its catch-ups here\./)).toBeVisible();
   await expectNoPrompt(page);
 
-  await page.getByRole('button', { name: 'Choose my times' }).click();
-  await expect(page.getByLabel('Your name')).toBeVisible();
+  await page.getByRole('button', { name: 'Join Sunday Crew' }).click();
+  await expect(page.getByLabel('Your first name')).toBeVisible();
   await expectNoPrompt(page);
-  await page.getByLabel('Your name').fill('Nina');
+  await page.getByLabel('Your first name').fill('Nina');
   await page.getByRole('button', { name: 'Continue' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
@@ -59,7 +59,7 @@ test('no prompt of any kind on Join, Name or Availability: nothing is even asked
   // After the answer, the email card is the first thing that may be offered,
   // and it is asked about as the Times-sent moment.
   await sendEvenings(page, crew.planCode);
-  await expect(page.getByText("Hear when it's locked in")).toBeVisible();
+  await expect(page.getByText("Hear when it's locked in?")).toBeVisible();
   expect(asked.map((body) => (JSON.parse(body) as { moment: string }).moment)).toEqual([
     'sent_save_access',
   ]);
@@ -89,7 +89,7 @@ test('a guest who meets the organiser gate keeps their membership and name, and 
   const address = addressFor('nina');
   await page.getByRole('button', { name: 'Continue with email' }).click();
   await page.getByLabel('Your email').fill(address);
-  await page.getByRole('button', { name: 'Send me a code' }).click();
+  await page.getByRole('button', { name: 'Email me a code' }).click();
   await page.getByLabel('Code', { exact: true }).fill(await latestCodeFor(address));
 
   // Saved, the form the gate stood in for is the screen, on the same URL.
@@ -124,9 +124,10 @@ test('"Keep your place for good?" follows a Continue-as from the list, once, and
 
   await page.goto(`/p/${crew.planCode}`);
   await page.getByRole('button', { name: 'Continue as Tom' }).click();
+  await page.getByRole('button', { name: "Yes, I'm Tom" }).click();
   await expect(page.getByText('Welcome back, Tom.')).toBeVisible();
   await expect(page.getByText('Keep your place for good?')).toBeVisible();
-  await page.getByRole('button', { name: 'Carry on to Sunday Crew' }).click();
+  await page.getByRole('button', { name: 'Carry on' }).click();
   await expect(page.getByText('Keep your place for good?')).toHaveCount(0);
   const tom = memberNamed(crew.circleId, 'Tom')!;
   await expect
@@ -147,7 +148,8 @@ test('"Keep your place for good?" follows a Continue-as from the list, once, and
     new URL(response.url()).pathname.endsWith('/functions/v1/record-nudge'),
   );
   await second.getByRole('button', { name: 'Continue as Tom' }).click();
-  await expect(second.getByText('Have you answered this before?')).toHaveCount(0);
+  await second.getByRole('button', { name: "Yes, I'm Tom" }).click();
+  await expect(second.getByText('Been here before?')).toHaveCount(0);
   // Once `record-nudge` has answered, not merely before it has.
   await answered;
   await expectNoPrompt(second);
@@ -173,7 +175,7 @@ test('a guest who taps "See if people are keen" meets the gate, keeps their plac
   const address = addressFor('nina');
   await page.getByRole('button', { name: 'Continue with email' }).click();
   await page.getByLabel('Your email').fill(address);
-  await page.getByRole('button', { name: 'Send me a code' }).click();
+  await page.getByRole('button', { name: 'Email me a code' }).click();
   await page.getByLabel('Code', { exact: true }).fill(await latestCodeFor(address));
 
   // The tap she made is the tap that happens: SparkSetup, then her ask.

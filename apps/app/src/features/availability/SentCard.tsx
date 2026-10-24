@@ -3,8 +3,8 @@ import { CONSENT } from '@circles/config';
 import {
   Button,
   Card,
+  InlineLink,
   Input,
-  LegalLine,
   Notice,
   SettingRow,
   Small,
@@ -14,6 +14,9 @@ import {
 } from '../../components';
 import { Row } from '../../components/layout';
 import { t } from '../../copy';
+
+/** Keeps "18+ · Terms · Privacy" in one piece, so a dot never starts a line. */
+const NBSP = '\u00a0';
 
 export type SentProblem =
   'not_an_address' | 'too_many_tries' | 'offline' | 'couldnt_send' | 'copy_changed';
@@ -43,8 +46,10 @@ function problemCopy(problem: SentProblem): string {
  *   the address as text, no field, no switch, and no "use a different address".
  *   A confirmed sign-in is proof (ADR 0027, 0055), so one tap turns the emails on.
  *
- * The sentence is `CONSENT.text`, the words recorded with the subscription, not
- * a string from the copy file (ADR 0019, SUS-109).
+ * The sentence is `CONSENT.text`, the words recorded with the subscription, not a
+ * string from the copy file (ADR 0019, SUS-109). Where an account is made (the
+ * switch on, or no switch because the place is already saved) it is followed by
+ * "18+ · Terms · Privacy", display only: the recorded sentence is the same.
  */
 export function SentCard({
   circleName,
@@ -75,6 +80,9 @@ export function SentCard({
   onSubmit?: (() => void) | undefined;
   onNotNow?: (() => void) | undefined;
 }) {
+  // Which sentence the card shows, and so which version is recorded (`useEmailOffer`).
+  const account = savePlace !== false;
+  const sentence = <Small>{CONSENT.text}</Small>;
   return (
     <Card>
       <Row>
@@ -95,31 +103,51 @@ export function SentCard({
       ) : (
         <Small>{t('sent', 'well_email_you_at', { address: confirmedEmail })}</Small>
       )}
-      {/* What is recorded is what is shown: `CONSENT.text`, never a copy key (ADR 0019). */}
-      <Small>{CONSENT.text}</Small>
       {savePlace === undefined ? null : (
         <SettingRow
           title={t('sent', 'save_my_place', { circle: circleName ?? '' })}
-          detail={t('sent', savePlace ? 'makes_an_account' : 'nothing_is_saved')}
+          detail={t('sent', savePlace ? 'gets_you_back_in' : 'your_place_stays_on_this_phone')}
         >
           <Toggle
             value={savePlace}
             onValueChange={(on) => onSavePlaceChange?.(on)}
+            // What is recorded is the words shown when the button was tapped, so the
+            // switch holds still while the request is out.
+            disabled={busy}
             label={t('sent', 'save_my_place', { circle: circleName ?? '' })}
           />
         </SettingRow>
       )}
-      {/* Where an address is asked for, whatever the switch says: who it is for, and the policies (SUS-190, S4-05). */}
-      <LegalLine onTerms={onTerms} onPrivacy={onPrivacy} />
+      {/* The fine print, the last thing before the button. What is recorded is what is
+          shown: the words of `CONSENT.text`, never a copy key (ADR 0019, 0048). The 18+ and the
+          links go with an account, so with the switch off there are none (SUS-250). */}
+      {account ? (
+        <Small>
+          {sentence} {t('sent', 'eighteen_plus')}
+          {NBSP}
+          {t('sent', 'middle_dot')}
+          {NBSP}
+          <InlineLink onPress={onTerms}>{t('sent', 'terms_link')}</InlineLink>
+          {NBSP}
+          {t('sent', 'middle_dot')}
+          {NBSP}
+          <InlineLink onPress={onPrivacy}>{t('sent', 'privacy_link')}</InlineLink>
+        </Small>
+      ) : (
+        sentence
+      )}
       {problem === undefined ? null : <Notice kind="warn">{problemCopy(problem)}</Notice>}
       {reference === undefined ? null : <Small>{t('sent', 'reference', { reference })}</Small>}
       <Button
-        label={t('sent', 'email_me_about_this_meetup')}
+        label={t(
+          'sent',
+          savePlace === true ? 'email_me_and_save_my_place' : 'email_me_about_this_meetup',
+        )}
         busyLabel={t('sent', 'sending')}
         busy={busy}
         onPress={onSubmit}
       />
-      <Tertiary label={t('sent', 'not_now')} onPress={onNotNow} />
+      <Tertiary label={t('sent', 'not_now')} tone="plain" onPress={onNotNow} />
     </Card>
   );
 }

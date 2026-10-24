@@ -145,11 +145,7 @@ describe('what the privacy pages promise', () => {
 
 describe('where the pages are shown', () => {
   it('the guest join links terms and privacy, and says 18+', () => {
-    render(
-      <MainScreen
-        invite={{ circleName: 'Sunday Crew', inviterName: 'Maya', memberInitials: ['M'] }}
-      />,
-    );
+    render(<MainScreen invite={{ circleName: 'Sunday Crew', memberInitials: ['M'] }} />);
 
     expect(screen.getByText(/For people 18 and over/)).toBeVisible();
     expect(screen.getByRole('link', { name: 'terms' })).toBeVisible();

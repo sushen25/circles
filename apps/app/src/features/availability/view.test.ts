@@ -482,7 +482,7 @@ describe('what the others have said (SUS-129, SUS-206)', () => {
     const [thursday] = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 })).rows;
 
     // Thursday: all five from 6:30 to 8:30 pm, and the most is 5.
-    expect(thursday!.hours!.others).toBe('Most others are free 6:30–8:30 pm.');
+    expect(thursday!.hours!.others).toBe('Most others can do 6:30–8:30 pm.');
   });
 
   it('says two stretches with "and"', () => {
@@ -496,7 +496,7 @@ describe('what the others have said (SUS-129, SUS-206)', () => {
     );
     const [thursday] = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 })).rows;
 
-    expect(thursday!.hours!.others).toMatch(/^Most others are free .*9–11 am and 6–8 pm\.$/);
+    expect(thursday!.hours!.others).toMatch(/^Most others can do .*9–11 am and 6–8 pm\.$/);
   });
 
   it('says nothing about the others on a day nobody else picked', () => {
@@ -563,7 +563,7 @@ describe('what the others have said (SUS-129, SUS-206)', () => {
       );
       const { run, view } = withOthers(EVENINGS, TWO);
       const [thursday] = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 })).rows;
-      expect(thursday!.hours!.others).toBe('Most others are free 6:30–8:30 pm.');
+      expect(thursday!.hours!.others).toBe('Most others can do 6:30–8:30 pm.');
     });
   });
 

@@ -16,7 +16,7 @@ const LOOKS_LIKE_AN_ANSWER = /^(Nina|Maya|Sunday Crew)$/;
 
 describe('the three name screens', () => {
   it.each([
-    ['the guest name screen', <NameScreen key="a" circleName="Sunday Crew" />, 'Your name'],
+    ['the guest name screen', <NameScreen key="a" circleName="Sunday Crew" />, 'Your first name'],
     ['the organiser name screen', <YourNameScreen key="b" />, 'Your name'],
     // The heading is the field's label: one question, said once (SUS-247).
     ['the first circle screen', <FirstCircleScreen key="c" />, 'Who do you keep meaning to see?'],
@@ -50,7 +50,7 @@ describe('the line about effort and the calendar (SUS-203)', () => {
   });
 
   it('is not on the circle invite’s name screen, which has spec §5.1’s context', () => {
-    render(<NameScreen circleName="Sunday Crew" inviterName="Maya" />);
+    render(<NameScreen circleName="Sunday Crew" />);
     expect(screen.queryByText(LINE)).toBeNull();
   });
 });

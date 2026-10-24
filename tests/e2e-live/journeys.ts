@@ -65,9 +65,9 @@ export async function joinsAndAnswers(
   await page.goto(`/j/${crew.planCode}`);
   const newHere = page.getByRole('button', { name: "I'm new here" });
   // Offered only when the circle has guests to continue as (ADR 0006).
-  await expect(page.getByLabel('Your name').or(newHere)).toBeVisible();
+  await expect(page.getByLabel('Your first name').or(newHere)).toBeVisible();
   if (await newHere.isVisible()) await newHere.click();
-  await page.getByLabel('Your name').fill(name);
+  await page.getByLabel('Your first name').fill(name);
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
   await sendEvenings(page, crew.planCode, ...days);
@@ -84,7 +84,9 @@ export async function subscribesFromSent(page: Page, address: string): Promise<v
   await page.getByLabel('Your email').fill(address);
   // The card's switch is on by default and saves a place; this is the other path.
   await page.getByRole('switch', { name: /^Save my place in/ }).click();
-  await page.getByRole('button', { name: 'Email me about this meetup' }).click();
+  await page
+    .getByRole('button', { name: /^Email me (about this meetup|and save my place)$/ })
+    .click();
   await expect(page.getByText('Check your email.')).toBeVisible();
   const letter = await letterTo(address, /^Turn on updates/);
   await page.goto(linkIn(letter, '/v', page.url()));

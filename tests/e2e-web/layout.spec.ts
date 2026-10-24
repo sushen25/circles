@@ -121,6 +121,8 @@ for (const size of SIZES) {
       page,
     }) => {
       await page.clock.setFixedTime(new Date('2026-10-12T09:00:00+11:00'));
+      // A frozen clock freezes the sheet's slide too (Animated reads Date), so it fades instead (SUS-250).
+      await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.goto('/j/abc');
       const tuesday = page.getByRole('button', { name: /^Tuesday\D*15\D/ });
       await expect(async () => {
@@ -150,7 +152,7 @@ for (const size of SIZES) {
       await expectNoSidewaysOverflow(page);
 
       // The pairs are inside the column, and so is the picker sheet over them.
-      const until = page.getByRole('button', { name: /^Free until, Tuesday/ });
+      const until = page.getByRole('button', { name: /^To \d.*, Tuesday/ });
       await expect(until).toBeVisible();
       const u = (await until.boundingBox())!;
       expect(u.x).toBeGreaterThanOrEqual(left + gutter - 1);

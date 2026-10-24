@@ -58,7 +58,7 @@ test('the organiser gets options that say who is in, who is not, and why', async
   await page.goto(`/circles/${circleId}/plan/${plan.id}/candidates`);
 
   await expect(page.getByText(/looks good for two of you\./)).toBeVisible();
-  await expect(page.getByText('Best attendance')).toBeVisible();
+  await expect(page.getByText(/Best attendance/)).toBeVisible();
   await expect(page.getByText('2 of 3').first()).toBeVisible();
   await expect(page.getByText('2 of 3 replied')).toBeVisible();
   // The manifesto's test (§3.4): the absence has a name and a reason.
@@ -90,7 +90,7 @@ test('a member who has answered sees the same options, with nothing to confirm',
   // Tom is a guest, so the link offers his row first (ADR 0006); Ren is new.
   await page.goto(`/p/${crew.planCode}`);
   await page.getByRole('button', { name: "I'm new here" }).click();
-  await page.getByLabel('Your name').fill('Ren');
+  await page.getByLabel('Your first name').fill('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
   await answersIn(page, crew.planCode);

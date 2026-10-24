@@ -20,9 +20,9 @@ async function arrives(page: Page, crew: Scenario, name: string): Promise<void> 
   await page.goto(`/j/${crew.planCode}`);
   const newHere = page.getByRole('button', { name: "I'm new here" });
   // Offered only when the circle has guests to continue as (ADR 0006).
-  await expect(page.getByLabel('Your name').or(newHere)).toBeVisible();
+  await expect(page.getByLabel('Your first name').or(newHere)).toBeVisible();
   if (await newHere.isVisible()) await newHere.click();
-  await page.getByLabel('Your name').fill(name);
+  await page.getByLabel('Your first name').fill(name);
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page.getByText('Which evenings could work?')).toBeVisible();
 }
@@ -55,7 +55,7 @@ test('a third guest sees the first two answers as counts, and no name', async ({
     .getByRole('button', { name: /^Exact hours, / })
     .nth(0)
     .click();
-  await expect(kits.getByText(/^Most others are free/)).toHaveCount(0);
+  await expect(kits.getByText(/^Most others can do/)).toHaveCount(0);
   await kits.getByRole('button', { name: 'Done', exact: true }).click();
   await sendEvenings(kits, crew.planCode, 3, 5);
 
@@ -86,10 +86,10 @@ test('a third guest sees the first two answers as counts, and no name', async ({
   await lous.getByRole('button', { name: 'Adjust hours', exact: true }).click();
   const clocks = lous.getByRole('button', { name: /^Exact hours, / });
   await clocks.nth(0).click();
-  await expect(lous.getByText(/^Most others are free/)).toHaveCount(0);
+  await expect(lous.getByText(/^Most others can do/)).toHaveCount(0);
   await lous.getByRole('button', { name: 'Done', exact: true }).click();
   await clocks.nth(1).click();
-  await expect(lous.getByText(/^Most others are free 5:30.10:30\spm\.$/)).toBeVisible();
+  await expect(lous.getByText(/^Most others can do 5:30.10:30\spm\.$/)).toBeVisible();
   await lous.getByRole('button', { name: 'Done', exact: true }).click();
 
   // Counts, never names: neither Ren nor Kit is anywhere on Lou's screen.

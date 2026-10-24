@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import {
@@ -50,6 +51,12 @@ export type AvailabilityProps = {
   question?: string | undefined;
   /** "None of these dates work for me", or its evenings and mornings form. */
   noneLabel?: string | undefined;
+  /** What Send says when it is pressed before any day is tapped: "Tap at least one evening first." */
+  sendHint?: string | undefined;
+  /** Who picks next, for the closed screen: "Maya picks a time next." */
+  organiserName?: string | null | undefined;
+  /** The closed screen's way on: the options, which are readable once replies close. */
+  onSeeOptions?: (() => void) | undefined;
   /** The plan leaves one window: the link under the line is "Adjust hours". */
   single?: boolean | undefined;
   /** Dragging across days taps or untaps them. */
@@ -114,6 +121,9 @@ export function AvailabilityScreen({
   title,
   question,
   noneLabel,
+  sendHint,
+  organiserName = null,
+  onSeeOptions,
   single = false,
   onPaintDays,
   guide,
@@ -153,6 +163,8 @@ export function AvailabilityScreen({
   onBack,
 }: AvailabilityProps) {
   const loading = useLoadingHold(state === 'loading');
+  // Send was pressed before it could do anything: say why, once, until a day is tapped.
+  const [asked, setAsked] = useState(false);
   if (loading) {
     return (
       <Loading
@@ -184,17 +196,26 @@ export function AvailabilityScreen({
         <Body>
           <Stack>
             <DisplayL>{t('availability', 'replies_closed')}</DisplayL>
-            <BodyText>{t('availability', 'replies_closed_body')}</BodyText>
+            <BodyText>
+              {organiserName === null
+                ? t('availability', 'replies_closed_body')
+                : t('availability', 'replies_closed_body_named', { name: organiserName })}
+            </BodyText>
           </Stack>
         </Body>
         <Foot>
-          <Tertiary label={t('availability', 'back')} onPress={onBack} />
+          {onSeeOptions === undefined ? (
+            <Tertiary label={t('availability', 'back')} onPress={onBack} />
+          ) : (
+            <Button label={t('availability', 'see_how_its_looking')} onPress={onSeeOptions} />
+          )}
         </Foot>
       </Screen>
     );
   }
 
   const canSend = flexible || block !== undefined;
+  if (canSend && asked) setAsked(false);
   // While an answer is on its way nothing that would change it is live: the
   // request carries the answer as it was when Send was pressed.
   const locked = busy;
@@ -281,10 +302,13 @@ export function AvailabilityScreen({
           </View>
         )}
         <Row>
-          <Stack>
-            <Title>{t('availability', 'im_easy')}</Title>
-            <Small>{t('availability', 'count_me_in_for_whatever_works_for')}</Small>
-          </Stack>
+          {/* Shrinks, so the switch keeps its place inside the gutter at 360 (SUS-250). */}
+          <View style={styles.easy}>
+            <Stack>
+              <Title>{t('availability', 'im_easy')}</Title>
+              <Small>{t('availability', 'count_me_in_for_whatever_works_for')}</Small>
+            </Stack>
+          </View>
           <Toggle
             value={flexible}
             onValueChange={(on) => onFlexible?.(on)}
@@ -299,12 +323,17 @@ export function AvailabilityScreen({
         )}
       </Body>
       <Foot>
+        {!canSend && asked && sendHint !== undefined ? (
+          <Small accessibilityRole="alert" style={styles.hint}>
+            {sendHint}
+          </Small>
+        ) : null}
         <Button
           label={t('availability', 'send_my_times')}
           busyLabel={t('availability', 'sending')}
           busy={busy}
-          onPress={onSend}
-          disabled={!canSend}
+          waiting={!canSend}
+          onPress={canSend ? onSend : () => setAsked(true)}
         />
         <Tertiary
           tone="plain"
@@ -329,4 +358,6 @@ const styles = StyleSheet.create({
   room: { opacity: 0 },
   over: { position: 'absolute', top: 0, left: 0, right: 0 },
   offer: { alignSelf: 'flex-start' },
+  easy: { flex: 1 },
+  hint: { textAlign: 'center' },
 });

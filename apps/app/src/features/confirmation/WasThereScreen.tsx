@@ -4,7 +4,6 @@ import {
   Button,
   DisplayXL,
   Foot,
-  Label,
   Notice,
   Screen,
   Small,
@@ -113,10 +112,9 @@ export function WasThereScreen({
   const busy = saving !== undefined;
   return (
     <Screen>
-      <TopBar onBack={onBack} backLabel={t('common', 'back')} />
+      <TopBar title={words.date} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <Stack>
-          <Label>{t('wasThere', 'label', { circle: words.circle, date: words.date })}</Label>
           <DisplayXL>{t('wasThere', 'title', { day: words.day })}</DisplayXL>
           <BodyText>{t('wasThere', 'helps_the_group_keep_a_light_record')}</BodyText>
         </Stack>

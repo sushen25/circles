@@ -5,7 +5,6 @@ import {
   Card,
   DateText,
   Foot,
-  Label,
   Marks,
   Screen,
   Small,
@@ -50,7 +49,6 @@ export function ConfirmedGuestNudgeScreen({
         backLabel={t('common', 'back')}
       />
       <Body>
-        <Label>{t('confirmedGuestNudge', 'locked_in')}</Label>
         <Stack>
           <DateText>{t('confirmedGuestNudge', 'thursday_17_september')}</DateText>
           <BodyText>{t('confirmedGuestNudge', '6_30_8_30_pm')}</BodyText>

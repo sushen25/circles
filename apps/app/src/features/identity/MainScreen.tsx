@@ -4,7 +4,6 @@ import {
   Button,
   DisplayXL,
   Foot,
-  Label,
   LegalLine,
   Loading,
   Marks,
@@ -23,9 +22,10 @@ import type { ScreenState } from '../state';
 /**
  * Main — the Join page (`docs/design/Main.dc.html`, spec §5.1).
  *
- * Everything §5.1 says comes before any prompt: the circle, who shared it, who
- * is in so far, a sentence about privacy and the effort. Nothing here asks
- * anything of the person until they tap "Choose my times".
+ * What §5.1 says comes before any prompt: the circle, who is in, and the effort.
+ * It names no sharer (SUS-250): since ADR 0091 any member sends the invite, and
+ * the link cannot say who did. Nothing here asks anything of the person until
+ * they tap "Join {circle}".
  *
  * Members are shown as initials, because that is all `invite_preview` gives a
  * visitor who has not joined — a link forwarded beyond the group should not
@@ -33,8 +33,6 @@ import type { ScreenState } from '../state';
  */
 export type InviteView = {
   circleName: string;
-  /** Null when whoever made the link has since left the circle. */
-  inviterName: string | null;
   memberInitials: readonly string[];
 };
 
@@ -60,7 +58,6 @@ function fromFixture(fixture: Fixture | undefined): InviteView | undefined {
   const members = fixture.circle.members.filter((m) => m.waiting !== true);
   return {
     circleName: fixture.circle.name,
-    inviterName: fixture.circle.members[0]?.name ?? null,
     memberInitials: members.map((m) => m.name.slice(0, 1)),
   };
 }
@@ -118,18 +115,15 @@ export function MainScreen({
 
   const count = view.memberInitials.length;
   const inSoFar =
-    count === 1 ? t('main', 'one_person_in_so_far') : t('main', 'people_in_so_far', { count });
+    count === 1 ? t('main', 'one_person_is_in') : t('main', 'people_are_in', { count });
 
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
-        <Label>{t('main', 'youre_invited')}</Label>
-        <DisplayXL>{t('main', 'circle_is_finding_a_time', { circle: view.circleName })}</DisplayXL>
+        <DisplayXL>{t('main', 'join_circle', { circle: view.circleName })}</DisplayXL>
         <BodyText>
-          {view.inviterName === null
-            ? t('main', 'someone_shared_this_link')
-            : t('main', 'inviter_shared_this_link', { inviter: view.inviterName })}
+          {t('main', 'circle_plans_its_catch_ups_here', { circle: view.circleName })}
         </BodyText>
         {count === 0 ? null : (
           <Row>
@@ -140,10 +134,13 @@ export function MainScreen({
             <Small>{inSoFar}</Small>
           </Row>
         )}
-        <Notice>{t('main', 'no_account_or_app_needed_your_friends')}</Notice>
       </Body>
       <Foot>
-        <Button label={t('main', 'choose_my_times')} busy={busy} onPress={onNext} />
+        <Button
+          label={t('main', 'join_circle', { circle: view.circleName })}
+          busy={busy}
+          onPress={onNext}
+        />
         {onWhatIsBrand === undefined ? null : (
           <Tertiary label={t('main', 'what_is_brand')} onPress={onWhatIsBrand} />
         )}

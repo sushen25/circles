@@ -1,6 +1,6 @@
-import { CONSENT, brand } from '@circles/config';
+import { CONSENT } from '@circles/config';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -58,7 +58,7 @@ const { answerable } = await import('../../data/fixtures');
 
 const PLAN = answerable.plan;
 const SWITCH = { name: `Save my place in ${PLAN.circleName}` };
-const PRIMARY = { name: 'Email me about this meetup' };
+const PRIMARY = { name: /^Email me (about this meetup|and save my place)$/ };
 
 function wrap(children: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -113,22 +113,40 @@ beforeEach(() => {
   submitLinkCode.mockResolvedValue({ session: { user: { id: 'nina' } } });
 });
 
+describe('the reward, before the card (SUS-250)', () => {
+  it('thanks, shows the days sent, says what happens next, and offers the options', async () => {
+    wrap(<SentFlow code={PLAN.code} />);
+
+    await screen.findByText(/Your times are in\./);
+    const days = screen.getByRole('list', { name: 'The days you sent' });
+    expect(within(days).getAllByRole('listitem').length).toBeGreaterThan(0);
+    expect(screen.getByText(/^Maya picks a time once replies close \w+ /)).toBeVisible();
+    expect(screen.getByRole('button', { name: "See how it's looking" })).toBeVisible();
+    // Nothing on Sent says what the product does not do.
+    expect(document.body.textContent).not.toMatch(/doesn't subscribe|we'll remember/i);
+  });
+});
+
 describe('the card', () => {
   it('is one card: the sentence before the button, and a real switch that is on', async () => {
     wrap(<SentFlow code={PLAN.code} />);
 
     const toggle = await screen.findByRole('switch', SWITCH);
     expect(toggle).toHaveAttribute('aria-checked', 'true');
-    // The switch on says an account is made, that reminders can be stopped from the
-    // email itself, and links the policies (SUS-190, ADR 0067).
+    // The switch on says what the account is for in one line; 18+ and the policies are
+    // the end of the fine print (SUS-250, ADR 0092).
+    expect(screen.getByText('Gets you back in from any phone.')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Terms' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Privacy' })).toBeVisible();
+    // "18+ · Terms · Privacy" is one line of fine print, after the sentence.
     expect(
-      screen.getByText(
-        `This makes you an account in ${brand.name}, so you can get back in from any phone. Reminders about catching up can be stopped from the email itself.`,
+      screen.getByText((_, node) =>
+        (node?.textContent ?? '').endsWith(
+          `${CONSENT.text} 18+\u00a0·\u00a0Terms\u00a0·\u00a0Privacy`,
+        ),
       ),
     ).toBeVisible();
-    expect(screen.getByRole('link', { name: 'terms' })).toBeVisible();
-    expect(screen.getByRole('link', { name: 'privacy' })).toBeVisible();
-    expect(screen.getByText(/For people 18 and over/)).toBeVisible();
+    expect(CONSENT.text).toBe('Emails about this meetup. Stop any time.');
     expect(screen.queryByText(/Save access on every device/)).toBeNull();
 
     const sentence = screen.getByText((_, node) => node?.textContent === CONSENT.text);
@@ -139,11 +157,15 @@ describe('the card', () => {
 
     await tap(toggle);
     expect(toggle).toHaveAttribute('aria-checked', 'false');
-    expect(screen.getByText('Nothing is saved.')).toBeVisible();
-    // The address is still being asked for, so the policies stay one tap away (S4-05).
-    expect(screen.getByRole('link', { name: 'terms' })).toBeVisible();
-    expect(screen.getByRole('link', { name: 'privacy' })).toBeVisible();
-    expect(screen.getByText(/For people 18 and over/)).toBeVisible();
+    expect(screen.getByText('Your place stays on this phone.')).toBeVisible();
+    // No account is made with the switch off, so the 18+ and its links go (SUS-250); the
+    // sentence is the same, and the button stops naming the place.
+    expect(screen.queryByRole('link', { name: 'Terms' })).toBeNull();
+    expect(screen.queryByText(/18\+/)).toBeNull();
+    expect(screen.getByText((_, node) => node?.textContent === CONSENT.text)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Email me about this meetup' })).toBeVisible();
+    await tap(toggle);
+    expect(screen.getByRole('button', { name: 'Email me and save my place' })).toBeVisible();
   });
 
   it('shows no switch to somebody whose place is already saved', async () => {
@@ -177,7 +199,7 @@ describe('with the switch on', () => {
     expect(track).toHaveBeenCalledWith('account_claimed', { moment: 'after_answer' });
     // The line is a live region and the card is gone; no check-your-email step.
     expect(screen.getByRole('status')).toHaveTextContent(/your place in .* is saved/);
-    expect(screen.queryByText("Hear when it's locked in")).toBeNull();
+    expect(screen.queryByText("Hear when it's locked in?")).toBeNull();
     expect(push).not.toHaveBeenCalled();
   });
 
@@ -209,7 +231,7 @@ describe('with the switch on', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
 
-    expect(screen.queryByText("Hear when it's locked in")).toBeNull();
+    expect(screen.queryByText("Hear when it's locked in?")).toBeNull();
     expect(requestEmailUpdates).toHaveBeenCalledTimes(1);
   });
 
@@ -382,7 +404,7 @@ describe('Not now', () => {
     wrap(<SentFlow code={PLAN.code} />);
     await tap(screen.findByRole('button', { name: 'Not now' }));
 
-    expect(screen.queryByText("Hear when it's locked in")).toBeNull();
+    expect(screen.queryByText("Hear when it's locked in?")).toBeNull();
     expect(requestLinkCode).not.toHaveBeenCalled();
     expect(requestEmailUpdates).not.toHaveBeenCalled();
   });

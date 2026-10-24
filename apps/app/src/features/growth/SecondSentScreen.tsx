@@ -4,7 +4,6 @@ import {
   Button,
   Card,
   DisplayXL,
-  Label,
   Screen,
   Small,
   Tertiary,
@@ -38,7 +37,6 @@ export function SecondSentScreen({ onNext, onBack, onNotNow }: SecondSentProps) 
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <Stack>
-          <Label>{t('secondSent', 'sunday_crew')}</Label>
           <DisplayXL>{t('secondSent', 'thanks_nina_your_times_are_in')}</DisplayXL>
           <BodyText>{t('secondSent', 'thats_the_second_time_round_maya_will')}</BodyText>
         </Stack>

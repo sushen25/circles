@@ -48,6 +48,8 @@ export type CandidatesMemberProps = {
   cards?: readonly CardView[] | undefined;
   /** What is on screen was worked out before the newest answer. */
   stale?: boolean | undefined;
+  /** The chat link brought an answered guest here: "Your times are in." comes first (SUS-250). */
+  yourTimesAreIn?: boolean | undefined;
   /** Replies have closed: "Change my times" is shown disabled, with why. */
   repliesClosed?: boolean | undefined;
   onChangeMyTimes?: (() => void) | undefined;
@@ -68,6 +70,7 @@ export function CandidatesMemberScreen({
   lead,
   cards = [],
   stale = false,
+  yourTimesAreIn = false,
   repliesClosed = false,
   onChangeMyTimes,
   onShareLink,
@@ -122,6 +125,9 @@ export function CandidatesMemberScreen({
     <Screen>
       <TopBar title={header?.title} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
+        {yourTimesAreIn ? (
+          <Notice kind="ok">{t('candidatesMember', 'your_times_are_in')}</Notice>
+        ) : null}
         {header === undefined ? null : <CandidateHeader header={header} />}
         <Stack>
           {headline === undefined ? null : <DisplayL>{headline}</DisplayL>}

@@ -6,6 +6,7 @@ import {
   Foot,
   Input,
   Label,
+  LegalLine,
   Notice,
   Screen,
   Small,
@@ -37,6 +38,9 @@ export type SaveAccessProps = {
   onSendCode?: (() => void) | undefined;
   onNotNow?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
+  /** The terms and privacy links in the 18+ line, where an address is asked for. */
+  onTerms?: (() => void) | undefined;
+  onPrivacy?: (() => void) | undefined;
 };
 
 function problemCopy(problem: SaveAccessProblem): string {
@@ -63,6 +67,8 @@ export function SaveAccessScreen({
   onSendCode,
   onNotNow,
   onBack,
+  onTerms,
+  onPrivacy,
 }: SaveAccessProps) {
   if (state === 'already_saved') {
     return (
@@ -103,7 +109,11 @@ export function SaveAccessScreen({
             onSubmitEditing={onSendCode}
           />
         </Stack>
-        <Small>{t('saveAccess', 'well_send_a_one_time_code_this')}</Small>
+        {/* What making this account means, in the words Sent uses (ADR 0067), then who it is for. */}
+        <Stack gap={8}>
+          <Small>{t('sent', 'makes_an_account')}</Small>
+          <LegalLine onTerms={onTerms} onPrivacy={onPrivacy} />
+        </Stack>
         {problem === undefined ? null : <Notice kind="warn">{problemCopy(problem)}</Notice>}
         {problem === undefined || reference === undefined ? null : (
           <Small selectable>{t('saveAccess', 'reference', { reference })}</Small>
@@ -111,12 +121,12 @@ export function SaveAccessScreen({
       </Body>
       <Foot>
         <Button
-          label={t('saveAccess', 'send_me_a_code')}
+          label={t('saveAccess', 'email_me_a_code')}
           busyLabel={t('saveAccess', 'sending')}
           busy={busy}
           onPress={onSendCode}
         />
-        <Tertiary label={t('saveAccess', 'not_now')} onPress={onNotNow} />
+        <Tertiary label={t('saveAccess', 'not_now')} tone="plain" onPress={onNotNow} />
       </Foot>
     </Screen>
   );

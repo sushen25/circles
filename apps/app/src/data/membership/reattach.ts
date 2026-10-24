@@ -100,11 +100,24 @@ export async function reattachWithToken(
  * the link — so this asks it rather than widening the list.
  */
 export async function circleNameForCode(code: ShortCode): Promise<string | null> {
+  return (await planPreviewForCode(code))?.circleName ?? null;
+}
+
+/**
+ * The same lookup with the word `preview_for_code` adds (ADR 0054): whether the
+ * plan is locked in. A locked-in plan turns newcomers away, so the name step
+ * can be replaced by the refusal before anybody types a name (SUS-250).
+ */
+export async function planPreviewForCode(
+  code: ShortCode,
+): Promise<{ circleName: string; lockedIn: boolean } | null> {
   const { data, error } = await authClient().rpc('preview_for_code', { p_kind: 'p', p_code: code });
   // Thrown, not answered as null. Null means "no circle behind this code", and
   // a screen acts on that — the account's join sends it to the invite state —
   // so a dropped connection must not look like it. It is an error, with Retry.
   if (error !== null) throw new Error('circle name lookup failed');
   // No row is what null used to be (ADR 0054): an inactive or unknown link.
-  return data?.[0]?.circle_name ?? null;
+  const row = data?.[0];
+  if (row === undefined) return null;
+  return { circleName: row.circle_name, lockedIn: row.plan_state === 'locked_in' };
 }

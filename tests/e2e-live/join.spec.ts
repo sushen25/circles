@@ -25,7 +25,7 @@ test('an invite opened in a tab already on /join is read, and taken out of the a
 
   await page.goto(`/join#${crew.secret}`);
 
-  await expect(page.getByText('Sunday Crew is finding a time to catch up.')).toBeVisible();
+  await expect(page.getByText(/^Sunday Crew plans its catch-ups here\./)).toBeVisible();
   await expect(page.getByRole('button', { name: /^What is / })).toHaveCount(0);
   expect(page.url()).not.toContain('#');
 });
@@ -34,19 +34,19 @@ test('a taken name is asked for again, and the second name joins', async ({ page
   const crew = sundayCrew();
 
   await page.goto(`/join#${crew.secret}`);
-  await page.getByRole('button', { name: 'Choose my times' }).click();
-  await page.getByLabel('Your name').fill('Maya');
+  await page.getByRole('button', { name: 'Join Sunday Crew' }).click();
+  await page.getByLabel('Your first name').fill('Maya');
   await page.getByRole('button', { name: 'Continue' }).click();
 
   await expect(
     page.getByText(
-      'Someone in Sunday Crew is already called Maya. Add something to tell you apart, like “Maya B”.',
+      "Someone in Sunday Crew is already called Maya. If that's you, go back and tap your name. If not, add an initial.",
     ),
   ).toBeVisible();
 
   // A different name is a different request, under a different key: sending it
   // under the first one would be an `idempotency_mismatch` and nobody could join.
-  await page.getByLabel('Your name').fill('Maya B');
+  await page.getByLabel('Your first name').fill('Maya B');
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
   expect(memberNamed(crew.circleId, 'Maya B')?.anonymous).toBe(true);
@@ -59,8 +59,8 @@ test('with no plan asking, a new member lands on the circle, and is let in', asy
   const crew = sundayCrew({ withPlan: false });
 
   await page.goto(`/join#${crew.secret}`);
-  await page.getByRole('button', { name: 'Choose my times' }).click();
-  await page.getByLabel('Your name').fill('Jess');
+  await page.getByRole('button', { name: 'Join Sunday Crew' }).click();
+  await page.getByLabel('Your first name').fill('Jess');
   await page.getByRole('button', { name: 'Continue' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/circles/${crew.circleId}$`));
@@ -80,5 +80,5 @@ test('a revoked invite says so and asks nothing', async ({ page }) => {
   await page.goto(`/join#${crew.secret}`);
 
   await expect(page.getByText("This link isn't active any more.")).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Choose my times' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Join Sunday Crew' })).toHaveCount(0);
 });

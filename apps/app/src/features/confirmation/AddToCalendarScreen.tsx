@@ -99,7 +99,6 @@ export function AddToCalendarSheet({
         )}
       </Card>
       {status === undefined ? null : <Notice>{status}</Notice>}
-      <Small>{t('addToCalendar', 'nothing_is_added_to_anyones_calendar_without')}</Small>
       <Button label={t('addToCalendar', 'cancel')} variant="secondary" onPress={onDismiss} />
     </Sheet>
   );

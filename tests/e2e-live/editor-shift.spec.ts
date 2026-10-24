@@ -14,9 +14,9 @@ import { sundayCrew, type Scenario } from './stack';
 async function arrives(page: Page, crew: Scenario, name: string): Promise<void> {
   await page.goto(`/j/${crew.planCode}`);
   const newHere = page.getByRole('button', { name: "I'm new here" });
-  await expect(page.getByLabel('Your name').or(newHere)).toBeVisible();
+  await expect(page.getByLabel('Your first name').or(newHere)).toBeVisible();
   if (await newHere.isVisible()) await newHere.click();
-  await page.getByLabel('Your name').fill(name);
+  await page.getByLabel('Your first name').fill(name);
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page.getByText('Which evenings could work?')).toBeVisible();
 }

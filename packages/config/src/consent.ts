@@ -32,6 +32,14 @@
  * - `2026-10-06`: a shorter sentence for the one-step card on Sent (SUS-162):
  *   locked in, moved, called off or needs your times again, one reminder, one
  *   question after.
+ * - `2026-10-24`: one short sentence for the trimmed card on Sent (SUS-250):
+ *   "Emails about this meetup. Stop any time." It says the plan letters in one
+ *   phrase (locked in, changed, moved, called off, needs your times again, the
+ *   reminder and the question after), each of which has a stop link. The
+ *   plan-the-next-one reminder an account holder gets is not in it: it is
+ *   disclosed in `/privacy` (ADR 0067), by Sushen's decision (ADR 0092). The
+ *   card briefly had two sentences, with and without that nudge; the second
+ *   was never released, so nothing was recorded under it.
  *
  * Add a version by appending to `CONSENT_VERSIONS` and pointing `CONSENT` at it.
  */
@@ -52,6 +60,8 @@ const TEXT_2026_10_06 =
   'your times again, one reminder, and one question after. Stop any time from ' +
   'the email itself.';
 
+const TEXT_2026_10_24 = 'Emails about this meetup. Stop any time.';
+
 /**
  * Every version of the sentence that has ever been shown, with its words, oldest
  * first. A subscription stores the version it was made under, and the client
@@ -66,6 +76,7 @@ export const CONSENT_VERSIONS = [
   { version: '2026-09-14', text: TEXT_2026_09_14 },
   { version: '2026-10-02', text: TEXT_2026_10_02 },
   { version: '2026-10-06', text: TEXT_2026_10_06 },
+  { version: '2026-10-24', text: TEXT_2026_10_24 },
 ] as const;
 
 /** The words a recorded version stands for, or undefined for a version never shown. */
@@ -84,24 +95,24 @@ export const CONSENT = {
    * The date the wording was settled, which sorts and reads. Not a number:
    * `v2` tells you nothing about whether it is older than the row beside it.
    */
-  version: '2026-10-06',
+  version: '2026-10-24',
   scope: 'plan_updates',
-  text: TEXT_2026_10_06,
+  text: TEXT_2026_10_24,
   /**
    * For each plan-update letter, the words in `text` that say it will come.
    * Keyed by the email kind's name (`SUBSCRIBER_KINDS` in the Edge Functions'
    * email types, which this package cannot import); a test ties the two.
+   * Every plan letter is "email about this meetup": the sentence no longer
+   * lists them one by one, and each carries its own stop link.
    */
   covers: {
-    locked_in: 'locked in',
-    // The letter that says the plan changed, and the one that says a locked-in
-    // meetup moved (ADR 0051), are both a meetup that has moved.
-    changed: 'moved',
-    moved: 'moved',
-    cancelled: 'called off',
-    reminder: 'one reminder',
-    did_it_happen_participant: 'one question after',
-    asked_again: 'needs your times again',
+    locked_in: 'Emails about this meetup',
+    changed: 'Emails about this meetup',
+    moved: 'Emails about this meetup',
+    cancelled: 'Emails about this meetup',
+    reminder: 'Emails about this meetup',
+    did_it_happen_participant: 'Emails about this meetup',
+    asked_again: 'Emails about this meetup',
   },
 } as const;
 

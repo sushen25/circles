@@ -113,7 +113,7 @@ describe('Change my times, as the organiser', () => {
     await tap(screen.findByRole('button', CHANGE));
     expect(push).toHaveBeenCalledWith({
       pathname: '/j/[code]',
-      params: { code: fixture.readyAsMember.code },
+      params: { code: fixture.readyAsMember.code, edit: '1' },
     });
   });
 });

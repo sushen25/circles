@@ -111,7 +111,7 @@ the entry point takes the token out of the address bar before the router loads
 (`data/links/tokens.ts`). `EmailVerifyFlow` and `EmailPrefsFlow` need no session. `/n#<token>`, `/o#<token>` and `/q#<token>` are the next three: `StopLettersFlow`, the stop link under a cadence nudge (ADR 0067), under an organiser's letter and under a quiet ask's (ADR 0069), which asks for one tap, says what it stops, and reads nothing on load.
 
 **One step on Sent, SUS-162:** the card is one address, the consent sentence
-(`CONSENT.text`), a "Save my place" switch on by default and one primary.
+(`CONSENT.text`, SUS-250), a "Save my place" switch on by default and one primary.
 `SentFlow` holds the step (`oneStep.ts`) above the screens, because signing in
 can change the user id and remount `Sent`. On, `useEmailOffer` asks for a code
 (`requestLinkCode`) and `SavePlaceByEmail` (opened on its code step) saves the
@@ -297,7 +297,7 @@ zone). `/sign-in?next=/j/<code>` is where "I have an account" on a plan link
 leads (ADR 0022); only a plan link survives as `next` (`data/auth/returnPath.ts`).
 `/(auth)/code` redirects to `/sign-in` when there is a backend. `/terms` and
 `/privacy` are static (`LegalScreen`) and have no artboard; the Privacy artboard is `/settings/privacy`.
-The guest join, the name step and the email offer on Sent each carry `LegalLine` (18+, and links to both pages).
+The guest join and the name step carry `LegalLine` (18+, and links to both pages); the email offer on Sent carries "18+ · Terms · Privacy" at the end of its fine print, where an account is made (SUS-250).
 
 **Real since S1-23:** `/settings/account` (`AccountFlow`: name and time zone
 through `saveProfile`, the session's own address shown, Privacy and

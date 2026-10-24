@@ -39,6 +39,7 @@ vi.mock('../../../data/confirmation', () => ({
 vi.mock('../../../data/membership', () => ({
   planAccess: (...args: unknown[]) => planAccess(...args),
   circleNameForCode: vi.fn(async () => 'Sunday Crew'),
+  planPreviewForCode: vi.fn(async () => ({ circleName: 'Sunday Crew', lockedIn: false })),
   guestMembersFor: vi.fn(async () => ({ kind: 'listed', members: [] })),
   heldInvite: () => undefined,
   reattachFromList: vi.fn(),

@@ -5,11 +5,11 @@ status: accepted
 date: 2026-10-11
 amends: [27, 55]
 builds_on: [23, 25, 29, 36, 48]
-amended_by: [69]
+amended_by: [69, 92]
 ---
 # ADR 0067: Every cadence nudge carries a stop link that needs no sign-in, and the Sent card says an account is made
 
-_Status: accepted · 11 October 2026 · amends [ADR 0055](0055-after-sending-one-step-keeps-your-place-and-turns-on-the-updates.md) (what the card says), [ADR 0027](0027-the-organisers-auth-address-is-an-email-contact.md) (what mail an auth address can receive) and, for `about_time` alone, the sentence in [ADR 0025](0025-the-preferences-link-is-minted-with-each-email.md) that organiser letters carry no stop link; builds on [ADR 0023](0023-emailed-tokens-travel-in-the-fragment.md), [ADR 0029](0029-an-organiser-turns-organiser-email-off-in-the-app.md), [ADR 0036](0036-the-cadence-nudge-is-decided-once-per-cycle.md) and [ADR 0048](0048-the-consent-sentence-is-the-one-string-that-lives-in-config.md); its token, page and function are generalised to the other account-holder letters by [ADR 0069](0069-every-account-holder-letter-carries-a-stop-link-that-needs-no-sign-in.md)_
+_Status: accepted · 11 October 2026 · the account line in decision 5 is reworded, and its reminders disclosure left the Sent card (it stays in `/privacy`), by [ADR 0092](0092-a-guests-pick-from-the-list-asks-first-and-the-sent-card-says-less.md) · amends [ADR 0055](0055-after-sending-one-step-keeps-your-place-and-turns-on-the-updates.md) (what the card says), [ADR 0027](0027-the-organisers-auth-address-is-an-email-contact.md) (what mail an auth address can receive) and, for `about_time` alone, the sentence in [ADR 0025](0025-the-preferences-link-is-minted-with-each-email.md) that organiser letters carry no stop link; builds on [ADR 0023](0023-emailed-tokens-travel-in-the-fragment.md), [ADR 0029](0029-an-organiser-turns-organiser-email-off-in-the-app.md), [ADR 0036](0036-the-cadence-nudge-is-decided-once-per-cycle.md) and [ADR 0048](0048-the-consent-sentence-is-the-one-string-that-lives-in-config.md); its token, page and function are generalised to the other account-holder letters by [ADR 0069](0069-every-account-holder-letter-carries-a-stop-link-that-needs-no-sign-in.md)_
 
 ## Context
 

@@ -25,6 +25,11 @@ export type LinkInvalidReason =
    * link they have not seen, only whom to ask. Names the circle when it is known.
    */
   | 'not_admitting'
+  /**
+   * A plan the link preview already says is locked in (ADR 0054): a newcomer is
+   * told before being asked for a name, and whom to ask.
+   */
+  | 'locked_in'
   /** A circle's own page, with no membership: ask someone in it to add you. */
   | 'not_in_circle'
   /** The invite fragment was lost between steps — a reload mid-join. */
@@ -40,7 +45,7 @@ export type LinkInvalidProps = {
   fixture?: Fixture | undefined;
   state?: ScreenState | undefined;
   reason?: LinkInvalidReason | undefined;
-  /** The circle the plan belongs to, for `not_admitting`: "Ask someone in Sunday Crew". */
+  /** The circle the plan belongs to, for `not_admitting` and `locked_in`: "Ask someone in Sunday Crew". */
   circleName?: string | undefined;
   onSignIn?: (() => void) | undefined;
   onSignOut?: (() => void) | undefined;
@@ -52,6 +57,7 @@ const COPY = {
   inactive: ['this_link_isnt_active_any_more', 'ask_for_a_new_plan_link'],
   plan_inactive: ['this_link_isnt_active_any_more', 'ask_for_a_new_plan_link'],
   not_admitting: ['this_plan_isnt_taking_new_answers', 'ask_someone_in_the_circle'],
+  locked_in: ['this_plan_is_already_locked_in', 'ask_someone_in_the_circle'],
   not_in_circle: ['youre_not_in_this_circle', 'this_page_is_for_people_in_it'],
   open_again: ['open_the_link_again', 'open_it_from_the_chat'],
   expired: ['this_link_has_expired', 'open_the_plan_from_the_chat'],
@@ -76,7 +82,7 @@ export function LinkInvalidScreen({
         <Stack>
           <DisplayXL>{t('linkInvalid', title)}</DisplayXL>
           <BodyText>
-            {reason === 'not_admitting' && circleName !== undefined
+            {(reason === 'not_admitting' || reason === 'locked_in') && circleName !== undefined
               ? t('linkInvalid', 'ask_someone_to_add_you', { circle: circleName })
               : t('linkInvalid', body)}
           </BodyText>

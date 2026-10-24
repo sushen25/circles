@@ -74,7 +74,6 @@ export function NameFlow() {
   return (
     <NameScreen
       circleName={preview.data?.circle_name ?? ''}
-      inviterName={preview.data?.inviter_name ?? null}
       value={step.name}
       refusedName={step.refusedName}
       problem={step.problem}

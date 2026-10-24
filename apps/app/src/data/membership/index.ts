@@ -21,6 +21,7 @@ export type { AskOutcome, JoinPlanOptions } from './join-plan';
 export {
   circleNameForCode,
   guestMembersFor,
+  planPreviewForCode,
   reattachFromList,
   reattachWithToken,
 } from './reattach';

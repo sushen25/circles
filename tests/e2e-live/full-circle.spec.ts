@@ -54,8 +54,8 @@ test('a stranger on the join link of a full circle is told, neutrally, that it h
   fillToCap(crew.circleId);
 
   await page.goto(`/join#${crew.secret}`);
-  await page.getByRole('button', { name: 'Choose my times' }).click();
-  await page.getByLabel('Your name').fill('Ren');
+  await page.getByRole('button', { name: 'Join Sunday Crew' }).click();
+  await page.getByLabel('Your first name').fill('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();
 
   await expect(
@@ -71,7 +71,7 @@ test('a stranger on the plan link of a full circle is told the same', async ({ p
 
   await page.goto(`/p/${crew.planCode}`);
   await page.getByRole('button', { name: "I'm new here" }).click();
-  await page.getByLabel('Your name').fill('Ren');
+  await page.getByLabel('Your first name').fill('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();
 
   await expect(

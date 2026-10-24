@@ -61,6 +61,14 @@ export type ConfirmedView = {
   note: string | undefined;
   /** "Moved from Fri 18 Sep, 7–9 pm" — present only on a plan the organiser moved. */
   movedFrom: string | undefined;
+  /**
+   * The guest screen's line under the day (SUS-250): "Locked in for 6:30–8:30 pm",
+   * or "Moved from Thu 22 Oct · now 6:30–8:30 pm". The state is said here and
+   * not in a label above the heading.
+   */
+  stateLine: string;
+  /** "You, Maya and Tom going · Alex to confirm": the reader first, as "You". */
+  guestNames: string;
 };
 
 function nameOf(data: PlanConfirmation, id: string): string {
@@ -90,6 +98,18 @@ export function confirmedOf(data: PlanConfirmation, confirmation: LockedIn): Con
 
   const goingNames = listOf(going.map((id) => nameOf(data, id)));
   const unsaidNames = listOf(unsaid.map((id) => nameOf(data, id)));
+  const withYou = (ids: string[]) => [
+    ...ids.filter((id) => id === data.me).map(() => t('confirmedGuest', 'you')),
+    ...ids.filter((id) => id !== data.me).map((id) => nameOf(data, id)),
+  ];
+  const goingYou = listOf(withYou(going));
+  const unsaidYou = listOf(withYou(unsaid));
+  const guestParts = [
+    goingYou === undefined ? undefined : t('confirmedGuest', 'going_names', { name: goingYou }),
+    unsaidYou === undefined
+      ? undefined
+      : t('confirmedGuest', 'to_confirm_names', { name: unsaidYou }),
+  ].filter((part): part is string => part !== undefined);
   const names = [
     goingNames === undefined ? undefined : t('confirmedGuest', 'going_names', { name: goingNames }),
     unsaidNames === undefined
@@ -133,6 +153,17 @@ export function confirmedOf(data: PlanConfirmation, confirmation: LockedIn): Con
         : organiser === undefined
           ? confirmation.note
           : t('confirmedGuest', 'says', { name: organiser, what: confirmation.note }),
+    stateLine:
+      confirmation.movedFrom === undefined
+        ? t('confirmedGuest', 'locked_in_for', { time })
+        : t('confirmedGuest', 'moved_line', {
+            previous: dateOf(confirmation.movedFrom.startsAt, data.zone),
+            time,
+          }),
+    guestNames:
+      guestParts.length === 2
+        ? t('confirmedGuest', 'names_line', { first: guestParts[0]!, second: guestParts[1]! })
+        : (guestParts[0] ?? t('confirmedOrg', 'going', { count: 0 })),
     movedFrom:
       confirmation.movedFrom === undefined
         ? undefined

@@ -2,11 +2,12 @@ import { Pressable, StyleSheet, View, type PressableProps } from 'react-native';
 
 import { faceFor, hit, radius } from '@circles/tokens';
 
-import { SPINNER, Slow, Words, shared, useBusy, type BusyProps } from './busyParts';
+import { SPINNER, Slow, Words, pressed97, shared, useBusy, type BusyProps } from './busyParts';
 import { Crossfade } from './Crossfade';
 import { Icon, type IconName } from './Icon';
 import { Spinner } from './Spinner';
 import { usePalette } from './theme';
+import { useReducedMotion } from './wait';
 
 type CompactProps = Omit<PressableProps, 'children' | 'style'> &
   BusyProps & {
@@ -46,6 +47,7 @@ export function CompactButton({
   ...props
 }: CompactProps) {
   const palette = usePalette();
+  const reduced = useReducedMotion();
   const accent = tone === 'accent';
   const ink = accent ? palette.softInk : palette.ink2;
   const view = useBusy(busy, onPress);
@@ -69,6 +71,7 @@ export function CompactButton({
             : { backgroundColor: palette.plainFill, borderColor: palette.lineStrong },
           pressed && !view.working && { backgroundColor: palette.line },
           faded && shared.disabled,
+          pressed97(pressed && !view.working, reduced),
         ]}
         {...props}
       >

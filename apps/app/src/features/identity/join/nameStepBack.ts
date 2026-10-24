@@ -7,7 +7,7 @@ import type { ShortCode } from '@circles/contracts';
  * link: the website (`/`) is never the answer, because a phone that came from
  * a chat has no way back to the link but the chat.
  *
- * - **There is a list before it** ("Have you answered this before?"): Back
+ * - **There is a list before it** ("Been here before?"): Back
  *   returns to it. When this flow pushed the name step (`pushedHere`) that is
  *   the browser's own Back; otherwise the address was opened straight on the
  *   name step (a reload, a pasted link) and what is behind it in the history

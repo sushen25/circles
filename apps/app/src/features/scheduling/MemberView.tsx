@@ -14,6 +14,7 @@ import { cardsOf, headlineOf, type HeaderView } from './view';
 export function MemberView({
   data,
   header,
+  yourTimesAreIn = false,
   onChangeMyTimes,
   onShareLink,
   shareOutcome,
@@ -23,6 +24,7 @@ export function MemberView({
 }: {
   data: PlanCandidates;
   header: HeaderView;
+  yourTimesAreIn?: boolean | undefined;
   onChangeMyTimes?: (() => void) | undefined;
   onShareLink?: (() => void) | undefined;
   shareOutcome?: string | undefined;
@@ -53,6 +55,7 @@ export function MemberView({
         // The same warning the organiser gets: what is on screen was worked
         // out before the newest answer, and a member has no other way to know.
         stale={data.stale}
+        yourTimesAreIn={yourTimesAreIn}
         repliesClosed={!data.repliesOpen}
         onChangeMyTimes={onChangeMyTimes}
         onShareLink={onShareLink}
@@ -79,6 +82,7 @@ export function MemberView({
       // wasn't enough overlap" is the one sentence on these screens that must
       // never be said before it is true.
       stale={data.stale}
+      yourTimesAreIn={yourTimesAreIn}
       repliesClosed={!data.repliesOpen}
       onChangeMyTimes={onChangeMyTimes}
       onShareLink={onShareLink}

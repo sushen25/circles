@@ -264,7 +264,9 @@ function Confirmed({
     <>
       <ConfirmedGuestScreen
         view={view}
+        mapsHref={maps}
         onOpenMaps={maps === undefined ? undefined : () => void Linking.openURL(maps)}
+        going={own.going}
         mine={own.mine}
         actions={own.actions}
         busy={own.busy}
