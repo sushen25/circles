@@ -26,24 +26,58 @@ import {
  * for updates by email.
  */
 
-/** The day of the month an ISO date falls on, for the calendar's button. */
-function dayOfMonth(isoDate: string, plusDays = 0): number {
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+/**
+ * The picker's button for an ISO date (plus some days), by the month and day in
+ * its accessible name ("Saturday October 31", "Saturday 31 October" in en-AU),
+ * never by the day number alone: 31 is also in December, and 1 in every month
+ * (SUS-254). The name is followed by a comma or ends there, so "October 3" does
+ * not match "October 31".
+ */
+function dayButton(page: Page, isoDate: string, plusDays: number) {
   const date = new Date(`${isoDate}T12:00:00Z`);
   date.setUTCDate(date.getUTCDate() + plusDays);
-  return date.getUTCDate();
+  const month = MONTHS[date.getUTCMonth()]!;
+  const day = date.getUTCDate();
+  const name = new RegExp(`^\\w+ (?:${month} ${day}|${day} ${month})(?:,|$)`);
+  return page.getByRole('group', { name: 'The day' }).getByRole('button', { name });
 }
 
-/** Picks a day on the picker, paging on to the next month when it is not on the one shown. */
+/**
+ * Picks a day on the picker, paging to the month it is in: the picker opens on
+ * whichever month the plan's first option is in, which is not always the
+ * target's. The day must be enabled, so one past the last pickable day fails
+ * here rather than after a minute of waiting.
+ */
 async function pickDay(page: Page, isoDate: string, plusDays = 0): Promise<void> {
-  const number = dayOfMonth(isoDate, plusDays);
-  const grid = page.getByRole('group', { name: 'The day' });
-  const day = () => grid.getByRole('button', { name: new RegExp(`\\b${number}\\b`) }).first();
-  const usable = async () =>
-    (await day()
-      .isVisible()
-      .catch(() => false)) && (await day().getAttribute('aria-disabled')) !== 'true';
-  if (!(await usable())) await page.getByRole('button', { name: 'Later month' }).click();
-  await day().click();
+  const day = dayButton(page, isoDate, plusDays);
+  const shown = async () => day.isVisible().catch(() => false);
+  for (const [direction, steps] of [
+    ['Later month', 3],
+    ['Earlier month', 6],
+  ] as const) {
+    for (let step = 0; step < steps && !(await shown()); step += 1) {
+      await page.getByRole('button', { name: direction }).click();
+    }
+    if (await shown()) break;
+  }
+  await expect(day).toBeVisible();
+  await expect(day).toBeEnabled();
+  await day.click();
 }
 
 test('the organiser locks in a time of their own, moves it, and changes the place', async ({
