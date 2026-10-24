@@ -15,6 +15,9 @@ import {
 import { Row } from '../../components/layout';
 import { t } from '../../copy';
 
+/** Keeps "18+ · Terms · Privacy" in one piece, so a dot never starts a line. */
+const NBSP = '\u00a0';
+
 export type SentProblem =
   'not_an_address' | 'too_many_tries' | 'offline' | 'couldnt_send' | 'copy_changed';
 
@@ -120,9 +123,14 @@ export function SentCard({
           links go with an account, so with the switch off there are none (SUS-250). */}
       {account ? (
         <Small>
-          {sentence} {t('sent', 'eighteen_plus')} {t('sent', 'middle_dot')}{' '}
-          <InlineLink onPress={onTerms}>{t('sent', 'terms_link')}</InlineLink>{' '}
-          {t('sent', 'middle_dot')}{' '}
+          {sentence} {t('sent', 'eighteen_plus')}
+          {NBSP}
+          {t('sent', 'middle_dot')}
+          {NBSP}
+          <InlineLink onPress={onTerms}>{t('sent', 'terms_link')}</InlineLink>
+          {NBSP}
+          {t('sent', 'middle_dot')}
+          {NBSP}
           <InlineLink onPress={onPrivacy}>{t('sent', 'privacy_link')}</InlineLink>
         </Small>
       ) : (

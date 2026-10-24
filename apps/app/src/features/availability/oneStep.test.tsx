@@ -141,7 +141,9 @@ describe('the card', () => {
     // "18+ · Terms · Privacy" is one line of fine print, after the sentence.
     expect(
       screen.getByText((_, node) =>
-        (node?.textContent ?? '').endsWith(`${CONSENT.text} 18+ · Terms · Privacy`),
+        (node?.textContent ?? '').endsWith(
+          `${CONSENT.text} 18+\u00a0·\u00a0Terms\u00a0·\u00a0Privacy`,
+        ),
       ),
     ).toBeVisible();
     expect(CONSENT.text).toBe('Emails about this meetup. Stop any time.');
