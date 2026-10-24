@@ -2614,7 +2614,7 @@ export const en = {
     email_me_about_this_meetup: 'Email me about this meetup',
     email_me_and_save_my_place: 'Email me and save my place',
     save_my_place: 'Save my place in {circle}',
-    // The switch on (SUS-250, ADR 0092): what the account is for. That it is made, and the nudge, are in the fine print.
+    // The switch on (SUS-250, ADR 0092): what the account is for. That an account is made is the switch label and the button.
     gets_you_back_in: 'Gets you back in from any phone.',
     // The fine print's tail where an account is made: "18+ · Terms · Privacy", the last two as links.
     eighteen_plus: '18+',

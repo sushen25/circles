@@ -8,7 +8,7 @@ builds_on: [54, 55, 66, 68, 79]
 ---
 # ADR 0092: A guest's pick from the list asks first, the Sent card says less, and the hours sheet stops saying free
 
-_Status: accepted · 23 October 2026 · amends [ADR 0006](0006-continue-as-reattachment-without-owner-approval.md) and [ADR 0088](0088-a-signed-in-account-can-continue-as-a-guest.md) (decision 5: a guest is asked too), [ADR 0067](0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md) (decision 5: the account line, and where its reminders disclosure now lives), [ADR 0048](0048-the-consent-sentence-is-the-one-string-that-lives-in-config.md) (the card shows one of two sentences, each its own version) and spec §5.5 (the quoted hours-sheet line)_
+_Status: accepted · 23 October 2026 · amends [ADR 0006](0006-continue-as-reattachment-without-owner-approval.md) and [ADR 0088](0088-a-signed-in-account-can-continue-as-a-guest.md) (decision 5: a guest is asked too), [ADR 0067](0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md) (decision 5: the account line, and where its reminders disclosure now lives), [ADR 0048](0048-the-consent-sentence-is-the-one-string-that-lives-in-config.md) (the sentence is shortened, as a new version) and spec §5.5 (the quoted hours-sheet line)_
 
 ## Context
 
@@ -51,52 +51,43 @@ more than the product did, or spent a person's attention on the wrong thing.
 
    > **Hear when it's locked in?** · an address field
    > **Save my place in {circle}** (switch, on) · Gets you back in from any phone.
-   > Emails about this meetup, plus a nudge when it's time for the next. Stop any time. 18+ · Terms · Privacy
+   > Emails about this meetup. Stop any time. 18+ · Terms · Privacy
    > **Email me and save my place** · Not now
 
    **The switch line is only what the account is for:** "Gets you back in from
    any phone." The required account line of [ADR 0067](0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md)
    decision 5 ("Makes you an account ... Reminders to plan the next one can be
    stopped from the email") is amended: that an account is made is the switch's
-   own label and the button, and the **reminders disclosure moves into the fine
-   print**, which is now the recorded consent. "Keep your place for good" has no
-   fine print and no consent, so it keeps the longer line
-   (`sent.makes_an_account`).
+   own label and the button, and the **reminders disclosure is no longer on the
+   Sent card at all**. "Keep your place for good" has no fine print and no
+   consent, so it keeps the longer line (`sent.makes_an_account`).
 
-   **The fine print is the consent, and there are two of them**, because the
-   card says two different things and the record must say what was shown
-   ([ADR 0019](0019-consent-is-recorded-when-it-is-given.md), [ADR 0048](0048-the-consent-sentence-is-the-one-string-that-lives-in-config.md)):
+   **The fine print is the consent: one version, `2026-10-24`** (`CONSENT`),
+   "Emails about this meetup. Stop any time." ([ADR 0019](0019-consent-is-recorded-when-it-is-given.md),
+   [ADR 0048](0048-the-consent-sentence-is-the-one-string-that-lives-in-config.md)).
+   "Emails about this meetup" is every plan letter in one phrase (locked in,
+   changed, moved, called off, needs your times again, the reminder and the
+   question after), each of which carries a stop link; `CONSENT.covers` maps
+   every one to it and a test holds the list to `SUBSCRIBER_KINDS`. The three
+   earlier versions are untouched.
 
-   | Shown when | Version | Words |
-   | --- | --- | --- |
-   | The switch is on; or there is no switch because the person already has an account | `2026-10-24` (`CONSENT`) | Emails about this meetup, plus a nudge when it's time for the next. Stop any time. |
-   | The switch is off (no account is made) | `2026-10-24-no-account` (`CONSENT_NO_ACCOUNT`) | Emails about this meetup. Stop any time. |
-
-   The nudge is promised only where it can come: it goes to an account holder
-   (ADR 0067), so the switch-off sentence does not mention it. "Emails about this
-   meetup" is every plan letter in one phrase (locked in, changed, moved, called
-   off, needs your times again, the reminder and the question after), each of
-   which carries a stop link; `CONSENT.covers` maps every one to it and a test
-   holds the list to `SUBSCRIBER_KINDS`. The client sends the version of the
-   sentence it rendered (`consentFor(account)`), including from a resend on
-   Check your email, and the server accepts both.
-
-   **This moves the nudge into the recorded consent, which ADR 0067 had kept
-   out** (decision 5: "the nudge is not part of that consent"). It is a
-   deliberate change, made because the founder wants the disclosure in the one
-   place a person reads before tapping, and the account line is gone. The nudge
-   (`about_time`) is still its own letter: it needs no plan subscription, it
-   has its own stop link that works without signing in (ADR 0069), and stopping
-   it is not the same as withdrawing this plan's updates. "Stop any time" is
-   true of each, from the email itself. It also goes to one person a cycle, and
-   only for a circle with a catch-up rhythm, so the sentence is the product's
-   upper bound; `/privacy` states the conditions. Both versions stay on
-   `CONSENT_VERSIONS`; the three earlier versions are untouched.
+   **The nudge is not in it, by Sushen's decision on 24 October** ("just remove
+   it all together"). An earlier draft of this ADR had two sentences, one with
+   "plus a nudge when it's time for the next" for the switch on and a shorter
+   one for the switch off, as two versions. He removed the nudge from the
+   sentence, so both states show and record the same words and there is one
+   version; the second version, `2026-10-24-no-account`, was never released and
+   nothing was recorded under it. The plan-the-next-one reminder an account
+   holder may get is disclosed in `/privacy` ([ADR 0067](0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md)
+   decision 6), as ADR 0067 decision 5 had it: it is its own letter, needs no
+   plan subscription and has its own stop link (ADR 0069), not part of this
+   plan's consent.
 
    **18+ and the links sit on the fine print line**, small: "18+ · Terms ·
-   Privacy", with Terms and Privacy as links, where an account is made. With the
-   switch off there is no 18+ and no links, as before. Switch off: "Your place
-   stays on this phone." and the button **Email me about this meetup**.
+   Privacy", with Terms and Privacy as links, where an account is made. That is
+   display only; the recorded sentence is the same either way. With the switch
+   off there is no 18+ and no links, as before. Switch off: "Your place stays on
+   this phone." and the button **Email me about this meetup**.
 
 3. **The hours sheet says what it asks for.** "Set the hours you'd be up for",
    **From** and **Until** in place of "Free from" and "Free until", and "Most
@@ -129,11 +120,12 @@ is what ADR 0054's preview already says, and the rest is words.
 - **Keep `2026-10-06` and trim only the notice.** Rejected by the founder ("new
   consent"): the fine print was the longest thing left, and it is the recorded
   sentence, so shortening it is a new version.
-- **One sentence for both switch states.** Rejected: with the switch off no
-  account is made and no nudge can come, so a sentence that promised one would
-  record a consent for something that will not happen.
+- **Two sentences, with the nudge named for the switch on.** Drafted, then
+  dropped by Sushen: the nudge goes to one person a cycle and only in a circle
+  with a rhythm, so naming it in the recorded sentence promised more than the
+  product does, and `/privacy` already states the conditions.
 - **Put the nudge in the switch line.** Rejected: the line is one clause on what
-  the account is for; the disclosure belongs in the sentence that is recorded.
+  the account is for.
 - **A new token for the switch's outline.** Not needed: one colour, used once.
 
 ## Consequences
@@ -143,11 +135,9 @@ is what ADR 0054's preview already says, and the rest is words.
 - The Sent card is shorter: its switch line is `sent.gets_you_back_in`, its fine
   print is `consentFor(account).text`, and "Keep your place for good" keeps
   `sent.makes_an_account`.
-- `CONSENT` moves to `2026-10-24` and `CONSENT_NO_ACCOUNT` is
-  `2026-10-24-no-account`. New subscriptions record whichever words were shown;
-  existing ones keep the version they agreed to. `CONSENT_VERSIONS` ends with
-  the two, in that order, and the test requires them to be its last two
-  entries (ADR 0048 said `CONSENT` is the last entry).
+- `CONSENT` moves to `2026-10-24`. New subscriptions record it; existing ones
+  keep the version they agreed to. `CONSENT_VERSIONS` ends with it, and the
+  test requires it to be the last entry, as ADR 0048 says.
 - No migration, no new event. `request_email_updates` stores the version as
   text and the Edge Function checks it against `CONSENT_VERSIONS`.
 - The canvas artboards for Continue-as, Sent, the name step, the hours sheet and

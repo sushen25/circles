@@ -1,4 +1,4 @@
-import { consentFor } from '@circles/config';
+import { CONSENT } from '@circles/config';
 
 import {
   Button,
@@ -43,10 +43,10 @@ function problemCopy(problem: SentProblem): string {
  *   the address as text, no field, no switch, and no "use a different address".
  *   A confirmed sign-in is proof (ADR 0027, 0055), so one tap turns the emails on.
  *
- * The sentence is `consentFor(account).text`, the words recorded with the
- * subscription, not a string from the copy file (ADR 0019, SUS-109). Two states,
- * two sentences: with the switch on, or no switch because the place is already
- * saved, it adds the nudge an account holder gets; with it off it does not.
+ * The sentence is `CONSENT.text`, the words recorded with the subscription, not a
+ * string from the copy file (ADR 0019, SUS-109). Where an account is made (the
+ * switch on, or no switch because the place is already saved) it is followed by
+ * "18+ · Terms · Privacy", display only: the recorded sentence is the same.
  */
 export function SentCard({
   circleName,
@@ -79,8 +79,7 @@ export function SentCard({
 }) {
   // Which sentence the card shows, and so which version is recorded (`useEmailOffer`).
   const account = savePlace !== false;
-  const consent = consentFor(account);
-  const sentence = <Small>{consent.text}</Small>;
+  const sentence = <Small>{CONSENT.text}</Small>;
   return (
     <Card>
       <Row>
@@ -117,9 +116,8 @@ export function SentCard({
         </SettingRow>
       )}
       {/* The fine print, the last thing before the button. What is recorded is what is
-          shown: the words of `consentFor(account)`, never a copy key (ADR 0019, 0048). The
-          account sentence, with its nudge, is for someone who has or is making an account;
-          with the switch off it is the shorter one, with no 18+ and no links (SUS-250). */}
+          shown: the words of `CONSENT.text`, never a copy key (ADR 0019, 0048). The 18+ and the
+          links go with an account, so with the switch off there are none (SUS-250). */}
       {account ? (
         <Small>
           {sentence} {t('sent', 'eighteen_plus')} {t('sent', 'middle_dot')}{' '}

@@ -172,8 +172,6 @@ function LiveSent({ code }: { code: string }) {
               planId,
               email: address,
               idempotencyKey: newIdempotencyKey(),
-              // The switch was on: this is the account sentence (`consentFor(true)`).
-              account: true,
             });
             // Backed out while the request was out, and maybe started another:
             // this one does not overwrite what is on screen now.

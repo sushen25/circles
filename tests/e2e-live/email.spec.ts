@@ -58,8 +58,7 @@ test('the verification email’s link verifies the address, in a browser with no
   await expect(mail.getByText('Sunday Crew · Catch up')).toBeVisible();
   expect(emailContactOf(ren)).toBe('verified');
   expect(subscriptionOf(ren, crew.planId)).toBe('active');
-  // The switch was off, so the shorter sentence (no nudge) was shown and is the one recorded.
-  expect(consentVersionOf(ren, crew.planId)).toBe('2026-10-24-no-account');
+  expect(consentVersionOf(ren, crew.planId)).toBe('2026-10-24');
   expect(await mail.evaluate('location.hash')).toBe('');
 
   // Single use: the same link again says so, neutrally.

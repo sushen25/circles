@@ -95,9 +95,6 @@ export function useEmailOffer({
       return;
     }
     const savePlace = !member && canSave && one.save;
-    // The sentence on the card: the account one unless the switch is offered and off
-    // (`SentCard`). What is recorded is the version of the words shown.
-    const account = !(canSave && !one.save);
     const planId = plan.id as PlanId;
     if (!live) {
       if (member) {
@@ -109,7 +106,7 @@ export function useEmailOffer({
         one.toCode({ address, route: 'new_identity', sentAt: nextSentAt() }, plan.id);
         return;
       }
-      rememberTypedAddress(userId ?? '', plan.id, address, account);
+      rememberTypedAddress(userId ?? '', plan.id, address);
       router.push({ pathname: '/j/[code]/check-email', params: { code } });
       return;
     }
@@ -132,7 +129,6 @@ export function useEmailOffer({
         planId: plan.id,
         email: address,
         idempotencyKey: newIdempotencyKey(),
-        account,
       });
       // The member's one button has no switch, so it says nothing about one.
       track(
@@ -155,7 +151,7 @@ export function useEmailOffer({
         one.toDone(address);
         return;
       }
-      rememberTypedAddress(userId ?? '', plan.id, address, account);
+      rememberTypedAddress(userId ?? '', plan.id, address);
       // The card stays, address and all: "Use a different one" on Check your
       // email comes back here, and there must be somewhere to type it.
       router.push({ pathname: '/j/[code]/check-email', params: { code } });

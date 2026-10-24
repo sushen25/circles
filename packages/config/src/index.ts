@@ -12,14 +12,7 @@ export const PACKAGE_NAME = '@circles/config';
 
 export { brand } from './brand.js';
 export type { Brand } from './brand.js';
-export {
-  CONSENT,
-  CONSENT_NO_ACCOUNT,
-  CONSENT_VERSIONS,
-  consentFor,
-  consentTextFor,
-  isKnownConsentVersion,
-} from './consent.js';
+export { CONSENT, CONSENT_VERSIONS, consentTextFor, isKnownConsentVersion } from './consent.js';
 export type { Consent } from './consent.js';
 export {
   HYDRATE_SCRIPT,

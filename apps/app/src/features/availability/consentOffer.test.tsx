@@ -1,4 +1,4 @@
-import { CONSENT, CONSENT_NO_ACCOUNT } from '@circles/config';
+import { CONSENT } from '@circles/config';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -18,18 +18,17 @@ describe('the email offer', () => {
     expect(shown.textContent).toBe(CONSENT.text);
   });
 
-  it('shows the account sentence with the switch on, and the shorter one with it off', () => {
+  it('shows the same sentence either way, with 18+ and the links only where an account is made', () => {
     const { rerender } = render(<SentScreen offerEmail savePlace />);
     expect(screen.getByText((_, node) => node?.textContent === CONSENT.text)).toBeVisible();
     expect(screen.getByRole('link', { name: 'Terms' })).toBeVisible();
     expect(screen.getByRole('link', { name: 'Privacy' })).toBeVisible();
 
     rerender(<SentScreen offerEmail savePlace={false} />);
-    const shown = screen.getByText((_, node) => node?.textContent === CONSENT_NO_ACCOUNT.text);
+    const shown = screen.getByText((_, node) => node?.textContent === CONSENT.text);
     expect(shown.textContent).toBe('Emails about this meetup. Stop any time.');
-    expect(screen.queryByText((_, node) => node?.textContent === CONSENT.text)).toBeNull();
-    // No account is made, so no nudge is promised, and no 18+ or links.
-    expect(document.body.textContent).not.toMatch(/nudge|18\+/);
+    // No account is made, so no 18+ and no links.
+    expect(document.body.textContent).not.toMatch(/18\+/);
     expect(screen.queryByRole('link')).toBeNull();
   });
 
@@ -71,7 +70,7 @@ const withoutComments = (text: string) =>
 
 describe('every screen that asks for plan-update email', () => {
   // A file that calls `request-email-updates` is listed with the file that
-  // draws what the person agrees to, which must render the sentence `consentFor` picks. A new
+  // draws what the person agrees to, which must render `CONSENT.text`. A new
   // caller that is not listed fails this test: decide where the sentence goes.
   const SCREEN_OF_CALLER: Record<string, string | null> = {
     '/src/features/availability/SentFlow.tsx': '/src/features/availability/SentCard.tsx',
@@ -93,9 +92,7 @@ describe('every screen that asks for plan-update email', () => {
     expect(callers.sort()).toEqual(Object.keys(SCREEN_OF_CALLER).sort());
     for (const screenFile of Object.values(SCREEN_OF_CALLER)) {
       if (screenFile === null) continue;
-      expect(withoutComments(SOURCES[screenFile] ?? ''), screenFile).toMatch(
-        /consentFor\(account\)[\s\S]*\{consent\.text\}/,
-      );
+      expect(withoutComments(SOURCES[screenFile] ?? ''), screenFile).toMatch(/\{CONSENT\.text\}/);
     }
   });
 });

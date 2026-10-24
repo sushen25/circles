@@ -61,7 +61,6 @@ vi.mock('../../data/growth', () => ({
 const { SentFlow } = await import('../availability/SentFlow');
 const { forgetSessionNudges } = await import('../growth/useNudge');
 const { forgetOneSteps } = await import('../availability/oneStep');
-const { CheckEmailFlow } = await import('./CheckEmailFlow');
 const { EmailVerifyFlow } = await import('./EmailVerifyFlow');
 const { EmailPrefsFlow } = await import('./EmailPrefsFlow');
 const { StopLettersFlow } = await import('./StopLettersFlow');
@@ -314,29 +313,6 @@ describe('round 1', () => {
 
     expect(push).toHaveBeenCalled();
     expect(screen.getByLabelText('Your email')).toHaveValue('nina@example.com');
-  });
-
-  it('resends under the version of the sentence the card showed (SUS-250)', async () => {
-    const sent = wrap(<SentFlow code={PLAN.code} />);
-    fireEvent.change(await screen.findByLabelText('Your email'), {
-      target: { value: 'nina@example.com' },
-    });
-    switchOff();
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Email me about this meetup' }));
-    });
-    expect(requestEmailUpdates.mock.calls[0]?.[0]).toMatchObject({ account: false });
-    sent.unmount();
-
-    wrap(<CheckEmailFlow code={PLAN.code} />);
-    await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Resend the link' }));
-    });
-    expect(requestEmailUpdates).toHaveBeenCalledTimes(2);
-    expect(requestEmailUpdates.mock.calls[1]?.[0]).toMatchObject({
-      email: 'nina@example.com',
-      account: false,
-    });
   });
 
   it('says it could not load, with a way to try again, rather than loading for ever', async () => {

@@ -584,16 +584,15 @@ S["AvailabilityOneChoiceHours"] = guest_answer(tile_grid(selected=(15, 16, 17), 
     send_on=True, minh=1000, **EVE)
 
 # After sending, one step (SUS-162, trimmed in SUS-250): one card, one address, a "Save my place"
-# switch that is on by default. The fine print is a mockup of `CONSENT.text` and
-# `CONSENT_NO_ACCOUNT.text` (packages/config/src/consent.ts, ADR 0048): update by hand on every
-# consent version. With the switch on (or no switch, the place already saved) it is the account
-# sentence, with the nudge; with the switch off it is the shorter one.
-CONSENT_2026_10_24 = "Emails about this meetup, plus a nudge when it's time for the next. Stop any time."
-CONSENT_2026_10_24_NO_ACCOUNT = "Emails about this meetup. Stop any time."
+# switch that is on by default. The fine print is a mockup of `CONSENT.text`
+# (packages/config/src/consent.ts, ADR 0048): update by hand on every consent version. It is the
+# same sentence with the switch on or off; "18+ · Terms · Privacy" follows it only where an
+# account is made (display only, not recorded).
+CONSENT_2026_10_24 = "Emails about this meetup. Stop any time."
 # Where an account is made, the fine print's tail: 18+, and the two policies as links.
 FINE_PRINT_TAIL = ' 18+ · <a href="#">Terms</a> · <a href="#">Privacy</a>'
 
-# The switch on says only what the account is for (ADR 0092). That it is made, and the nudge, are in the fine print.
+# The switch on says only what the account is for (ADR 0092). That an account is made is the switch label and the button.
 SENT_ACCOUNT_LINE = "Gets you back in from any phone."
 # "Keep your place for good" has no fine print, so it still says what is made and what can be stopped (ADR 0067).
 SAVE_ACCESS_ACCOUNT_LINE = "Makes you an account, so any phone gets you back in. Reminders to plan the next one can be stopped from the email."
@@ -614,7 +613,7 @@ def sent_card(address="", switch="on", member=None):
         *rows,
         # The fine print, one small paragraph; with the switch off no account is made, so the
         # sentence is the shorter one and there is no 18+ or links (SUS-250).
-        sm(CONSENT_2026_10_24_NO_ACCOUNT) if switch == "off" else sm(CONSENT_2026_10_24 + FINE_PRINT_TAIL),
+        sm(CONSENT_2026_10_24) if switch == "off" else sm(CONSENT_2026_10_24 + FINE_PRINT_TAIL),
         pri("Email me and save my place" if switch == "on" else "Email me about this meetup"),
         ter("Not now"),
     )

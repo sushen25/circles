@@ -111,7 +111,7 @@ the entry point takes the token out of the address bar before the router loads
 (`data/links/tokens.ts`). `EmailVerifyFlow` and `EmailPrefsFlow` need no session. `/n#<token>`, `/o#<token>` and `/q#<token>` are the next three: `StopLettersFlow`, the stop link under a cadence nudge (ADR 0067), under an organiser's letter and under a quiet ask's (ADR 0069), which asks for one tap, says what it stops, and reads nothing on load.
 
 **One step on Sent, SUS-162:** the card is one address, the consent sentence
-(`consentFor(account).text`: two versions, with and without the nudge, SUS-250), a "Save my place" switch on by default and one primary.
+(`CONSENT.text`, SUS-250), a "Save my place" switch on by default and one primary.
 `SentFlow` holds the step (`oneStep.ts`) above the screens, because signing in
 can change the user id and remount `Sent`. On, `useEmailOffer` asks for a code
 (`requestLinkCode`) and `SavePlaceByEmail` (opened on its code step) saves the

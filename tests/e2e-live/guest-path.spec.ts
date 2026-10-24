@@ -81,21 +81,17 @@ test('Sent gives the reward first: the days sent, what happens next, and a way t
   ).toHaveCount(2);
   await expect(page.getByText(/^Maya picks a time once replies close /)).toBeVisible();
   await expect(page.getByText("Hear when it's locked in?")).toBeVisible();
-  // The trimmed card (SUS-250): one line for the switch, the fine print with the nudge,
-  // 18+ and the two links on the same line.
+  // The trimmed card (SUS-250): one line for the switch, the fine print, then 18+ and the
+  // two links on the same line.
   await expect(page.getByText('Gets you back in from any phone.')).toBeVisible();
-  await expect(
-    page.getByText(
-      "Emails about this meetup, plus a nudge when it's time for the next. Stop any time.",
-    ),
-  ).toBeVisible();
+  await expect(page.getByText('Emails about this meetup. Stop any time.')).toBeVisible();
   await expect(page.getByText('18+ · Terms · Privacy')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Terms' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Privacy' })).toBeVisible();
   await page.getByRole('switch', { name: /^Save my place in/ }).click();
   await expect(page.getByText('Your place stays on this phone.')).toBeVisible();
   await expect(page.getByText('Emails about this meetup. Stop any time.')).toBeVisible();
-  await expect(page.getByText(/nudge|18\+/)).toHaveCount(0);
+  await expect(page.getByText(/18\+/)).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Email me about this meetup' })).toBeVisible();
   await page.getByRole('switch', { name: /^Save my place in/ }).click();
   await expect(page.getByRole('button', { name: 'Email me and save my place' })).toBeVisible();
