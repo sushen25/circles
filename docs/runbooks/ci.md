@@ -625,13 +625,13 @@ Dependencies that were overridden to patched versions are listed in the
 `pnpm.overrides` block of the root `package.json`. Drop an override once the
 parent's own range includes the patched version; `pnpm why <name>` shows it.
 
-`@expo/cli>zod` is one of them (SUS-253, 24 October 2026, GHSA-mrhx-c7xc-m3w5):
-`@expo/cli` asks for zod 3, which has no patched release, and uses it only for
-two small schemas (dev-tools plugin manifests and the MCP extension tool), none
-of which a v4 parse changes. The override moves it to the same zod 4 the app and
-the Edge Functions run, scoped by parent so nothing else is touched.
-`expo export -p web` was run against it. Drop the override once `@expo/cli`
-depends on zod 4 itself.
+`@expo/cli>zod@<4.6.6` is one of them (SUS-253, 24 October 2026,
+GHSA-mrhx-c7xc-m3w5): `@expo/cli` asks for zod 3, which has no patched release.
+It uses zod for two small schemas, run only by `expo start`'s dev-tools plugins
+and the unstable MCP server, neither of which this app uses; the APIs they call
+were checked against zod 4. `expo export -p web` still succeeds, though it does
+not run those schemas. The override is scoped by parent and range, so it stops
+applying on its own once `@expo/cli` depends on a patched zod.
 
 ## One Supabase CLI, and it is the workspace's
 
