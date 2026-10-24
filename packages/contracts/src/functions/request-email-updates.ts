@@ -26,7 +26,7 @@ export const RequestEmailUpdatesRequest = Mutation.extend({
    */
   email: z.string().trim().toLowerCase().normalize('NFC').max(254).pipe(z.email()),
   /**
-   * The `CONSENT.version` the screen rendered when the person asked. Required:
+   * The version (`consentFor(account).version`) of the sentence the screen rendered when the person asked. Required:
    * a subscription is recorded under the words the person was shown, so the
    * server never fills this in from its own current version (ADR 0048). Which
    * versions are acceptable is the server's list (`CONSENT_VERSIONS`), not this

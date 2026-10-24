@@ -18,8 +18,9 @@ import { SUBSCRIBER_KINDS } from './types.ts';
  */
 describe('the consent sentence', () => {
   it('names every plan-update letter', () => {
-    // Adding a kind to SUBSCRIBER_KINDS without reading the sentence fails here,
-    // and so does a `covers` phrase the sentence does not contain.
+    // Every plan letter is "Emails about this meetup" now, so this holds the list of kinds,
+    // not the wording: a kind added to SUBSCRIBER_KINDS fails here until somebody reads the
+    // sentence and confirms the new letter is about one meetup and carries a stop link.
     // Both sentences of the trimmed card: the switch on and the switch off.
     for (const shown of [CONSENT, CONSENT_NO_ACCOUNT]) {
       expect(Object.keys(shown.covers).sort()).toEqual([...SUBSCRIBER_KINDS].sort());

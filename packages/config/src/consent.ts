@@ -43,7 +43,8 @@
  *   meetup": locked in, changed, moved, called off, needs your times again, the
  *   reminder and the question after, each of which has a stop link.
  *
- * Add a version by appending to `CONSENT_VERSIONS` and pointing `CONSENT` at it.
+ * Add a version by appending to `CONSENT_VERSIONS` and pointing `CONSENT` (and,
+ * if the card shows two sentences, `CONSENT_NO_ACCOUNT`) at it.
  */
 const TEXT_2026_09_14 =
   'Email me about this meetup only — when it is locked in, changed or called ' +
@@ -103,7 +104,8 @@ export function isKnownConsentVersion(version: string): boolean {
  */
 export const CONSENT = {
   /**
-   * The date the wording was settled, which sorts and reads. Not a number:
+   * The date the wording was settled, which sorts and reads (a second sentence on the
+   * same day adds a suffix, as `CONSENT_NO_ACCOUNT` does). Not a number:
    * `v2` tells you nothing about whether it is older than the row beside it.
    */
   version: '2026-10-24',

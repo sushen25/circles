@@ -43,7 +43,7 @@ const OUTCOME_COPY = {
  * sees that address as text and one button (`SentCard`, SUS-164). It is one tap to dismiss and records nothing
  * when it is (§5.11). SUS-162.
  *
- * The sentence in the card is `CONSENT.text`, the words recorded with the
+ * The sentence in the card is `consentFor(account).text`, the words recorded with the
  * subscription, not a string from the copy file (SUS-109). It comes before the
  * button in reading order, and the done line is a live region.
  *

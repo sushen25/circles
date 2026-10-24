@@ -79,7 +79,18 @@ more than the product did, or spent a person's attention on the wrong thing.
    which carries a stop link; `CONSENT.covers` maps every one to it and a test
    holds the list to `SUBSCRIBER_KINDS`. The client sends the version of the
    sentence it rendered (`consentFor(account)`), including from a resend on
-   Check your email, and the server accepts both. Both stay on
+   Check your email, and the server accepts both.
+
+   **This moves the nudge into the recorded consent, which ADR 0067 had kept
+   out** (decision 5: "the nudge is not part of that consent"). It is a
+   deliberate change, made because the founder wants the disclosure in the one
+   place a person reads before tapping, and the account line is gone. The nudge
+   (`about_time`) is still its own letter: it needs no plan subscription, it
+   has its own stop link that works without signing in (ADR 0069), and stopping
+   it is not the same as withdrawing this plan's updates. "Stop any time" is
+   true of each, from the email itself. It also goes to one person a cycle, and
+   only for a circle with a catch-up rhythm, so the sentence is the product's
+   upper bound; `/privacy` states the conditions. Both versions stay on
    `CONSENT_VERSIONS`; the three earlier versions are untouched.
 
    **18+ and the links sit on the fine print line**, small: "18+ · Terms ·

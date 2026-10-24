@@ -109,6 +109,9 @@ export function SentCard({
           <Toggle
             value={savePlace}
             onValueChange={(on) => onSavePlaceChange?.(on)}
+            // What is recorded is the words shown when the button was tapped, so the
+            // switch holds still while the request is out.
+            disabled={busy}
             label={t('sent', 'save_my_place', { circle: circleName ?? '' })}
           />
         </SettingRow>
