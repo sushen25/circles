@@ -1,6 +1,6 @@
 {
-  "generated": "2026-10-23T19:58:03.538Z",
-  "day": "2026-10-24",
+  "generated": "2026-10-24T18:49:04.292Z",
+  "day": "2026-10-25",
   "pieces": [
     {
       "slug": "never-lead-anywhere",
@@ -22,10 +22,24 @@
           "rates": {
             "engagement": 0
           }
+        },
+        "3": {
+          "age_days": 3.51,
+          "source": "pull",
+          "metrics": {
+            "likes": 0,
+            "reposts": 0,
+            "replies": 0,
+            "quotes": 0,
+            "saves": 0
+          },
+          "rates": {
+            "engagement": 0
+          }
         }
       },
       "latest": {
-        "age_days": 2.55,
+        "age_days": 3.51,
         "source": "pull",
         "metrics": {
           "likes": 0,
@@ -74,10 +88,35 @@
             "watch_pct": 24.4,
             "skip_pct": 70
           }
+        },
+        "3": {
+          "age_days": 3.51,
+          "source": "pull",
+          "metrics": {
+            "views": 130,
+            "reach": 110,
+            "saves": 2,
+            "shares": 0,
+            "likes": 1,
+            "comments": 0,
+            "watch_avg_s": 7.05,
+            "watch_total_s": 831.917,
+            "skip_pct": 69.4
+          },
+          "rates": {
+            "saves_shares_per_k": 15.38,
+            "comments_per_k": 0,
+            "share_rate": 0,
+            "save_rate": 0.0154,
+            "comment_rate": 0,
+            "like_rate": 0.0077,
+            "watch_pct": 25,
+            "skip_pct": 69.4
+          }
         }
       },
       "latest": {
-        "age_days": 2.56,
+        "age_days": 3.51,
         "source": "pull",
         "metrics": {
           "views": 130,
@@ -139,10 +178,32 @@
             "like_rate": 0,
             "watch_pct": 0
           }
+        },
+        "3": {
+          "age_days": 3.5,
+          "source": "pull",
+          "metrics": {
+            "views": 27,
+            "likes": 0,
+            "comments": 0,
+            "engaged_views": 7,
+            "watch_total_s": 60,
+            "watch_avg_s": 12,
+            "watch_pct": 42.53,
+            "shares": 0
+          },
+          "rates": {
+            "saves_shares_per_k": 0,
+            "comments_per_k": 0,
+            "share_rate": 0,
+            "comment_rate": 0,
+            "like_rate": 0,
+            "watch_pct": 42.53
+          }
         }
       },
       "latest": {
-        "age_days": 2.55,
+        "age_days": 3.5,
         "source": "pull",
         "metrics": {
           "views": 27,
@@ -184,17 +245,17 @@
     },
     {
       "platform": "instagram",
-      "date": "2026-10-22",
-      "text": "followers 2 · reach 1 · views 1 · link taps 0 · accounts engaged 0 · reach by follow type: non_follower 1 · views by surface: reel 1"
+      "date": "2026-10-23",
+      "text": "followers 2 · reach 0 · views 0 · link taps 0 · accounts engaged 0"
     },
     {
       "platform": "youtube",
-      "date": "2026-10-22",
+      "date": "2026-10-23",
       "text": "views 27"
     }
   ],
   "stalled": {
-    "as_of": "2026-10-23",
+    "as_of": "2026-10-24",
     "groups": []
   },
   "groups": [],
