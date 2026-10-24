@@ -1,4 +1,4 @@
-import { CONSENT } from '@circles/config';
+import { CONSENT, CONSENT_NO_ACCOUNT } from '@circles/config';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { tap } from '../../test/tap';
@@ -133,16 +133,20 @@ describe('the card', () => {
 
     const toggle = await screen.findByRole('switch', SWITCH);
     expect(toggle).toHaveAttribute('aria-checked', 'true');
-    // The switch on says an account is made, that reminders can be stopped from the
-    // email itself, and links the policies (SUS-190, ADR 0067).
+    // The switch on says what the account is for in one line; the nudge, that it can be
+    // stopped, 18+ and the policies are the fine print (SUS-250, ADR 0092).
+    expect(screen.getByText('Gets you back in from any phone.')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Terms' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Privacy' })).toBeVisible();
+    // "18+ · Terms · Privacy" is one line of fine print, after the sentence.
     expect(
-      screen.getByText(
-        'Makes you an account, so any phone gets you back in. Reminders to plan the next one can be stopped from the email.',
+      screen.getByText((_, node) =>
+        (node?.textContent ?? '').endsWith(`${CONSENT.text} 18+ · Terms · Privacy`),
       ),
     ).toBeVisible();
-    expect(screen.getByRole('link', { name: 'terms' })).toBeVisible();
-    expect(screen.getByRole('link', { name: 'privacy' })).toBeVisible();
-    expect(screen.getByText(/For people 18 and over/)).toBeVisible();
+    expect(CONSENT.text).toBe(
+      "Emails about this meetup, plus a nudge when it's time for the next. Stop any time.",
+    );
     expect(screen.queryByText(/Save access on every device/)).toBeNull();
 
     const sentence = screen.getByText((_, node) => node?.textContent === CONSENT.text);
@@ -154,10 +158,14 @@ describe('the card', () => {
     await tap(toggle);
     expect(toggle).toHaveAttribute('aria-checked', 'false');
     expect(screen.getByText('Your place stays on this phone.')).toBeVisible();
-    // No account is made with the switch off, so the 18+ line and its links go (SUS-250), and
-    // the button stops naming the place.
-    expect(screen.queryByRole('link', { name: 'terms' })).toBeNull();
-    expect(screen.queryByText(/For people 18 and over/)).toBeNull();
+    // No account is made with the switch off, so the 18+ and its links go (SUS-250), the
+    // sentence stops promising the nudge, and the button stops naming the place.
+    expect(screen.queryByRole('link', { name: 'Terms' })).toBeNull();
+    expect(screen.queryByText(/18\+/)).toBeNull();
+    expect(
+      screen.getByText((_, node) => node?.textContent === CONSENT_NO_ACCOUNT.text),
+    ).toBeVisible();
+    expect(screen.queryByText((_, node) => node?.textContent === CONSENT.text)).toBeNull();
     expect(screen.getByRole('button', { name: 'Email me about this meetup' })).toBeVisible();
     await tap(toggle);
     expect(screen.getByRole('button', { name: 'Email me and save my place' })).toBeVisible();
@@ -190,7 +198,12 @@ describe('with the switch on', () => {
     expect(savePlace).toHaveBeenCalledWith(expect.objectContaining({ moment: 'after_answer' }));
     expect(submitLinkCode).toHaveBeenCalledWith('nina@example.com', '123456', 'new_identity');
     const [options] = requestEmailUpdates.mock.calls[0] ?? [];
-    expect(options).toMatchObject({ planId: PLAN.id, email: 'nina@example.com' });
+    expect(options).toMatchObject({
+      planId: PLAN.id,
+      email: 'nina@example.com',
+      // The switch was on: the account sentence was shown, so its version is recorded.
+      account: true,
+    });
     expect(track).toHaveBeenCalledWith('account_claimed', { moment: 'after_answer' });
     // The line is a live region and the card is gone; no check-your-email step.
     expect(screen.getByRole('status')).toHaveTextContent(/your place in .* is saved/);
@@ -386,6 +399,8 @@ describe('with the switch off', () => {
     await waitFor(() => expect(requestEmailUpdates).toHaveBeenCalledTimes(1));
     expect(requestLinkCode).not.toHaveBeenCalled();
     expect(savePlace).not.toHaveBeenCalled();
+    // The shorter sentence was shown, so that is the version recorded.
+    expect(requestEmailUpdates.mock.calls[0]?.[0]).toMatchObject({ account: false });
     expect(push).toHaveBeenCalledWith({
       pathname: '/j/[code]/check-email',
       params: { code: PLAN.code },

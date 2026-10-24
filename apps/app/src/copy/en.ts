@@ -2614,7 +2614,14 @@ export const en = {
     email_me_about_this_meetup: 'Email me about this meetup',
     email_me_and_save_my_place: 'Email me and save my place',
     save_my_place: 'Save my place in {circle}',
-    // The switch on (SUS-190, ADR 0067): an account is made, and the reminders can be stopped from their email.
+    // The switch on (SUS-250, ADR 0092): what the account is for. That it is made, and the nudge, are in the fine print.
+    gets_you_back_in: 'Gets you back in from any phone.',
+    // The fine print's tail where an account is made: "18+ · Terms · Privacy", the last two as links.
+    eighteen_plus: '18+',
+    terms_link: 'Terms',
+    privacy_link: 'Privacy',
+    middle_dot: '·',
+    // "Keep your place for good" has no fine print, so it still says what is made and what can be stopped (SUS-190, ADR 0067).
     makes_an_account:
       'Makes you an account, so any phone gets you back in. Reminders to plan the next one can be stopped from the email.',
     your_place_stays_on_this_phone: 'Your place stays on this phone.',

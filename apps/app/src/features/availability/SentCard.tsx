@@ -1,10 +1,10 @@
-import { CONSENT } from '@circles/config';
+import { consentFor } from '@circles/config';
 
 import {
   Button,
   Card,
+  InlineLink,
   Input,
-  LegalLine,
   Notice,
   SettingRow,
   Small,
@@ -12,7 +12,7 @@ import {
   Title,
   Toggle,
 } from '../../components';
-import { Row, Stack } from '../../components/layout';
+import { Row } from '../../components/layout';
 import { t } from '../../copy';
 
 export type SentProblem =
@@ -43,8 +43,10 @@ function problemCopy(problem: SentProblem): string {
  *   the address as text, no field, no switch, and no "use a different address".
  *   A confirmed sign-in is proof (ADR 0027, 0055), so one tap turns the emails on.
  *
- * The sentence is `CONSENT.text`, the words recorded with the subscription, not
- * a string from the copy file (ADR 0019, SUS-109).
+ * The sentence is `consentFor(account).text`, the words recorded with the
+ * subscription, not a string from the copy file (ADR 0019, SUS-109). Two states,
+ * two sentences: with the switch on, or no switch because the place is already
+ * saved, it adds the nudge an account holder gets; with it off it does not.
  */
 export function SentCard({
   circleName,
@@ -75,6 +77,10 @@ export function SentCard({
   onSubmit?: (() => void) | undefined;
   onNotNow?: (() => void) | undefined;
 }) {
+  // Which sentence the card shows, and so which version is recorded (`useEmailOffer`).
+  const account = savePlace !== false;
+  const consent = consentFor(account);
+  const sentence = <Small>{consent.text}</Small>;
   return (
     <Card>
       <Row>
@@ -98,7 +104,7 @@ export function SentCard({
       {savePlace === undefined ? null : (
         <SettingRow
           title={t('sent', 'save_my_place', { circle: circleName ?? '' })}
-          detail={t('sent', savePlace ? 'makes_an_account' : 'your_place_stays_on_this_phone')}
+          detail={t('sent', savePlace ? 'gets_you_back_in' : 'your_place_stays_on_this_phone')}
         >
           <Toggle
             value={savePlace}
@@ -107,13 +113,20 @@ export function SentCard({
           />
         </SettingRow>
       )}
-      {/* The fine print together, as the last thing before the button. What is recorded is
-          what is shown: `CONSENT.text`, never a copy key (ADR 0019). The 18+ line is
-          for the one that makes an account, and for where there is no switch (S4-05). */}
-      <Stack gap={8}>
-        <Small>{CONSENT.text}</Small>
-        {savePlace === false ? null : <LegalLine onTerms={onTerms} onPrivacy={onPrivacy} />}
-      </Stack>
+      {/* The fine print, the last thing before the button. What is recorded is what is
+          shown: the words of `consentFor(account)`, never a copy key (ADR 0019, 0048). The
+          account sentence, with its nudge, is for someone who has or is making an account;
+          with the switch off it is the shorter one, with no 18+ and no links (SUS-250). */}
+      {account ? (
+        <Small>
+          {sentence} {t('sent', 'eighteen_plus')} {t('sent', 'middle_dot')}{' '}
+          <InlineLink onPress={onTerms}>{t('sent', 'terms_link')}</InlineLink>{' '}
+          {t('sent', 'middle_dot')}{' '}
+          <InlineLink onPress={onPrivacy}>{t('sent', 'privacy_link')}</InlineLink>
+        </Small>
+      ) : (
+        sentence
+      )}
       {problem === undefined ? null : <Notice kind="warn">{problemCopy(problem)}</Notice>}
       {reference === undefined ? null : <Small>{t('sent', 'reference', { reference })}</Small>}
       <Button

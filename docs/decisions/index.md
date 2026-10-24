@@ -52,7 +52,7 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0045](./0045-the-editor-shows-what-others-have-said-as-counts.md) | The availability editor shows what others have said, as counts | accepted (amended by 0066) |
 | [0046](./0046-an-edit-that-clears-answers-asks-those-people-again.md) | An edit that clears answers asks those people again | accepted |
 | [0047](./0047-a-plan-may-ask-about-days-with-gaps.md) | A plan may ask about days with gaps between them | accepted (amends 0030) |
-| [0048](./0048-the-consent-sentence-is-the-one-string-that-lives-in-config.md) | The consent sentence is the one user-facing string that lives in `packages/config` | accepted |
+| [0048](./0048-the-consent-sentence-is-the-one-string-that-lives-in-config.md) | The consent sentence is the one user-facing string that lives in `packages/config` | accepted (amended by 0092) |
 | [0049](./0049-continue-as-resolves-a-code-only-while-it-is-live.md) | Continue-as resolves a code only while it is live, and its limits are enforced in SQL | accepted (amended by 0059, 0062, 0078; amends 0006, 0022) |
 | [0050](./0050-verifying-an-address-promotes-only-the-same-persons-contacts.md) | Verifying an address promotes only the contacts that belong to the same person | accepted (amends 0027) |
 | [0051](./0051-the-organiser-sets-the-final-plan.md) | The organiser sets the final plan: any day and time, edited afterwards without asking everyone again | accepted |
@@ -95,4 +95,4 @@ Every decision record, in order. The rules for writing one are in [the README](.
 | [0089](./0089-the-content-bots-commit-to-a-data-branch-and-a-tag-makes-a-second-post-impossible.md) | The content bots commit to a data branch, and a tag makes a second post impossible | proposed (amends 0081) |
 | [0090](./0090-the-first-run-is-four-screens-to-the-share-and-the-organiser-answers-first.md) | The first run is four screens to the share, and the organiser answers their own plan first | accepted (amends 0026, 0053, 0076, 0084) |
 | [0091](./0091-circle-home-offers-one-way-into-the-chat-at-a-time-and-any-member-can-add-someone.md) | Circle home offers one way into the chat at a time, and any member can add someone | accepted (amends 0022, 0028) |
-| [0092](./0092-a-guests-pick-from-the-list-asks-first-and-the-sent-card-says-less.md) | A guest's pick from the list asks first, the Sent card says less, and the hours sheet stops saying free | accepted (amends 0006, 0067, 0088) |
+| [0092](./0092-a-guests-pick-from-the-list-asks-first-and-the-sent-card-says-less.md) | A guest's pick from the list asks first, the Sent card says less, and the hours sheet stops saying free | accepted (amends 0006, 0048, 0067, 0088) |

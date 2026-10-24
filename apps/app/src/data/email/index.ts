@@ -1,4 +1,4 @@
-import { CONSENT } from '@circles/config';
+import { consentFor } from '@circles/config';
 import {
   ManageEmailPreferencesResponse,
   RequestEmailUpdatesRequest,
@@ -30,12 +30,19 @@ export interface RequestEmailUpdatesOptions {
   email: string;
   /** A new one for every tap: a resend with the old key replays and sends nothing. */
   idempotencyKey: IdempotencyKey;
+  /**
+   * Whether the sentence the person saw was the account one: they have an
+   * account or the "Save my place" switch was on. The version recorded is the
+   * one for the words on the card (`consentFor`), never the server's today.
+   */
+  account: boolean;
 }
 
 export async function requestEmailUpdates({
   planId,
   email,
   idempotencyKey,
+  account,
 }: RequestEmailUpdatesOptions): Promise<RequestEmailUpdatesResponse> {
   return await invokeFunction(
     'request-email-updates',
@@ -43,9 +50,9 @@ export async function requestEmailUpdates({
       idempotency_key: idempotencyKey,
       plan_id: planId as PlanId,
       email,
-      // The words this build renders (`CONSENT.text` on the Sent card): what is
-      // recorded is what the person was shown, not what the server says today.
-      consent_version: CONSENT.version,
+      // The words this build rendered on the Sent card (`consentFor(account).text`):
+      // what is recorded is what the person was shown, not what the server says today.
+      consent_version: consentFor(account).version,
     },
     RequestEmailUpdatesResponse,
   );
@@ -109,14 +116,28 @@ export async function managePreferences(
  * does not go in a URL, a draft or storage; a reload loses it, and the screen
  * reads without it.
  */
-const typed = new Map<string, string>();
+const typed = new Map<string, { email: string; account: boolean }>();
 
-export function rememberTypedAddress(userId: string, planId: string, email: string): void {
-  typed.set(`${userId}:${planId}`, email);
+/**
+ * `account` is which sentence the card showed with it (`consentFor`), so a
+ * resend from Check your email records the words the person actually saw.
+ */
+export function rememberTypedAddress(
+  userId: string,
+  planId: string,
+  email: string,
+  account: boolean,
+): void {
+  typed.set(`${userId}:${planId}`, { email, account });
 }
 
 export function typedAddress(userId: string, planId: string): string | undefined {
-  return typed.get(`${userId}:${planId}`);
+  return typed.get(`${userId}:${planId}`)?.email;
+}
+
+/** Whether the card that address was typed on showed the account sentence. */
+export function typedAccount(userId: string, planId: string): boolean {
+  return typed.get(`${userId}:${planId}`)?.account ?? false;
 }
 
 /**

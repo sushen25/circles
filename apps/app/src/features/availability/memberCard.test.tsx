@@ -146,6 +146,8 @@ describe('a signed-in member with a confirmed address', () => {
     expect(requestEmailUpdates.mock.calls[0]?.[0]).toMatchObject({
       planId: PLAN.id,
       email: ADDRESS,
+      // An account holder: the sentence that includes the nudge.
+      account: true,
     });
     expect(requestLinkCode).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();

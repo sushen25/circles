@@ -1,4 +1,4 @@
-import { CONSENT, CONSENT_VERSIONS, consentTextFor } from '@circles/config';
+import { CONSENT, CONSENT_NO_ACCOUNT, CONSENT_VERSIONS, consentTextFor } from '@circles/config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -3245,6 +3245,20 @@ describe('request-email-updates', () => {
     expect(response.status).toBe(200);
     expect(called('request_email_updates')[0]?.args['p_consent_version']).toBe(stale);
     expect(consentTextFor(stale)).toBeDefined();
+  });
+
+  // Switch on and switch off show different words (SUS-250); the server takes both.
+  it.each([
+    ['the account sentence', CONSENT],
+    ['the sentence without the nudge', CONSENT_NO_ACCOUNT],
+  ])('records %s under its own version', async (_name, shown) => {
+    const response = await load('request-email-updates')(
+      post({ ...body, consent_version: shown.version }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(called('request_email_updates')[0]?.args['p_consent_version']).toBe(shown.version);
+    expect(consentTextFor(shown.version)).toBe(shown.text);
   });
 
   it('refuses a version it never showed, neutrally, and records nothing', async () => {

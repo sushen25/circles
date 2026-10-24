@@ -583,14 +583,20 @@ S["AvailabilityOneChoiceHours"] = guest_answer(tile_grid(selected=(15, 16, 17), 
     ], heading="Your hours each evening"),
     send_on=True, minh=1000, **EVE)
 
-# After sending, one step (SUS-162): one card, one address, a "Save my place"
-# switch that is on by default. The sentence is a mockup of `CONSENT.text`
-# (packages/config/src/consent.ts, ADR 0048): update by hand on every consent version.
-CONSENT_2026_10_06 = "Only about this meetup: when it's locked in, moved, called off or needs your times again, one reminder, and one question after. Stop any time from the email itself."
+# After sending, one step (SUS-162, trimmed in SUS-250): one card, one address, a "Save my place"
+# switch that is on by default. The fine print is a mockup of `CONSENT.text` and
+# `CONSENT_NO_ACCOUNT.text` (packages/config/src/consent.ts, ADR 0048): update by hand on every
+# consent version. With the switch on (or no switch, the place already saved) it is the account
+# sentence, with the nudge; with the switch off it is the shorter one.
+CONSENT_2026_10_24 = "Emails about this meetup, plus a nudge when it's time for the next. Stop any time."
+CONSENT_2026_10_24_NO_ACCOUNT = "Emails about this meetup. Stop any time."
+# Where an account is made, the fine print's tail: 18+, and the two policies as links.
+FINE_PRINT_TAIL = ' 18+ · <a href="#">Terms</a> · <a href="#">Privacy</a>'
 
-# The switch on says an account is made and that the catch-up reminders carry their own stop
-# (SUS-190, ADR 0067). Not the consent sentence: that one is recorded and versioned; this is a notice.
-SENT_ACCOUNT_LINE = "Makes you an account, so any phone gets you back in. Reminders to plan the next one can be stopped from the email."
+# The switch on says only what the account is for (ADR 0092). That it is made, and the nudge, are in the fine print.
+SENT_ACCOUNT_LINE = "Gets you back in from any phone."
+# "Keep your place for good" has no fine print, so it still says what is made and what can be stopped (ADR 0067).
+SAVE_ACCESS_ACCOUNT_LINE = "Makes you an account, so any phone gets you back in. Reminders to plan the next one can be stopped from the email."
 
 def sent_card(address="", switch="on", member=None):
     """The one-step card. `switch` is "on", "off" or None (no switch: the place is already saved).
@@ -606,9 +612,9 @@ def sent_card(address="", switch="on", member=None):
         row(ic("mail", 20, T["ink2"]), title("Hear when it's locked in?")),
         sm(f"We'll email you at {member}.") if member else (inp(address, ph=False) if address else inp("you@example.com", ph=True)),
         *rows,
-        # The fine print together; the 18+ line goes with the switch off, where no account is made (SUS-250).
-        sm(CONSENT_2026_10_06),
-        *([] if switch == "off" else [LEGAL_LINE]),
+        # The fine print, one small paragraph; with the switch off no account is made, so the
+        # sentence is the shorter one and there is no 18+ or links (SUS-250).
+        sm(CONSENT_2026_10_24_NO_ACCOUNT) if switch == "off" else sm(CONSENT_2026_10_24 + FINE_PRINT_TAIL),
         pri("Email me and save my place" if switch == "on" else "Email me about this meetup"),
         ter("Not now"),
     )
@@ -1135,7 +1141,7 @@ S["SaveAccess"] = shell(
     body(
         stack(dl("Keep your place for good"), p("One code by email, and you won't pick your name from a list again."), gap=8),
         stack(lbl("Your email"), inp("nina@example.com"), gap=8),
-        sm(SENT_ACCOUNT_LINE), LEGAL_LINE,
+        sm(SAVE_ACCESS_ACCOUNT_LINE), LEGAL_LINE,
     ) +
     foot(pri("Email me a code"), ter("Not now"))
 )

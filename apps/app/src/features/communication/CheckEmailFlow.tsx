@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { hasBackend } from '../../data/auth/client';
 import { useSession } from '../../data/auth/session';
 import { planToAnswer, type AnswerablePlan } from '../../data/availability';
-import { requestEmailUpdates, typedAddress } from '../../data/email';
+import { requestEmailUpdates, typedAccount, typedAddress } from '../../data/email';
 import { answerable } from '../../data/fixtures';
 import { newIdempotencyKey } from '../../data/functions';
 import { failureOf } from '../identity/join/failure';
@@ -68,6 +68,8 @@ function CheckEmail({
         planId: plan.id,
         email: address,
         idempotencyKey: newIdempotencyKey(),
+        // The same words the person saw when they typed it.
+        account: typedAccount(userId ?? '', plan.id),
       });
       setResent(true);
     } catch (error) {
