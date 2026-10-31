@@ -1,6 +1,6 @@
 {
-  "generated": "2026-10-30T20:49:42.984Z",
-  "day": "2026-10-31",
+  "generated": "2026-10-31T20:00:33.043Z",
+  "day": "2026-11-01",
   "pieces": [
     {
       "slug": "never-lead-anywhere",
@@ -53,7 +53,7 @@
         }
       },
       "latest": {
-        "age_days": 9.59,
+        "age_days": 10.56,
         "source": "pull",
         "metrics": {
           "likes": 0,
@@ -156,7 +156,7 @@
         }
       },
       "latest": {
-        "age_days": 9.59,
+        "age_days": 10.56,
         "source": "pull",
         "metrics": {
           "views": 130,
@@ -266,7 +266,7 @@
         }
       },
       "latest": {
-        "age_days": 9.59,
+        "age_days": 10.55,
         "source": "pull",
         "metrics": {
           "views": 27,
@@ -320,22 +320,22 @@
   "account": [
     {
       "platform": "bluesky",
-      "date": "2026-10-29",
+      "date": "2026-10-31",
       "text": "followers 15"
     },
     {
       "platform": "instagram",
-      "date": "2026-10-29",
+      "date": "2026-10-30",
       "text": "followers 2 · reach 0 · views 0 · link taps 0 · accounts engaged 0"
     },
     {
       "platform": "youtube",
-      "date": "2026-10-29",
+      "date": "2026-10-30",
       "text": "views 27"
     }
   ],
   "stalled": {
-    "as_of": "2026-10-30",
+    "as_of": "2026-10-31",
     "groups": []
   },
   "groups": [],
