@@ -1,6 +1,6 @@
 {
-  "generated": "2026-11-03T21:49:07.670Z",
-  "day": "2026-11-04",
+  "generated": "2026-11-04T21:54:48.861Z",
+  "day": "2026-11-05",
   "pieces": [
     {
       "slug": "never-lead-anywhere",
@@ -50,10 +50,24 @@
           "rates": {
             "engagement": 0
           }
+        },
+        "14": {
+          "age_days": 14.64,
+          "source": "pull",
+          "metrics": {
+            "likes": 0,
+            "reposts": 0,
+            "replies": 0,
+            "quotes": 0,
+            "saves": 0
+          },
+          "rates": {
+            "engagement": 0
+          }
         }
       },
       "latest": {
-        "age_days": 13.63,
+        "age_days": 14.64,
         "source": "pull",
         "metrics": {
           "likes": 0,
@@ -153,31 +167,56 @@
             "watch_pct": 25,
             "skip_pct": 69.4
           }
+        },
+        "14": {
+          "age_days": 14.64,
+          "source": "pull",
+          "metrics": {
+            "views": 131,
+            "reach": 111,
+            "saves": 2,
+            "shares": 0,
+            "likes": 1,
+            "comments": 0,
+            "watch_avg_s": 7.226,
+            "watch_total_s": 859.956,
+            "skip_pct": 68.8
+          },
+          "rates": {
+            "saves_shares_per_k": 15.27,
+            "comments_per_k": 0,
+            "share_rate": 0,
+            "save_rate": 0.0153,
+            "comment_rate": 0,
+            "like_rate": 0.0076,
+            "watch_pct": 25.7,
+            "skip_pct": 68.8
+          }
         }
       },
       "latest": {
-        "age_days": 13.63,
+        "age_days": 14.64,
         "source": "pull",
         "metrics": {
-          "views": 130,
-          "reach": 110,
+          "views": 131,
+          "reach": 111,
           "saves": 2,
           "shares": 0,
           "likes": 1,
           "comments": 0,
-          "watch_avg_s": 7.05,
-          "watch_total_s": 831.917,
-          "skip_pct": 69.4
+          "watch_avg_s": 7.226,
+          "watch_total_s": 859.956,
+          "skip_pct": 68.8
         },
         "rates": {
-          "saves_shares_per_k": 15.38,
+          "saves_shares_per_k": 15.27,
           "comments_per_k": 0,
           "share_rate": 0,
-          "save_rate": 0.0154,
+          "save_rate": 0.0153,
           "comment_rate": 0,
-          "like_rate": 0.0077,
-          "watch_pct": 25,
-          "skip_pct": 69.4
+          "like_rate": 0.0076,
+          "watch_pct": 25.7,
+          "skip_pct": 68.8
         }
       },
       "headline": "saves_shares_per_k",
@@ -263,10 +302,32 @@
             "like_rate": 0,
             "watch_pct": 42.53
           }
+        },
+        "14": {
+          "age_days": 14.63,
+          "source": "pull",
+          "metrics": {
+            "views": 28,
+            "likes": 0,
+            "comments": 0,
+            "engaged_views": 7,
+            "watch_total_s": 60,
+            "watch_avg_s": 12,
+            "watch_pct": 42.53,
+            "shares": 0
+          },
+          "rates": {
+            "saves_shares_per_k": 0,
+            "comments_per_k": 0,
+            "share_rate": 0,
+            "comment_rate": 0,
+            "like_rate": 0,
+            "watch_pct": 42.53
+          }
         }
       },
       "latest": {
-        "age_days": 13.63,
+        "age_days": 14.63,
         "source": "pull",
         "metrics": {
           "views": 28,
@@ -320,22 +381,22 @@
   "account": [
     {
       "platform": "bluesky",
-      "date": "2026-11-02",
-      "text": "followers 15"
+      "date": "2026-11-04",
+      "text": "followers 16"
     },
     {
       "platform": "instagram",
-      "date": "2026-11-02",
-      "text": "followers 2 · reach 0 · views 0 · link taps 0 · accounts engaged 0"
+      "date": "2026-11-03",
+      "text": "followers 1 · reach 0 · views 0 · link taps 0 · accounts engaged 0"
     },
     {
       "platform": "youtube",
-      "date": "2026-11-02",
+      "date": "2026-11-03",
       "text": "views 28"
     }
   ],
   "stalled": {
-    "as_of": "2026-11-03",
+    "as_of": "2026-11-04",
     "groups": []
   },
   "groups": [],
