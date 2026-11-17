@@ -1,6 +1,6 @@
 {
-  "generated": "2026-11-17T00:15:45.527Z",
-  "day": "2026-11-17",
+  "generated": "2026-11-17T23:32:09.980Z",
+  "day": "2026-11-18",
   "pieces": [
     {
       "slug": "never-lead-anywhere",
@@ -67,7 +67,7 @@
         }
       },
       "latest": {
-        "age_days": 26.73,
+        "age_days": 27.7,
         "source": "pull",
         "metrics": {
           "likes": 0,
@@ -195,7 +195,7 @@
         }
       },
       "latest": {
-        "age_days": 26.73,
+        "age_days": 27.7,
         "source": "pull",
         "metrics": {
           "views": 131,
@@ -327,7 +327,7 @@
         }
       },
       "latest": {
-        "age_days": 26.73,
+        "age_days": 27.7,
         "source": "pull",
         "metrics": {
           "views": 28,
